@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: battlelog
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d battlelog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/battlelog
+      # Direct localhost access has no reverse proxy to inject the mTLS user header.
+      # Keep local compose usable by default; set RM_MTLS_USER_ENFORCE=true to test proxied/RM auth.
+      RM_MTLS_USER_ENFORCE: ${RM_MTLS_USER_ENFORCE:-false}
+      USE_SWAGGER: ${USE_SWAGGER:-true}
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/usr/src/app/uploads
+
+  test:
+    profiles: ["cli-only"]
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/battlelog
+    depends_on:
+      app:
+        condition: service_started
+    volumes:
+      - ./tests/integration:/usr/src/app/integration:ro
+
+volumes:
+  db-data:
+  uploads:

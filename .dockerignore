@@ -1,0 +1,13 @@
+**/*.log
+**/.*cache
+**/__pycache__
+**/node_modules
+.env
+.env.local
+.env_example
+.git
+.github
+.idea
+dist
+tsconfig.tsbuildinfo
+npm-debug.log
