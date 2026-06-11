@@ -1,0 +1,5 @@
+# pnpm 11+ reads pnpm settings from this file, even for single-package projects.
+# https://pnpm.io/settings
+allowBuilds:
+  esbuild: true
+  protobufjs: true
