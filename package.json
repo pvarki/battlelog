@@ -4,7 +4,7 @@
   "description": "BattleLog backend (Hono + Drizzle + TypeScript)",
   "type": "module",
   "main": "dist/index.js",
-  "packageManager": "pnpm@10.33.4",
+  "packageManager": "pnpm@11.3.0",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
@@ -47,12 +47,12 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@faker-js/faker": "^9.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@types/pg": "^8.11.0",
     "drizzle-kit": "^0.28.0",
     "pino-pretty": "^11.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.0",
-    "vitest": "^3.2.4"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.0"
   }
 }

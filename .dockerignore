@@ -1,13 +1,50 @@
-**/*.log
-**/.*cache
-**/__pycache__
-**/node_modules
-.env
-.env.local
-.env_example
+# VCS
 .git
+.gitignore
+.gitattributes
 .github
+
+# Editor / OS
 .idea
+.vscode
+.vscode-test
+.editorconfig
+.DS_Store
+Thumbs.db
+
+# Env files (schema is copied explicitly in Dockerfile)
+.env
+.env.*
+!.env.schema
+
+# Build artifacts and caches
 dist
-tsconfig.tsbuildinfo
-npm-debug.log
+**/*.tsbuildinfo
+**/node_modules
+**/.*cache
+coverage
+*.lcov
+
+# Logs
+**/*.log
+
+# Test & tooling configs not needed at runtime
+**/*.test.ts
+vitest.config.ts
+biome.json
+.pre-commit-config.yaml
+.secrets.baseline
+.npmrc
+.tool-versions
+
+# Docs and meta
+*.md
+LICENSE
+
+# Container files themselves
+Dockerfile
+docker-compose*.yml
+
+# Local runtime state
+uploads
+public

@@ -11,6 +11,10 @@ lerna-debug.log*
 .idea
 .vscode-test
 
+# OS
+.DS_Store
+Thumbs.db
+
 # Runtime data
 pids
 *.pid
