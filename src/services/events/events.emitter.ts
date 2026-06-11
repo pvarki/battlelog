@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { EventRow } from "../../db/schema.js";
+import type { EventRow } from "../../db/schema.ts";
 
 type EventsListener = (row: EventRow) => void;
 

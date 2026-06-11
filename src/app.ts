@@ -5,8 +5,8 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { pinoLogger } from "hono-pino";
 import { ENV } from "varlock/env";
-import { logger } from "./lib/logger.js";
-import { eventRoutes } from "./routes/events/events.routes.js";
+import { logger } from "./lib/logger.ts";
+import { eventRoutes } from "./routes/events/events.routes.ts";
 
 const joinBase = (path: string) => {
   const base = ENV.BASE_URL.replace(/\/$/, "");

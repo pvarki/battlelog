@@ -1,6 +1,6 @@
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { events } from "../../db/schema.js";
+import { events } from "../../db/schema.ts";
 
 const pointTuple = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]).nullable();
 

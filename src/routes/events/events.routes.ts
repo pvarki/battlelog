@@ -1,12 +1,12 @@
 import { Hono } from "hono";
-import { generalRateLimit, strictRateLimit } from "../../middleware/rate-limit.js";
+import { generalRateLimit, strictRateLimit } from "../../middleware/rate-limit.ts";
 import {
   getEventHandler,
   listEventsHandler,
   patchEvent,
   postEvent,
   streamNewEvents,
-} from "./events.handlers.js";
+} from "./events.handlers.ts";
 
 export const eventRoutes = new Hono();
 

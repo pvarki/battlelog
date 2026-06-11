@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { logger } from "../lib/logger.js";
-import { db, pool } from "./client.js";
+import { logger } from "../lib/logger.ts";
+import { db, pool } from "./client.ts";
 
 export const runMigrations = async () => {
   logger.info("Ensuring PostGIS extension");

@@ -1,9 +1,9 @@
 import "varlock/auto-load";
 import { faker } from "@faker-js/faker";
-import { pool } from "../src/db/client.js";
-import { logger } from "../src/lib/logger.js";
-import { createEvent } from "../src/services/events/events.service.js";
-import { generateFakeEvent } from "./fake-events-generator.js";
+import { pool } from "../src/db/client.ts";
+import { logger } from "../src/lib/logger.ts";
+import { createEvent } from "../src/services/events/events.service.ts";
+import { generateFakeEvent } from "./fake-events-generator.ts";
 
 const SEED = 42;
 const DEFAULT_COUNT = 50;

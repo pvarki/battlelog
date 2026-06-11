@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
-import { admiraltyCredibilityEnum, admiraltyReliabilityEnum } from "../src/db/schema.js";
-import type { CreateEventInput } from "../src/services/events/events.service.js";
+import { admiraltyCredibilityEnum, admiraltyReliabilityEnum } from "../src/db/schema.ts";
+import type { CreateEventInput } from "../src/services/events/events.service.ts";
 
 const INPUT_SOURCES = ["facebook", "twitter", "telegram", "rss", "manual"];
 const TAGS = ["shipping", "port", "oil", "environment", "cyber", "border"];

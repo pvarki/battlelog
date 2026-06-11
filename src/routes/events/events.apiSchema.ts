@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
-import type { EventRow } from "../../db/schema.js";
-import { admiraltyCredibilityEnum, admiraltyReliabilityEnum } from "../../db/schema.js";
-import type { CreateEventInput, UpdateEventPatch } from "../../services/events/events.service.js";
+import type { EventRow } from "../../db/schema.ts";
+import { admiraltyCredibilityEnum, admiraltyReliabilityEnum } from "../../db/schema.ts";
+import type { CreateEventInput, UpdateEventPatch } from "../../services/events/events.service.ts";
 
 const latLng = z
   .object({

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { extractClientIp } from "./client-ip.js";
+import { extractClientIp } from "./client-ip.ts";
 
 test("extractClientIp returns socket IP when no XFF and hops=0", () => {
   expect(extractClientIp({ xff: undefined, remoteAddr: "10.0.0.1", hops: 0 })).toBe("10.0.0.1");

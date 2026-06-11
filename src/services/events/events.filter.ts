@@ -1,8 +1,8 @@
 import type { SQL } from "drizzle-orm";
 import { and, arrayOverlaps, eq, gte, ilike, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
-import type { EventRow } from "../../db/schema.js";
-import { admiraltyCredibilityEnum, admiraltyReliabilityEnum, events } from "../../db/schema.js";
+import type { EventRow } from "../../db/schema.ts";
+import { admiraltyCredibilityEnum, admiraltyReliabilityEnum, events } from "../../db/schema.ts";
 
 export const eventsFilterSchema = z.object({
   search: z.string().min(1).optional(),

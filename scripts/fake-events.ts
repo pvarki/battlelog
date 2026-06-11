@@ -1,8 +1,8 @@
 import "varlock/auto-load";
-import { pool } from "../src/db/client.js";
-import { logger } from "../src/lib/logger.js";
-import { createEvent } from "../src/services/events/events.service.js";
-import { generateFakeEvent } from "./fake-events-generator.js";
+import { pool } from "../src/db/client.ts";
+import { logger } from "../src/lib/logger.ts";
+import { createEvent } from "../src/services/events/events.service.ts";
+import { generateFakeEvent } from "./fake-events-generator.ts";
 
 const main = async () => {
   const count = Number.parseInt(process.argv[2] ?? "10", 10);

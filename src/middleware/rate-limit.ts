@@ -3,7 +3,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { ENV } from "varlock/env";
-import { extractClientIp } from "../lib/client-ip.js";
+import { extractClientIp } from "../lib/client-ip.ts";
 
 const keyFromContext = (c: Context): string => {
   const xff = c.req.header("x-forwarded-for");

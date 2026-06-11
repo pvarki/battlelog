@@ -1,25 +1,25 @@
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
-import { logger } from "../../lib/logger.js";
+import { logger } from "../../lib/logger.ts";
 import {
   type EventsFilter,
   eventsFilterSchema,
   matchesEventsFilter,
-} from "../../services/events/events.filter.js";
+} from "../../services/events/events.filter.ts";
 import {
   createEvent,
   eventsEmitter,
   getEvent,
   listEvents,
   updateEvent,
-} from "../../services/events/events.service.js";
+} from "../../services/events/events.service.ts";
 import {
   createEventRequestSchema,
   toApiEvent,
   toCreateInput,
   toUpdatePatch,
   updateEventRequestSchema,
-} from "./events.apiSchema.js";
+} from "./events.apiSchema.ts";
 
 const readJson = async (c: Context) => {
   try {

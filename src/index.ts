@@ -1,9 +1,9 @@
 import "varlock/auto-load";
 import { serve } from "@hono/node-server";
 import { ENV } from "varlock/env";
-import { createApp } from "./app.js";
-import { runMigrations } from "./db/migrate.js";
-import { logger } from "./lib/logger.js";
+import { createApp } from "./app.ts";
+import { runMigrations } from "./db/migrate.ts";
+import { logger } from "./lib/logger.ts";
 
 const main = async () => {
   await runMigrations();

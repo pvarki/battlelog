@@ -1,10 +1,10 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
-import { db } from "../../db/client.js";
-import type { EventInsert, EventRow } from "../../db/schema.js";
-import { events } from "../../db/schema.js";
-import { eventsEmitter } from "./events.emitter.js";
-import { buildEventsWhere, type EventsFilter } from "./events.filter.js";
+import { db } from "../../db/client.ts";
+import type { EventInsert, EventRow } from "../../db/schema.ts";
+import { events } from "../../db/schema.ts";
+import { eventsEmitter } from "./events.emitter.ts";
+import { buildEventsWhere, type EventsFilter } from "./events.filter.ts";
 
 export type CreateEventInput = Omit<EventInsert, "id" | "eventId" | "updateFor" | "createdAt">;
 

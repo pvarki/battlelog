@@ -1,7 +1,7 @@
 import "varlock/auto-load";
 import { ENV } from "varlock/env";
 import { expect, test } from "vitest";
-import { createApp } from "./app.js";
+import { createApp } from "./app.ts";
 
 test("createApp returns a Hono app that responds 200 on /healthz", async () => {
   const app = createApp();
