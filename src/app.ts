@@ -5,8 +5,10 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { pinoLogger } from "hono-pino";
 import { ENV } from "varlock/env";
+import pkg from "../package.json" with { type: "json" };
 import { logger } from "./lib/logger.ts";
 import { eventRoutes } from "./routes/events/events.routes.ts";
+import { rmRoutes } from "./routes/rmapi/rmapi.routes.ts";
 
 const joinBase = (path: string) => {
   const base = ENV.BASE_URL.replace(/\/$/, "");
@@ -15,6 +17,11 @@ const joinBase = (path: string) => {
 
 export const createApp = () => {
   const app = new OpenAPIHono();
+
+  app.onError((err, c) => {
+    logger.error({ err }, "unhandled error");
+    return c.json({ error: "Internal server error" }, 500);
+  });
 
   app.use("*", pinoLogger({ pino: logger }));
   app.use(
@@ -39,9 +46,16 @@ export const createApp = () => {
     app.route(base, eventRoutes);
   }
 
+  if (ENV.RM_API_ENABLED) {
+    app.route(joinBase("/rmapi"), rmRoutes);
+  }
+
   if (ENV.USE_SWAGGER) {
     const openapiPath = joinBase("/openapi.json");
-    app.doc(openapiPath, { openapi: "3.1.0", info: { title: "BattleLog API", version: "2.0.0" } });
+    app.doc(openapiPath, {
+      openapi: "3.1.0",
+      info: { title: "BattleLog API", version: pkg.version },
+    });
     app.get(joinBase("/api-docs"), swaggerUI({ url: openapiPath }));
   }
 
