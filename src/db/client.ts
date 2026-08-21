@@ -6,4 +6,3 @@ import * as schema from "./schema.ts";
 
 export const pool = new pg.Pool({ connectionString: ENV.DATABASE_URL });
 export const db = drizzle(pool, { schema });
-export type Database = typeof db;

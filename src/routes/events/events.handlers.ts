@@ -1,184 +1,153 @@
+import type { RouteHandler } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
+import { validate as isUuid } from "uuid";
+import type { EventRow } from "../../db/schema.ts";
 import { logger } from "../../lib/logger.ts";
+import { eventsEmitter } from "../../services/events/events.emitter.ts";
+import { matchesEventsFilter } from "../../services/events/events.filter.ts";
 import {
-  type EventsFilter,
-  eventsFilterSchema,
-  matchesEventsFilter,
-} from "../../services/events/events.filter.ts";
-import {
+  ConcurrentUpdateError,
   createEvent,
-  eventsEmitter,
   getEvent,
   listEvents,
+  listEventsSince,
+  REPLAY_LIMIT,
   updateEvent,
 } from "../../services/events/events.service.ts";
 import {
-  createEventRequestSchema,
+  eventsQuerySchema,
+  queryToFilter,
   toApiEvent,
   toCreateInput,
   toUpdatePatch,
-  updateEventRequestSchema,
 } from "./events.apiSchema.ts";
+import type {
+  getEventRoute,
+  listEventsRoute,
+  patchEventRoute,
+  postEventRoute,
+} from "./events.routes.ts";
 
-const readJson = async (c: Context) => {
+export const postEvent: RouteHandler<typeof postEventRoute> = async (c) => {
+  // "anonymous" only when RM_MTLS_USER_ENFORCE is off (local dev without the proxy)
+  const user = c.get("userCn") ?? "anonymous";
+  const row = await createEvent(toCreateInput(c.req.valid("json"), user));
+  return c.json(toApiEvent(row), 201);
+};
+
+export const patchEvent: RouteHandler<typeof patchEventRoute> = async (c) => {
+  const { eventId } = c.req.valid("param");
+  const user = c.get("userCn") ?? "anonymous";
   try {
-    return await c.req.json();
-  } catch {
-    return null;
-  }
-};
-
-const parseJsonOrCsv = <T>(
-  value: string | undefined,
-  parser: (v: unknown) => T | undefined,
-): T | undefined => {
-  if (!value) return undefined;
-  try {
-    return parser(JSON.parse(value));
-  } catch {
-    return parser(value);
-  }
-};
-
-const splitCsv = (v: unknown): string[] | undefined => {
-  if (Array.isArray(v)) return v.map(String);
-  if (typeof v === "string") {
-    const parts = v
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    return parts.length ? parts : undefined;
-  }
-  return undefined;
-};
-
-const parseFilterFromQuery = (c: Context): EventsFilter => {
-  const q = c.req.query();
-  const raw: Record<string, unknown> = {
-    search: q.search,
-    tags: parseJsonOrCsv(q.tags, splitCsv),
-    hcoeDomains: parseJsonOrCsv(q.hcoeDomains, splitCsv),
-    types: parseJsonOrCsv(q.types, splitCsv),
-    reliabilities: parseJsonOrCsv(q.reliabilities, splitCsv),
-    credibilities: parseJsonOrCsv(q.credibilities, splitCsv),
-    createdBy: q.createdBy,
-    eventTimeFrom: q.eventTimeFrom,
-    eventTimeTo: q.eventTimeTo,
-    createdAtFrom: q.createdAtFrom,
-    createdAtTo: q.createdAtTo,
-    limit: q.limit ? Number(q.limit) : undefined,
-    offset: q.offset ? Number(q.offset) : undefined,
-    includeHistory: q.includeHistory === "true",
-  };
-  if (q.lng && q.lat && q.radiusMeters) {
-    raw.location = {
-      lng: Number(q.lng),
-      lat: Number(q.lat),
-      radiusMeters: Number(q.radiusMeters),
-    };
-  }
-  return eventsFilterSchema.parse(raw);
-};
-
-export const postEvent = async (c: Context) => {
-  const json = await readJson(c);
-  if (json === null) return c.json({ error: "Invalid JSON body" }, 400);
-
-  const parsed = createEventRequestSchema.safeParse(json);
-  if (!parsed.success) {
-    return c.json({ error: "Invalid input format" }, 400);
-  }
-
-  // TODO: replace 'anonymous' with the authenticated user once auth is wired back up.
-  try {
-    const row = await createEvent(toCreateInput(parsed.data, "anonymous"));
-    return c.json(toApiEvent(row), 201);
-  } catch (err) {
-    logger.error({ err }, "postEvent failed");
-    return c.json({ error: (err as Error).message }, 500);
-  }
-};
-
-export const patchEvent = async (c: Context) => {
-  const eventId = c.req.param("eventId");
-  if (!eventId) return c.json({ error: "eventId is required" }, 400);
-
-  const json = await readJson(c);
-  if (json === null) return c.json({ error: "Invalid JSON body" }, 400);
-
-  const parsed = updateEventRequestSchema.safeParse(json);
-  if (!parsed.success) {
-    return c.json({ error: "Invalid input format" }, 400);
-  }
-
-  // TODO: replace 'anonymous' with the authenticated user once auth is wired back up.
-  try {
-    const row = await updateEvent(eventId, toUpdatePatch(parsed.data), "anonymous");
+    const row = await updateEvent(eventId, toUpdatePatch(c.req.valid("json")), user);
     if (!row) return c.json({ error: "Event not found" }, 404);
-    return c.json(toApiEvent(row));
+    return c.json(toApiEvent(row), 200);
   } catch (err) {
-    logger.error({ err }, "patchEvent failed");
-    return c.json({ error: (err as Error).message }, 500);
+    if (err instanceof ConcurrentUpdateError) {
+      return c.json(
+        { error: "Event was updated concurrently; fetch the latest version and retry" },
+        409,
+      );
+    }
+    throw err;
   }
 };
 
-export const getEventHandler = async (c: Context) => {
-  const eventId = c.req.param("eventId");
-  if (!eventId) return c.json({ error: "eventId is required" }, 400);
-  try {
-    const row = await getEvent(eventId);
-    if (!row) return c.json({ error: "Event not found" }, 404);
-    return c.json(toApiEvent(row));
-  } catch (err) {
-    logger.error({ err }, "getEvent failed");
-    return c.json({ error: (err as Error).message }, 500);
-  }
+export const getEventHandler: RouteHandler<typeof getEventRoute> = async (c) => {
+  const { eventId } = c.req.valid("param");
+  const row = await getEvent(eventId);
+  if (!row) return c.json({ error: "Event not found" }, 404);
+  return c.json(toApiEvent(row), 200);
 };
 
-export const listEventsHandler = async (c: Context) => {
-  let filter: EventsFilter;
-  try {
-    filter = parseFilterFromQuery(c);
-  } catch (err) {
-    return c.json({ error: `Invalid filter: ${(err as Error).message}` }, 400);
-  }
-  try {
-    const rows = await listEvents(filter);
-    return c.json(rows.map(toApiEvent));
-  } catch (err) {
-    logger.error({ err }, "listEvents failed");
-    return c.json({ error: (err as Error).message }, 500);
-  }
+export const listEventsHandler: RouteHandler<typeof listEventsRoute> = async (c) => {
+  const filter = queryToFilter(c.req.valid("query"));
+  const rows = await listEvents(filter);
+  return c.json(rows.map(toApiEvent), 200);
 };
 
 export const streamNewEvents = (c: Context) => {
-  let filter: EventsFilter;
-  try {
-    filter = parseFilterFromQuery(c);
-  } catch (err) {
-    return c.json({ error: `Invalid filter: ${(err as Error).message}` }, 400);
-  }
+  const parsed = eventsQuerySchema.safeParse(c.req.query());
+  if (!parsed.success) return c.json({ error: "Invalid input format" }, 400);
+  const filter = queryToFilter(parsed.data);
 
-  return streamSSE(c, async (stream) => {
-    const unsubscribe = eventsEmitter.onNew((row) => {
-      if (matchesEventsFilter(row, filter)) {
-        stream
-          .writeSSE({
-            event: "event",
-            data: JSON.stringify(toApiEvent(row)),
-            id: row.id,
-          })
-          .catch((err) => logger.error({ err }, "SSE write failed"));
+  // EventSource sends the last received SSE id on reconnect; replay what was
+  // missed since then. Ignore anything that isn't a UUID.
+  const header = c.req.header("last-event-id");
+  const lastEventId = header && isUuid(header) ? header : undefined;
+
+  return streamSSE(
+    c,
+    async (stream) => {
+      // UUIDv7 hex strings sort chronologically, so a string compare dedupes
+      // replayed rows against live ones.
+      let lastSentId = lastEventId ?? "";
+      const sendRow = async (row: EventRow) => {
+        if (row.id <= lastSentId) return;
+        lastSentId = row.id;
+        await stream.writeSSE({
+          event: "event",
+          data: JSON.stringify(toApiEvent(row)),
+          id: row.id,
+        });
+      };
+
+      // Buffer live rows until replay finishes so nothing is sent out of order.
+      let replaying = lastEventId !== undefined;
+      const buffer: EventRow[] = [];
+      const unsubscribe = eventsEmitter.onNew((row) => {
+        if (!matchesEventsFilter(row, filter)) return;
+        if (replaying) {
+          buffer.push(row);
+          return;
+        }
+        sendRow(row).catch((err) => logger.error({ err }, "SSE write failed"));
+      });
+
+      stream.onAbort(() => unsubscribe());
+
+      try {
+        if (lastEventId) {
+          let missed: EventRow[];
+          try {
+            missed = await listEventsSince(lastEventId, filter);
+          } catch (err) {
+            // Close instead of continuing live-only: new events would advance
+            // the client's Last-Event-ID past the gap, making it unrecoverable.
+            // EventSource auto-reconnects and retries the replay.
+            logger.error({ err }, "SSE replay failed, closing stream");
+            return;
+          }
+          for (const row of missed) await sendRow(row);
+          if (missed.length === REPLAY_LIMIT) {
+            // Gap larger than one replay page; close so the client reconnects
+            // with the advanced Last-Event-ID and pages through the rest.
+            return;
+          }
+          // length re-checked each iteration, so rows buffered mid-flush are included
+          for (let i = 0; i < buffer.length; i++) {
+            const row = buffer[i];
+            if (row) await sendRow(row);
+          }
+          replaying = false;
+        }
+
+        while (!stream.aborted) {
+          await stream.sleep(15000);
+          if (stream.aborted) break;
+          await stream.writeSSE({ event: "ping", data: "" });
+        }
+      } finally {
+        // onAbort covers client disconnects; this covers early returns and
+        // throws, where the stream closes without ever aborting.
+        unsubscribe();
       }
-    });
-
-    stream.onAbort(() => unsubscribe());
-
-    while (!stream.aborted) {
-      await stream.sleep(15000);
-      if (stream.aborted) break;
-      await stream.writeSSE({ event: "ping", data: "" });
-    }
-  });
+    },
+    // Without this, hono routes stream-callback errors to console.error,
+    // outside pino and invisible to log shipping.
+    async (err) => {
+      logger.error({ err }, "SSE stream errored");
+    },
+  );
 };
