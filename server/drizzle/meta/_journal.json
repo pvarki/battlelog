@@ -43,6 +43,13 @@
       "when": 1787352893038,
       "tag": "0005_dashboard-version",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787354399970,
+      "tag": "0006_widget-layout-shape",
+      "breakpoints": true
     }
   ]
 }
