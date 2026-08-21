@@ -27,8 +27,8 @@ This document describes how BattleLog is laid out, the conventions new code shou
 │   ├── db/                    # Drizzle client, schema, migration runner
 │   ├── routes/<feature>/      # HTTP surface for a feature
 │   ├── services/<feature>/    # Domain logic for a feature
-│   ├── lib/                   # Cross-cutting utilities (logger, client-ip, uploads)
-│   └── middleware/            # Global Hono middleware (rate-limit, …)
+│   ├── lib/                   # Cross-cutting utilities (logger, client-cert, kraftwerk)
+│   └── middleware/            # Global Hono middleware (user-identity, …)
 ├── drizzle/                   # Generated migrations + meta snapshots (committed)
 ├── scripts/                   # Dev/seed utilities (fake-events, seed)
 └── .env.schema                # Single source of truth for runtime config
@@ -40,7 +40,7 @@ A "feature" (e.g. `events`) is split into two parallel folders:
 
 | File | Role |
 |---|---|
-| `routes/<feature>/<feature>.routes.ts` | Route registration: maps HTTP verbs/paths to handlers, wires per-route middleware (rate-limits, auth) |
+| `routes/<feature>/<feature>.routes.ts` | Route registration: maps HTTP verbs/paths to handlers, wires per-route middleware (auth, identity) |
 | `routes/<feature>/<feature>.apiSchema.ts` | Zod request/response schemas — these are the OpenAPI source of truth |
 | `routes/<feature>/<feature>.handlers.ts` | Thin HTTP adapters: parse → call service → shape response |
 | `services/<feature>/<feature>.service.ts` | Domain orchestration; the public surface other features consume |
@@ -57,11 +57,11 @@ Not every feature needs every file. The `events` feature is the canonical exampl
 Using `POST /api/v1/events` as the walkthrough:
 
 1. **`app.ts`** mounts `eventRoutes` under both `/api` and `/api/v1` (versioned routing, both kept live so unversioned clients keep working).
-2. **`routes/events/events.routes.ts`** applies `strictRateLimit` (writes) or `generalRateLimit` (reads) and dispatches to a handler.
+2. **`routes/events/events.routes.ts`** applies `userIdentity()` on writes and dispatches to a handler.
 3. **`routes/events/events.handlers.ts`** validates the body against the Zod schema from `events.apiSchema.ts`, calls into `events.service.ts`, and serializes the result.
 4. **`services/events/events.service.ts`** owns the domain logic — version-chain bookkeeping, PostGIS coordinate handling, audit fields.
 5. **`services/events/events.filter.ts`** builds Drizzle queries (including PostGIS `ST_DWithin`-based geo filters).
-6. **`services/events/events.emitter.ts`** fans changes out to subscribers of `GET /events/stream`.
+6. **`services/events/events.emitter.ts`** fans changes out to subscribers of `GET /events/stream`. It is fed by **`services/events/events.listener.ts`**, which holds a dedicated `LISTEN events_new` connection; an `AFTER INSERT` trigger on the events table (`events_notify`) publishes each committed row's id via `pg_notify`, and the listener re-reads the row and emits it. This means every writer — any app instance, seed scripts, direct SQL — reaches stream subscribers, and rolled-back inserts are never emitted.
 
 ## Data model: append-only versioned events
 
@@ -100,9 +100,10 @@ When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, `src/instrumentation.ts` boots the OT
 
 ## Cross-cutting concerns
 
-- **Rate limiting** (`src/middleware/rate-limit.ts`) keys off the client IP. Behind a reverse proxy, configure `BL_TRUST_PROXY_HOPS` so XFF parsing peels the right number of proxy hops (0 = ignore XFF entirely).
-- **mTLS / Rasenmaeher integration** is opt-in: set `RM_API_ENABLED=true` to mount `/rmapi/*`, plus `RM_MTLS_ENFORCE` to require the proxy-injected client-cert header. Local dev keeps this off because direct localhost access has no proxy.
-- **Uploads** are served from `./uploads` (cwd-relative, so the container volume at `/usr/src/app/uploads` lines up). Filenames are UUIDv7 to keep them sortable and avoid collisions.
+- **Rate limiting** is not done in-app — the Deploy App (RM) reverse proxy in front of this API owns it, where real client IPs are visible and limits hold across instances.
+- **mTLS / Rasenmaeher integration** is opt-in: set `RM_API_ENABLED=true` to mount `/rmapi/*` (`src/routes/rmapi/`) — the product card, instructions, and user-cert lifecycle endpoints RM calls into. `RM_MTLS_ENFORCE` requires the proxy-injected client-cert DN header (`RM_MTLS_HEADER`) to carry the expected RM CN. Local dev keeps this off because direct localhost access has no proxy.
+- **User identity** comes from the same proxy-injected DN header: each user has their own device cert, and `src/middleware/user-identity.ts` puts its CN into context for event writes (`createdBy`/`updatedBy`). With `RM_MTLS_USER_ENFORCE=true` (default outside dev) writes without a valid CN are rejected with 401; in dev they fall back to `"anonymous"`.
+- **Uploads** are served read-only from `./uploads` (cwd-relative, so the container volume at `/usr/src/app/uploads` lines up) for files left by the legacy app. There is no upload write path; add an attachments route if one is needed.
 - **SPA fallback** — `app.use("*", serveStatic({ root: "./public" }))` is mounted last so it only serves frontend assets when no API route matched.
 
 ## Supply-chain hardening
