@@ -27,8 +27,8 @@ const descriptor: WidgetDescriptor<ClockConfig> = {
   description: "Digital clock — time and date",
   configSchema,
   defaultConfig: { format: "24h" },
-  defaultSize: { w: 5, h: 4 },
-  minSize: { w: 3, h: 3 },
+  defaultSize: { w: 8, h: 6 },
+  minSize: { w: 5, h: 4 },
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };
