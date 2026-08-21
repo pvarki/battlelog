@@ -23,7 +23,8 @@ export interface WidgetDescriptor<TConfig = unknown> {
   type: string;
   name: string;
   description?: string;
-  configSchema: z.ZodType<TConfig>;
+  /** Input typed unknown so schemas may apply defaults (input ≠ output). */
+  configSchema: z.ZodType<TConfig, z.ZodTypeDef, unknown>;
   defaultConfig: TConfig;
   defaultSize: { w: number; h: number };
   minSize: { w: number; h: number };

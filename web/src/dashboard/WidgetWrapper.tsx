@@ -6,6 +6,7 @@ import { getWidget, validateWidgetConfig } from "./registry.ts";
 type Props = {
   instance: Widget;
   editMode: boolean;
+  onConfigure: () => void;
   onRemove: () => void;
   onDuplicate: () => void;
   onResetSize: () => void;
@@ -64,6 +65,7 @@ const Placeholder = ({
 export const WidgetWrapper = ({
   instance,
   editMode,
+  onConfigure,
   onRemove,
   onDuplicate,
   onResetSize,
@@ -98,6 +100,7 @@ export const WidgetWrapper = ({
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
+              {descriptor?.ConfigForm && <Menu.Item onClick={onConfigure}>Settings</Menu.Item>}
               <Menu.Item onClick={onDuplicate}>Duplicate</Menu.Item>
               <Menu.Item onClick={onResetSize} disabled={!descriptor}>
                 Reset size
