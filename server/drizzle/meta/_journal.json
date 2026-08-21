@@ -29,6 +29,13 @@
       "when": 1787340883593,
       "tag": "0003_search-and-geo-indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787351707345,
+      "tag": "0004_dashboards",
+      "breakpoints": true
     }
   ]
 }

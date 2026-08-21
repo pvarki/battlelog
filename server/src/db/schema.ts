@@ -137,3 +137,31 @@ export const events = pgTable(
 
 export type EventRow = typeof events.$inferSelect;
 export type EventInsert = typeof events.$inferInsert;
+
+/**
+ * A widget instance on a dashboard: react-grid-layout placement plus a type
+ * discriminator. Kept loose here (type: string) — the API layer validates
+ * against the known widget types (see dashboards.apiSchema.ts).
+ */
+export type DashboardWidget = {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+/** User-composable dashboards: a named grid of widgets. */
+export const dashboards = pgTable("dashboards", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  widgets: jsonb("widgets").$type<DashboardWidget[]>().notNull().default([]),
+  createdBy: text("created_by").notNull(),
+  updatedBy: text("updated_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type DashboardRow = typeof dashboards.$inferSelect;
+export type DashboardInsert = typeof dashboards.$inferInsert;
