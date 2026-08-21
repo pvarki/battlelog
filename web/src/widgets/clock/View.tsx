@@ -1,7 +1,9 @@
 import { Stack, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
+import type { WidgetViewProps } from "../../dashboard/registry.ts";
+import type { ClockConfig } from "./widget.ts";
 
-const ClockView = () => {
+const ClockView = ({ config }: WidgetViewProps<ClockConfig>) => {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -9,19 +11,35 @@ const ClockView = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const timeZone = config.timeZone || undefined;
+  const time = new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: config.format === "12h",
+    timeZone,
+  }).format(now);
+  const date = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone,
+  }).format(now);
+
   return (
     <Stack align="center" justify="center" h="100%" gap={4}>
       <Text ff="monospace" fz={42} fw={600} lh={1}>
-        {now.toLocaleTimeString()}
+        {time}
       </Text>
       <Text c="dimmed" fz="sm">
-        {now.toLocaleDateString(undefined, {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })}
+        {date}
       </Text>
+      {config.timeZone && (
+        <Text c="dimmed" fz="xs">
+          {config.timeZone}
+        </Text>
+      )}
     </Stack>
   );
 };

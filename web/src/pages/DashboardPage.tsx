@@ -1,10 +1,10 @@
-import { Box, Button, Group, Menu, Text, Title } from "@mantine/core";
+import { Box, Button, Drawer, Group, Loader, Menu, Text, Title } from "@mantine/core";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { GridLayout, type Layout, useContainerWidth } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
-import { getWidget, registry } from "../dashboard/registry.ts";
+import { getWidget, registry, validateWidgetConfig } from "../dashboard/registry.ts";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 
 const route = getRouteApi("/d/$dashboardId");
@@ -26,6 +26,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
   const [widgets, setWidgets] = useState<Widget[]>(dashboard.widgets);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [editMode, setEditMode] = useState(false);
+  const [configuringId, setConfiguringId] = useState<string | null>(null);
   const { width, mounted, containerRef } = useContainerWidth();
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const version = useRef(dashboard.version);
@@ -130,9 +131,17 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     );
   };
 
+  const updateWidgetConfig = (id: string, config: unknown) => {
+    persist(widgets.map((w) => (w.id === id ? { ...w, config } : w)));
+  };
+
   const removeWidget = (id: string) => {
+    if (configuringId === id) setConfiguringId(null);
     persist(widgets.filter((w) => w.id !== id));
   };
+
+  const configuring = widgets.find((w) => w.id === configuringId) ?? null;
+  const configuringDescriptor = configuring ? getWidget(configuring.type) : undefined;
 
   return (
     <Box px="md" py="sm">
@@ -196,6 +205,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
                 <WidgetWrapper
                   instance={w}
                   editMode={editMode}
+                  onConfigure={() => setConfiguringId(w.id)}
                   onRemove={() => removeWidget(w.id)}
                   onDuplicate={() => duplicateWidget(w)}
                   onResetSize={() => resetWidgetSize(w.id)}
@@ -211,6 +221,28 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
           Empty dashboard — {editMode ? "add a widget to get started." : "press Edit to compose."}
         </Text>
       )}
+
+      <Drawer
+        opened={!!configuring}
+        onClose={() => setConfiguringId(null)}
+        position="right"
+        title={configuring ? `${configuringDescriptor?.name ?? configuring.type} settings` : ""}
+      >
+        {configuring &&
+          configuringDescriptor?.ConfigForm &&
+          (() => {
+            const validation = validateWidgetConfig(configuring.type, configuring.config);
+            const ConfigForm = configuringDescriptor.ConfigForm;
+            return (
+              <Suspense fallback={<Loader size="sm" />}>
+                <ConfigForm
+                  config={validation.ok ? validation.value : configuringDescriptor.defaultConfig}
+                  onChange={(next) => updateWidgetConfig(configuring.id, next)}
+                />
+              </Suspense>
+            );
+          })()}
+      </Drawer>
     </Box>
   );
 };
