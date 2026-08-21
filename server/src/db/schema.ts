@@ -139,17 +139,17 @@ export type EventRow = typeof events.$inferSelect;
 export type EventInsert = typeof events.$inferInsert;
 
 /**
- * A widget instance on a dashboard: react-grid-layout placement plus a type
- * discriminator. Kept loose here (type: string) — the API layer validates
- * against the known widget types (see dashboards.apiSchema.ts).
+ * A widget instance on a dashboard: grid placement plus a type discriminator
+ * and per-widget config. `type` and `config` are opaque to the server — the
+ * web app's widget registry owns them and validates config on read, so new
+ * widget types need no server deploy. The API validates structure only.
  */
 export type DashboardWidget = {
   id: string;
   type: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  /** Optional to match zod's z.any() inference; the UI treats absent as {}. */
+  config?: unknown;
+  layout: { x: number; y: number; w: number; h: number };
 };
 
 /** User-composable dashboards: a named grid of widgets. */
@@ -157,6 +157,8 @@ export const dashboards = pgTable("dashboards", {
   id: uuid("id").primaryKey(),
   name: text("name").notNull(),
   widgets: jsonb("widgets").$type<DashboardWidget[]>().notNull().default([]),
+  /** Optimistic concurrency token: rewritten on every update; stale writers get 409. */
+  version: text("version").notNull().default("0"),
   createdBy: text("created_by").notNull(),
   updatedBy: text("updated_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

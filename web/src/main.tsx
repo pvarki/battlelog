@@ -1,10 +1,12 @@
 import "@mantine/core/styles.css";
 import "react-grid-layout/css/styles.css";
+import "@fontsource-variable/inter";
 import { MantineProvider } from "@mantine/core";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { routeTree } from "./routes.tsx";
+import { theme } from "./theme.ts";
 
 const router = createRouter({ routeTree });
 
@@ -19,7 +21,7 @@ if (!rootEl) throw new Error("missing #root element");
 
 createRoot(rootEl).render(
   <StrictMode>
-    <MantineProvider defaultColorScheme="dark">
+    <MantineProvider theme={theme} forceColorScheme="dark">
       <RouterProvider router={router} />
     </MantineProvider>
   </StrictMode>,

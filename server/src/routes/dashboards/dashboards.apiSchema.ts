@@ -1,18 +1,27 @@
 import { z } from "@hono/zod-openapi";
 import type { DashboardRow } from "../../db/schema.ts";
 
-/** Every widget type the platform knows how to render. Extend here first. */
-export const WIDGET_TYPES = ["clock"] as const;
+const widgetLayoutSchema = z.object({
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  w: z.number().int().min(1),
+  h: z.number().int().min(1),
+});
 
+/**
+ * Structure-only validation: `type` and `config` belong to the web app's
+ * widget registry, which validates config against the widget's own schema on
+ * read. Unknown types render as a placeholder there instead of failing here.
+ */
 export const widgetSchema = z
   .object({
     /** Client-generated, unique within the dashboard; doubles as the grid item key. */
     id: z.string().min(1).max(64),
-    type: z.enum(WIDGET_TYPES),
-    x: z.number().int().min(0),
-    y: z.number().int().min(0),
-    w: z.number().int().min(1),
-    h: z.number().int().min(1),
+    type: z.string().min(1).max(64),
+    // z.any (not z.unknown): unknown fails Hono's JSONValue constraint and
+    // collapses typed responses to never.
+    config: z.any(),
+    layout: widgetLayoutSchema,
   })
   .openapi("DashboardWidget");
 export type Widget = z.infer<typeof widgetSchema>;
@@ -22,6 +31,7 @@ export const dashboardResponseSchema = z
     id: z.string().uuid(),
     name: z.string(),
     widgets: z.array(widgetSchema),
+    version: z.string(),
     createdBy: z.string(),
     updatedBy: z.string().nullable(),
     createdAt: z.string().datetime(),
@@ -39,6 +49,8 @@ export const createDashboardRequestSchema = z
 
 export const updateDashboardRequestSchema = z
   .object({
+    /** Version the client last saw; mismatch → 409 (edited elsewhere). */
+    version: z.string().min(1),
     name: z.string().min(1).max(100).optional(),
     widgets: z.array(widgetSchema).max(50).optional(),
   })
@@ -49,6 +61,7 @@ export const toApiDashboard = (row: DashboardRow): DashboardResponse => ({
   name: row.name,
   // Stored widgets were validated by widgetSchema on every write.
   widgets: row.widgets as Widget[],
+  version: row.version,
   createdBy: row.createdBy,
   updatedBy: row.updatedBy,
   createdAt: row.createdAt.toISOString(),

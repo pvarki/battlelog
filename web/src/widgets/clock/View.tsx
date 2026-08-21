@@ -1,7 +1,7 @@
 import { Stack, Text } from "@mantine/core";
 import { useEffect, useState } from "react";
 
-export const ClockWidget = () => {
+const ClockView = () => {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -25,3 +25,5 @@ export const ClockWidget = () => {
     </Stack>
   );
 };
+
+export default ClockView;

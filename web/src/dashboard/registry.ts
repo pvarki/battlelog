@@ -1,0 +1,62 @@
+import type { ComponentType, LazyExoticComponent } from "react";
+import type { z } from "zod";
+
+export interface WidgetViewProps<TConfig> {
+  config: TConfig;
+  instanceId: string;
+  editMode: boolean;
+}
+
+export interface WidgetConfigProps<TConfig> {
+  config: TConfig;
+  onChange: (next: TConfig) => void;
+}
+
+/**
+ * The widget contract. One folder per widget under src/widgets/<type>/ with a
+ * `widget.ts` default-exporting a descriptor — the glob below discovers it.
+ * `type` is the stable id stored in the DB: never rename it.
+ * View (and ConfigForm) are React.lazy, so widget code stays out of the
+ * initial bundle and only loads when an instance renders.
+ */
+export interface WidgetDescriptor<TConfig = unknown> {
+  type: string;
+  name: string;
+  description?: string;
+  configSchema: z.ZodType<TConfig>;
+  defaultConfig: TConfig;
+  defaultSize: { w: number; h: number };
+  minSize: { w: number; h: number };
+  View: LazyExoticComponent<ComponentType<WidgetViewProps<TConfig>>>;
+  ConfigForm?: LazyExoticComponent<ComponentType<WidgetConfigProps<TConfig>>>;
+}
+
+// `any` for descriptor variance: View's config param makes WidgetDescriptor<T>
+// not assignable to WidgetDescriptor<unknown>.
+const modules = import.meta.glob<{ default: WidgetDescriptor<any> }>("../widgets/*/widget.ts", {
+  eager: true,
+});
+
+export const registry: ReadonlyMap<string, WidgetDescriptor> = new Map(
+  Object.values(modules).map((m) => [m.default.type, m.default]),
+);
+
+export const getWidget = (type: string): WidgetDescriptor | undefined => registry.get(type);
+
+export type ValidationResult =
+  | { ok: true; value: unknown }
+  | { ok: false; reason: "unknown-type" | "invalid-config"; details?: string };
+
+export const validateWidgetConfig = (type: string, config: unknown): ValidationResult => {
+  const descriptor = registry.get(type);
+  if (!descriptor) return { ok: false, reason: "unknown-type" };
+  const result = descriptor.configSchema.safeParse(config ?? {});
+  if (!result.success) {
+    return {
+      ok: false,
+      reason: "invalid-config",
+      details: result.error.issues.map((i) => i.message).join("; "),
+    };
+  }
+  return { ok: true, value: result.data };
+};
