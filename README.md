@@ -41,7 +41,7 @@ docker compose up --build       # app + db
 | `pnpm db:generate` | Generate migration from schema diff |
 | `pnpm db:migrate` | Apply migrations (ensures `postgis` extension) |
 | `pnpm db:seed` | Seed dev data |
-| `pnpm db:fake` | Continuously generate fake events |
+| `pnpm db:fake` | Insert N fake events (`pnpm db:fake 25`) |
 | `pnpm db:studio` | Drizzle Studio |
 
 ## Configuration
@@ -50,7 +50,6 @@ All runtime config flows through [varlock](https://varlock.dev/) and is declared
 
 - `DATABASE_URL` — Postgres connection (defaults to the local compose DB in dev)
 - `USE_SWAGGER` — Swagger UI exposure (on by default in dev)
-- `BL_TRUST_PROXY_HOPS` — XFF parsing depth for rate-limit IP extraction
 - `RM_API_ENABLED` + `RM_MTLS_*` — opt-in Rasenmaeher (RM) integration with mTLS
 - `OTEL_EXPORTER_OTLP_ENDPOINT` — when set, boots the OTel SDK in prod
 
