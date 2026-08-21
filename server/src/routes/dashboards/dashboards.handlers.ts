@@ -5,6 +5,7 @@ import {
   getDashboard,
   listDashboards,
   updateDashboard,
+  VersionConflictError,
 } from "../../services/dashboards/dashboards.service.ts";
 import { toApiDashboard } from "./dashboards.apiSchema.ts";
 import type {
@@ -38,9 +39,17 @@ export const postDashboardHandler: RouteHandler<typeof postDashboardRoute> = asy
 export const patchDashboardHandler: RouteHandler<typeof patchDashboardRoute> = async (c) => {
   const { dashboardId } = c.req.valid("param");
   const user = c.get("userCn") ?? "anonymous";
-  const row = await updateDashboard(dashboardId, c.req.valid("json"), user);
-  if (!row) return c.json({ error: "Dashboard not found" }, 404);
-  return c.json(toApiDashboard(row), 200);
+  const { version, ...patch } = c.req.valid("json");
+  try {
+    const row = await updateDashboard(dashboardId, patch, user, version);
+    if (!row) return c.json({ error: "Dashboard not found" }, 404);
+    return c.json(toApiDashboard(row), 200);
+  } catch (err) {
+    if (err instanceof VersionConflictError) {
+      return c.json({ error: "Dashboard was edited elsewhere; reload and retry" }, 409);
+    }
+    throw err;
+  }
 };
 
 export const deleteDashboardHandler: RouteHandler<typeof deleteDashboardRoute> = async (c) => {

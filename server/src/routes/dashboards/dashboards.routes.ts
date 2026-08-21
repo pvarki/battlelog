@@ -69,6 +69,7 @@ export const patchDashboardRoute = createRoute({
     400: jsonContent(errorResponseSchema, "Invalid input"),
     401: jsonContent(errorResponseSchema, "Client certificate identity required"),
     404: jsonContent(errorResponseSchema, "Dashboard not found"),
+    409: jsonContent(errorResponseSchema, "Version conflict — edited elsewhere"),
     500: jsonContent(errorResponseSchema, "Server error"),
   },
 });

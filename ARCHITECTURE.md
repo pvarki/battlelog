@@ -40,12 +40,16 @@ server/
 
 web/
 ├── src/
-│   ├── main.tsx               # Mantine provider + router bootstrap
+│   ├── main.tsx               # Mantine provider (design tokens in theme.ts) + router bootstrap
 │   ├── routes.tsx             # Code-based route tree (loaders call the RPC client)
 │   ├── api.ts                 # hono/client RPC instance, typed from server routes
-│   └── pages/                 # Route components
+│   ├── pages/                 # Route components
+│   ├── dashboard/             # Widget harness: registry (descriptor contract), WidgetWrapper (chrome, error boundary)
+│   └── widgets/<type>/        # One folder per widget: widget.ts descriptor + lazy View.tsx — glob-discovered
 └── vite.config.ts             # Dev proxy /api → :3000
 ```
+
+Widgets follow the contract from [pvarki/battlelog-dash](https://github.com/pvarki/battlelog-dash)'s design spec: descriptors carry a zod `configSchema` validated on read (the server stores `type`/`config` opaquely — new widgets need no server deploy), the wrapper owns all chrome and failure states, and dashboard saves use optimistic concurrency (`version` + 409).
 
 ## Per-feature convention
 

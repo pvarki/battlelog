@@ -1,11 +1,22 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db/client.ts";
 import type { DashboardInsert, DashboardRow } from "../../db/schema.ts";
 import { dashboards } from "../../db/schema.ts";
 
-export type CreateDashboardInput = Omit<DashboardInsert, "id" | "createdAt" | "updatedAt">;
+export type CreateDashboardInput = Omit<
+  DashboardInsert,
+  "id" | "version" | "createdAt" | "updatedAt"
+>;
 export type UpdateDashboardPatch = Partial<Pick<DashboardInsert, "name" | "widgets">>;
+
+/** Thrown when the caller's version is stale — the dashboard was edited elsewhere. */
+export class VersionConflictError extends Error {
+  constructor(id: string) {
+    super(`Dashboard ${id} was edited elsewhere`);
+    this.name = "VersionConflictError";
+  }
+}
 
 export const listDashboards = async (): Promise<DashboardRow[]> =>
   db.select().from(dashboards).orderBy(desc(dashboards.createdAt));
@@ -18,23 +29,32 @@ export const getDashboard = async (id: string): Promise<DashboardRow | null> => 
 export const createDashboard = async (input: CreateDashboardInput): Promise<DashboardRow> => {
   const [row] = await db
     .insert(dashboards)
-    .values({ ...input, id: uuidv7() })
+    .values({ ...input, id: uuidv7(), version: uuidv7() })
     .returning();
   if (!row) throw new Error("createDashboard: insert returned no row");
   return row;
 };
 
+/**
+ * Optimistic concurrency: the update only applies if `expectedVersion` still
+ * matches. A miss means either the row is gone (null) or someone else saved
+ * in between ({@link VersionConflictError}).
+ */
 export const updateDashboard = async (
   id: string,
   patch: UpdateDashboardPatch,
   updatedBy: string,
+  expectedVersion: string,
 ): Promise<DashboardRow | null> => {
   const [row] = await db
     .update(dashboards)
-    .set({ ...patch, updatedBy, updatedAt: new Date() })
-    .where(eq(dashboards.id, id))
+    .set({ ...patch, updatedBy, updatedAt: new Date(), version: uuidv7() })
+    .where(and(eq(dashboards.id, id), eq(dashboards.version, expectedVersion)))
     .returning();
-  return row ?? null;
+  if (row) return row;
+  const exists = await getDashboard(id);
+  if (!exists) return null;
+  throw new VersionConflictError(id);
 };
 
 export const deleteDashboard = async (id: string): Promise<boolean> => {

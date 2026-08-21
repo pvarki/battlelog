@@ -29,7 +29,9 @@ const RootLayout = () => {
     <AppShell header={{ height: 48 }} padding={0}>
       <AppShell.Header>
         <Group h="100%" px="md" gap="lg">
-          <Text fw={700}>BattleLog</Text>
+          <Text fw={700} style={{ letterSpacing: "0.04em" }}>
+            BATTLELOG
+          </Text>
           <Anchor fz="sm" c="dimmed" renderRoot={(props) => <Link to="/" {...props} />}>
             Dashboards
           </Anchor>
