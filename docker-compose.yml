@@ -34,7 +34,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - uploads:/usr/src/app/uploads
+      - uploads:/usr/src/app/server/uploads
 
 volumes:
   db-data:

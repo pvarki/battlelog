@@ -59,9 +59,11 @@ export const createApp = () => {
     app.get(joinBase("/api-docs"), swaggerUI({ url: openapiPath }));
   }
 
-  // SPA / frontend assets. Legacy: routes.use(express.static('./public')).
-  // Mounted last so it only serves what no API route matched.
-  app.use("*", serveStatic({ root: "./public" }));
+  // SPA build output (web/dist, cwd-relative to server/). Mounted last so it
+  // only serves what no API route matched; unmatched paths fall back to
+  // index.html for client-side routing.
+  app.use("*", serveStatic({ root: "../web/dist" }));
+  app.get("*", serveStatic({ path: "../web/dist/index.html" }));
 
   return app;
 };

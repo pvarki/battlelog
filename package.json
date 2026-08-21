@@ -1,57 +1,18 @@
 {
   "name": "battlelog",
   "version": "2.0.0",
-  "description": "BattleLog backend (Hono + Drizzle + TypeScript)",
+  "private": true,
   "type": "module",
-  "main": "dist/index.js",
   "packageManager": "pnpm@11.3.0",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node --import ./dist/instrumentation.js dist/index.js",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "biome lint .",
-    "format": "biome format --write .",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts",
-    "db:studio": "drizzle-kit studio",
-    "db:fake": "tsx scripts/fake-events.ts",
-    "perf": "tsx scripts/perf.ts"
-  },
-  "dependencies": {
-    "@hono/node-server": "^1.13.0",
-    "@hono/swagger-ui": "^0.5.0",
-    "@hono/zod-openapi": "^0.18.0",
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.62.2",
-    "@opentelemetry/exporter-metrics-otlp-http": "^0.204.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.204.0",
-    "@opentelemetry/sdk-metrics": "^2.1.0",
-    "@opentelemetry/sdk-node": "^0.204.0",
-    "drizzle-orm": "^0.36.4",
-    "hono": "^4.6.0",
-    "hono-pino": "^0.7.0",
-    "pg": "^8.12.0",
-    "pino": "^9.5.0",
-    "pino-opentelemetry-transport": "^1.0.0",
-    "uuid": "^12.0.0",
-    "varlock": "^1.2.0",
-    "zod": "^3.23.0"
+    "typecheck": "pnpm -r exec tsc --noEmit"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
-    "@faker-js/faker": "^9.0.0",
-    "@types/autocannon": "^7.12.7",
-    "@types/node": "^24.0.0",
-    "@types/pg": "^8.11.0",
-    "autocannon": "^8.0.0",
-    "drizzle-kit": "^0.28.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
-    "vitest": "^4.0.0"
+    "@biomejs/biome": "^2.4.15"
   }
 }

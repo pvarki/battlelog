@@ -47,5 +47,11 @@ test("unhandled errors return a generic 500 without internal details", async () 
 test("rmapi routes are gated by RM_API_ENABLED", async () => {
   const app = createApp();
   const res = await app.request("/rmapi/api/v1/healthcheck");
-  expect(res.status).toBe(ENV.RM_API_ENABLED ? 200 : 404);
+  if (ENV.RM_API_ENABLED) {
+    expect(res.status).toBe(200);
+  } else {
+    // Disabled rmapi paths fall through to the SPA fallback (or 404 when no
+    // web build exists) — either way they must not answer as the API.
+    expect(res.headers.get("content-type") ?? "").not.toContain("application/json");
+  }
 });
