@@ -36,19 +36,6 @@ services:
     volumes:
       - uploads:/usr/src/app/uploads
 
-  test:
-    profiles: ["cli-only"]
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-    environment:
-      DATABASE_URL: postgres://postgres:postgres@db:5432/battlelog
-    depends_on:
-      app:
-        condition: service_started
-    volumes:
-      - ./tests/integration:/usr/src/app/integration:ro
-
 volumes:
   db-data:
   uploads:
