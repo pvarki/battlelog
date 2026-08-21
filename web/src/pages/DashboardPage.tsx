@@ -2,7 +2,7 @@ import { Box, Button, Drawer, Group, Loader, Menu, Text, Title } from "@mantine/
 import { useElementSize } from "@mantine/hooks";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { GridLayout, type Layout, noCompactor } from "react-grid-layout";
+import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { getWidget, registry, validateWidgetConfig } from "../dashboard/registry.ts";
@@ -16,6 +16,11 @@ const GRID_COLS = 48;
 const GRID_ROWS = 24;
 const GRID_MARGIN = 8;
 const SAVE_DEBOUNCE_MS = 800;
+
+// Fixed canvas: no compaction (widgets stay where placed) and collisions are
+// blocked — plain noCompactor lets a drag push neighbours past the fixed
+// bottom row, off the screen.
+const fixedCanvasCompactor = getCompactor(null, false, true);
 
 type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
 
@@ -226,8 +231,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
               containerPadding: [0, 0],
               maxRows: GRID_ROWS,
             }}
-            // Fixed canvas: widgets stay where the user puts them (no compaction).
-            compactor={noCompactor}
+            compactor={fixedCanvasCompactor}
             dragConfig={{ enabled: editMode, handle: ".widget-drag-handle" }}
             resizeConfig={{ enabled: editMode }}
             onLayoutChange={onLayoutChange}
