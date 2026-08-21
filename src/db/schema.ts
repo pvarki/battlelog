@@ -31,25 +31,6 @@ export const admiraltyCredibilityEnum = pgEnum("admiralty_credibility", [
   "6",
 ]);
 
-/** Human-readable labels per NATO AJP-2.1 / STANAG 2511 (Admiralty Code). */
-export const ADMIRALTY_RELIABILITY_LABELS = {
-  A: "A - Completely reliable",
-  B: "B - Usually reliable",
-  C: "C - Fairly reliable",
-  D: "D - Not usually reliable",
-  E: "E - Unreliable",
-  F: "F - Cannot be judged",
-} as const satisfies Record<(typeof admiraltyReliabilityEnum.enumValues)[number], string>;
-
-export const ADMIRALTY_CREDIBILITY_LABELS = {
-  "1": "1 - Confirmed",
-  "2": "2 - Probably true",
-  "3": "3 - Possibly true",
-  "4": "4 - Doubtful",
-  "5": "5 - Improbable",
-  "6": "6 - Truth cannot be judged",
-} as const satisfies Record<(typeof admiraltyCredibilityEnum.enumValues)[number], string>;
-
 export const events = pgTable(
   "events",
   {
@@ -70,7 +51,7 @@ export const events = pgTable(
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by"),
 
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     eventTime: timestamp("event_time", { withTimezone: true }),
 
     header: text("header").notNull(),

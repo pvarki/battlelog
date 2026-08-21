@@ -5,6 +5,8 @@ import type { EventRow } from "../../db/schema.ts";
 import { admiraltyCredibilityEnum, admiraltyReliabilityEnum, events } from "../../db/schema.ts";
 
 export const eventsFilterSchema = z.object({
+  /** Scope to one logical event — combine with includeHistory for its full version chain. */
+  eventId: z.string().uuid().optional(),
   search: z.string().min(1).optional(),
   tags: z.array(z.string()).optional(),
   hcoeDomains: z.array(z.string()).optional(),
@@ -25,6 +27,12 @@ export const eventsFilterSchema = z.object({
     .optional(),
   limit: z.number().int().min(1).max(500).default(100),
   offset: z.number().int().min(0).default(0),
+  /**
+   * Keyset pagination: return rows older than this row id (UUIDv7 = time-ordered).
+   * Pass the last id of the previous page. Preferred over offset — stable under
+   * concurrent inserts and O(1) at any depth. When set, offset is ignored.
+   */
+  cursor: z.string().uuid().optional(),
   /** When false (default) list returns only current heads. */
   includeHistory: z.boolean().default(false),
 });
@@ -34,6 +42,9 @@ export type EventsFilter = z.infer<typeof eventsFilterSchema>;
 export const buildEventsWhere = (filter: EventsFilter): SQL | undefined => {
   const conditions: SQL[] = [];
 
+  if (filter.eventId) {
+    conditions.push(eq(events.eventId, filter.eventId));
+  }
   if (filter.search) {
     conditions.push(ilike(events.header, `%${filter.search}%`));
   }
@@ -103,6 +114,7 @@ const overlaps = <T>(arr: T[] | null, want: T[]): boolean =>
   !!arr && want.some((w) => arr.includes(w));
 
 export const matchesEventsFilter = (row: EventRow, filter: EventsFilter): boolean => {
+  if (filter.eventId && row.eventId !== filter.eventId) return false;
   if (filter.search && !row.header.toLowerCase().includes(filter.search.toLowerCase())) {
     return false;
   }
@@ -132,10 +144,10 @@ export const matchesEventsFilter = (row: EventRow, filter: EventsFilter): boolea
   if (filter.eventTimeTo && (!row.eventTime || row.eventTime > filter.eventTimeTo)) {
     return false;
   }
-  if (filter.createdAtFrom && (!row.createdAt || row.createdAt < filter.createdAtFrom)) {
+  if (filter.createdAtFrom && row.createdAt < filter.createdAtFrom) {
     return false;
   }
-  if (filter.createdAtTo && (!row.createdAt || row.createdAt > filter.createdAtTo)) {
+  if (filter.createdAtTo && row.createdAt > filter.createdAtTo) {
     return false;
   }
   if (filter.location) {
