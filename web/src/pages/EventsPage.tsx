@@ -1,7 +1,7 @@
 import { Badge, Container, Table, Text, Title } from "@mantine/core";
 import { getRouteApi } from "@tanstack/react-router";
 
-const route = getRouteApi("/");
+const route = getRouteApi("/events");
 
 export const EventsPage = () => {
   const events = route.useLoaderData();

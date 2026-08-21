@@ -7,6 +7,7 @@ import { pinoLogger } from "hono-pino";
 import { ENV } from "varlock/env";
 import pkg from "../package.json" with { type: "json" };
 import { logger } from "./lib/logger.ts";
+import { dashboardRoutes } from "./routes/dashboards/dashboards.routes.ts";
 import { eventRoutes } from "./routes/events/events.routes.ts";
 import { rmRoutes } from "./routes/rmapi/rmapi.routes.ts";
 
@@ -44,6 +45,7 @@ export const createApp = () => {
   for (const versioned of ["/api", "/api/v1"]) {
     const base = joinBase(versioned);
     app.route(base, eventRoutes);
+    app.route(base, dashboardRoutes);
   }
 
   if (ENV.RM_API_ENABLED) {

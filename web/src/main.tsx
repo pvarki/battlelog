@@ -1,4 +1,5 @@
 import "@mantine/core/styles.css";
+import "react-grid-layout/css/styles.css";
 import { MantineProvider } from "@mantine/core";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
