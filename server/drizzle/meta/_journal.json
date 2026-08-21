@@ -50,6 +50,13 @@
       "when": 1787354399970,
       "tag": "0006_widget-layout-shape",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787354968130,
+      "tag": "0007_grid-48-cols",
+      "breakpoints": true
     }
   ]
 }

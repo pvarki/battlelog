@@ -1,7 +1,8 @@
 import { Box, Button, Drawer, Group, Loader, Menu, Text, Title } from "@mantine/core";
+import { useElementSize } from "@mantine/hooks";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { GridLayout, type Layout, useContainerWidth } from "react-grid-layout";
+import { GridLayout, type Layout, noCompactor } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { getWidget, registry, validateWidgetConfig } from "../dashboard/registry.ts";
@@ -9,8 +10,11 @@ import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 
 const route = getRouteApi("/d/$dashboardId");
 
-const GRID_COLS = 24;
-const ROW_HEIGHT = 40;
+// Wall-display grid: fills the viewport exactly (no scrolling), sized for
+// FullHD. Rows/cols are fixed; cell size derives from the available space.
+const GRID_COLS = 48;
+const GRID_ROWS = 24;
+const GRID_MARGIN = 8;
 const SAVE_DEBOUNCE_MS = 800;
 
 type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
@@ -27,7 +31,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [editMode, setEditMode] = useState(false);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
-  const { width, mounted, containerRef } = useContainerWidth();
+  const { ref: gridRef, width, height } = useElementSize();
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const version = useRef(dashboard.version);
 
@@ -86,8 +90,16 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     if (moved) persist(next);
   };
 
-  const bottomOf = (list: Widget[]) =>
-    list.reduce((max, w) => Math.max(max, w.layout.y + w.layout.h), 0);
+  // The grid has a fixed row count, so clamp new items into the last rows
+  // instead of appending past the bottom edge.
+  const placeAt = (list: Widget[], h: number) =>
+    Math.max(
+      0,
+      Math.min(
+        list.reduce((max, w) => Math.max(max, w.layout.y + w.layout.h), 0),
+        GRID_ROWS - h,
+      ),
+    );
 
   const addWidget = (type: string) => {
     const descriptor = getWidget(type);
@@ -99,7 +111,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
         id: crypto.randomUUID(),
         type,
         config: descriptor.defaultConfig,
-        layout: { x: 0, y: bottomOf(widgets), ...descriptor.defaultSize },
+        layout: { x: 0, y: placeAt(widgets, descriptor.defaultSize.h), ...descriptor.defaultSize },
       },
     ]);
   };
@@ -107,7 +119,11 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
   const duplicateWidget = (w: Widget) => {
     persist([
       ...widgets,
-      { ...w, id: crypto.randomUUID(), layout: { ...w.layout, x: 0, y: bottomOf(widgets) } },
+      {
+        ...w,
+        id: crypto.randomUUID(),
+        layout: { ...w.layout, x: 0, y: placeAt(widgets, w.layout.h) },
+      },
     ]);
   };
 
@@ -143,8 +159,15 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
   const configuring = widgets.find((w) => w.id === configuringId) ?? null;
   const configuringDescriptor = configuring ? getWidget(configuring.type) : undefined;
 
+  const rowHeight = Math.max(8, (height - (GRID_ROWS - 1) * GRID_MARGIN) / GRID_ROWS);
+
   return (
-    <Box px="md" py="sm">
+    <Box
+      px="md"
+      py="sm"
+      h="calc(100dvh - 48px)"
+      style={{ display: "flex", flexDirection: "column" }}
+    >
       <Group justify="space-between" mb="sm">
         <Group gap="sm">
           <Title order={3}>{dashboard.name}</Title>
@@ -185,17 +208,26 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
         </Group>
       </Group>
 
-      <div ref={containerRef}>
-        {mounted && (
+      <Box ref={gridRef} flex={1} mih={0} style={{ overflow: "hidden" }}>
+        {width > 0 && height > 0 && (
           <GridLayout
             width={width}
+            autoSize={false}
             layout={widgets.map((w) => ({
               i: w.id,
               ...w.layout,
               minW: getWidget(w.type)?.minSize.w,
               minH: getWidget(w.type)?.minSize.h,
             }))}
-            gridConfig={{ cols: GRID_COLS, rowHeight: ROW_HEIGHT }}
+            gridConfig={{
+              cols: GRID_COLS,
+              rowHeight,
+              margin: [GRID_MARGIN, GRID_MARGIN],
+              containerPadding: [0, 0],
+              maxRows: GRID_ROWS,
+            }}
+            // Fixed canvas: widgets stay where the user puts them (no compaction).
+            compactor={noCompactor}
             dragConfig={{ enabled: editMode, handle: ".widget-drag-handle" }}
             resizeConfig={{ enabled: editMode }}
             onLayoutChange={onLayoutChange}
@@ -215,12 +247,12 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
             ))}
           </GridLayout>
         )}
-      </div>
-      {widgets.length === 0 && (
-        <Text c="dimmed" ta="center" mt="xl">
-          Empty dashboard — {editMode ? "add a widget to get started." : "press Edit to compose."}
-        </Text>
-      )}
+        {widgets.length === 0 && (
+          <Text c="dimmed" ta="center" mt="xl">
+            Empty dashboard — {editMode ? "add a widget to get started." : "press Edit to compose."}
+          </Text>
+        )}
+      </Box>
 
       <Drawer
         opened={!!configuring}
