@@ -39,8 +39,26 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
   const { ref: gridRef, width, height } = useElementSize();
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const version = useRef(dashboard.version);
+  const pending = useRef<Widget[] | null>(null);
+  const saving = useRef(false);
 
-  useEffect(() => () => clearTimeout(saveTimer.current), []);
+  // Unmount with an unsent edit: fire it keepalive so navigation (or tab
+  // close) can't silently drop the last change. If a save is in flight, its
+  // loop drains `pending` on its own.
+  useEffect(
+    () => () => {
+      clearTimeout(saveTimer.current);
+      if (pending.current && !saving.current) {
+        fetch(`/api/v1/dashboards/${dashboard.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          keepalive: true,
+          body: JSON.stringify({ version: version.current, widgets: pending.current }),
+        }).catch(() => {});
+      }
+    },
+    [dashboard.id],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -53,26 +71,52 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // One save in flight at a time: overlapping PATCHes would read a stale
+  // version ref and self-409, discarding the user's own newer edit. The loop
+  // drains `pending`, so edits made mid-save coalesce into the next PATCH.
+  const runSave = async () => {
+    if (saving.current) return;
+    saving.current = true;
+    try {
+      while (pending.current) {
+        const payload = pending.current;
+        pending.current = null;
+        setSaveState("saving");
+        try {
+          const res = await dashboardsApi.dashboards[":dashboardId"].$patch({
+            param: { dashboardId: dashboard.id },
+            json: { version: version.current, widgets: payload },
+          });
+          if (res.status === 200) {
+            version.current = (await res.json()).version;
+            setSaveState("saved");
+          } else if (res.status === 409) {
+            // Edited elsewhere: reload server state (remounts via the version key).
+            setSaveState("conflict");
+            router.invalidate();
+            return;
+          } else {
+            setSaveState("error");
+            return;
+          }
+        } catch {
+          // Network blip: keep the newest unsaved state and retry shortly.
+          pending.current ??= payload;
+          setSaveState("error");
+          saveTimer.current = setTimeout(runSave, 3000);
+          return;
+        }
+      }
+    } finally {
+      saving.current = false;
+    }
+  };
+
   const persist = (next: Widget[]) => {
     setWidgets(next);
+    pending.current = next;
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      setSaveState("saving");
-      const res = await dashboardsApi.dashboards[":dashboardId"].$patch({
-        param: { dashboardId: dashboard.id },
-        json: { version: version.current, widgets: next },
-      });
-      if (res.status === 200) {
-        version.current = (await res.json()).version;
-        setSaveState("saved");
-      } else if (res.status === 409) {
-        // Edited elsewhere: reload server state (remounts via the version key).
-        setSaveState("conflict");
-        router.invalidate();
-      } else {
-        setSaveState("error");
-      }
-    }, SAVE_DEBOUNCE_MS);
+    saveTimer.current = setTimeout(runSave, SAVE_DEBOUNCE_MS);
   };
 
   const onLayoutChange = (layout: Layout) => {

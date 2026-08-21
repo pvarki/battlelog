@@ -1,7 +1,7 @@
 FROM node:24-slim AS build
 WORKDIR /usr/src/app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json server/
 COPY web/package.json web/
 RUN pnpm install --frozen-lockfile
@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 WORKDIR /usr/src/app
 
 RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json server/
 COPY web/package.json web/
 RUN pnpm install --prod --frozen-lockfile --filter server
