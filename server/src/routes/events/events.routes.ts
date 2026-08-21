@@ -81,17 +81,20 @@ export const patchEventRoute = createRoute({
   },
 });
 
+// Registrations are chained so `typeof eventRoutes` carries every route's
+// request/response types — the web app's hono/client RPC relies on it.
+// SSE stays outside the OpenAPI surface and is mounted via .route() (a bare
+// .get() would collapse the chain to plain Hono); it comes first so the
+// static path wins over /events/{eventId}.
 export const eventRoutes = new OpenAPIHono({
   defaultHook: (result, c) => {
     if (!result.success) return c.json({ error: "Invalid input format" }, 400);
   },
-});
+})
+  .route("/", new OpenAPIHono().get("/events/stream", streamNewEvents))
+  .openapi(postEventRoute, postEvent)
+  .openapi(listEventsRoute, listEventsHandler)
+  .openapi(getEventRoute, getEventHandler)
+  .openapi(patchEventRoute, patchEvent);
 
-// SSE endpoint stays outside the OpenAPI surface; registered first so the
-// static path wins over /events/{eventId}.
-eventRoutes.get("/events/stream", streamNewEvents);
-
-eventRoutes.openapi(postEventRoute, postEvent);
-eventRoutes.openapi(listEventsRoute, listEventsHandler);
-eventRoutes.openapi(getEventRoute, getEventHandler);
-eventRoutes.openapi(patchEventRoute, patchEvent);
+export type EventsApi = typeof eventRoutes;

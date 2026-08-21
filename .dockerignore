@@ -18,7 +18,7 @@ Thumbs.db
 !.env.schema
 
 # Build artifacts and caches
-dist
+**/dist
 **/*.tsbuildinfo
 **/node_modules
 **/.*cache
@@ -30,7 +30,7 @@ coverage
 
 # Test & tooling configs not needed at runtime
 **/*.test.ts
-vitest.config.ts
+**/vitest.config.ts
 biome.json
 .pre-commit-config.yaml
 .secrets.baseline

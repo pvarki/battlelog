@@ -14,11 +14,16 @@ This document describes how BattleLog is laid out, the conventions new code shou
 - **Config**: [varlock](https://varlock.dev/) — `.env.schema` is the single source of truth, generates typed `ENV` at build time
 - **Lint/format**: [Biome](https://biomejs.dev/)
 - **Tests**: [Vitest](https://vitest.dev/)
+- **Frontend**: React 19 + [Vite](https://vite.dev/), [TanStack Router](https://tanstack.com/router) (code-based routes), [Mantine](https://mantine.dev/) UI
 
 ## Top-level layout
 
+The repo is a pnpm workspace: `server/` (Hono backend) and `web/` (React SPA). In dev they run side by side (Vite on :5173 proxies `/api` to :3000); in prod the server serves `web/dist` with an `index.html` fallback for client-side routes. The UI gets end-to-end API types from `hono/client` RPC — `web/src/api.ts` imports `EventsApi` (type-only) from the server's route definitions via the `@server/*` tsconfig path, which is why route registrations in `events.routes.ts` are chained.
+
+Paths below are relative to `server/`:
+
 ```
-.
+server/
 ├── src/
 │   ├── app.ts                 # Hono app factory: CORS, logger, swagger, static, routes
 │   ├── index.ts               # Server entrypoint (port binding, lifecycle)
@@ -30,8 +35,16 @@ This document describes how BattleLog is laid out, the conventions new code shou
 │   ├── lib/                   # Cross-cutting utilities (logger, client-cert, kraftwerk)
 │   └── middleware/            # Global Hono middleware (user-identity, …)
 ├── drizzle/                   # Generated migrations + meta snapshots (committed)
-├── scripts/                   # Dev/seed utilities (fake-events, seed)
+├── scripts/                   # Dev/seed utilities (fake-events, seed, perf)
 └── .env.schema                # Single source of truth for runtime config
+
+web/
+├── src/
+│   ├── main.tsx               # Mantine provider + router bootstrap
+│   ├── routes.tsx             # Code-based route tree (loaders call the RPC client)
+│   ├── api.ts                 # hono/client RPC instance, typed from server routes
+│   └── pages/                 # Route components
+└── vite.config.ts             # Dev proxy /api → :3000
 ```
 
 ## Per-feature convention

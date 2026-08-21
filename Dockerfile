@@ -1,11 +1,13 @@
 FROM node:24-slim AS build
 WORKDIR /usr/src/app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY server/package.json server/
+COPY web/package.json web/
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm exec varlock typegen
-RUN pnpm run build
+RUN pnpm -C server exec varlock typegen
+RUN pnpm -r build
 
 FROM node:24-slim AS production
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
@@ -14,16 +16,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 WORKDIR /usr/src/app
 
 RUN corepack enable
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY server/package.json server/
+COPY web/package.json web/
+RUN pnpm install --prod --frozen-lockfile --filter server
 
-COPY --from=build /usr/src/app/dist ./dist
-COPY --from=build /usr/src/app/drizzle ./drizzle
-COPY --from=build /usr/src/app/.env.schema ./.env.schema
+COPY --from=build /usr/src/app/server/dist ./server/dist
+COPY --from=build /usr/src/app/server/drizzle ./server/drizzle
+COPY --from=build /usr/src/app/server/.env.schema ./server/.env.schema
+COPY --from=build /usr/src/app/web/dist ./web/dist
 
-RUN mkdir -p uploads public && chown -R node:node /usr/src/app
+RUN mkdir -p server/uploads && chown -R node:node /usr/src/app
 
 USER node
+
+WORKDIR /usr/src/app/server
 
 EXPOSE 3000
 

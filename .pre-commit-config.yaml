@@ -45,7 +45,7 @@ repos:
         pass_filenames: true
     -   id: tsc
         name: tsc --noEmit
-        entry: pnpm exec tsc --noEmit
+        entry: pnpm -r exec tsc --noEmit
         language: system
         types: [ts]
         pass_filenames: false

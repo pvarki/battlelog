@@ -1,8 +1,8 @@
 # BattleLog
 
-Event-logging backend for PVARKI's situational-awareness stack.
+Event log for PVARKI's situational-awareness stack: a Hono + Drizzle backend and a React UI in one pnpm workspace.
 
-A Hono + Drizzle + TypeScript service for capturing, versioning, and querying geo-tagged hybrid-threat events. Built around a PostGIS-backed append-only event log with NATO Admiralty-Code reliability/credibility ratings and Hybrid CoE threat-domain tagging.
+The backend captures, versions, and queries geo-tagged hybrid-threat events — a PostGIS-backed append-only event log with NATO Admiralty-Code reliability/credibility ratings and Hybrid CoE threat-domain tagging. The UI (`web/`) is a Vite + React SPA (TanStack Router, Mantine) served by the same Hono server in production.
 
 ## Quickstart
 
@@ -10,19 +10,22 @@ Prerequisites: a tool-version manager ([mise](https://mise.jdx.dev/) or [asdf](h
 
 ```bash
 mise install                    # or: asdf install
-cp .env.schema .env             # adjust as needed
+cp server/.env.schema server/.env   # adjust as needed
 pnpm install
 prek install                    # register git hooks
 docker compose up -d db         # local Postgres + PostGIS
-pnpm db:migrate
-pnpm dev
+pnpm -C server db:migrate
+pnpm dev                        # server on :3000, UI (vite) on :5173
 ```
 
 Then open:
 
+- UI (dev, hot reload): <http://localhost:5173/> (proxies `/api` to :3000)
 - API: <http://localhost:3000/api/v1/events>
 - Swagger UI: <http://localhost:3000/api-docs> (enabled by default in dev)
 - Health: <http://localhost:3000/healthz>
+
+In production there is no separate UI server: `pnpm build` emits `web/dist`, which Hono serves (with an `index.html` fallback for client-side routes).
 
 ### Full stack via Docker
 
@@ -32,21 +35,25 @@ docker compose up --build       # app + db
 
 ## Scripts
 
+Root scripts fan out to both packages; run package-specific ones with `pnpm -C server <script>` / `pnpm -C web <script>`.
+
 | Command | Purpose |
 |---|---|
-| `pnpm dev` | Watch-mode dev server |
-| `pnpm build` / `pnpm start` | Compile and run from `dist/` |
-| `pnpm test` / `pnpm test:watch` | Vitest |
-| `pnpm check` / `pnpm check:fix` | Biome lint + format |
-| `pnpm db:generate` | Generate migration from schema diff |
-| `pnpm db:migrate` | Apply migrations (ensures `postgis` extension) |
-| `pnpm db:seed` | Seed dev data |
-| `pnpm db:fake` | Insert N fake events (`pnpm db:fake 25`) |
-| `pnpm db:studio` | Drizzle Studio |
+| `pnpm dev` | Both watch-mode servers (Hono :3000, Vite :5173) |
+| `pnpm build` | Compile server to `server/dist`, bundle UI to `web/dist` |
+| `pnpm test` | Vitest (server) |
+| `pnpm check` / `pnpm check:fix` | Biome lint + format (whole repo) |
+| `pnpm typecheck` | `tsc --noEmit` in every package |
+| `pnpm -C server start` | Run the compiled server |
+| `pnpm -C server db:generate` | Generate migration from schema diff |
+| `pnpm -C server db:migrate` | Apply migrations (ensures `postgis` extension) |
+| `pnpm -C server db:seed` / `db:fake` | Seed / insert fake dev data |
+| `pnpm -C server db:studio` | Drizzle Studio |
+| `pnpm -C server perf` | Load-test suite (see `server/scripts/perf.ts`) |
 
 ## Configuration
 
-All runtime config flows through [varlock](https://varlock.dev/) and is declared in [`.env.schema`](./.env.schema). Schema changes regenerate `src/env.d.ts` via `pnpm exec varlock typegen`. Notable knobs:
+All runtime config flows through [varlock](https://varlock.dev/) and is declared in [`server/.env.schema`](./server/.env.schema). Schema changes regenerate `server/src/env.d.ts` via `pnpm -C server exec varlock typegen`. Notable knobs:
 
 - `DATABASE_URL` — Postgres connection (defaults to the local compose DB in dev)
 - `USE_SWAGGER` — Swagger UI exposure (on by default in dev)
@@ -55,7 +62,7 @@ All runtime config flows through [varlock](https://varlock.dev/) and is declared
 
 ## Tech stack
 
-Hono · `@hono/zod-openapi` · Drizzle · Postgres + PostGIS · Zod · pino · OpenTelemetry · varlock · Biome · Vitest
+Hono · `@hono/zod-openapi` · Drizzle · Postgres + PostGIS · Zod · pino · OpenTelemetry · varlock · Biome · Vitest · React · Vite · TanStack Router · Mantine
 
 ## Docs
 
