@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   Title,
+  UnstyledButton,
 } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
 import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
@@ -17,7 +18,12 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
-import { getWidget, registry, validateWidgetConfig } from "../dashboard/registry.ts";
+import {
+  getWidget,
+  registry,
+  validateWidgetConfig,
+  type WidgetDescriptor,
+} from "../dashboard/registry.ts";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 
 const route = getRouteApi("/d/$dashboardId");
@@ -66,6 +72,7 @@ const DashboardGrid = ({
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const { ref: gridRef, width, height } = useElementSize();
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const version = useRef(dashboard.version);
   const pending = useRef<PendingPatch | null>(null);
   const saving = useRef(false);
@@ -76,12 +83,16 @@ const DashboardGrid = ({
   useEffect(
     () => () => {
       clearTimeout(saveTimer.current);
+      clearTimeout(savedTimer.current);
       if (pending.current && !saving.current) {
         fetch(`/api/v1/dashboards/${dashboard.id}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           keepalive: true,
-          body: JSON.stringify({ version: version.current, ...pending.current }),
+          body: JSON.stringify({
+            version: version.current,
+            ...pending.current,
+          }),
         }).catch(() => {});
       }
     },
@@ -118,12 +129,21 @@ const DashboardGrid = ({
           if (res.status === 200) {
             version.current = (await res.json()).version;
             setSaveState("saved");
+            // A permanent "Saved" is noise on an ops display: fade to idle.
+            clearTimeout(savedTimer.current);
+            savedTimer.current = setTimeout(
+              () => setSaveState((s) => (s === "saved" ? "idle" : s)),
+              2000,
+            );
           } else if (res.status === 409) {
             // Edited elsewhere: reload server state (remounts via the version key).
             setSaveState("conflict");
             router.invalidate();
             return;
           } else {
+            // HTTP error: keep the payload so the next edit (or manual retry)
+            // resends it — dropping it would silently lose the last change.
+            pending.current = { ...payload, ...(pending.current ?? {}) };
             setSaveState("error");
             return;
           }
@@ -200,7 +220,11 @@ const DashboardGrid = ({
         id: crypto.randomUUID(),
         type,
         config: descriptor.defaultConfig,
-        layout: { x: 0, y: placeAt(widgets, descriptor.defaultSize.h), ...descriptor.defaultSize },
+        layout: {
+          x: 0,
+          y: placeAt(widgets, descriptor.defaultSize.h),
+          ...descriptor.defaultSize,
+        },
       },
     ]);
   };
@@ -271,15 +295,17 @@ const DashboardGrid = ({
               }}
               onBlur={(e) => rename(e.currentTarget.value)}
             />
-          ) : (
-            <Title
-              order={3}
-              onClick={() => editMode && setRenaming(true)}
-              style={{ cursor: editMode ? "text" : "default" }}
-              title={editMode ? "Click to rename" : undefined}
+          ) : editMode ? (
+            <UnstyledButton
+              onClick={() => setRenaming(true)}
+              title="Rename dashboard"
+              aria-label={`Rename dashboard ${name}`}
+              style={{ cursor: "text" }}
             >
-              {name}
-            </Title>
+              <Title order={3}>{name}</Title>
+            </UnstyledButton>
+          ) : (
+            <Title order={3}>{name}</Title>
           )}
           {dashboard.isTemplate && (
             <Badge variant="light" color="accent">
@@ -300,7 +326,10 @@ const DashboardGrid = ({
                     key={d.id}
                     disabled={d.id === dashboard.id}
                     onClick={() =>
-                      navigate({ to: "/d/$dashboardId", params: { dashboardId: d.id } })
+                      navigate({
+                        to: "/d/$dashboardId",
+                        params: { dashboardId: d.id },
+                      })
                     }
                   >
                     {d.name}
@@ -310,7 +339,7 @@ const DashboardGrid = ({
               <Menu.Item onClick={() => navigate({ to: "/" })}>All dashboards…</Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          <Text c="dimmed" fz="xs">
+          <Text c={saveState === "error" ? "red.4" : "dimmed"} fz="xs" role="status">
             {saveState === "saving" && "Saving…"}
             {saveState === "saved" && "Saved"}
             {saveState === "error" && "Save failed — changes not stored"}
@@ -340,7 +369,7 @@ const DashboardGrid = ({
           <Button
             variant={editMode ? "filled" : "default"}
             onClick={() => setEditMode((v) => !v)}
-            title="Toggle edit mode (⌘E)"
+            title={`Toggle edit mode (${navigator.platform.includes("Mac") ? "⌘E" : "Ctrl+E"})`}
           >
             {editMode ? "Done" : "Edit"}
           </Button>
@@ -399,21 +428,39 @@ const DashboardGrid = ({
         position="right"
         title={configuring ? `${configuringDescriptor?.name ?? configuring.type} settings` : ""}
       >
-        {configuring &&
-          configuringDescriptor?.ConfigForm &&
-          (() => {
-            const validation = validateWidgetConfig(configuring.type, configuring.config);
-            const ConfigForm = configuringDescriptor.ConfigForm;
-            return (
-              <Suspense fallback={<Loader size="sm" />}>
-                <ConfigForm
-                  config={validation.ok ? validation.value : configuringDescriptor.defaultConfig}
-                  onChange={(next) => updateWidgetConfig(configuring.id, next)}
-                />
-              </Suspense>
-            );
-          })()}
+        {configuring && configuringDescriptor && (
+          <WidgetConfigPanel
+            widget={configuring}
+            descriptor={configuringDescriptor}
+            onChange={(next) => updateWidgetConfig(configuring.id, next)}
+          />
+        )}
       </Drawer>
     </Box>
+  );
+};
+
+const WidgetConfigPanel = ({
+  widget,
+  descriptor,
+  onChange,
+}: {
+  widget: Widget;
+  descriptor: WidgetDescriptor;
+  onChange: (next: unknown) => void;
+}) => {
+  const ConfigForm = descriptor.ConfigForm;
+  if (!ConfigForm) return null;
+  const validation = validateWidgetConfig(widget.type, widget.config);
+  const formConfig = validation.ok
+    ? validation.value
+    : {
+        ...(descriptor.defaultConfig as Record<string, unknown>),
+        ...(widget.config as Record<string, unknown>),
+      };
+  return (
+    <Suspense fallback={<Loader size="sm" />}>
+      <ConfigForm config={formConfig} onChange={onChange} />
+    </Suspense>
   );
 };
