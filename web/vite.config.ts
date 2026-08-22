@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({ babel: { plugins: ["babel-plugin-react-compiler"] } })],
   server: {
     // Dev: vite serves the SPA, the Hono server owns /api (incl. SSE).
     proxy: {
