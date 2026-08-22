@@ -62,10 +62,21 @@ Not a spec. One slice at a time: issue → decision → fix.
       NOT DONE (deliberate): per-descriptor icons (spreads across 9 widget
       folders); drag-from-palette (`dropConfig` makes it viable, but free-slot
       tiling took most of its value); menu search/grouping (revisit ~15 widgets).
-- [~] **6. Event Explorer.** Shell DONE — full-height workspace, active-filter chips, filter drawer, header search that debounce-applies, `event-filters.ts` extracted and tested. STILL TO DO: sortable columns; unbounded `tags`/`location` will wreck the column grid on real data; Admiralty as a designed component (note: the column is empty on every row today, so capture may be the real gap). Active-filter chips (highest leverage — makes filter
-      state readable and collapsing safe). Draft-vs-applied dirty indicator.
-      Sortable columns. Unbounded `tags`/`location` will wreck the column grid.
-      Admiralty code as a designed component, not `join("")`.
+- [~] **6. Event Explorer.** Shell DONE — full-height workspace, active-filter
+      chips, filter drawer, header search that debounce-applies, `event-filters.ts`
+      extracted and tested. Column overflow DONE — `tags` and `location` are
+      unbounded free text in the DB (`text("tags").array()`, `text("location")`,
+      and nothing in the Zod schema caps them either), and under the old
+      auto-layout table one verbose row set the width of every column. The table
+      is now `layout="fixed"` with declared widths, so a long value ellipsizes in
+      its own column instead of stealing a neighbour's; `Header`, `Type`,
+      `Location` and `By` were all unbounded too and got the same treatment. Tags
+      render as badges — first two plus a `+N` count — with the full list in the
+      title tooltip and the detail drawer. Verified at 1280px (the guarded
+      minimum) against a deliberately pathological row.
+      STILL TO DO: sortable columns; Admiralty as a designed component rather
+      than `join("")` (the capture path is fully wired, so this is presentation
+      work).
 - [~] **7. Shell & navigation.** Error + not-found screens DONE — shared
       `Placeholder`, registered as router defaults so new routes inherit them, and
       rendered inside the layout so the header nav stays as a way out. A 404 on the

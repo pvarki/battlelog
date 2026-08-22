@@ -46,6 +46,29 @@ const route = getRouteApi("/events");
 // the multi-value filters stay explicit — those queries are not cheap.
 const SEARCH_DEBOUNCE_MS = 400;
 
+// `tags` and `location` are unbounded free text in the DB, so with an auto-layout
+// table one verbose row set the width of every column. The table is now
+// layout="fixed": columns keep their declared width, over-long values ellipsize,
+// and the full value stays reachable via the title tooltip and the detail drawer.
+const TRUNCATE = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
+
+const TAGS_SHOWN = 2;
+
+const TagsCell = ({ tags }: { tags: string[] }) => (
+  <Group gap={4} wrap="nowrap" title={tags.join(", ")}>
+    {tags.slice(0, TAGS_SHOWN).map((tag) => (
+      <Badge key={tag} variant="default" size="sm" miw={0} style={{ textTransform: "none" }}>
+        {tag}
+      </Badge>
+    ))}
+    {tags.length > TAGS_SHOWN && (
+      <Text fz="xs" c="dimmed" style={{ flexShrink: 0 }}>
+        +{tags.length - TAGS_SHOWN}
+      </Text>
+    )}
+  </Group>
+);
+
 /**
  * A workspace over one filtered result set: a compact header carrying the
  * search box and the active-filter chips, results filling the rest of the
@@ -241,18 +264,21 @@ export const EventExplorerPage = () => {
           </Box>
         ) : (
           <>
-            <Table striped highlightOnHover fz="sm" stickyHeader>
+            <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Time</Table.Th>
+                  <Table.Th w={150}>Time</Table.Th>
                   <Table.Th>Header</Table.Th>
-                  <Table.Th>Type</Table.Th>
-                  <Table.Th>Tags</Table.Th>
-                  <Table.Th title="Admiralty rating: source reliability (A–F) + information credibility (1–6)">
+                  <Table.Th w={130}>Type</Table.Th>
+                  <Table.Th w={200}>Tags</Table.Th>
+                  <Table.Th
+                    w={100}
+                    title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
+                  >
                     Admiralty
                   </Table.Th>
-                  <Table.Th>Location</Table.Th>
-                  <Table.Th>By</Table.Th>
+                  <Table.Th w={170}>Location</Table.Th>
+                  <Table.Th w={130}>By</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -263,23 +289,39 @@ export const EventExplorerPage = () => {
                     style={{ cursor: "pointer" }}
                   >
                     <Table.Td>{formatDateTime(event.eventTime ?? event.createdAt)}</Table.Td>
-                    <Table.Td>
+                    <Table.Td style={TRUNCATE}>
                       {/* Real button inside the row so keyboard users can open the detail too. */}
-                      <Anchor component="button" type="button" onClick={() => setSelected(event)}>
+                      <Anchor
+                        component="button"
+                        type="button"
+                        truncate
+                        display="block"
+                        maw="100%"
+                        title={event.header}
+                        onClick={() => setSelected(event)}
+                      >
                         {event.header}
                       </Anchor>
                     </Table.Td>
                     <Table.Td>
-                      {event.type ? <Badge variant="light">{event.type}</Badge> : null}
+                      {event.type ? (
+                        <Badge variant="light" maw="100%" title={event.type}>
+                          {event.type}
+                        </Badge>
+                      ) : null}
                     </Table.Td>
-                    <Table.Td>{event.tags?.join(", ")}</Table.Td>
+                    <Table.Td>
+                      {event.tags?.length ? <TagsCell tags={event.tags} /> : null}
+                    </Table.Td>
                     <Table.Td>
                       {[event.admiraltyReliability, event.admiraltyAccuracy]
                         .filter(Boolean)
                         .join("")}
                     </Table.Td>
-                    <Table.Td>{event.location}</Table.Td>
-                    <Table.Td>{event.updatedBy ?? event.createdBy}</Table.Td>
+                    <Table.Td style={TRUNCATE} title={event.location ?? undefined}>
+                      {event.location}
+                    </Table.Td>
+                    <Table.Td style={TRUNCATE}>{event.updatedBy ?? event.createdBy}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
