@@ -154,6 +154,14 @@ export type DashboardWidget = {
   layout: { x: number; y: number; w: number; h: number };
 };
 
+export type DashboardTemplateEvent = {
+  /** Widget that should receive the newly-created eventId when a template is used. */
+  widgetId: string;
+  header: string;
+  type: string;
+  data?: unknown;
+};
+
 /** User-composable dashboards: a named grid of widgets. */
 export const dashboards = pgTable(
   "dashboards",
@@ -165,6 +173,10 @@ export const dashboards = pgTable(
     /** Templates are dashboards on a shelf: instantiating copies name+widgets. */
     isTemplate: boolean("is_template").notNull().default(false),
     widgets: jsonb("widgets").$type<DashboardWidget[]>().notNull().default([]),
+    templateEvents: jsonb("template_events")
+      .$type<DashboardTemplateEvent[]>()
+      .notNull()
+      .default([]),
     /** Optimistic concurrency token: rewritten on every update; stale writers get 409. */
     version: text("version").notNull().default("0"),
     createdBy: text("created_by").notNull(),
