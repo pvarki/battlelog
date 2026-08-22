@@ -1,7 +1,9 @@
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 import "react-grid-layout/css/styles.css";
 import "@fontsource-variable/inter";
 import { MantineProvider } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -22,6 +24,7 @@ if (!rootEl) throw new Error("missing #root element");
 createRoot(rootEl).render(
   <StrictMode>
     <MantineProvider theme={theme} forceColorScheme="dark">
+      <Notifications position="bottom-right" />
       <RouterProvider router={router} />
     </MantineProvider>
   </StrictMode>,
