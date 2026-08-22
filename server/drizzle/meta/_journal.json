@@ -57,6 +57,20 @@
       "when": 1787354968130,
       "tag": "0007_grid-48-cols",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787361009064,
+      "tag": "0008_dashboard-is-template",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787361243299,
+      "tag": "0009_template-name-unique",
+      "breakpoints": true
     }
   ]
 }

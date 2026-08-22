@@ -24,6 +24,7 @@ RUN pnpm install --prod --frozen-lockfile --filter server
 COPY --from=build /usr/src/app/server/dist ./server/dist
 COPY --from=build /usr/src/app/server/drizzle ./server/drizzle
 COPY --from=build /usr/src/app/server/.env.schema ./server/.env.schema
+COPY --from=build /usr/src/app/server/templates ./server/templates
 COPY --from=build /usr/src/app/web/dist ./web/dist
 
 RUN mkdir -p server/uploads && chown -R node:node /usr/src/app

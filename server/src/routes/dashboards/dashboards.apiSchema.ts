@@ -30,6 +30,7 @@ export const dashboardResponseSchema = z
   .object({
     id: z.string().uuid(),
     name: z.string(),
+    isTemplate: z.boolean(),
     widgets: z.array(widgetSchema),
     version: z.string(),
     createdBy: z.string(),
@@ -43,6 +44,7 @@ export type DashboardResponse = z.infer<typeof dashboardResponseSchema>;
 export const createDashboardRequestSchema = z
   .object({
     name: z.string().min(1).max(100),
+    isTemplate: z.boolean().default(false),
     widgets: z.array(widgetSchema).max(50).default([]),
   })
   .openapi("CreateDashboardRequest");
@@ -59,6 +61,7 @@ export const updateDashboardRequestSchema = z
 export const toApiDashboard = (row: DashboardRow): DashboardResponse => ({
   id: row.id,
   name: row.name,
+  isTemplate: row.isTemplate,
   // Stored widgets were validated by widgetSchema on every write.
   widgets: row.widgets as Widget[],
   version: row.version,

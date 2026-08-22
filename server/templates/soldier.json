@@ -1,0 +1,38 @@
+{
+  "name": "Soldier",
+  "widgets": [
+    {
+      "id": "squad-status",
+      "type": "status",
+      "config": {
+        "title": "Squad status",
+        "statuses": [
+          {
+            "id": "readiness",
+            "label": "Valmius",
+            "kind": "choice",
+            "options": [
+              { "value": "valmis", "color": "green" },
+              { "value": "30 min", "color": "yellow" },
+              { "value": "levossa", "color": "blue" }
+            ]
+          },
+          { "id": "strength", "label": "Vahvuus", "kind": "count", "options": [] }
+        ]
+      },
+      "layout": { "x": 0, "y": 0, "w": 14, "h": 10 }
+    },
+    {
+      "id": "notes",
+      "type": "note",
+      "config": { "title": "Muistiinpanot" },
+      "layout": { "x": 0, "y": 10, "w": 14, "h": 8 }
+    },
+    {
+      "id": "clock",
+      "type": "clock",
+      "config": { "format": "24h" },
+      "layout": { "x": 40, "y": 0, "w": 8, "h": 5 }
+    }
+  ]
+}
