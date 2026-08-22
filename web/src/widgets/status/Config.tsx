@@ -10,6 +10,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
+import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import {
   STATUS_COLORS,
   type StatusColor,
@@ -25,17 +26,7 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
 
   return (
     <Stack>
-      <TextInput
-        label="Title"
-        placeholder="Shown in the widget header"
-        value={config.title ?? ""}
-        onChange={(e) =>
-          onChange({
-            ...config,
-            title: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
-          })
-        }
-      />
+      <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
 
       {config.statuses.map((row) => (
         <Paper key={row.id} withBorder p="xs">
@@ -159,7 +150,14 @@ const OptionEditor = ({
             aria-label={color}
             onClick={() => onChange({ ...option, color: color as StatusColor })}
           >
-            {option.color === color && <CheckIcon size={10} color="white" />}
+            {option.color === color && (
+              <CheckIcon
+                size={10}
+                color={
+                  color === "yellow" || color === "orange" ? "var(--mantine-color-dark-8)" : "white"
+                }
+              />
+            )}
           </ColorSwatch>
         ))}
       </Group>

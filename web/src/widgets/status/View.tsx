@@ -9,6 +9,13 @@ const parseValues = (data: unknown): StatusValues => {
   return { values: values && typeof values === "object" ? (values as StatusValues["values"]) : {} };
 };
 
+// A row switched choice→count still holds its old string value: render 0
+// instead of NaN (a NaN would serialize to null and destroy the stored value).
+const countOf = (stored: string | number | undefined): number => {
+  const n = Number(stored ?? 0);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const StatusView = ({ config, updateConfig }: WidgetViewProps<StatusConfig>) => {
   const { value, update, status } = useEventDocument<StatusValues>({
     eventId: config.eventId,
@@ -68,7 +75,7 @@ const StatusView = ({ config, updateConfig }: WidgetViewProps<StatusConfig>) => 
             {row &&
               (row.kind === "count" ? (
                 <CountChip
-                  count={Number(value.values[row.id] ?? 0)}
+                  count={countOf(value.values[row.id])}
                   onChange={(n) => setRowValue(row.id, n)}
                 />
               ) : (
@@ -81,7 +88,7 @@ const StatusView = ({ config, updateConfig }: WidgetViewProps<StatusConfig>) => 
           </Group>
         );
       })}
-      <Text c="dimmed" fz="xs" ta="right" mt="auto" mih="1.2em">
+      <Text c="dimmed" fz="xs" ta="right" mt="auto" mih="1.2em" role="status">
         {DOC_STATUS_LABEL[status]}
       </Text>
     </Stack>
@@ -110,11 +117,13 @@ const ChoiceChip = ({
           position="top-end"
         >
           <Badge
+            component="button"
+            type="button"
             color={selected?.color ?? "gray"}
             variant={selected ? "filled" : "outline"}
             style={{ cursor: "pointer" }}
           >
-            {selected?.value ?? "—"}
+            {selected?.value ?? "not set"}
           </Badge>
         </Tooltip>
       </Menu.Target>
@@ -150,7 +159,7 @@ const CountChip = ({ count, onChange }: { count: number; onChange: (next: number
     >
       −
     </ActionIcon>
-    <Badge color="blue" variant="light" miw={36}>
+    <Badge color="accent" variant="light" miw={36}>
       {count}
     </Badge>
     <ActionIcon
