@@ -79,6 +79,11 @@ export const WidgetWrapper = ({
     [instance.type, instance.config],
   );
 
+  // Convention: a `title` string in any widget's config renders bold in the
+  // header under the type caption (per the design mock).
+  const configTitle = (instance.config as { title?: unknown } | null | undefined)?.title;
+  const title = typeof configTitle === "string" && configTitle.trim() ? configTitle : undefined;
+
   return (
     <Paper withBorder h="100%" style={{ display: "flex", flexDirection: "column" }}>
       <Group
@@ -91,9 +96,16 @@ export const WidgetWrapper = ({
           borderBottom: "1px solid var(--mantine-color-dark-4)",
         }}
       >
-        <Text fz="xs" c="dimmed">
-          {descriptor?.name ?? instance.type}
-        </Text>
+        <div>
+          <Text fz="xs" c="dimmed">
+            {descriptor?.name ?? instance.type}
+          </Text>
+          {title && (
+            <Text fw={600} fz="sm" lh={1.2}>
+              {title}
+            </Text>
+          )}
+        </div>
         {editMode && (
           <Menu position="bottom-end">
             <Menu.Target>

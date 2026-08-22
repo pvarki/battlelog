@@ -4,10 +4,13 @@ import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 
 const configSchema = z
   .object({
+    /** Shown bold in the widget header (rendered by the wrapper). */
+    title: z.string().max(100).optional(),
     /**
      * Logical event id the note follows: content lives in the event log as a
      * type:"note" event, and every edit appends a version to its chain.
-     * Unset until the first save creates the event.
+     * Unset until the first save creates the event; editable in settings to
+     * follow another note, or cleared to start a new one on next edit.
      */
     eventId: z.string().uuid().optional(),
   })
@@ -30,6 +33,7 @@ const descriptor: WidgetDescriptor<NoteConfig> = {
   defaultSize: { w: 10, h: 6 },
   minSize: { w: 5, h: 3 },
   View: lazy(() => import("./View.tsx")),
+  ConfigForm: lazy(() => import("./Config.tsx")),
 };
 
 export default descriptor;

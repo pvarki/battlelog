@@ -22,14 +22,37 @@ const NoteView = ({ config, updateConfig }: WidgetViewProps<NoteConfig>) => {
   const [text, setText] = useState("");
   const [status, setStatus] = useState<Status>(config.eventId ? "loading" : "idle");
   const eventId = useRef(config.eventId);
+  // Id the view captured itself on first save — its config echo must not
+  // trigger a reload. A plain ref-equality guard breaks under StrictMode's
+  // double-run (the first run's fetch gets cancelled, the second run skips).
+  const selfCaptured = useRef<string | undefined>(undefined);
   const pending = useRef<string | null>(null);
   const saving = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Latest config for the async save path — a stale closure would clobber
+  // settings (e.g. title) edited while a save is in flight.
+  const configRef = useRef(config);
+  configRef.current = config;
 
+  // Follow config.eventId: initial load, and settings changes re-point the
+  // note at another chain (dropping any unsent edits to the old one).
   useEffect(() => {
-    const id = eventId.current;
-    if (!id) return;
+    if (config.eventId && config.eventId === selfCaptured.current) return;
+    selfCaptured.current = undefined;
+    if (config.eventId !== eventId.current) {
+      // Re-pointed in settings: drop unsent edits to the old chain.
+      clearTimeout(timer.current);
+      pending.current = null;
+      eventId.current = config.eventId;
+    }
+    if (!config.eventId) {
+      setText("");
+      setStatus("idle");
+      return;
+    }
+    const id = config.eventId;
     let cancelled = false;
+    setStatus("loading");
     (async () => {
       try {
         const res = await api.events[":eventId"].$get({ param: { eventId: id } });
@@ -48,7 +71,7 @@ const NoteView = ({ config, updateConfig }: WidgetViewProps<NoteConfig>) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [config.eventId]);
 
   // Unmount with an unsent edit: flush keepalive (only possible once the
   // note's event exists — a first-ever save can't persist its eventId after
@@ -92,7 +115,8 @@ const NoteView = ({ config, updateConfig }: WidgetViewProps<NoteConfig>) => {
             }
             const created = await res.json();
             eventId.current = created.eventId;
-            updateConfig({ ...config, eventId: created.eventId });
+            selfCaptured.current = created.eventId;
+            updateConfig({ ...configRef.current, eventId: created.eventId });
             setStatus("saved");
           } else {
             const res = await api.events[":eventId"].$patch({
