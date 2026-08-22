@@ -15,6 +15,7 @@ import { useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
+import { Placeholder } from "../../Placeholder.tsx";
 import {
   buildEvent,
   datetimeLocalValue,
@@ -27,7 +28,7 @@ import {
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-const FormView = ({ config }: WidgetViewProps<FormConfig>) => {
+const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   const [values, setValues] = useState<FormValues>({});
   const [status, setStatus] = useState<Status>("idle");
   const [problem, setProblem] = useState("");
@@ -72,9 +73,11 @@ const FormView = ({ config }: WidgetViewProps<FormConfig>) => {
     <Stack h="100%" gap="xs" p="xs">
       <Stack gap="xs" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {visible.length === 0 ? (
-          <Text c="dimmed" fz="sm">
-            No fields configured — add some in settings.
-          </Text>
+          <Placeholder
+            title="No fields yet"
+            detail="A form needs at least one field before it can post an event."
+            action={{ label: "Add fields", onClick: onConfigure }}
+          />
         ) : (
           visible.map((f) => (
             <FieldInput

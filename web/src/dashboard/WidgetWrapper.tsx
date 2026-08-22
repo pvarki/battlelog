@@ -1,6 +1,8 @@
-import { ActionIcon, Box, Button, Group, Loader, Menu, Paper, Stack, Text } from "@mantine/core";
+import { ActionIcon, Box, Group, Loader, Menu, Paper, Stack, Text } from "@mantine/core";
+import { IconDots } from "@tabler/icons-react";
 import { Component, type ReactNode, Suspense, useMemo } from "react";
 import type { Widget } from "../api.ts";
+import { Placeholder } from "../Placeholder.tsx";
 import { getWidget, validateWidgetConfig } from "./registry.ts";
 
 type Props = {
@@ -35,28 +37,6 @@ class WidgetErrorBoundary extends Component<
     return this.props.children;
   }
 }
-
-const Placeholder = ({
-  title,
-  detail,
-  action,
-}: {
-  title: string;
-  detail: string;
-  action?: { label: string; onClick: () => void };
-}) => (
-  <Stack align="center" justify="center" h="100%" gap={6} p="sm" ta="center">
-    <Text fw={600}>{title}</Text>
-    <Text c="dimmed" fz="xs">
-      {detail}
-    </Text>
-    {action && (
-      <Button size="compact-xs" variant="light" onClick={action.onClick}>
-        {action.label}
-      </Button>
-    )}
-  </Stack>
-);
 
 /**
  * Owns all widget chrome (header, menu, failure placeholders) — Views get no
@@ -123,7 +103,7 @@ export const WidgetWrapper = ({
           <Menu position="bottom-end">
             <Menu.Target>
               <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
-                …
+                <IconDots size={16} stroke={1.5} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
@@ -167,6 +147,7 @@ export const WidgetWrapper = ({
                 instanceId={instance.id}
                 editMode={editMode}
                 updateConfig={onUpdateConfig}
+                onConfigure={onConfigure}
               />
             </Suspense>
           </WidgetErrorBoundary>

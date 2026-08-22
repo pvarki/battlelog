@@ -6,6 +6,12 @@ export interface WidgetViewProps<TConfig> {
   instanceId: string;
   editMode: boolean;
   updateConfig: (next: TConfig) => void;
+  /**
+   * Opens this widget's settings drawer. A misconfigured widget is the one
+   * place a View must be able to send the user somewhere — telling them to
+   * "configure it in settings" without a way there is a dead end.
+   */
+  onConfigure: () => void;
 }
 
 export interface WidgetConfigProps<TConfig> {

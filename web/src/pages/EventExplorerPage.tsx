@@ -1,6 +1,7 @@
 import {
   Anchor,
   Badge,
+  Box,
   Button,
   Center,
   Checkbox,
@@ -27,6 +28,7 @@ import { z } from "zod";
 import { CREDIBILITY, RELIABILITY } from "../admiralty.ts";
 import { api, type EventResponse } from "../api.ts";
 import { EventDetail } from "../EventDetail.tsx";
+import { Placeholder } from "../Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
 
 const PAGE = 100;
@@ -200,6 +202,9 @@ export const EventExplorerPage = () => {
 
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
   const eventIdInvalid = filters.eventId.trim() !== "" && !isUuid(filters.eventId.trim());
+  // Applied filters live in the URL, and compact() strips empty ones — so any
+  // key at all means the result set is narrowed.
+  const hasFilters = Object.keys(applied).length > 0;
   const geoPartial =
     [filters.lat, filters.lng, filters.radiusMeters].filter((v) => v !== "").length % 3 !== 0;
 
@@ -370,9 +375,27 @@ export const EventExplorerPage = () => {
           <Loader />
         </Center>
       ) : rows.length === 0 ? (
-        <Text c="dimmed" my="md">
-          No matching events.
-        </Text>
+        <Box py="xl">
+          <Placeholder
+            title="No matching events"
+            detail={
+              hasFilters
+                ? "Nothing in the log matches these filters."
+                : "The event log is empty — nothing has been reported yet."
+            }
+            action={
+              hasFilters
+                ? {
+                    label: "Reset filters",
+                    onClick: () => {
+                      setFilters(EMPTY);
+                      navigate({ search: {} });
+                    },
+                  }
+                : undefined
+            }
+          />
+        </Box>
       ) : (
         <>
           <Text c="dimmed" fz="xs" my="xs">
