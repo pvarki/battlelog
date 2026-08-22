@@ -1,6 +1,7 @@
 import { Center, Text } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
+import { Placeholder } from "../../Placeholder.tsx";
 import { resolveType, type SourceType, type StreamsConfig } from "./widget.ts";
 
 const RETRY_MS = 5000;
@@ -13,15 +14,15 @@ const media: React.CSSProperties = {
   backgroundColor: "black",
 };
 
-const StreamsView = ({ config }: WidgetViewProps<StreamsConfig>) => {
+const StreamsView = ({ config, onConfigure }: WidgetViewProps<StreamsConfig>) => {
   const url = config.url.trim();
   if (!url) {
     return (
-      <Center h="100%">
-        <Text c="dimmed" fz="sm">
-          Set a stream URL in settings.
-        </Text>
-      </Center>
+      <Placeholder
+        title="No stream set"
+        detail="Point this widget at a MediaMTX stream or an external video URL."
+        action={{ label: "Set stream URL", onClick: onConfigure }}
+      />
     );
   }
   const type = resolveType(config);

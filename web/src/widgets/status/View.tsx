@@ -1,6 +1,7 @@
 import { ActionIcon, Badge, ColorSwatch, Group, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
+import { Placeholder } from "../../Placeholder.tsx";
 import { buildStatusTree, flattenTree } from "./tree.ts";
 import type { StatusConfig, StatusRow, StatusValues } from "./widget.ts";
 
@@ -16,7 +17,7 @@ const countOf = (stored: string | number | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const StatusView = ({ config, updateConfig }: WidgetViewProps<StatusConfig>) => {
+const StatusView = ({ config, updateConfig, onConfigure }: WidgetViewProps<StatusConfig>) => {
   const { value, update, status } = useEventDocument<StatusValues>({
     eventId: config.eventId,
     eventType: "status",
@@ -38,9 +39,11 @@ const StatusView = ({ config, updateConfig }: WidgetViewProps<StatusConfig>) => 
 
   if (config.statuses.length === 0) {
     return (
-      <Text c="dimmed" fz="sm" ta="center" mt="md">
-        No statuses yet — configure them in Settings.
-      </Text>
+      <Placeholder
+        title="No statuses yet"
+        detail="Add the units or tasks this board should track."
+        action={{ label: "Add statuses", onClick: onConfigure }}
+      />
     );
   }
 
