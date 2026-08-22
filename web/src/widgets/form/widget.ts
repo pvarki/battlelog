@@ -24,6 +24,9 @@ const eventFieldSchema = z.object({
   id: idSchema,
   kind: z.literal("event"),
   field: z.enum(eventFieldNames),
+  /** Overrides the built-in EVENT_FIELDS label. */
+  label: z.string().max(60).optional(),
+  description: z.string().max(200).optional(),
   required: z.boolean().optional(),
 });
 
@@ -34,17 +37,23 @@ const dataFieldSchema = z.object({
   id: idSchema,
   kind: z.literal("data"),
   label: z.string().max(60),
+  /** Data-blob key. Empty falls back to the slugified label. */
+  key: z.string().max(60).optional(),
+  description: z.string().max(200).optional(),
   input: z.enum(["text", "textarea", "number", "select", "checkbox"]),
   /** Choices for input:"select". */
   options: z.array(z.string().min(1).max(60)).max(24).default([]),
   required: z.boolean().optional(),
 });
 
-/** Hidden value submitted with every event: an extra tag, or a data entry under `key`. */
+/**
+ * Hidden value submitted with every event: an extra tag, a data entry under
+ * `key`, or the header for forms that don't let the user type one.
+ */
 const fixedFieldSchema = z.object({
   id: idSchema,
   kind: z.literal("fixed"),
-  target: z.enum(["tags", "data"]),
+  target: z.enum(["tags", "data", "header"]),
   key: z.string().max(60).optional(),
   value: z.string().max(200),
 });
@@ -89,7 +98,18 @@ export type FormEventPayload = {
   data?: Record<string, unknown>;
 };
 
-/** Data-blob key for a custom field: its label slugified. Colliding labels: last one wins. */
+/** A field the user fills in, as opposed to a hidden fixed value. */
+export type VisibleField = Extract<FormField, { kind: "event" | "data" }>;
+
+/** Data-blob key of a custom field: its explicit key, else the slugified label. */
+export const dataKey = (f: Extract<FormField, { kind: "data" }>): string =>
+  f.key?.trim() || slugify(f.label);
+
+/** Input label: the configured override, else the built-in name of an event field. */
+export const fieldLabel = (f: VisibleField): string =>
+  f.label?.trim() || (f.kind === "event" ? EVENT_FIELDS[f.field] : "");
+
+/** Fallback data key for a custom field with no explicit key. Colliding keys: last one wins. */
 export const slugify = (label: string): string =>
   label
     .toLowerCase()
@@ -113,17 +133,19 @@ export const buildEvent = (config: FormConfig, values: FormValues): FormEventPay
   const payload: FormEventPayload = { header: "", type: `form-${reportType}` };
   const data: Record<string, unknown> = {};
   const tags: string[] = [];
+  let fixedHeader = "";
 
   for (const f of config.fields) {
     if (f.kind === "fixed") {
       if (!f.value) continue;
       if (f.target === "tags") tags.push(f.value);
+      else if (f.target === "header") fixedHeader = f.value;
       else if (f.key) data[f.key] = f.value;
       continue;
     }
     const v = values[f.id];
     if (f.kind === "data") {
-      if (v !== undefined && v !== null && v !== "") data[slugify(f.label)] = v;
+      if (v !== undefined && v !== null && v !== "") data[dataKey(f)] = v;
       continue;
     }
     switch (f.field) {
@@ -159,8 +181,14 @@ export const buildEvent = (config: FormConfig, values: FormValues): FormEventPay
 
   if (tags.length) payload.tags = [...new Set(tags)];
   if (Object.keys(data).length) payload.data = data;
-  if (!payload.header) payload.header = (config.title ?? reportType).slice(0, 80);
-  else payload.header = payload.header.slice(0, 80);
+  // The API rejects an empty header, so a form without a header input still
+  // gets one: the fixed header, else the widget title, else the report type.
+  payload.header = (
+    payload.header ||
+    fixedHeader.trim() ||
+    config.title?.trim() ||
+    reportType
+  ).slice(0, 80);
   return payload;
 };
 
@@ -178,8 +206,7 @@ export const missingRequired = (
     const v = values[f.id];
     const empty =
       f.kind === "event" && f.field === "locationPoint" ? point(v) === undefined : isEmpty(v);
-    if (empty)
-      missing.push({ id: f.id, label: f.kind === "data" ? f.label : EVENT_FIELDS[f.field] });
+    if (empty) missing.push({ id: f.id, label: fieldLabel(f) });
   }
   return missing;
 };

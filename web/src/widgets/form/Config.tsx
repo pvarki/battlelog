@@ -13,12 +13,36 @@ import {
 } from "@mantine/core";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
-import { EVENT_FIELDS, type EventFieldName, type FormConfig, type FormField } from "./widget.ts";
+import {
+  buildEvent,
+  EVENT_FIELDS,
+  type EventFieldName,
+  type FormConfig,
+  type FormField,
+  slugify,
+  type VisibleField,
+} from "./widget.ts";
 
 const EVENT_FIELD_OPTIONS = Object.entries(EVENT_FIELDS).map(([value, label]) => ({
   value,
   label,
 }));
+
+const DescriptionInput = ({
+  field,
+  setField,
+}: {
+  field: VisibleField;
+  setField: (id: string, patch: Partial<FormField>) => void;
+}) => (
+  <TextInput
+    label="Description"
+    placeholder="Optional hint shown under the label"
+    size="xs"
+    value={field.description ?? ""}
+    onChange={(e) => setField(field.id, { description: e.currentTarget.value })}
+  />
+);
 
 const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => {
   const setFields = (fields: FormField[]) => onChange({ ...config, fields });
@@ -99,21 +123,33 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
             </Group>
 
             {field.kind === "event" && (
-              <Group wrap="nowrap" align="flex-end">
-                <Select
-                  size="xs"
-                  style={{ flex: 1 }}
-                  data={EVENT_FIELD_OPTIONS}
-                  value={field.field}
-                  onChange={(v) => v && setField(field.id, { field: v as EventFieldName })}
-                />
-                <Checkbox
-                  size="xs"
-                  label="Required"
-                  checked={field.required ?? false}
-                  onChange={(e) => setField(field.id, { required: e.currentTarget.checked })}
-                />
-              </Group>
+              <>
+                <Group wrap="nowrap" align="flex-end">
+                  <Select
+                    label="Field"
+                    size="xs"
+                    style={{ flex: 1 }}
+                    data={EVENT_FIELD_OPTIONS}
+                    value={field.field}
+                    onChange={(v) => v && setField(field.id, { field: v as EventFieldName })}
+                  />
+                  <TextInput
+                    label="Label"
+                    size="xs"
+                    style={{ flex: 1 }}
+                    placeholder={EVENT_FIELDS[field.field]}
+                    value={field.label ?? ""}
+                    onChange={(e) => setField(field.id, { label: e.currentTarget.value })}
+                  />
+                  <Checkbox
+                    size="xs"
+                    label="Required"
+                    checked={field.required ?? false}
+                    onChange={(e) => setField(field.id, { required: e.currentTarget.checked })}
+                  />
+                </Group>
+                <DescriptionInput field={field} setField={setField} />
+              </>
             )}
 
             {field.kind === "data" && (
@@ -126,6 +162,16 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                     value={field.label}
                     onChange={(e) => setField(field.id, { label: e.currentTarget.value })}
                   />
+                  <TextInput
+                    label="Data key"
+                    size="xs"
+                    style={{ flex: 1 }}
+                    placeholder={slugify(field.label)}
+                    value={field.key ?? ""}
+                    onChange={(e) => setField(field.id, { key: e.currentTarget.value })}
+                  />
+                </Group>
+                <Group wrap="nowrap" align="flex-end">
                   <Select
                     label="Input"
                     size="xs"
@@ -140,6 +186,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                     onChange={(e) => setField(field.id, { required: e.currentTarget.checked })}
                   />
                 </Group>
+                <DescriptionInput field={field} setField={setField} />
                 {field.input === "select" && (
                   <TagsInput
                     label="Options"
@@ -158,6 +205,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                   data={[
                     { label: "Tag", value: "tags" },
                     { label: "Data", value: "data" },
+                    { label: "Header", value: "header" },
                   ]}
                   value={field.target}
                   onChange={(target) =>
@@ -185,6 +233,13 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
           </Stack>
         </Paper>
       ))}
+
+      {!config.fields.some((f) => f.kind === "event" && f.field === "header") && (
+        <Text fz="xs" c="dimmed">
+          No header input — every event is titled “{buildEvent(config, {}).header}”. Add an event
+          field “Header”, or a fixed value targeting Header, to change that.
+        </Text>
+      )}
 
       <Group grow>
         <Button

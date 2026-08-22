@@ -120,6 +120,69 @@ test("header falls back to reportType without a title", () => {
   expect(payload.type).toBe("form-casevac");
 });
 
+// The API rejects an empty header, so buildEvent must always produce one.
+test("header precedence: typed value, then fixed header, then title, then reportType", () => {
+  const input: FormConfig["fields"][number] = { id: "h", kind: "event", field: "header" };
+  const fixed: FormConfig["fields"][number] = {
+    id: "fh",
+    kind: "fixed",
+    target: "header",
+    value: "Contact report",
+  };
+  const fields = [input, fixed];
+  expect(buildEvent({ title: "T", reportType: "r", fields }, { h: "Typed" }).header).toBe("Typed");
+  expect(buildEvent({ title: "T", reportType: "r", fields }, {}).header).toBe("Contact report");
+  expect(buildEvent({ title: "T", reportType: "r", fields: [input] }, {}).header).toBe("T");
+  expect(buildEvent({ title: "  ", reportType: "casevac", fields: [] }, {}).header).toBe("casevac");
+});
+
+test("a fixed header is not written into the data blob", () => {
+  const payload = buildEvent(
+    {
+      reportType: "r",
+      fields: [{ id: "fh", kind: "fixed", target: "header", key: "stray", value: "Contact" }],
+    },
+    {},
+  );
+  expect(payload.header).toBe("Contact");
+  expect(payload.data).toBeUndefined();
+});
+
+test("an explicit data key wins over the slugified label", () => {
+  const payload = buildEvent(
+    {
+      reportType: "x",
+      fields: [
+        {
+          id: "a",
+          kind: "data",
+          label: "Enemy strength",
+          key: "pax",
+          input: "number",
+          options: [],
+        },
+        { id: "b", kind: "data", label: "Enemy strength", key: "  ", input: "text", options: [] },
+      ],
+    },
+    { a: 12, b: "reserve" },
+  );
+  expect(payload.data).toEqual({ pax: 12, "enemy-strength": "reserve" });
+});
+
+test("custom labels override the built-in event field names", () => {
+  const strict: FormConfig = {
+    reportType: "x",
+    fields: [
+      { id: "h", kind: "event", field: "header", label: "Callsign", required: true },
+      { id: "p", kind: "event", field: "locationPoint", label: "  ", required: true },
+    ],
+  };
+  expect(missingRequired(strict, {})).toEqual([
+    { id: "h", label: "Callsign" },
+    { id: "p", label: "Coordinates" },
+  ]);
+});
+
 test("missingRequired reports empty required fields", () => {
   const strict: FormConfig = {
     reportType: "x",
