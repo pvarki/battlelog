@@ -93,7 +93,8 @@ const FeedView = ({ config }: WidgetViewProps<FeedConfig>) => {
           setEverOpened(true);
           setFullscreen(true);
         }}
-        style={{ position: "absolute", top: 4, right: 4, zIndex: 3 }}
+        // Above the sticky thead, which Mantine gives z-index 3.
+        style={{ position: "absolute", top: 4, right: 4, zIndex: 4 }}
       >
         ⛶
       </ActionIcon>
