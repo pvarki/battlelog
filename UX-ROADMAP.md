@@ -66,9 +66,13 @@ Not a spec. One slice at a time: issue → decision → fix.
       state readable and collapsing safe). Draft-vs-applied dirty indicator.
       Sortable columns. Unbounded `tags`/`location` will wreck the column grid.
       Admiralty code as a designed component, not `join("")`.
-- [ ] **7. Shell & navigation.** No route has an `errorComponent` — the most common
-      failure lands on TanStack's default screen. Connection indicator in the header.
-      The too-narrow-screen guard is a dead end.
+- [~] **7. Shell & navigation.** Error + not-found screens DONE — shared
+      `Placeholder`, registered as router defaults so new routes inherit them, and
+      rendered inside the layout so the header nav stays as a way out. A 404 on the
+      dashboard route throws `notFound()` (a stale link to a deleted dashboard is
+      the likeliest failure there). Connection indicator landed in slice 2.
+      STILL TO DO: the too-narrow-screen guard is a dead end that says what is
+      wrong but not what to do; the header doesn't show which dashboard you are in.
 
 ## Finish
 
@@ -82,6 +86,10 @@ Not a spec. One slice at a time: issue → decision → fix.
       dashboard — the product's central act — has no keyboard path. Also focus-ring
       contrast on the dark surfaces, status color needing label/shape pairing, the
       explorer's nested interactive table rows, and `window.confirm`.
-- [ ] **11. Character.** Tabular figures wherever numbers change in place (cheapest
-      high-impact item on this list; also lets the clock drop monospace and return to
-      Inter). HCoE domains promoted from `join(", ")`. Microcopy in one voice.
+- [~] **11. Character.** Tabular figures DONE — one inherited rule in `global.css`;
+      measured 34px of per-tick jitter before, 0 after, and the clock dropped
+      `ff="monospace"` so the type system has no exception left.
+      STILL TO DO: HCoE domains promoted from `join(", ")`; Admiralty as a designed
+      component (the capture path is fully wired end to end — DB enum, API, server
+      filter, form-widget field kinds — so this really is presentation work, and it
+      will light up as soon as a form uses those fields); microcopy in one voice.
