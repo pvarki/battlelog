@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { IconArrowDown, IconArrowUp, IconX } from "@tabler/icons-react";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import {
@@ -98,7 +99,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                   disabled={index === 0}
                   onClick={() => move(index, -1)}
                 >
-                  ↑
+                  <IconArrowUp size={14} stroke={1.5} />
                 </ActionIcon>
                 <ActionIcon
                   variant="subtle"
@@ -108,16 +109,16 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                   disabled={index === config.fields.length - 1}
                   onClick={() => move(index, 1)}
                 >
-                  ↓
+                  <IconArrowDown size={14} stroke={1.5} />
                 </ActionIcon>
                 <ActionIcon
                   variant="subtle"
-                  color="red"
+                  color="gray"
                   size="xs"
                   aria-label="Remove field"
                   onClick={() => setFields(config.fields.filter((f) => f.id !== field.id))}
                 >
-                  ✕
+                  <IconX size={14} stroke={1.5} />
                 </ActionIcon>
               </Group>
             </Group>

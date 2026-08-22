@@ -9,6 +9,7 @@ import {
   TagsInput,
   TextInput,
 } from "@mantine/core";
+import { IconX } from "@tabler/icons-react";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import {
@@ -102,12 +103,12 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
               />
               <ActionIcon
                 variant="subtle"
-                color="red"
+                color="gray"
                 aria-label={`Remove ${labelFor(col)}`}
                 disabled={config.columns.length === 1}
                 onClick={() => setColumns(config.columns.filter((c) => c.id !== col.id))}
               >
-                ✕
+                <IconX size={18} stroke={1.5} />
               </ActionIcon>
             </Group>
             {col.source === "data" && (

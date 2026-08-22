@@ -15,6 +15,7 @@
     "@mantine/core": "^8.3.18",
     "@mantine/hooks": "^8.3.18",
     "@mantine/notifications": "^8.3.18",
+    "@tabler/icons-react": "^3.46.0",
     "@tanstack/react-router": "^1.170.31",
     "hls.js": "^1.7.1",
     "hono": "^4.13.3",

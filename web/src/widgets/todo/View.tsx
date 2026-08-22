@@ -1,4 +1,5 @@
 import { ActionIcon, Checkbox, Group, Stack, Text, TextInput } from "@mantine/core";
+import { IconX } from "@tabler/icons-react";
 import { useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
@@ -60,7 +61,7 @@ const TodoView = ({ config, updateConfig }: WidgetViewProps<TodoConfig>) => {
                 aria-label={`Remove ${item.text}`}
                 onClick={() => remove(item.id)}
               >
-                ✕
+                <IconX size={14} stroke={1.5} />
               </ActionIcon>
             </Group>
           ))

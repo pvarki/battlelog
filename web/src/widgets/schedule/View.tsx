@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
@@ -62,7 +63,7 @@ const TimerRow = ({
           aria-label={`Remove ${timer.label}`}
           onClick={onRemove}
         >
-          ✕
+          <IconX size={14} stroke={1.5} />
         </ActionIcon>
       </Group>
     </Group>
