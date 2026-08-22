@@ -234,6 +234,7 @@ const DesktopDashboards = () => {
     description: string | null;
     isTemplate?: boolean;
     widgets: DashboardResponse["widgets"];
+    templateEvents?: DashboardResponse["templateEvents"];
   }) =>
     startCreate(async () => {
       const res = await dashboardsApi.dashboards.$post({ json });
@@ -333,7 +334,12 @@ const DesktopDashboards = () => {
       // identically named rows in the list with no way to tell them apart.
       const template = templates.find((t) => t.id === templateId);
       if (!template) return;
-      create({ name, description, widgets: template.widgets });
+      create({
+        name,
+        description,
+        widgets: template.widgets,
+        templateEvents: template.templateEvents,
+      });
       return;
     }
     const current = all.find((d) => d.id === target.id);
@@ -461,6 +467,19 @@ const DesktopDashboards = () => {
               Duplicate
             </Menu.Item>
           </>
+        )}
+        {d.isTemplate && (
+          <Menu.Item
+            leftSection={<IconPencil size={16} stroke={1.5} />}
+            onClick={() =>
+              navigate({
+                to: "/d/$dashboardId",
+                params: { dashboardId: d.id },
+              })
+            }
+          >
+            Edit template
+          </Menu.Item>
         )}
         <Menu.Item
           leftSection={<IconDownload size={16} stroke={1.5} />}
@@ -736,13 +755,17 @@ const DesktopDashboards = () => {
 
 const RowInfo = ({ dashboard }: { dashboard: DashboardResponse }) => (
   <Box mih={0} style={{ flex: 1 }}>
-    <Anchor
-      renderRoot={(props) => (
-        <Link to="/d/$dashboardId" params={{ dashboardId: dashboard.id }} {...props} />
-      )}
-    >
-      {dashboard.name}
-    </Anchor>
+    {dashboard.isTemplate ? (
+      <Text>{dashboard.name}</Text>
+    ) : (
+      <Anchor
+        renderRoot={(props) => (
+          <Link to="/d/$dashboardId" params={{ dashboardId: dashboard.id }} {...props} />
+        )}
+      >
+        {dashboard.name}
+      </Anchor>
+    )}
     {dashboard.description && (
       <Text fz="xs" lineClamp={2} title={dashboard.description}>
         {dashboard.description}
