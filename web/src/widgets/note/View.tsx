@@ -24,14 +24,14 @@ const NoteView = ({ config, updateConfig }: WidgetViewProps<NoteConfig>) => {
         onBlur={flush}
         placeholder="Write a note…"
         variant="unstyled"
-        disabled={status === "loading"}
+        disabled={status === "loading" || status === "unavailable"}
         styles={{
           root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
           wrapper: { flex: 1, display: "flex", minHeight: 0 },
           input: { flex: 1, height: "100%", resize: "none" },
         }}
       />
-      <Text c="dimmed" fz="xs" ta="right" mih="1.2em">
+      <Text c="dimmed" fz="xs" ta="right" mih="1.2em" role="status">
         {DOC_STATUS_LABEL[status]}
       </Text>
     </Stack>

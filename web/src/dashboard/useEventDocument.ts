@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
 import { subscribeToEvents } from "../live-events.ts";
 
-export type DocStatus = "idle" | "loading" | "waiting" | "saving" | "saved" | "error" | "stale";
+export type DocStatus =
+  | "idle"
+  | "loading"
+  | "waiting"
+  | "saving"
+  | "saved"
+  | "error"
+  | "stale"
+  | "unavailable";
 
 export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   idle: "",
@@ -12,6 +20,7 @@ export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   saved: "Saved",
   error: "Save failed — retrying",
   stale: "Updated elsewhere — reloaded",
+  unavailable: "Load failed — retrying",
 };
 
 type Options<T> = {
@@ -43,6 +52,9 @@ export const useEventDocument = <T>(opts: Options<T>) => {
   // (A plain ref-equality guard breaks under StrictMode's double-run.)
   const selfCaptured = useRef<string | undefined>(undefined);
   const pending = useRef<T | null>(null);
+  // Guards update(): editing before the followed head has loaded would save
+  // an empty doc over the real remote content.
+  const loaded = useRef(!opts.eventId);
   const saving = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const optsRef = useRef(opts);
@@ -59,29 +71,36 @@ export const useEventDocument = <T>(opts: Options<T>) => {
       pending.current = null;
       eventId.current = followedId;
     }
+    loaded.current = !followedId;
     if (!followedId) {
       setValue(optsRef.current.empty);
       setStatus("idle");
       return;
     }
     let cancelled = false;
-    setStatus("loading");
-    (async () => {
+    let retry: ReturnType<typeof setTimeout>;
+    const load = async () => {
+      setStatus("loading");
       try {
         const res = await api.events[":eventId"].$get({ param: { eventId: followedId } });
         if (cancelled) return;
-        if (res.status === 200) {
-          setValue(optsRef.current.parse((await res.json()).data));
-          setStatus("idle");
-        } else {
-          setStatus("error");
-        }
+        if (res.status !== 200) throw new Error(`load failed (${res.status})`);
+        setValue(optsRef.current.parse((await res.json()).data));
+        loaded.current = true;
+        setStatus("idle");
       } catch {
-        if (!cancelled) setStatus("error");
+        // Doc stays read-only (update() no-ops) until a load succeeds.
+        // ponytail: blanket retry, even on 404 — back off if it matters.
+        if (!cancelled) {
+          setStatus("unavailable");
+          retry = setTimeout(load, 5000);
+        }
       }
-    })();
+    };
+    void load();
     return () => {
       cancelled = true;
+      clearTimeout(retry);
     };
   }, [followedId]);
 
@@ -135,10 +154,8 @@ export const useEventDocument = <T>(opts: Options<T>) => {
                 data: doc,
               },
             });
-            if (res.status !== 201) {
-              setStatus("error");
-              return;
-            }
+            // Non-201 falls through to the catch: keep the edit, retry.
+            if (res.status !== 201) throw new Error(`create failed (${res.status})`);
             const created = await res.json();
             eventId.current = created.eventId;
             selfCaptured.current = created.eventId;
@@ -159,12 +176,13 @@ export const useEventDocument = <T>(opts: Options<T>) => {
               if (head.status === 200) setValue(optsRef.current.parse((await head.json()).data));
               setStatus("stale");
             } else {
-              setStatus("error");
-              return;
+              // Non-2xx falls through to the catch: keep the edit, retry.
+              throw new Error(`save failed (${res.status})`);
             }
           }
         } catch {
-          // Network blip: keep the newest unsaved value and retry shortly.
+          // Network blip or server error: keep the newest unsaved value and
+          // retry shortly. ponytail: retries forever, even on a permanent 4xx.
           pending.current ??= doc;
           setStatus("error");
           timer.current = setTimeout(runSave, 3000);
@@ -177,6 +195,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
   };
 
   const update = (next: T) => {
+    if (!loaded.current) return;
     setValue(next);
     pending.current = next;
     setStatus("waiting");
