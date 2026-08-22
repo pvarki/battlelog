@@ -8,6 +8,15 @@ Not a spec. One slice at a time: issue → decision → fix.
 
 ## Locked decisions
 
+- **The Event Explorer is a workspace, not a form-over-table** — a map view is
+  coming, so filters live in a drawer plus a chip row and the results area owns the
+  viewport. When the map lands: a Table/Map/Split switcher, the 100-row page becomes
+  misleading on a map (raise the limit or aggregate), events with no `locationPoint`
+  must be counted and stated rather than silently dropped, and the tile source is a
+  deployment decision (self-hosted/offline vs CDN) that drives MapLibre vs Leaflet.
+  The existing `ST_DWithin` radius filter is already the right shape for a map and
+  needs no server change.
+
 - **Desk density only.** Ops-room wall display and mobile are both out of scope.
   Revisit when mobile is on the table (it brings its own questions).
 - **Undo covers composition, not content.** Layout, widget config, add/remove/
@@ -28,25 +37,26 @@ Not a spec. One slice at a time: issue → decision → fix.
 
 ## Foundations
 
-- [ ] **1. Icon & control vocabulary.** Replace glyph-as-icon with a real icon set.
+- [x] **1. Icon & control vocabulary.** Done — `@tabler/icons-react`, 16 sites. Replace glyph-as-icon with a real icon set.
       Rule: icon-only is permitted only where the action is also reachable by label.
-- [ ] **2. Status & connection language.** Unify `useEventDocument`'s `DocStatus`
+- [x] **2. Status & connection language.** Done — stream health surfaced, `SaveState` folded into `DocStatus`. Unify `useEventDocument`'s `DocStatus`
       (`idle|loading|waiting|saving|saved|error|stale|unavailable`) with
       `DashboardPage`'s parallel `SaveState`, and surface SSE health — currently
       invisible. *Stale but plausible* is the dangerous failure on a live display.
-- [ ] **3. Empty / error / loading pattern.** Promote `WidgetWrapper.Placeholder`
+- [x] **3. Empty / error / loading pattern.** Done — shared `Placeholder`, `onConfigure` on the widget contract. Promote `WidgetWrapper.Placeholder`
       to shared. Empty states should teach, not just report absence.
-- [ ] **4. Density & hierarchy scale.** Codify spacing in `theme.ts`; it sets type
+- [~] **4. Density & hierarchy scale.** SKIPPED deliberately — measured, no defect. Widget body padding is already uniform at `p="xs"`; the 18 raw spacings are all sub-10px, below Mantine's `xs`, which is a legitimate gap in the token scale rather than drift. Retuning `theme.spacing` would silently reflow 60 call sites for no visible gain. Codify spacing in `theme.ts`; it sets type
       sizes but no spacing, so every file improvises.
 
 ## Surfaces
 
-- [ ] **5. Dashboard canvas.** Undo/redo (leading — every edit autosaves in 800ms
-      with no way back). Coalesce per gesture, not per keystroke: config edits by
-      widget, drags by drag session, structural ops always push. Gate on edit mode;
-      the keydown handler must ignore text inputs. Visible undo/redo buttons.
-      Also: edit-mode discoverability, add-widget flow, full-canvas behaviour.
-- [ ] **6. Event Explorer.** Active-filter chips (highest leverage — makes filter
+- [~] **5. Dashboard canvas.** Undo/redo DONE — `dashboard/history.ts`, coalescing
+      per widget for config and per gesture for drags, edit-mode gated, text fields
+      excluded, visible buttons, session-scoped. Drag coalescing is unit-tested but
+      NOT browser-verified (synthetic and CDP drags don't drive react-grid-layout —
+      needs one real mouse drag). STILL TO DO: add-widget flow, and full-canvas
+      behaviour is still undefined.
+- [~] **6. Event Explorer.** Shell DONE — full-height workspace, active-filter chips, filter drawer, header search that debounce-applies, `event-filters.ts` extracted and tested. STILL TO DO: sortable columns; unbounded `tags`/`location` will wreck the column grid on real data; Admiralty as a designed component (note: the column is empty on every row today, so capture may be the real gap). Active-filter chips (highest leverage — makes filter
       state readable and collapsing safe). Draft-vs-applied dirty indicator.
       Sortable columns. Unbounded `tags`/`location` will wreck the column grid.
       Admiralty code as a designed component, not `join("")`.
