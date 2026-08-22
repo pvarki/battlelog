@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Anchor,
+  Box,
   Button,
   Container,
   FileButton,
@@ -15,11 +16,20 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import {
+  IconClipboardCopy,
+  IconCopy,
+  IconDots,
+  IconDownload,
+  IconStar,
+  IconTrash,
+} from "@tabler/icons-react";
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { exportFilename, parseDashboardImport, toExportJson } from "../dashboard/transfer.ts";
+import { Placeholder } from "../Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
 
 const route = getRouteApi("/");
@@ -147,28 +157,47 @@ export const DashboardsPage = () => {
           aria-label={`Actions for ${d.name}`}
           title="Actions"
         >
-          ⋯
+          <IconDots size={18} stroke={1.5} />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
         {!d.isTemplate && (
           <>
-            <Menu.Item leftSection="☆" disabled={busy} onClick={() => saveAsTemplate(d)}>
+            <Menu.Item
+              leftSection={<IconStar size={16} stroke={1.5} />}
+              disabled={busy}
+              onClick={() => saveAsTemplate(d)}
+            >
               Save as template
             </Menu.Item>
-            <Menu.Item leftSection="⧉" disabled={busy} onClick={() => duplicate(d)}>
+            <Menu.Item
+              leftSection={<IconCopy size={16} stroke={1.5} />}
+              disabled={busy}
+              onClick={() => duplicate(d)}
+            >
               Duplicate
             </Menu.Item>
           </>
         )}
-        <Menu.Item leftSection="⤓" onClick={() => download(d)}>
+        <Menu.Item
+          leftSection={<IconDownload size={16} stroke={1.5} />}
+          onClick={() => download(d)}
+        >
           Download JSON
         </Menu.Item>
-        <Menu.Item leftSection="⎘" onClick={() => copy(d)}>
+        <Menu.Item
+          leftSection={<IconClipboardCopy size={16} stroke={1.5} />}
+          onClick={() => copy(d)}
+        >
           Copy JSON
         </Menu.Item>
         <Menu.Divider />
-        <Menu.Item color="red" leftSection="✕" disabled={busy} onClick={() => remove(d)}>
+        <Menu.Item
+          color="red"
+          leftSection={<IconTrash size={16} stroke={1.5} />}
+          disabled={busy}
+          onClick={() => remove(d)}
+        >
           Delete{d.isTemplate ? " template" : ""}
         </Menu.Item>
       </Menu.Dropdown>
@@ -251,7 +280,12 @@ export const DashboardsPage = () => {
       </Modal>
 
       {dashboards.length === 0 ? (
-        <Text c="dimmed">No dashboards yet — create one above or start from a template.</Text>
+        <Box py="xl">
+          <Placeholder
+            title="No dashboards yet"
+            detail="A dashboard is a screen of widgets. Name one above to start empty, or use a template below."
+          />
+        </Box>
       ) : (
         <Stack gap="xs">
           {dashboards.map((d) => (
