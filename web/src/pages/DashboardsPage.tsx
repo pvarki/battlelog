@@ -5,6 +5,7 @@ import {
   Container,
   FileButton,
   Group,
+  Menu,
   Modal,
   Paper,
   Stack,
@@ -126,27 +127,41 @@ export const DashboardsPage = () => {
     });
   };
 
-  const exportButtons = (d: DashboardResponse) => (
-    <>
-      <ActionIcon
-        variant="subtle"
-        color="gray"
-        aria-label={`Download ${d.name} as JSON`}
-        title="Download as JSON"
-        onClick={() => download(d)}
-      >
-        ⤓
-      </ActionIcon>
-      <ActionIcon
-        variant="subtle"
-        color="gray"
-        aria-label={`Copy ${d.name} JSON to clipboard`}
-        title="Copy JSON to clipboard"
-        onClick={() => clipboard.copy(toExportJson(d))}
-      >
-        ⎘
-      </ActionIcon>
-    </>
+  const rowMenu = (d: DashboardResponse) => (
+    <Menu position="bottom-end" shadow="md">
+      <Menu.Target>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          aria-label={`Actions for ${d.name}`}
+          title="Actions"
+        >
+          ⋯
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {!d.isTemplate && (
+          <>
+            <Menu.Item leftSection="☆" disabled={busy} onClick={() => saveAsTemplate(d)}>
+              Save as template
+            </Menu.Item>
+            <Menu.Item leftSection="⧉" disabled={busy} onClick={() => duplicate(d)}>
+              Duplicate
+            </Menu.Item>
+          </>
+        )}
+        <Menu.Item leftSection="⤓" onClick={() => download(d)}>
+          Download JSON
+        </Menu.Item>
+        <Menu.Item leftSection="⎘" onClick={() => clipboard.copy(toExportJson(d))}>
+          Copy JSON
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item color="red" leftSection="✕" disabled={busy} onClick={() => remove(d)}>
+          Delete{d.isTemplate ? " template" : ""}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   );
 
   return (
@@ -244,39 +259,7 @@ export const DashboardsPage = () => {
             <Paper key={d.id} withBorder p="sm">
               <Group justify="space-between">
                 <RowInfo dashboard={d} />
-                <Group gap={4}>
-                  {exportButtons(d)}
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    aria-label={`Save ${d.name} as template`}
-                    title="Save as template"
-                    disabled={busy}
-                    onClick={() => saveAsTemplate(d)}
-                  >
-                    ☆
-                  </ActionIcon>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    aria-label={`Duplicate ${d.name}`}
-                    title="Duplicate"
-                    disabled={busy}
-                    onClick={() => duplicate(d)}
-                  >
-                    ⧉
-                  </ActionIcon>
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    aria-label={`Delete ${d.name}`}
-                    title="Delete"
-                    disabled={busy}
-                    onClick={() => remove(d)}
-                  >
-                    ✕
-                  </ActionIcon>
-                </Group>
+                {rowMenu(d)}
               </Group>
             </Paper>
           ))}
@@ -301,17 +284,7 @@ export const DashboardsPage = () => {
                     >
                       Use template
                     </Button>
-                    {exportButtons(t)}
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      aria-label={`Delete template ${t.name}`}
-                      title="Delete template"
-                      disabled={busy}
-                      onClick={() => remove(t)}
-                    >
-                      ✕
-                    </ActionIcon>
+                    {rowMenu(t)}
                   </Group>
                 </Group>
               </Paper>
