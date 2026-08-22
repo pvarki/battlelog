@@ -1,7 +1,9 @@
-import { Anchor, AppShell, Center, Group, Stack, Text, Title } from "@mantine/core";
+import { Anchor, AppShell, Center, Group, Stack, Text, Title, VisuallyHidden } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
+import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
 import { createRootRoute, createRoute, Link, Outlet } from "@tanstack/react-router";
 import { dashboardsApi } from "./api.ts";
+import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage, validateEventSearch } from "./pages/EventExplorerPage.tsx";
@@ -23,6 +25,28 @@ const NavLink = ({ to, children }: { to: string; children: string }) => (
     {children}
   </Anchor>
 );
+
+// Stream health. Quiet when live (a bare dot) and labelled the moment it is
+// not: the dangerous failure is a stalled stream that still looks healthy, so
+// the indicator has to be present enough that its absence registers. Icon
+// differs per state, so colour is never the only carrier.
+const STREAM_LOOK = {
+  live: { Icon: IconPointFilled, c: "success.4" },
+  connecting: { Icon: IconLoader2, c: "warning.4" },
+  down: { Icon: IconPlugConnectedX, c: "danger.4" },
+} as const;
+
+const ConnectionIndicator = () => {
+  const state = useConnectionState();
+  const label = CONNECTION_LABEL[state];
+  const { Icon, c } = STREAM_LOOK[state];
+  return (
+    <Group gap={4} ml="auto" c={c} title={`Event stream: ${label}`} role="status">
+      <Icon size={16} stroke={1.5} />
+      {state === "live" ? <VisuallyHidden>{label}</VisuallyHidden> : <Text fz="xs">{label}</Text>}
+    </Group>
+  );
+};
 
 const RootLayout = () => {
   // Desktop-only for now: FullHD is the design target, small screens get an error.
@@ -53,6 +77,7 @@ const RootLayout = () => {
           </Text>
           <NavLink to="/">Dashboards</NavLink>
           <NavLink to="/events">Event Explorer</NavLink>
+          <ConnectionIndicator />
         </Group>
       </AppShell.Header>
       <AppShell.Main>
