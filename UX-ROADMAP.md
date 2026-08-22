@@ -82,10 +82,33 @@ Not a spec. One slice at a time: issue → decision → fix.
       a badge that pulses forever is noise in a minute and harmful on a wall display.
       120–200ms budget. Honor `prefers-reduced-motion` from the start.
       `feed/Fullscreen.tsx` already sets a precedent (`transition: "pop"`, 180ms).
-- [ ] **10. Accessibility.** Largest item: the grid is mouse-only, so composing a
-      dashboard — the product's central act — has no keyboard path. Also focus-ring
-      contrast on the dark surfaces, status color needing label/shape pairing, the
-      explorer's nested interactive table rows, and `window.confirm`.
+- [!] **10. Accessibility. ACKNOWLEDGED, NOT PLANNED** — a deliberate call, recorded
+      so it isn't rediscovered as a surprise. Note this accepts a gap against design
+      principle 4 ("keyboard-first, full keyboard operability"), so the principle and
+      the product currently disagree; revisit if BattleLog is ever procured under a
+      public-sector accessibility regime (EN 301 549 / the EU Web Accessibility
+      Directive), which would make several of these mandatory rather than optional.
+
+      What is already good: `aria-label` on every icon-only control, `role="status"`
+      on save/stream state, `autoContrast` in the theme, a real `<button>` inside
+      explorer table rows for keyboard users, and `VisuallyHidden` on the quiet
+      connection indicator.
+
+      Known open gaps, largest first:
+      - The grid is mouse-only — `react-grid-layout` exposes no keyboard path, so
+        composing a dashboard (the product's central act) cannot be done from the
+        keyboard. This is the expensive one; it needs arrow-key nudge/resize on a
+        focused widget in edit mode.
+      - Status-board chips carry meaning in colour alone (principle 3 says pair it
+        with label or shape).
+      - Focus-ring contrast against `#1c2127` / `#2f343c` is unmeasured.
+      - Explorer rows nest a clickable `<Table.Tr>` around an `<Anchor>`; the
+        row-level target is invisible to assistive tech even though the inner
+        button works.
+      - Mantine's `Drawer` close button renders with no accessible name.
+      - `window.confirm` for destructive deletes (accessible, just crude).
+
+      The last four are each small if they're ever wanted; only the grid is real work.
 - [~] **11. Character.** Tabular figures DONE — one inherited rule in `global.css`;
       measured 34px of per-tick jitter before, 0 after, and the clock dropped
       `ff="monospace"` so the type system has no exception left.
