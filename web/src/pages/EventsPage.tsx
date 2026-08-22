@@ -1,10 +1,16 @@
-import { Badge, Container, Table, Text, Title } from "@mantine/core";
-import { getRouteApi } from "@tanstack/react-router";
-
-const route = getRouteApi("/events");
+import { Badge, Center, Container, Loader, Table, Text, Title } from "@mantine/core";
+import { useLiveEvents } from "../live-events.ts";
 
 export const EventsPage = () => {
-  const events = route.useLoaderData();
+  const events = useLiveEvents();
+
+  if (!events) {
+    return (
+      <Center py="xl">
+        <Loader />
+      </Center>
+    );
+  }
 
   return (
     <Container size="xl" py="md">
@@ -25,7 +31,7 @@ export const EventsPage = () => {
           </Table.Thead>
           <Table.Tbody>
             {events.map((event) => (
-              <Table.Tr key={event.id}>
+              <Table.Tr key={event.eventId}>
                 <Table.Td>{new Date(event.eventTime ?? event.createdAt).toLocaleString()}</Table.Td>
                 <Table.Td>{event.header}</Table.Td>
                 <Table.Td>
