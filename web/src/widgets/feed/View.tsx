@@ -40,7 +40,7 @@ export const FeedTable = ({
       No matching events.
     </Text>
   ) : (
-    <Table fz="xs" striped highlightOnHover verticalSpacing={4}>
+    <Table fz="xs" striped highlightOnHover verticalSpacing={4} stickyHeader>
       <Table.Thead>
         <Table.Tr>
           {columns.map((col) => (
@@ -68,6 +68,8 @@ const FeedFullscreen = lazy(() => import("./Fullscreen.tsx"));
 
 const FeedView = ({ config }: WidgetViewProps<FeedConfig>) => {
   const [fullscreen, setFullscreen] = useState(false);
+  // Mounted once and kept: unmounting on close would skip the exit transition.
+  const [everOpened, setEverOpened] = useState(false);
   const query = queryFor(config);
   const match = (row: EventResponse) => matchesFeed(row, config);
   const events = useLiveEvents({ limit: config.rows, query, match });
@@ -81,21 +83,30 @@ const FeedView = ({ config }: WidgetViewProps<FeedConfig>) => {
   }
 
   return (
-    <Box h="100%" p="xs" style={{ overflowY: "auto", position: "relative" }}>
+    <Box h="100%" style={{ position: "relative" }}>
       <ActionIcon
         variant="subtle"
         color="gray"
         size="sm"
         aria-label="Open fullscreen"
-        onClick={() => setFullscreen(true)}
-        style={{ position: "absolute", top: 4, right: 4, zIndex: 1 }}
+        onClick={() => {
+          setEverOpened(true);
+          setFullscreen(true);
+        }}
+        style={{ position: "absolute", top: 4, right: 4, zIndex: 3 }}
       >
         ⛶
       </ActionIcon>
-      <FeedTable columns={config.columns} events={events} />
-      {fullscreen && (
+      <Box h="100%" p="xs" style={{ overflowY: "auto" }}>
+        <FeedTable columns={config.columns} events={events} />
+      </Box>
+      {everOpened && (
         <Suspense fallback={null}>
-          <FeedFullscreen config={config} onClose={() => setFullscreen(false)} />
+          <FeedFullscreen
+            opened={fullscreen}
+            config={config}
+            onClose={() => setFullscreen(false)}
+          />
         </Suspense>
       )}
     </Box>
