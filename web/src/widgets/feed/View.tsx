@@ -29,9 +29,11 @@ const cell = (col: FeedColumn, e: EventResponse): ReactNode =>
 export const FeedTable = ({
   columns,
   events,
+  onRowClick,
 }: {
   columns: FeedColumn[];
   events: EventResponse[];
+  onRowClick?: (event: EventResponse) => void;
 }) =>
   events.length === 0 ? (
     <Text c="dimmed" fz="sm">
@@ -48,7 +50,11 @@ export const FeedTable = ({
       </Table.Thead>
       <Table.Tbody>
         {events.map((event) => (
-          <Table.Tr key={event.eventId}>
+          <Table.Tr
+            key={event.eventId}
+            onClick={onRowClick && (() => onRowClick(event))}
+            style={onRowClick && { cursor: "pointer" }}
+          >
             {columns.map((col) => (
               <Table.Td key={col.id}>{cell(col, event)}</Table.Td>
             ))}
