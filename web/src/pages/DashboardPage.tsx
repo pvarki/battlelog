@@ -13,18 +13,29 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
+import { IconArrowBackUp, IconArrowForwardUp, IconChevronDown } from "@tabler/icons-react";
 import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
+import {
+  canRedo as historyCanRedo,
+  canUndo as historyCanUndo,
+  newHistory,
+  record,
+  type Snapshot,
+  step,
+} from "../dashboard/history.ts";
 import {
   getWidget,
   registry,
   validateWidgetConfig,
   type WidgetDescriptor,
 } from "../dashboard/registry.ts";
+import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
+import { Placeholder } from "../Placeholder.tsx";
 
 const route = getRouteApi("/d/$dashboardId");
 
@@ -40,7 +51,9 @@ const SAVE_DEBOUNCE_MS = 800;
 // bottom row, off the screen.
 const fixedCanvasCompactor = getCompactor(null, false, true);
 
-type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
+// Shortcut hints are the only place edit-mode keys are discoverable.
+const MOD = navigator.platform.includes("Mac") ? "\u2318" : "Ctrl+";
+
 type PendingPatch = { name?: string; widgets?: Widget[] };
 
 export const DashboardPage = () => {
@@ -67,8 +80,29 @@ const DashboardGrid = ({
   const [widgets, setWidgets] = useState<Widget[]>(dashboard.widgets);
   const [name, setName] = useState(dashboard.name);
   const [renaming, setRenaming] = useState(false);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
+  // Same vocabulary a widget document uses, so a dashboard save and a widget
+  // save read identically. `loading`/`unavailable` never occur here — the
+  // router loader owns loading.
+  const [saveState, setSaveState] = useState<DocStatus>("idle");
   const [editMode, setEditMode] = useState(false);
+  // Undo covers *composition* — layout, widget config, add/remove, the name.
+  // Widget content (note text, todo ticks, table cells) lives in its own event
+  // chain via useEventDocument and is deliberately not undone here: a stray
+  // Cmd-Z must never un-tick someone's checklist.
+  //
+  // `cursor` indexes the current state; a new edit truncates the redo tail.
+  // `key` marks which gesture produced the top entry, so a drag or a run of
+  // keystrokes collapses into one entry instead of dozens.
+  //
+  // ponytail: session-scoped. History dies with this mount — which is also
+  // correct on 409, since the key={id}:{version} remount discards snapshots
+  // that describe a document the server has moved past. Dashboards are a
+  // mutable row (version is an optimistic token, not a chain), so there is no
+  // server history to restore from; add a revisions table if recovering across
+  // reloads ever matters.
+  const history = useRef(newHistory({ name: dashboard.name, widgets: dashboard.widgets }));
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const { ref: gridRef, width, height } = useElementSize();
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -99,15 +133,33 @@ const DashboardGrid = ({
     [dashboard.id],
   );
 
+  const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const key = e.key.toLowerCase();
+    if (key === "e") {
+      e.preventDefault();
+      setEditMode((v) => !v);
+      return;
+    }
+    // Composition only changes in edit mode, so undo only lives there.
+    if (!editMode) return;
+    // Inside a text field Cmd-Z belongs to the field, not the dashboard.
+    const target = e.target as HTMLElement | null;
+    if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")) {
+      return;
+    }
+    if (key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      jump(-1);
+    } else if ((key === "z" && e.shiftKey) || key === "y") {
+      e.preventDefault();
+      jump(1);
+    }
+  });
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "e") {
-        e.preventDefault();
-        setEditMode((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   // One save in flight at a time: overlapping PATCHes would read a stale
@@ -137,14 +189,18 @@ const DashboardGrid = ({
             );
           } else if (res.status === 409) {
             // Edited elsewhere: reload server state (remounts via the version key).
-            setSaveState("conflict");
+            setSaveState("stale");
             router.invalidate();
             return;
           } else {
-            // HTTP error: keep the payload so the next edit (or manual retry)
-            // resends it — dropping it would silently lose the last change.
+            // HTTP error: keep the payload and retry on a timer. Waiting for the
+            // user's next keystroke instead would leave "Save failed — retrying"
+            // telling the truth only by accident.
+            // ponytail: retries forever, even on a permanent 4xx — same ceiling
+            // as useEventDocument. Cap it if a bad payload ever hot-loops.
             pending.current = { ...payload, ...(pending.current ?? {}) };
             setSaveState("error");
+            saveTimer.current = setTimeout(runSave, 3000);
             return;
           }
         } catch {
@@ -162,12 +218,41 @@ const DashboardGrid = ({
 
   const schedule = (patch: PendingPatch) => {
     pending.current = { ...pending.current, ...patch };
+    setSaveState("waiting");
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(runSave, SAVE_DEBOUNCE_MS);
   };
 
-  const persist = (next: Widget[]) => {
+  const syncHistoryFlags = () => {
+    setCanUndo(historyCanUndo(history.current));
+    setCanRedo(historyCanRedo(history.current));
+  };
+
+  const remember = (next: Snapshot, coalesceKey: string | null) => {
+    record(history.current, next, coalesceKey);
+    syncHistoryFlags();
+  };
+
+  // Undo/redo replay a snapshot as an ordinary forward save: the stored
+  // document only ever moves forward, matching how events themselves work.
+  const jump = (delta: number) => {
+    const snapshot = step(history.current, delta);
+    if (!snapshot) return;
+    setWidgets(snapshot.widgets);
+    setName(snapshot.name);
+    schedule({ name: snapshot.name, widgets: snapshot.widgets });
+    syncHistoryFlags();
+  };
+
+  // A finished drag or resize closes the gesture, so the next one starts a
+  // fresh entry instead of overwriting this one.
+  const endGesture = () => {
+    history.current.key = null;
+  };
+
+  const persist = (next: Widget[], coalesceKey: string | null = null) => {
     setWidgets(next);
+    remember({ name, widgets: next }, coalesceKey);
     schedule({ widgets: next });
   };
 
@@ -176,6 +261,7 @@ const DashboardGrid = ({
     const trimmed = value.trim();
     if (!trimmed || trimmed === name) return;
     setName(trimmed);
+    remember({ name: trimmed, widgets }, null);
     schedule({ name: trimmed });
   };
 
@@ -196,7 +282,7 @@ const DashboardGrid = ({
         prev.h !== w.layout.h
       );
     });
-    if (moved) persist(next);
+    if (moved) persist(next, "layout");
   };
 
   // The grid has a fixed row count, so clamp new items into the last rows
@@ -261,7 +347,11 @@ const DashboardGrid = ({
   };
 
   const updateWidgetConfig = (id: string, config: unknown) => {
-    persist(widgets.map((w) => (w.id === id ? { ...w, config } : w)));
+    // Config forms fire per keystroke — collapse them into one undo step.
+    persist(
+      widgets.map((w) => (w.id === id ? { ...w, config } : w)),
+      `config:${id}`,
+    );
   };
 
   const removeWidget = (id: string) => {
@@ -315,7 +405,7 @@ const DashboardGrid = ({
           <Menu position="bottom-start">
             <Menu.Target>
               <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Switch dashboard">
-                ▾
+                <IconChevronDown size={16} stroke={1.5} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
@@ -339,14 +429,35 @@ const DashboardGrid = ({
               <Menu.Item onClick={() => navigate({ to: "/" })}>All dashboards…</Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          <Text c={saveState === "error" ? "red.4" : "dimmed"} fz="xs" role="status">
-            {saveState === "saving" && "Saving…"}
-            {saveState === "saved" && "Saved"}
-            {saveState === "error" && "Save failed — changes not stored"}
-            {saveState === "conflict" && "Edited elsewhere — reloading…"}
+          <Text c={saveState === "error" ? "danger.4" : "dimmed"} fz="xs" role="status">
+            {DOC_STATUS_LABEL[saveState]}
           </Text>
         </Group>
         <Group gap="xs">
+          {editMode && (
+            <>
+              <ActionIcon
+                variant="default"
+                size="input-sm"
+                aria-label="Undo"
+                title={`Undo (${MOD}Z)`}
+                disabled={!canUndo}
+                onClick={() => jump(-1)}
+              >
+                <IconArrowBackUp size={18} stroke={1.5} />
+              </ActionIcon>
+              <ActionIcon
+                variant="default"
+                size="input-sm"
+                aria-label="Redo"
+                title={`Redo (${MOD}\u21E7Z)`}
+                disabled={!canRedo}
+                onClick={() => jump(1)}
+              >
+                <IconArrowForwardUp size={18} stroke={1.5} />
+              </ActionIcon>
+            </>
+          )}
           {editMode && (
             <Menu position="bottom-end">
               <Menu.Target>
@@ -369,7 +480,7 @@ const DashboardGrid = ({
           <Button
             variant={editMode ? "filled" : "default"}
             onClick={() => setEditMode((v) => !v)}
-            title={`Toggle edit mode (${navigator.platform.includes("Mac") ? "⌘E" : "Ctrl+E"})`}
+            title={`Toggle edit mode (${MOD}E)`}
           >
             {editMode ? "Done" : "Edit"}
           </Button>
@@ -398,6 +509,8 @@ const DashboardGrid = ({
             dragConfig={{ enabled: editMode, handle: ".widget-drag-handle" }}
             resizeConfig={{ enabled: editMode }}
             onLayoutChange={onLayoutChange}
+            onDragStop={endGesture}
+            onResizeStop={endGesture}
           >
             {widgets.map((w) => (
               <div key={w.id}>
@@ -416,9 +529,15 @@ const DashboardGrid = ({
           </GridLayout>
         )}
         {widgets.length === 0 && (
-          <Text c="dimmed" ta="center" mt="xl">
-            Empty dashboard — {editMode ? "add a widget to get started." : "press Edit to compose."}
-          </Text>
+          <Placeholder
+            title="Empty dashboard"
+            detail={
+              editMode
+                ? "Use Add widget above to place your first one."
+                : "Widgets are placed in edit mode — clocks, event feeds, status boards, forms."
+            }
+            action={editMode ? undefined : { label: "Edit", onClick: () => setEditMode(true) }}
+          />
         )}
       </Box>
 
