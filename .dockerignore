@@ -34,7 +34,6 @@ coverage
 biome.json
 .pre-commit-config.yaml
 .secrets.baseline
-.npmrc
 .tool-versions
 
 # Docs and meta
