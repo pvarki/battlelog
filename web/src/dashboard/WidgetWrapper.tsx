@@ -14,6 +14,8 @@ type Props = {
   onResetSize: () => void;
   onResetConfig: () => void;
   onUpdateConfig: (config: unknown) => void;
+  /** Just added to the canvas: plays the entrance animation once. */
+  entering?: boolean;
 };
 
 class WidgetErrorBoundary extends Component<
@@ -52,6 +54,7 @@ export const WidgetWrapper = ({
   onResetSize,
   onResetConfig,
   onUpdateConfig,
+  entering,
 }: Props) => {
   const descriptor = getWidget(instance.type);
   const validation = useMemo(
@@ -68,6 +71,7 @@ export const WidgetWrapper = ({
     <Paper
       withBorder
       h="100%"
+      className={entering ? "widget-enter" : undefined}
       style={{
         display: "flex",
         flexDirection: "column",
