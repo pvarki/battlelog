@@ -1,9 +1,38 @@
 import { expect, test } from "vitest";
 import { columnKey, columnKeys, evaluateFormula, formulaError } from "./formula.ts";
-import descriptor, { parseRows, type TableColumn } from "./widget.ts";
+import descriptor, {
+  DEFAULT_COLUMN_COUNT,
+  DEFAULT_ROW_COUNT,
+  parseRows,
+  type TableColumn,
+  tableColumnCount,
+  tableColumns,
+  tableRowCount,
+} from "./widget.ts";
 
 test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
+});
+
+test("empty legacy config resolves to preset spreadsheet columns", () => {
+  expect(tableColumns(DEFAULT_COLUMN_COUNT).map((column) => column.label)).toEqual(["A", "B", "C"]);
+});
+
+test("tableColumns generates Excel-style labels", () => {
+  expect(
+    tableColumns(26)
+      .map((column) => column.label)
+      .slice(23),
+  ).toEqual(["X", "Y", "Z"]);
+});
+
+test("table size settings are clamped", () => {
+  expect(tableColumnCount(0)).toBe(1);
+  expect(tableColumnCount(99)).toBe(26);
+  expect(tableColumnCount(undefined)).toBe(DEFAULT_COLUMN_COUNT);
+  expect(tableRowCount(0)).toBe(1);
+  expect(tableRowCount(999)).toBe(500);
+  expect(tableRowCount(undefined)).toBe(DEFAULT_ROW_COUNT);
 });
 
 test("a full table config validates", () => {
