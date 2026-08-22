@@ -246,12 +246,6 @@ const DashboardGrid = ({
     syncHistoryFlags();
   };
 
-  // A finished drag or resize closes the gesture, so the next one starts a
-  // fresh entry instead of overwriting this one.
-  const endGesture = () => {
-    history.current.key = null;
-  };
-
   const persist = (next: Widget[], coalesceKey: string | null = null) => {
     setWidgets(next);
     remember({ name, widgets: next }, coalesceKey);
@@ -272,8 +266,11 @@ const DashboardGrid = ({
       const item = layout.find((l) => l.i === w.id);
       return item ? { ...w, layout: { x: item.x, y: item.y, w: item.w, h: item.h } } : w;
     });
-    // Fires on mount and after compaction no-ops — only persist real moves.
-    // Field-wise compare: jsonb alphabetizes keys, so stringify always differs.
+    // Fires on mount, after compaction no-ops, and twice per drag (once from
+    // the drag-stop handler, once from the post-commit effect) — only persist
+    // real moves. That also means one drag yields one history entry with no
+    // coalescing needed. Field-wise compare: jsonb alphabetizes keys, so
+    // stringify always differs.
     const moved = next.some((w, i) => {
       const prev = widgets[i]?.layout;
       return (
@@ -284,7 +281,7 @@ const DashboardGrid = ({
         prev.h !== w.layout.h
       );
     });
-    if (moved) persist(next, "layout");
+    if (moved) persist(next);
   };
 
   // The canvas is fixed and blocks collisions, so a new widget needs a slot
@@ -515,8 +512,6 @@ const DashboardGrid = ({
             dragConfig={{ enabled: editMode, handle: ".widget-drag-handle" }}
             resizeConfig={{ enabled: editMode }}
             onLayoutChange={onLayoutChange}
-            onDragStop={endGesture}
-            onResizeStop={endGesture}
           >
             {widgets.map((w) => (
               <div key={w.id}>
