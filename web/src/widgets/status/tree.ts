@@ -35,9 +35,17 @@ export const buildStatusTree = (rows: StatusRow[]): StatusNode[] => {
     let path = "";
     let siblings = roots;
     let node: StatusNode | undefined;
-    for (const [depth, name] of parseLabel(row.label).entries()) {
+    const segments = parseLabel(row.label);
+    for (const [depth, name] of segments.entries()) {
       path = path ? `${path}/${name}` : name;
       node = byPath.get(path);
+      // Duplicate leaf label: the path's node already carries a row, so this
+      // row gets its own sibling node instead of overwriting it.
+      if (node?.row && depth === segments.length - 1) {
+        node = { name, path: `${path}#${row.id}`, depth, children: [], row };
+        siblings.push(node);
+        break;
+      }
       if (!node) {
         node = { name, path, depth, children: [] };
         byPath.set(path, node);
@@ -45,7 +53,7 @@ export const buildStatusTree = (rows: StatusRow[]): StatusNode[] => {
       }
       siblings = node.children;
     }
-    if (node) node.row = row;
+    if (node) node.row ??= row;
   }
   return roots;
 };

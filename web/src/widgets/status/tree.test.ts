@@ -37,3 +37,9 @@ test("three levels nest with increasing depth", () => {
   expect(flat.map((n) => n.depth)).toEqual([0, 1, 2]);
   expect(flat[2]?.row?.id).toBe("1");
 });
+
+test("duplicate labels keep both rows as separate nodes", () => {
+  const flat = flattenTree(buildStatusTree([row("a", "Pena"), row("b", "Pena")]));
+  expect(flat.map((n) => n.row?.id)).toEqual(["a", "b"]);
+  expect(new Set(flat.map((n) => n.path)).size).toBe(2);
+});
