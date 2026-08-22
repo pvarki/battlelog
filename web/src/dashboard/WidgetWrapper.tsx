@@ -85,7 +85,20 @@ export const WidgetWrapper = ({
   const title = typeof configTitle === "string" && configTitle.trim() ? configTitle : undefined;
 
   return (
-    <Paper withBorder h="100%" style={{ display: "flex", flexDirection: "column" }}>
+    <Paper
+      withBorder
+      h="100%"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        // Edit mode must be visible from across the room: every widget
+        // switches to a dashed accent border while the canvas is editable.
+        ...(editMode && {
+          borderStyle: "dashed",
+          borderColor: "var(--mantine-color-accent-7)",
+        }),
+      }}
+    >
       <Group
         className="widget-drag-handle"
         justify="space-between"

@@ -11,9 +11,10 @@ import {
   Title,
 } from "@mantine/core";
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
+import { formatDateTime } from "../time.ts";
 
 const route = getRouteApi("/");
 
@@ -22,54 +23,67 @@ export const DashboardsPage = () => {
   const navigate = useNavigate();
   const router = useRouter();
   const [name, setName] = useState("");
+  const [creating, startCreate] = useTransition();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const dashboards = all.filter((d) => !d.isTemplate);
   const templates = all.filter((d) => d.isTemplate);
 
-  const create = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setBusy(true);
-    try {
-      const res = await dashboardsApi.dashboards.$post({ json: { name: trimmed, widgets: [] } });
+  const createAndOpen = (json: { name: string; widgets: DashboardResponse["widgets"] }) =>
+    startCreate(async () => {
+      const res = await dashboardsApi.dashboards.$post({ json });
       if (!res.ok) throw new Error(`Failed to create dashboard (${res.status})`);
       const created = await res.json();
-      navigate({ to: "/d/$dashboardId", params: { dashboardId: created.id } });
+      await navigate({
+        to: "/d/$dashboardId",
+        params: { dashboardId: created.id },
+      });
+    });
+
+  const create = () => {
+    const trimmed = name.trim();
+    if (trimmed) createAndOpen({ name: trimmed, widgets: [] });
+  };
+
+  // All list mutations funnel through here: surface failures (a silent no-op
+  // delete reads as "the app is broken") and block double-clicks while one
+  // is in flight.
+  const mutate = async (label: string, fn: () => Promise<{ ok: boolean }>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fn();
+      if (!res.ok) throw new Error(label);
+      await router.invalidate();
+    } catch {
+      setError(`${label} failed — try again`);
     } finally {
       setBusy(false);
     }
   };
 
-  const remove = async (dashboardId: string) => {
-    await dashboardsApi.dashboards[":dashboardId"].$delete({ param: { dashboardId } });
-    router.invalidate();
+  const remove = (d: DashboardResponse) => {
+    const kind = d.isTemplate ? "template" : "dashboard";
+    if (!window.confirm(`Delete ${kind} "${d.name}"? This cannot be undone.`)) return;
+    void mutate("Delete", () =>
+      dashboardsApi.dashboards[":dashboardId"].$delete({ param: { dashboardId: d.id } }),
+    );
   };
 
-  const duplicate = async (source: DashboardResponse) => {
-    await dashboardsApi.dashboards.$post({
-      json: { name: `${source.name} (copy)`, widgets: source.widgets },
-    });
-    router.invalidate();
-  };
+  const duplicate = (source: DashboardResponse) =>
+    mutate("Duplicate", () =>
+      dashboardsApi.dashboards.$post({
+        json: { name: `${source.name} (copy)`, widgets: source.widgets },
+      }),
+    );
 
-  // Template widgets with a configured eventId keep following the same live
-  // event chains in the new dashboard; ones without fork fresh state.
-  const useTemplate = async (template: DashboardResponse) => {
-    const res = await dashboardsApi.dashboards.$post({
-      json: { name: template.name, widgets: template.widgets },
-    });
-    if (!res.ok) return;
-    const created = await res.json();
-    navigate({ to: "/d/$dashboardId", params: { dashboardId: created.id } });
-  };
-
-  const saveAsTemplate = async (source: DashboardResponse) => {
-    await dashboardsApi.dashboards.$post({
-      json: { name: source.name, isTemplate: true, widgets: source.widgets },
-    });
-    router.invalidate();
-  };
+  const saveAsTemplate = (source: DashboardResponse) =>
+    mutate("Save as template", () =>
+      dashboardsApi.dashboards.$post({
+        json: { name: source.name, isTemplate: true, widgets: source.widgets },
+      }),
+    );
 
   return (
     <Container size="xl" py="md">
@@ -83,11 +97,17 @@ export const DashboardsPage = () => {
             onKeyDown={(e) => e.key === "Enter" && create()}
             w={260}
           />
-          <Button onClick={create} loading={busy} disabled={!name.trim()}>
+          <Button onClick={create} loading={creating} disabled={!name.trim()}>
             Create
           </Button>
         </Group>
       </Group>
+
+      {error && (
+        <Text c="red.4" fz="sm" mb="sm" role="status">
+          {error}
+        </Text>
+      )}
 
       {dashboards.length === 0 ? (
         <Text c="dimmed">No dashboards yet — create one above or start from a template.</Text>
@@ -103,6 +123,7 @@ export const DashboardsPage = () => {
                     color="gray"
                     aria-label={`Save ${d.name} as template`}
                     title="Save as template"
+                    disabled={busy}
                     onClick={() => saveAsTemplate(d)}
                   >
                     ☆
@@ -112,6 +133,7 @@ export const DashboardsPage = () => {
                     color="gray"
                     aria-label={`Duplicate ${d.name}`}
                     title="Duplicate"
+                    disabled={busy}
                     onClick={() => duplicate(d)}
                   >
                     ⧉
@@ -121,7 +143,8 @@ export const DashboardsPage = () => {
                     color="red"
                     aria-label={`Delete ${d.name}`}
                     title="Delete"
-                    onClick={() => remove(d.id)}
+                    disabled={busy}
+                    onClick={() => remove(d)}
                   >
                     ✕
                   </ActionIcon>
@@ -143,7 +166,11 @@ export const DashboardsPage = () => {
                 <Group justify="space-between">
                   <RowInfo dashboard={t} />
                   <Group gap={4}>
-                    <Button size="compact-sm" variant="light" onClick={() => useTemplate(t)}>
+                    <Button
+                      size="compact-sm"
+                      variant="light"
+                      onClick={() => createAndOpen({ name: t.name, widgets: t.widgets })}
+                    >
                       Use template
                     </Button>
                     <ActionIcon
@@ -151,7 +178,8 @@ export const DashboardsPage = () => {
                       color="red"
                       aria-label={`Delete template ${t.name}`}
                       title="Delete template"
-                      onClick={() => remove(t.id)}
+                      disabled={busy}
+                      onClick={() => remove(t)}
                     >
                       ✕
                     </ActionIcon>
@@ -176,8 +204,8 @@ const RowInfo = ({ dashboard }: { dashboard: DashboardResponse }) => (
       {dashboard.name}
     </Anchor>
     <Text c="dimmed" fz="xs">
-      {dashboard.widgets.length} widget{dashboard.widgets.length === 1 ? "" : "s"} · updated{" "}
-      {new Date(dashboard.updatedAt).toLocaleString()}
+      {dashboard.widgets.length} widget
+      {dashboard.widgets.length === 1 ? "" : "s"} · updated {formatDateTime(dashboard.updatedAt)}
     </Text>
   </div>
 );
