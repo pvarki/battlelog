@@ -370,6 +370,7 @@ const DashboardGrid = ({
                   onDuplicate={() => duplicateWidget(w)}
                   onResetSize={() => resetWidgetSize(w.id)}
                   onResetConfig={() => resetWidgetConfig(w.id)}
+                  onUpdateConfig={(config) => updateWidgetConfig(w.id, config)}
                 />
               </div>
             ))}
