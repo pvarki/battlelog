@@ -84,13 +84,23 @@ export const useEventDocument = <T>(opts: Options<T>) => {
       try {
         const res = await api.events[":eventId"].$get({ param: { eventId: followedId } });
         if (cancelled) return;
+        // No such chain: the config came from another system (imported
+        // dashboard) or the event was deleted. Start empty and editable — the
+        // next edit creates a fresh chain and rewrites the id into the config.
+        if (res.status === 404) {
+          eventId.current = undefined;
+          loaded.current = true;
+          setValue(optsRef.current.empty);
+          setStatus("idle");
+          return;
+        }
         if (res.status !== 200) throw new Error(`load failed (${res.status})`);
         setValue(optsRef.current.parse((await res.json()).data));
         loaded.current = true;
         setStatus("idle");
       } catch {
         // Doc stays read-only (update() no-ops) until a load succeeds.
-        // ponytail: blanket retry, even on 404 — back off if it matters.
+        // ponytail: blanket retry on transport/5xx errors — back off if it matters.
         if (!cancelled) {
           setStatus("unavailable");
           retry = setTimeout(load, 5000);
