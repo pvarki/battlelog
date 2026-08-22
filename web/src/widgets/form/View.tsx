@@ -17,6 +17,7 @@ import { api } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import {
   buildEvent,
+  datetimeLocalValue,
   type FormConfig,
   type FormValues,
   fieldLabel,
@@ -190,12 +191,22 @@ const FieldInput = ({
       );
     case "eventTime":
       return (
-        <TextInput
-          {...common}
-          type="datetime-local"
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.currentTarget.value)}
-        />
+        <Stack gap={4}>
+          <TextInput
+            {...common}
+            type="datetime-local"
+            value={(value as string) ?? ""}
+            onChange={(e) => onChange(e.currentTarget.value)}
+          />
+          <Button
+            size="compact-xs"
+            variant="light"
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => onChange(datetimeLocalValue())}
+          >
+            Nyt
+          </Button>
+        </Stack>
       );
     case "tags":
     case "hcoeDomains":
