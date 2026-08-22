@@ -42,6 +42,15 @@ export const DashboardsPage = () => {
     router.invalidate();
   };
 
+  const duplicate = async (id: string) => {
+    const source = dashboards.find((d) => d.id === id);
+    if (!source) return;
+    await dashboardsApi.dashboards.$post({
+      json: { name: `${source.name} (copy)`, widgets: source.widgets },
+    });
+    router.invalidate();
+  };
+
   return (
     <Container size="xl" py="md">
       <Group justify="space-between" mb="md">
@@ -80,14 +89,26 @@ export const DashboardsPage = () => {
                     {new Date(d.updatedAt).toLocaleString()}
                   </Text>
                 </div>
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  aria-label={`Delete ${d.name}`}
-                  onClick={() => remove(d.id)}
-                >
-                  ✕
-                </ActionIcon>
+                <Group gap={4}>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    aria-label={`Duplicate ${d.name}`}
+                    title="Duplicate"
+                    onClick={() => duplicate(d.id)}
+                  >
+                    ⧉
+                  </ActionIcon>
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    aria-label={`Delete ${d.name}`}
+                    title="Delete"
+                    onClick={() => remove(d.id)}
+                  >
+                    ✕
+                  </ActionIcon>
+                </Group>
               </Group>
             </Paper>
           ))}
