@@ -1,10 +1,20 @@
 import { Anchor, AppShell, Center, Group, Stack, Text, Title, VisuallyHidden } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
-import { createRootRoute, createRoute, Link, Outlet } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  createRoute,
+  type ErrorComponentProps,
+  Link,
+  notFound,
+  Outlet,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { dashboardsApi } from "./api.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
+import { Placeholder } from "./Placeholder.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
@@ -88,8 +98,49 @@ const RootLayout = () => {
   );
 };
 
+/**
+ * Every route's failure screen. Loaders throw on a bad response, so this is
+ * where a network blip on the most ordinary navigation lands — it renders
+ * inside the layout, so the header nav stays available as a way out.
+ */
+const RouteError = ({ error, reset }: ErrorComponentProps) => {
+  const router = useRouter();
+  const detail = error instanceof Error && error.message ? error.message : "Something went wrong.";
+  return (
+    <Placeholder
+      title="Couldn't load this"
+      detail={detail}
+      action={{
+        label: "Try again",
+        onClick: () => {
+          reset();
+          void router.invalidate();
+        },
+      }}
+    />
+  );
+};
+
+const RouteNotFound = () => {
+  const navigate = useNavigate();
+  return (
+    <Placeholder
+      title="Nothing here"
+      detail="That address doesn't match anything — the dashboard may have been deleted."
+      action={{ label: "All dashboards", onClick: () => void navigate({ to: "/" }) }}
+    />
+  );
+};
+
+export const routerDefaults = {
+  defaultErrorComponent: RouteError,
+  defaultNotFoundComponent: RouteNotFound,
+};
+
 const rootRoute = createRootRoute({
   component: RootLayout,
+  // RootLayout itself throwing has no parent to catch it.
+  errorComponent: RouteError,
 });
 
 export const dashboardsRoute = createRoute({
@@ -113,6 +164,9 @@ export const dashboardRoute = createRoute({
       }),
       dashboardsApi.dashboards.$get(),
     ]);
+    // A stale link to a deleted dashboard is the likeliest failure on this
+    // route, and it deserves the not-found screen rather than a status code.
+    if (one.status === 404) throw notFound();
     if (!one.ok || !all.ok) {
       throw new Error(`Failed to load dashboard (${one.status}/${all.status})`);
     }
