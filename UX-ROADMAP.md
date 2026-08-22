@@ -114,6 +114,31 @@ Not a spec. One slice at a time: issue → decision → fix.
       Templates cannot be renamed from the list on purpose: the seeding upsert is
       keyed on name, so a rename would let the next boot re-seed the original as
       a second template.
+      TEMPLATE FLOW, second pass — the whole thing now runs through one dialog
+      that asks for a name, because both directions were producing
+      indistinguishable rows or dead ends:
+      - Using a template inherited its name verbatim, so a copy of "Soldier"
+        landed next to "Soldier". `From template…` opens a picker (radio cards
+        showing name, description, widget count) with an editable name below it.
+        Switching template re-suggests its name but never overwrites one you
+        typed. A single template pre-picks, so the common case stays one click.
+      - `Save as template…` reused the dashboard's name, which collided with the
+        seeded template of the same name — and that collision surfaced as HTTP
+        **500** plus "Save as template failed — try again", a retry that could
+        never work. `createDashboard` now maps the unique violation to a typed
+        `DuplicateTemplateNameError`, the route returns 409, and the dialog stays
+        open showing the server's message next to the field that fixes it.
+      - Saving a template carried the source board's `eventId`s, so every
+        dashboard made from it wrote into the *original's* notes, checklists and
+        tables rather than its own. `forkWidgets` (in `dashboard/transfer.ts`)
+        strips the pointer — `useEventDocument` mints a fresh chain when it is
+        absent. Applied on export too, where the import dialog's own copy
+        ("contents … don't travel with the file") was otherwise false for an
+        import back into the same deployment.
+      STILL OPEN: `Duplicate` has the same shared-document problem that
+      save-as-template did — the copy points at the original's chains. It almost
+      certainly wants `forkWidgets` too, but that is a behaviour change on a path
+      nobody asked about, so it is recorded rather than done.
 
 ## Finish
 

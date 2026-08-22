@@ -12,6 +12,24 @@ export type UpdateDashboardPatch = Partial<
   Pick<DashboardInsert, "name" | "description" | "widgets">
 >;
 
+/**
+ * Thrown when a template name is already taken. Template names are the seeding
+ * upsert key (a partial unique index), so this is a real constraint the caller
+ * has to be able to explain — not an accident worth a 500.
+ */
+export class DuplicateTemplateNameError extends Error {
+  constructor(name: string) {
+    super(`A template named "${name}" already exists`);
+    this.name = "DuplicateTemplateNameError";
+  }
+}
+
+const isUniqueViolation = (err: unknown, constraint: string): boolean =>
+  typeof err === "object" &&
+  err !== null &&
+  (err as { code?: unknown }).code === "23505" &&
+  (err as { constraint?: unknown }).constraint === constraint;
+
 /** Thrown when the caller's version is stale — the dashboard was edited elsewhere. */
 export class VersionConflictError extends Error {
   constructor(id: string) {
@@ -29,12 +47,19 @@ export const getDashboard = async (id: string): Promise<DashboardRow | null> => 
 };
 
 export const createDashboard = async (input: CreateDashboardInput): Promise<DashboardRow> => {
-  const [row] = await db
-    .insert(dashboards)
-    .values({ ...input, id: uuidv7(), version: uuidv7() })
-    .returning();
-  if (!row) throw new Error("createDashboard: insert returned no row");
-  return row;
+  try {
+    const [row] = await db
+      .insert(dashboards)
+      .values({ ...input, id: uuidv7(), version: uuidv7() })
+      .returning();
+    if (!row) throw new Error("createDashboard: insert returned no row");
+    return row;
+  } catch (err) {
+    if (isUniqueViolation(err, "dashboards_template_name_unique")) {
+      throw new DuplicateTemplateNameError(input.name);
+    }
+    throw err;
+  }
 };
 
 /**
