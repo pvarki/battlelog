@@ -16,7 +16,7 @@ test("a full status board config validates", () => {
         kind: "choice",
         options: [
           { value: "kusella", color: "yellow" },
-          { value: "röökillä", color: "red" },
+          { value: "röökillä", color: "red", description: "Tupakkapaikalla, palaa 5 min" },
         ],
       },
       { id: "r2", label: "Rounds fired", kind: "count", options: [] },
