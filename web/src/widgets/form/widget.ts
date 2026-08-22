@@ -127,6 +127,11 @@ const point = (v: unknown): { lat: number; lng: number } | undefined => {
     : undefined;
 };
 
+const padDatePart = (value: number): string => value.toString().padStart(2, "0");
+
+export const datetimeLocalValue = (date = new Date()): string =>
+  `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+
 /** Assemble the event to POST from the configured fields and entered values. */
 export const buildEvent = (config: FormConfig, values: FormValues): FormEventPayload => {
   const reportType = config.reportType.trim() || "report";

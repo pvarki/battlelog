@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { EventResponse } from "../../api.ts";
-import descriptor, { dataValue, labelFor, matchesFeed, queryFor } from "./widget.ts";
+import descriptor, { columnWidth, dataValue, labelFor, matchesFeed, queryFor } from "./widget.ts";
 
 test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
@@ -24,6 +24,36 @@ test("schema applies defaults and rejects bad columns", () => {
   ]);
   expect(descriptor.configSchema.safeParse({ columns: [] }).success).toBe(false);
   expect(descriptor.configSchema.safeParse({ columns: ["location"] }).success).toBe(false);
+});
+
+test("schema accepts bounded column widths", () => {
+  expect(
+    descriptor.configSchema.safeParse({
+      columns: [{ id: "header", label: "", source: "header", dataPath: "", width: 240 }],
+    }).success,
+  ).toBe(true);
+  expect(
+    descriptor.configSchema.safeParse({
+      columns: [{ id: "header", label: "", source: "header", dataPath: "", width: 20 }],
+    }).success,
+  ).toBe(false);
+});
+
+test("columnWidth defaults to the visible header text width until overridden", () => {
+  expect(columnWidth({ id: "time", label: "", source: "time", dataPath: "" })).toBe(72);
+  expect(columnWidth({ id: "header", label: "", source: "header", dataPath: "" })).toBe(80);
+  expect(columnWidth({ id: "desk", label: "Desk", source: "data", dataPath: "desk" })).toBe(72);
+  expect(
+    columnWidth({
+      id: "event-time",
+      label: "Tapahtuma-ajankohta",
+      source: "data",
+      dataPath: "time",
+    }),
+  ).toBe(184);
+  expect(columnWidth({ id: "header", label: "", source: "header", dataPath: "", width: 260 })).toBe(
+    260,
+  );
 });
 
 test("dataValue resolves dot paths and blanks missing or non-scalar values", () => {

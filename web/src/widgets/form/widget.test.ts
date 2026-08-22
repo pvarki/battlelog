@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import descriptor, { buildEvent, type FormConfig, missingRequired } from "./widget.ts";
+import descriptor, {
+  buildEvent,
+  datetimeLocalValue,
+  type FormConfig,
+  missingRequired,
+} from "./widget.ts";
 
 test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
@@ -112,6 +117,11 @@ test("buildEvent omits empty values and falls back to title for the header", () 
   expect(payload.locationPoint).toBeUndefined();
   expect(payload.tags).toEqual(["recon"]);
   expect(payload.data).toEqual({ team: "alpha" });
+});
+
+test("datetimeLocalValue formats the current moment for event time inputs", () => {
+  const now = new Date("2026-08-22T14:30:00");
+  expect(datetimeLocalValue(now)).toBe("2026-08-22T14:30");
 });
 
 test("header falls back to reportType without a title", () => {

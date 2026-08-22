@@ -21,6 +21,10 @@ export const FIELD_LABEL: Record<Field, string> = {
 
 const SOURCES = [...FIELDS, "data"] as const;
 
+export const DEFAULT_COLUMN_WIDTH = 140;
+export const MIN_COLUMN_WIDTH = 72;
+export const MAX_COLUMN_WIDTH = 640;
+
 // Legacy configs stored columns as plain field names; lift them to objects.
 const columnSchema = z.preprocess(
   (v) => (typeof v === "string" ? { id: v, source: v } : v),
@@ -32,6 +36,7 @@ const columnSchema = z.preprocess(
       source: z.enum(SOURCES).default("header"),
       /** Dot path into the event's `data` jsonb; used when source is "data". */
       dataPath: z.string().max(200).default(""),
+      width: z.number().int().min(MIN_COLUMN_WIDTH).max(MAX_COLUMN_WIDTH).optional(),
     })
     .strict(),
 );
@@ -88,6 +93,11 @@ export const labelFor = (col: FeedColumn): string => {
   if (col.source !== "data") return FIELD_LABEL[col.source];
   return col.dataPath.split(".").at(-1) || "Data";
 };
+
+const widthForLabel = (label: string): number =>
+  Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, label.length * 8 + 32));
+
+export const columnWidth = (col: FeedColumn): number => col.width ?? widthForLabel(labelFor(col));
 
 /**
  * Server-side query for the initial batch (limit is added by the hook).
