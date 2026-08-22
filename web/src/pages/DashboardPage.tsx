@@ -13,6 +13,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { IconArrowBackUp, IconArrowForwardUp, IconChevronDown } from "@tabler/icons-react";
 import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
 import { Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
@@ -27,6 +28,7 @@ import {
   type Snapshot,
   step,
 } from "../dashboard/history.ts";
+import { firstFreeSlot } from "../dashboard/placement.ts";
 import {
   getWidget,
   registry,
@@ -285,20 +287,31 @@ const DashboardGrid = ({
     if (moved) persist(next, "layout");
   };
 
-  // The grid has a fixed row count, so clamp new items into the last rows
-  // instead of appending past the bottom edge.
-  const placeAt = (list: Widget[], h: number) =>
-    Math.max(
-      0,
-      Math.min(
-        list.reduce((max, w) => Math.max(max, w.layout.y + w.layout.h), 0),
-        GRID_ROWS - h,
-      ),
+  // The canvas is fixed and blocks collisions, so a new widget needs a slot
+  // that is genuinely free. Clamping to the last rows (what this used to do)
+  // dropped it on top of whatever was already there, silently.
+  const place = (size: { w: number; h: number }) => {
+    const slot = firstFreeSlot(
+      widgets.map((w) => w.layout),
+      size,
+      GRID_COLS,
+      GRID_ROWS,
     );
+    if (!slot) {
+      notifications.show({
+        color: "red",
+        title: "No room on this dashboard",
+        message: "Remove or resize a widget to make space.",
+      });
+    }
+    return slot;
+  };
 
   const addWidget = (type: string) => {
     const descriptor = getWidget(type);
     if (!descriptor) return;
+    const slot = place(descriptor.defaultSize);
+    if (!slot) return;
     setEditMode(true);
     persist([
       ...widgets,
@@ -306,24 +319,15 @@ const DashboardGrid = ({
         id: crypto.randomUUID(),
         type,
         config: descriptor.defaultConfig,
-        layout: {
-          x: 0,
-          y: placeAt(widgets, descriptor.defaultSize.h),
-          ...descriptor.defaultSize,
-        },
+        layout: { ...slot, ...descriptor.defaultSize },
       },
     ]);
   };
 
   const duplicateWidget = (w: Widget) => {
-    persist([
-      ...widgets,
-      {
-        ...w,
-        id: crypto.randomUUID(),
-        layout: { ...w.layout, x: 0, y: placeAt(widgets, w.layout.h) },
-      },
-    ]);
+    const slot = place(w.layout);
+    if (!slot) return;
+    persist([...widgets, { ...w, id: crypto.randomUUID(), layout: { ...w.layout, ...slot } }]);
   };
 
   const resetWidgetSize = (id: string) => {
@@ -459,7 +463,9 @@ const DashboardGrid = ({
             </>
           )}
           {editMode && (
-            <Menu position="bottom-end">
+            // Composing a board means several picks in a row — closing after
+            // each one turns that into a round-trip per widget.
+            <Menu position="bottom-end" closeOnItemClick={false}>
               <Menu.Target>
                 <Button variant="light">Add widget</Button>
               </Menu.Target>
