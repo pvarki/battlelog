@@ -8,13 +8,64 @@ import { Anchor, createTheme, Input } from "@mantine/core";
  *
  * Mantine's dark scheme reads: body ← dark-7, Paper ← dark-6, borders ← dark-4,
  * dimmed text ← dark-2 — the tokens are placed on those slots.
+ *
+ * Semantic ramps carry the sheet's success/warning/danger tones: shade 4 is
+ * the token (legible text on dark), shade 6 the vivid fill. They also override
+ * Mantine's stock red/green/orange so existing call sites inherit the sheet.
  */
+const DANGER = [
+  "#fdecec",
+  "#fbd8d9",
+  "#fac2c4",
+  "#faadb0",
+  "#fa999c", // token
+  "#ef7a7f",
+  "#e35d61", // fill
+  "#c44a4e",
+  "#a03c40",
+  "#7d2f32",
+] as const;
+
+const SUCCESS = [
+  "#e6f6ee",
+  "#ccecdc",
+  "#b0e1c8",
+  "#91d5b2",
+  "#72ca9b", // token
+  "#5ab789",
+  "#43a377", // fill
+  "#368359",
+  "#2a6746",
+  "#1f4e35",
+] as const;
+
+const WARNING = [
+  "#fef2e3",
+  "#fde4c6",
+  "#fcd4a4",
+  "#fcc482",
+  "#fbb360", // token
+  "#eb9f49",
+  "#db8b32", // fill
+  "#b8722a",
+  "#945c22",
+  "#71461a",
+] as const;
+
 export const theme = createTheme({
   fontFamily: "'Inter Variable', Inter, system-ui, sans-serif",
   defaultRadius: 6,
   primaryColor: "primary",
   primaryShade: 6,
+  // Filled components pick dark text on light fills (AA on user-chosen chip colors).
+  autoContrast: true,
   colors: {
+    danger: DANGER,
+    success: SUCCESS,
+    warning: WARNING,
+    red: DANGER,
+    green: SUCCESS,
+    orange: WARNING,
     dark: [
       "#f6f7f9", // 0 text
       "#c9cdd3",
