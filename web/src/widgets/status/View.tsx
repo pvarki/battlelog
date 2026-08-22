@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, ColorSwatch, Group, Menu, Stack, Text } from "@mantine/core";
+import { ActionIcon, Badge, ColorSwatch, Group, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
 import type { StatusConfig, StatusRow, StatusValues } from "./widget.ts";
@@ -40,9 +40,18 @@ const StatusView = ({ config, updateConfig }: WidgetViewProps<StatusConfig>) => 
     <Stack gap={6} p="xs" h="100%" style={{ overflowY: "auto" }}>
       {config.statuses.map((row) => (
         <Group key={row.id} justify="space-between" wrap="nowrap">
-          <Text fz="sm" truncate>
-            {row.label}
-          </Text>
+          <Tooltip
+            label={row.description}
+            disabled={!row.description?.trim()}
+            openDelay={600}
+            multiline
+            maw={320}
+            position="top-start"
+          >
+            <Text fz="sm" truncate style={row.description?.trim() ? { cursor: "help" } : undefined}>
+              {row.label}
+            </Text>
+          </Tooltip>
           {row.kind === "count" ? (
             <CountChip
               count={Number(value.values[row.id] ?? 0)}

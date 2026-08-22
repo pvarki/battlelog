@@ -67,6 +67,18 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
               </ActionIcon>
             </Group>
 
+            <TextInput
+              label="Description"
+              size="xs"
+              placeholder="Shown as a tooltip on hover"
+              value={row.description ?? ""}
+              onChange={(e) =>
+                setRow(row.id, {
+                  description: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
+                })
+              }
+            />
+
             {row.kind === "choice" && (
               <Stack gap={4}>
                 {row.options.map((option, index) => (

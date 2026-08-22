@@ -15,6 +15,8 @@ export type StatusOption = z.infer<typeof optionSchema>;
 const statusRowSchema = z.object({
   id: z.string().min(1).max(64),
   label: z.string().min(1).max(60),
+  /** Shown as a tooltip on longer hover over the row. */
+  description: z.string().max(300).optional(),
   /** "choice": one of the configured options (a boolean is a 2-option choice). "count": a number with −/+. */
   kind: z.enum(["choice", "count"]).default("choice"),
   options: z.array(optionSchema).max(12).default([]),
