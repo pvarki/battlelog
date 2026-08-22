@@ -71,6 +71,24 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
     expect(gone.status).toBe(404);
   });
 
+  test("templates carry the isTemplate flag; plain dashboards default off", async () => {
+    const post = await app.request("/api/v1/dashboards", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ name: "Soldier template", isTemplate: true, widgets: [clockWidget] }),
+    });
+    expect(post.status).toBe(201);
+    const created = await post.json();
+    expect(created.isTemplate).toBe(true);
+
+    const plain = await app.request("/api/v1/dashboards", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ name: "Plain", widgets: [] }),
+    });
+    expect((await plain.json()).isTemplate).toBe(false);
+  });
+
   test("malformed widget structure is rejected", async () => {
     const res = await app.request("/api/v1/dashboards", {
       method: "POST",

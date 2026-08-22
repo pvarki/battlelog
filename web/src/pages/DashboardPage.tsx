@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Badge,
   Box,
   Button,
   Drawer,
@@ -280,6 +281,11 @@ const DashboardGrid = ({
               {name}
             </Title>
           )}
+          {dashboard.isTemplate && (
+            <Badge variant="light" color="accent">
+              Template
+            </Badge>
+          )}
           <Menu position="bottom-start">
             <Menu.Target>
               <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Switch dashboard">
@@ -287,15 +293,19 @@ const DashboardGrid = ({
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              {dashboards.map((d) => (
-                <Menu.Item
-                  key={d.id}
-                  disabled={d.id === dashboard.id}
-                  onClick={() => navigate({ to: "/d/$dashboardId", params: { dashboardId: d.id } })}
-                >
-                  {d.name}
-                </Menu.Item>
-              ))}
+              {dashboards
+                .filter((d) => !d.isTemplate)
+                .map((d) => (
+                  <Menu.Item
+                    key={d.id}
+                    disabled={d.id === dashboard.id}
+                    onClick={() =>
+                      navigate({ to: "/d/$dashboardId", params: { dashboardId: d.id } })
+                    }
+                  >
+                    {d.name}
+                  </Menu.Item>
+                ))}
               <Menu.Divider />
               <Menu.Item onClick={() => navigate({ to: "/" })}>All dashboards…</Menu.Item>
             </Menu.Dropdown>

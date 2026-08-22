@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   foreignKey,
   geometry,
@@ -10,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -156,6 +158,8 @@ export type DashboardWidget = {
 export const dashboards = pgTable("dashboards", {
   id: uuid("id").primaryKey(),
   name: text("name").notNull(),
+  /** Templates are dashboards on a shelf: instantiating copies name+widgets. */
+  isTemplate: boolean("is_template").notNull().default(false),
   widgets: jsonb("widgets").$type<DashboardWidget[]>().notNull().default([]),
   /** Optimistic concurrency token: rewritten on every update; stale writers get 409. */
   version: text("version").notNull().default("0"),
@@ -163,7 +167,13 @@ export const dashboards = pgTable("dashboards", {
   updatedBy: text("updated_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  // Template names are the seeding upsert key — enforce at the DB so
+  // concurrent boots can't double-seed (check-then-insert races otherwise).
+  templateNameUnique: uniqueIndex("dashboards_template_name_unique")
+    .on(t.name)
+    .where(sql`${t.isTemplate}`),
+}));
 
 export type DashboardRow = typeof dashboards.$inferSelect;
 export type DashboardInsert = typeof dashboards.$inferInsert;

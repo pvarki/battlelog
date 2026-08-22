@@ -3,11 +3,13 @@ import { serve } from "@hono/node-server";
 import { ENV } from "varlock/env";
 import { createApp } from "./app.ts";
 import { runMigrations } from "./db/migrate.ts";
+import { seedTemplates } from "./db/seed-templates.ts";
 import { logger } from "./lib/logger.ts";
 import { startEventsListener } from "./services/events/events.listener.ts";
 
 const main = async () => {
   await runMigrations();
+  await seedTemplates();
   const stopListener = startEventsListener();
 
   const app = createApp();
