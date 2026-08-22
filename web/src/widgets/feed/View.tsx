@@ -1,4 +1,5 @@
 import { ActionIcon, Badge, Box, Center, Loader, Table, Text } from "@mantine/core";
+import { IconMaximize } from "@tabler/icons-react";
 import {
   lazy,
   type ReactNode,
@@ -156,12 +157,23 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const [everOpened, setEverOpened] = useState(false);
   const query = queryFor(config);
   const match = (row: EventResponse) => matchesFeed(row, config);
-  const events = useLiveEvents({ limit: config.rows, query, match });
+  const { events, failed } = useLiveEvents({ limit: config.rows, query, match });
 
   if (!events) {
     return (
       <Center h="100%">
         <Loader size="sm" />
+      </Center>
+    );
+  }
+
+  // An empty table after a failed load would read as "no events matched".
+  if (failed && events.length === 0) {
+    return (
+      <Center h="100%" p="sm">
+        <Text c="dimmed" fz="xs" ta="center">
+          Could not load events — new ones will still arrive on the live stream.
+        </Text>
       </Center>
     );
   }
@@ -180,7 +192,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
         // Above the sticky thead, which Mantine gives z-index 3.
         style={{ position: "absolute", top: 4, right: 4, zIndex: 4 }}
       >
-        ⛶
+        <IconMaximize size={16} stroke={1.5} />
       </ActionIcon>
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
         <FeedTable

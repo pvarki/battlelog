@@ -10,6 +10,7 @@ import {
   Modal,
   SimpleGrid,
   TagsInput,
+  Text,
   TextInput,
 } from "@mantine/core";
 import { useNavigate } from "@tanstack/react-router";
@@ -89,7 +90,7 @@ const FeedFullscreen = ({
   const columns = candidates.filter((c) => visible.includes(c.id));
 
   const extras = toExtras(filters);
-  const events = useLiveEvents({
+  const { events, failed } = useLiveEvents({
     limit: LIMIT,
     query: queryFor(config, extras),
     match: (row: EventResponse) => matchesFeed(row, config, extras),
@@ -176,6 +177,12 @@ const FeedFullscreen = ({
       {!events ? (
         <Center h={200}>
           <Loader size="sm" />
+        </Center>
+      ) : failed && events.length === 0 ? (
+        <Center h={200}>
+          <Text c="dimmed" fz="sm">
+            Could not load events — new ones will still arrive on the live stream.
+          </Text>
         </Center>
       ) : (
         <Box style={{ overflowX: "auto" }}>
