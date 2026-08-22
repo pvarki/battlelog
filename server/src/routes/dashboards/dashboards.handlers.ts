@@ -1,6 +1,7 @@
 import type { RouteHandler } from "@hono/zod-openapi";
 import {
   createDashboard,
+  DuplicateTemplateNameError,
   deleteDashboard,
   getDashboard,
   listDashboards,
@@ -32,8 +33,13 @@ export const postDashboardHandler: RouteHandler<typeof postDashboardRoute> = asy
   // "anonymous" only when RM_MTLS_USER_ENFORCE is off (local dev without the proxy)
   const user = c.get("userCn") ?? "anonymous";
   const body = c.req.valid("json");
-  const row = await createDashboard({ ...body, createdBy: user });
-  return c.json(toApiDashboard(row), 201);
+  try {
+    const row = await createDashboard({ ...body, createdBy: user });
+    return c.json(toApiDashboard(row), 201);
+  } catch (err) {
+    if (err instanceof DuplicateTemplateNameError) return c.json({ error: err.message }, 409);
+    throw err;
+  }
 };
 
 export const patchDashboardHandler: RouteHandler<typeof patchDashboardRoute> = async (c) => {

@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 import type { DashboardResponse } from "../api.ts";
-import { exportFilename, parseDashboardImport, toExportJson } from "./transfer.ts";
+import { exportFilename, forkWidgets, parseDashboardImport, toExportJson } from "./transfer.ts";
+
+const L = { x: 0, y: 0, w: 4, h: 4 };
 
 const dashboard: DashboardResponse = {
   id: "018f0000-0000-7000-8000-000000000001",
@@ -22,13 +24,30 @@ const dashboard: DashboardResponse = {
   updatedAt: "2026-08-22T10:00:00.000Z",
 };
 
-test("export drops identity and history, keeps name/description/isTemplate/widgets", () => {
+test("export drops identity, history, and every widget's event pointer", () => {
   expect(JSON.parse(toExportJson(dashboard))).toEqual({
     name: "Recon North",
     description: dashboard.description,
     isTemplate: false,
-    widgets: dashboard.widgets,
+    widgets: [{ ...dashboard.widgets[0], config: {} }],
   });
+});
+
+test("forkWidgets clears eventId so a copy starts its own chain", () => {
+  const widgets = [
+    { id: "a", type: "note", config: { eventId: "e1", title: "kept" }, layout: L },
+    { id: "b", type: "clock", config: { tz: "UTC" }, layout: L },
+    { id: "c", type: "todo", config: null, layout: L },
+    { id: "d", type: "note", layout: L },
+  ];
+  expect(forkWidgets(widgets)).toEqual([
+    { id: "a", type: "note", config: { title: "kept" }, layout: L },
+    { id: "b", type: "clock", config: { tz: "UTC" }, layout: L },
+    { id: "c", type: "todo", config: null, layout: L },
+    { id: "d", type: "note", layout: L },
+  ]);
+  // The source must not be mutated: the caller still renders it.
+  expect(widgets[0]?.config).toEqual({ eventId: "e1", title: "kept" });
 });
 
 test("export round-trips through import", () => {
@@ -39,7 +58,7 @@ test("export round-trips through import", () => {
       name: "Recon North",
       description: dashboard.description,
       isTemplate: false,
-      widgets: dashboard.widgets,
+      widgets: [{ ...dashboard.widgets[0], config: {} }],
     },
   });
 });

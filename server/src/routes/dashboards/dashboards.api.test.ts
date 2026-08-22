@@ -89,6 +89,35 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
     expect((await plain.json()).isTemplate).toBe(false);
   });
 
+  test("a second template with the same name is a 409, not a 500", async () => {
+    // Template names are the seeding upsert key, so the collision is real — but
+    // a raw constraint violation reaches the UI as an unfixable "try again".
+    const body = JSON.stringify({
+      name: `Duplicate ${runId}`,
+      isTemplate: true,
+      widgets: [],
+    });
+    expect(
+      (await app.request("/api/v1/dashboards", { method: "POST", headers: json, body })).status,
+    ).toBe(201);
+
+    const again = await app.request("/api/v1/dashboards", {
+      method: "POST",
+      headers: json,
+      body,
+    });
+    expect(again.status).toBe(409);
+    expect((await again.json()).error).toContain("already exists");
+
+    // The same name is fine for a plain dashboard: the index is partial.
+    const plain = await app.request("/api/v1/dashboards", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ name: `Duplicate ${runId}`, widgets: [] }),
+    });
+    expect(plain.status).toBe(201);
+  });
+
   test("malformed widget structure is rejected", async () => {
     const res = await app.request("/api/v1/dashboards", {
       method: "POST",

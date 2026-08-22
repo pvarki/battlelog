@@ -12,9 +12,33 @@ export type DashboardExport = {
   widgets: DashboardResponse["widgets"];
 };
 
+/**
+ * Widgets with their content pointer dropped. `eventId` is the one uniform
+ * handle on a widget's event chain (note, todo, table, status, schedule all use
+ * it), and `useEventDocument` mints a fresh one on first edit when it is absent
+ * — so clearing it is what makes a copy its own document instead of a second
+ * window onto the original's.
+ */
+export const forkWidgets = (widgets: DashboardResponse["widgets"]): DashboardResponse["widgets"] =>
+  widgets.map((w) => {
+    if (!w.config || typeof w.config !== "object") return w;
+    const config = { ...(w.config as Record<string, unknown>) };
+    if (!("eventId" in config)) return w;
+    delete config.eventId;
+    return { ...w, config };
+  });
+
 export const toExportJson = (d: DashboardResponse): string =>
   JSON.stringify(
-    { name: d.name, description: d.description, isTemplate: d.isTemplate, widgets: d.widgets },
+    {
+      name: d.name,
+      description: d.description,
+      isTemplate: d.isTemplate,
+      // The import dialog promises content does not travel with the file; a
+      // kept eventId would make that false for an import into this same
+      // deployment, where the chain it names still exists.
+      widgets: forkWidgets(d.widgets),
+    },
     null,
     2,
   );

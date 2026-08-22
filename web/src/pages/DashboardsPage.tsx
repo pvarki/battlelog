@@ -10,6 +10,7 @@ import {
   Menu,
   Modal,
   Paper,
+  Radio,
   Stack,
   Text,
   Textarea,
@@ -32,7 +33,12 @@ import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-route
 import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
-import { exportFilename, parseDashboardImport, toExportJson } from "../dashboard/transfer.ts";
+import {
+  exportFilename,
+  forkWidgets,
+  parseDashboardImport,
+  toExportJson,
+} from "../dashboard/transfer.ts";
 import { useLiveEvents } from "../live-events.ts";
 import { Placeholder } from "../Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
@@ -98,11 +104,40 @@ const LatestActivity = () => {
   );
 };
 
-// Details-modal target: the literal "new" creates, any other value is the id of
-// the dashboard being edited (uuids never collide with the sentinel). Held as an
-// id rather than the row so submit reads the version the list currently has — a
-// retry after a 409 would otherwise resend the stale one forever.
-type DetailsTarget = string | null;
+const widgetCount = (n: number) => `${n} widget${n === 1 ? "" : "s"}`;
+
+/**
+ * What the details modal is currently for. Every one of the four asks for a name
+ * and a description; only the submit differs. `edit` and `saveTemplate` hold an
+ * id rather than the row so submit reads the version the list currently has — a
+ * retry after a 409 would otherwise resend the stale one forever.
+ */
+type DetailsTarget =
+  | { kind: "new" }
+  | { kind: "fromTemplate" }
+  | { kind: "saveTemplate"; id: string }
+  | { kind: "edit"; id: string }
+  | null;
+
+const DETAILS_TITLE: Record<NonNullable<DetailsTarget>["kind"], string> = {
+  new: "New dashboard",
+  fromTemplate: "New dashboard from template",
+  saveTemplate: "Save as template",
+  edit: "Name & description",
+};
+
+const DETAILS_NAME_HINT: Record<NonNullable<DetailsTarget>["kind"], string | undefined> = {
+  new: undefined,
+  fromTemplate: "Yours to choose — it does not have to match the template.",
+  saveTemplate:
+    "Template names must be unique; they are how a deployed template is matched on restart.",
+  edit: undefined,
+};
+
+// Switching template re-suggests its name, but never overwrites one the user
+// typed: "untouched" means the field still holds what the previous pick put there.
+const suggested = (current: string, previous: string, next: string) =>
+  !current.trim() || current === previous ? next : current;
 
 export const DashboardsPage = () => {
   const all = route.useLoaderData();
@@ -112,6 +147,7 @@ export const DashboardsPage = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState<DetailsTarget>(null);
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", description: "" });
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -121,15 +157,32 @@ export const DashboardsPage = () => {
   const dashboards = all.filter((d) => !d.isTemplate);
   const templates = all.filter((d) => d.isTemplate);
 
-  const createAndOpen = (json: {
+  // Creating a dashboard leaves this page, so a failure has to keep the modal
+  // open with the field the user can fix — a thrown error would hand a name
+  // collision to the route error boundary, which is not a fixable screen.
+  const create = (json: {
     name: string;
     description: string | null;
+    isTemplate?: boolean;
     widgets: DashboardResponse["widgets"];
   }) =>
     startCreate(async () => {
       const res = await dashboardsApi.dashboards.$post({ json });
-      if (!res.ok) throw new Error(`Failed to create dashboard (${res.status})`);
+      if (res.status === 409) {
+        setError((await res.json()).error);
+        return;
+      }
+      if (!res.ok) {
+        setError(`Couldn't create it (${res.status}) — try again`);
+        return;
+      }
       const created = await res.json();
+      setTarget(null);
+      // A template is a shelf item, not somewhere to go: stay on the list.
+      if (json.isTemplate) {
+        await router.invalidate();
+        return;
+      }
       await navigate({
         to: "/d/$dashboardId",
         params: { dashboardId: created.id },
@@ -155,15 +208,44 @@ export const DashboardsPage = () => {
     }
   };
 
-  const openNew = () => {
-    setForm({ name: "", description: "" });
-    setTarget("new");
+  const open = (next: DetailsTarget, name: string, description: string | null) => {
+    setForm({ name, description: description ?? "" });
+    setError(null);
+    setTarget(next);
   };
 
-  const openEdit = (d: DashboardResponse) => {
-    setForm({ name: d.name, description: d.description ?? "" });
-    setTarget(d.id);
+  const openNew = () => {
+    setTemplateId(null);
+    open({ kind: "new" }, "", null);
   };
+
+  // Pre-picks the first template, so the common single-template case is one
+  // click from an editable name instead of two.
+  const openFromTemplate = () => {
+    const first = templates[0];
+    if (!first) return;
+    setTemplateId(first.id);
+    open({ kind: "fromTemplate" }, first.name, first.description);
+  };
+
+  // Naming the template here is the point: reusing the dashboard's name is what
+  // made a second save collide with the first and report an unfixable failure.
+  const openSaveTemplate = (d: DashboardResponse) =>
+    open({ kind: "saveTemplate", id: d.id }, d.name, d.description);
+
+  const pickTemplate = (id: string) => {
+    const next = templates.find((t) => t.id === id);
+    const previous = templates.find((t) => t.id === templateId);
+    setTemplateId(id);
+    if (!next) return;
+    setForm((f) => ({
+      name: suggested(f.name, previous?.name ?? "", next.name),
+      description: suggested(f.description, previous?.description ?? "", next.description ?? ""),
+    }));
+  };
+
+  const openEdit = (d: DashboardResponse) =>
+    open({ kind: "edit", id: d.id }, d.name, d.description);
 
   const submitDetails = () => {
     const name = form.name.trim();
@@ -171,12 +253,32 @@ export const DashboardsPage = () => {
     // One truth for "no description": null. An empty string would render the
     // same but make every reader test two cases.
     const description = form.description.trim() || null;
-    if (target === "new") {
-      createAndOpen({ name, description, widgets: [] });
+    if (!target) return;
+    if (target.kind === "new") {
+      create({ name, description, widgets: [] });
       return;
     }
-    const current = all.find((d) => d.id === target);
+    if (target.kind === "fromTemplate") {
+      // A copy used to inherit the template's name verbatim, which put two
+      // identically named rows in the list with no way to tell them apart.
+      const template = templates.find((t) => t.id === templateId);
+      if (!template) return;
+      create({ name, description, widgets: template.widgets });
+      return;
+    }
+    const current = all.find((d) => d.id === target.id);
     if (!current) return;
+    if (target.kind === "saveTemplate") {
+      create({
+        name,
+        description,
+        isTemplate: true,
+        // Without this every dashboard made from the template would write into
+        // the *source* board's notes and checklists, not its own.
+        widgets: forkWidgets(current.widgets),
+      });
+      return;
+    }
     void mutate("Save", async () => {
       const res = await dashboardsApi.dashboards[":dashboardId"].$patch({
         param: { dashboardId: current.id },
@@ -201,18 +303,6 @@ export const DashboardsPage = () => {
         json: {
           name: `${source.name} (copy)`,
           description: source.description,
-          widgets: source.widgets,
-        },
-      }),
-    );
-
-  const saveAsTemplate = (source: DashboardResponse) =>
-    mutate("Save as template", () =>
-      dashboardsApi.dashboards.$post({
-        json: {
-          name: source.name,
-          description: source.description,
-          isTemplate: true,
           widgets: source.widgets,
         },
       }),
@@ -289,9 +379,9 @@ export const DashboardsPage = () => {
             <Menu.Item
               leftSection={<IconStar size={16} stroke={1.5} />}
               disabled={busy}
-              onClick={() => saveAsTemplate(d)}
+              onClick={() => openSaveTemplate(d)}
             >
-              Save as template
+              Save as template…
             </Menu.Item>
             <Menu.Item
               leftSection={<IconCopy size={16} stroke={1.5} />}
@@ -353,29 +443,11 @@ export const DashboardsPage = () => {
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Item onClick={openNew}>Empty dashboard…</Menu.Item>
+                {/* One item rather than the template list inline: the picker has
+                    room to say what each template contains, and the menu stops
+                    growing with the number of them. */}
                 {templates.length > 0 && (
-                  <>
-                    <Menu.Label>From template</Menu.Label>
-                    {templates.map((t) => (
-                      <Menu.Item
-                        key={t.id}
-                        onClick={() =>
-                          createAndOpen({
-                            name: t.name,
-                            description: t.description,
-                            widgets: t.widgets,
-                          })
-                        }
-                      >
-                        <Text fz="sm">{t.name}</Text>
-                        {t.description && (
-                          <Text fz="xs" c="dimmed" lineClamp={2}>
-                            {t.description}
-                          </Text>
-                        )}
-                      </Menu.Item>
-                    ))}
-                  </>
+                  <Menu.Item onClick={openFromTemplate}>From template…</Menu.Item>
                 )}
                 <Menu.Divider />
                 <Menu.Item
@@ -396,7 +468,7 @@ export const DashboardsPage = () => {
             </Menu>
           </Group>
 
-          {error && (
+          {error && !target && (
             <Text c="red.4" fz="sm" role="status">
               {error}
             </Text>
@@ -421,11 +493,43 @@ export const DashboardsPage = () => {
       <Modal
         opened={target !== null}
         onClose={() => setTarget(null)}
-        title={target === "new" ? "New dashboard" : "Name & description"}
+        title={target ? DETAILS_TITLE[target.kind] : ""}
       >
         <Stack>
+          {target?.kind === "fromTemplate" && (
+            <Radio.Group
+              value={templateId ?? ""}
+              onChange={pickTemplate}
+              label="Template"
+              description="Copies its widgets and layout. Editing the copy never changes the template."
+            >
+              <Stack gap="xs" mt="xs">
+                {templates.map((t) => (
+                  <Radio.Card key={t.id} value={t.id} p="sm" withBorder>
+                    <Group wrap="nowrap" align="flex-start" gap="sm">
+                      <Radio.Indicator />
+                      <Box mih={0}>
+                        <Text fz="sm" fw={500}>
+                          {t.name}
+                        </Text>
+                        {t.description && (
+                          <Text fz="xs" c="dimmed">
+                            {t.description}
+                          </Text>
+                        )}
+                        <Text fz="xs" c="dimmed">
+                          {widgetCount(t.widgets.length)}
+                        </Text>
+                      </Box>
+                    </Group>
+                  </Radio.Card>
+                ))}
+              </Stack>
+            </Radio.Group>
+          )}
           <TextInput
             label="Name"
+            description={DETAILS_NAME_HINT[target?.kind ?? "new"]}
             data-autofocus
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.currentTarget.value })}
@@ -442,9 +546,18 @@ export const DashboardsPage = () => {
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.currentTarget.value })}
           />
+          {error && (
+            <Text c="red.4" fz="sm" role="status">
+              {error}
+            </Text>
+          )}
           <Group justify="flex-end">
-            <Button onClick={submitDetails} loading={creating || busy} disabled={!form.name.trim()}>
-              {target === "new" ? "Create" : "Save"}
+            <Button
+              onClick={submitDetails}
+              loading={creating || busy}
+              disabled={!form.name.trim() || (target?.kind === "fromTemplate" && !templateId)}
+            >
+              {target?.kind === "edit" ? "Save" : "Create"}
             </Button>
           </Group>
         </Stack>
@@ -532,8 +645,7 @@ const RowInfo = ({ dashboard }: { dashboard: DashboardResponse }) => (
       </Text>
     )}
     <Text c="dimmed" fz="xs">
-      {dashboard.widgets.length} widget
-      {dashboard.widgets.length === 1 ? "" : "s"} · updated {formatDateTime(dashboard.updatedAt)}
+      {widgetCount(dashboard.widgets.length)} · updated {formatDateTime(dashboard.updatedAt)}
     </Text>
   </Box>
 );

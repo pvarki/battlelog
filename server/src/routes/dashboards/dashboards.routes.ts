@@ -52,6 +52,7 @@ export const postDashboardRoute = createRoute({
     201: jsonContent(dashboardResponseSchema, "Created dashboard"),
     400: jsonContent(errorResponseSchema, "Invalid input"),
     401: jsonContent(errorResponseSchema, "Client certificate identity required"),
+    409: jsonContent(errorResponseSchema, "A template with that name already exists"),
     500: jsonContent(errorResponseSchema, "Server error"),
   },
 });
