@@ -10,6 +10,7 @@ export type DashboardExport = {
   description: string | null;
   isTemplate: boolean;
   widgets: DashboardResponse["widgets"];
+  templateEvents?: DashboardResponse["templateEvents"];
 };
 
 /**
@@ -38,6 +39,7 @@ export const toExportJson = (d: DashboardResponse): string =>
       // kept eventId would make that false for an import into this same
       // deployment, where the chain it names still exists.
       widgets: forkWidgets(d.widgets),
+      ...(d.templateEvents.length ? { templateEvents: d.templateEvents } : {}),
     },
     null,
     2,
@@ -71,6 +73,8 @@ export const parseDashboardImport = (text: string): ImportResult => {
   if (typeof d.name !== "string" || !d.name.trim())
     return { ok: false, error: "Missing a dashboard name" };
   if (!Array.isArray(d.widgets)) return { ok: false, error: "Missing a widgets list" };
+  if (d.templateEvents !== undefined && !Array.isArray(d.templateEvents))
+    return { ok: false, error: "Template events must be a list" };
   return {
     ok: true,
     value: {
@@ -81,6 +85,7 @@ export const parseDashboardImport = (text: string): ImportResult => {
         typeof d.description === "string" && d.description.trim() ? d.description.trim() : null,
       isTemplate: d.isTemplate === true,
       widgets: d.widgets,
+      ...(d.templateEvents ? { templateEvents: d.templateEvents } : {}),
     },
   };
 };
