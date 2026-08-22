@@ -4,7 +4,25 @@ import { createRootRoute, createRoute, Link, Outlet } from "@tanstack/react-rout
 import { dashboardsApi } from "./api.ts";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
-import { EventsPage } from "./pages/EventsPage.tsx";
+import { EventExplorerPage, validateEventSearch } from "./pages/EventExplorerPage.tsx";
+
+// The current page renders full-strength; elsewhere links stay dimmed.
+const NavLink = ({ to, children }: { to: string; children: string }) => (
+  <Anchor
+    fz="sm"
+    c="dimmed"
+    renderRoot={(props) => (
+      <Link
+        to={to}
+        activeOptions={{ exact: to === "/" }}
+        activeProps={{ style: { color: "var(--mantine-color-dark-0)", fontWeight: 600 } }}
+        {...props}
+      />
+    )}
+  >
+    {children}
+  </Anchor>
+);
 
 const RootLayout = () => {
   // Desktop-only for now: FullHD is the design target, small screens get an error.
@@ -18,7 +36,8 @@ const RootLayout = () => {
         <Stack align="center" gap="xs">
           <Title order={3}>Screen too small</Title>
           <Text c="dimmed" ta="center">
-            BattleLog requires a desktop display (1920×1080). Mobile is not supported yet.
+            BattleLog needs a screen at least 1280 px wide — use a desktop or laptop display. Mobile
+            is not supported yet.
           </Text>
         </Stack>
       </Center>
@@ -32,12 +51,8 @@ const RootLayout = () => {
           <Text fw={700} style={{ letterSpacing: "0.04em" }}>
             BATTLELOG
           </Text>
-          <Anchor fz="sm" c="dimmed" renderRoot={(props) => <Link to="/" {...props} />}>
-            Dashboards
-          </Anchor>
-          <Anchor fz="sm" c="dimmed" renderRoot={(props) => <Link to="/events" {...props} />}>
-            Events
-          </Anchor>
+          <NavLink to="/">Dashboards</NavLink>
+          <NavLink to="/events">Event Explorer</NavLink>
         </Group>
       </AppShell.Header>
       <AppShell.Main>
@@ -65,7 +80,6 @@ export const dashboardsRoute = createRoute({
 export const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/d/$dashboardId",
-  // The list feeds the top-bar dashboard switcher.
   loader: async ({ params }) => {
     const [one, all] = await Promise.all([
       dashboardsApi.dashboards[":dashboardId"].$get({
@@ -81,10 +95,15 @@ export const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
-export const eventsRoute = createRoute({
+export const eventExplorerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/events",
-  component: EventsPage,
+  validateSearch: validateEventSearch,
+  component: EventExplorerPage,
 });
 
-export const routeTree = rootRoute.addChildren([dashboardsRoute, dashboardRoute, eventsRoute]);
+export const routeTree = rootRoute.addChildren([
+  dashboardsRoute,
+  dashboardRoute,
+  eventExplorerRoute,
+]);
