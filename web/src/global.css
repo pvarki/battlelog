@@ -1,0 +1,10 @@
+/*
+ * Tabular figures everywhere. Proportional digits reflow when a value changes
+ * in place — a clock jitters once a second, and numbers in a column don't line
+ * up. Inter Variable ships tabular figures, so this is a font feature rather
+ * than a second typeface: it is what lets the clock widget use Inter instead of
+ * falling back to monospace to hold its digits still.
+ */
+:root {
+  font-variant-numeric: tabular-nums;
+}
