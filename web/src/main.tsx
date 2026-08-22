@@ -7,10 +7,10 @@ import { Notifications } from "@mantine/notifications";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { routeTree } from "./routes.tsx";
+import { routerDefaults, routeTree } from "./routes.tsx";
 import { theme } from "./theme.ts";
 
-const router = createRouter({ routeTree });
+const router = createRouter({ routeTree, ...routerDefaults });
 
 declare module "@tanstack/react-router" {
   interface Register {
