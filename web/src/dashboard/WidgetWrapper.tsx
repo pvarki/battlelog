@@ -11,6 +11,7 @@ type Props = {
   onDuplicate: () => void;
   onResetSize: () => void;
   onResetConfig: () => void;
+  onUpdateConfig: (config: unknown) => void;
 };
 
 class WidgetErrorBoundary extends Component<
@@ -70,6 +71,7 @@ export const WidgetWrapper = ({
   onDuplicate,
   onResetSize,
   onResetConfig,
+  onUpdateConfig,
 }: Props) => {
   const descriptor = getWidget(instance.type);
   const validation = useMemo(
@@ -139,6 +141,7 @@ export const WidgetWrapper = ({
                 config={validation.value}
                 instanceId={instance.id}
                 editMode={editMode}
+                updateConfig={onUpdateConfig}
               />
             </Suspense>
           </WidgetErrorBoundary>
