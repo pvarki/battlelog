@@ -160,6 +160,8 @@ export const dashboards = pgTable(
   {
     id: uuid("id").primaryKey(),
     name: text("name").notNull(),
+    /** One line on what this board is for — the list shows it to tell near-identical names apart. */
+    description: text("description"),
     /** Templates are dashboards on a shelf: instantiating copies name+widgets. */
     isTemplate: boolean("is_template").notNull().default(false),
     widgets: jsonb("widgets").$type<DashboardWidget[]>().notNull().default([]),

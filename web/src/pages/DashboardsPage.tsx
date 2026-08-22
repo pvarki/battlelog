@@ -3,9 +3,10 @@ import {
   Anchor,
   Box,
   Button,
-  Container,
+  Center,
   FileButton,
   Group,
+  Loader,
   Menu,
   Modal,
   Paper,
@@ -21,6 +22,9 @@ import {
   IconCopy,
   IconDots,
   IconDownload,
+  IconFileImport,
+  IconPencil,
+  IconPlus,
   IconStar,
   IconTrash,
 } from "@tabler/icons-react";
@@ -29,19 +33,87 @@ import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { exportFilename, parseDashboardImport, toExportJson } from "../dashboard/transfer.ts";
+import { useLiveEvents } from "../live-events.ts";
 import { Placeholder } from "../Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
+import { FeedTable } from "../widgets/feed/View.tsx";
+import type { FeedColumn } from "../widgets/feed/widget.ts";
 
 const route = getRouteApi("/");
+
+/** Matches the server's cap, so the field can't compose a body the API rejects. */
+const DESCRIPTION_MAX = 280;
+
+// The list column is the narrow half of the split; the log gets the rest.
+const LIST_WIDTH = 400;
+
+const ACTIVITY_ROWS = 40;
+
+// Reuses the feed widget's table rather than a second one: an event arriving
+// here then washes exactly as it does inside a dashboard.
+const ACTIVITY_COLUMNS: FeedColumn[] = [
+  { id: "time", label: "", source: "time", dataPath: "" },
+  { id: "header", label: "", source: "header", dataPath: "" },
+  { id: "type", label: "", source: "type", dataPath: "" },
+  { id: "tags", label: "", source: "tags", dataPath: "" },
+];
+
+/**
+ * The log, on the landing page. Picking a dashboard is a navigation choice, and
+ * it used to be the only thing here — so the first screen of a
+ * situational-awareness tool showed no situation. The stream is already open on
+ * this route (the header's connection indicator holds it), so this costs a fetch.
+ */
+const LatestActivity = () => {
+  const { events, failed, arrived } = useLiveEvents({ limit: ACTIVITY_ROWS });
+  return (
+    <Paper withBorder flex={1} mih={0} style={{ display: "flex", flexDirection: "column" }}>
+      <Group justify="space-between" px="sm" py="xs" wrap="nowrap">
+        <Text fw={600} fz="sm">
+          Latest activity
+        </Text>
+        <Anchor fz="xs" renderRoot={(props) => <Link to="/events" {...props} />}>
+          Search all events
+        </Anchor>
+      </Group>
+      <Box flex={1} mih={0} px="sm" pb="sm" style={{ overflowY: "auto" }}>
+        {!events ? (
+          <Center h="100%">
+            <Loader size="sm" />
+          </Center>
+        ) : events.length === 0 ? (
+          <Placeholder
+            title={failed ? "Couldn't load the log" : "Nothing logged yet"}
+            detail={
+              failed
+                ? "New events will still arrive on the live stream."
+                : "Events posted to BattleLog appear here the moment they arrive."
+            }
+          />
+        ) : (
+          <FeedTable columns={ACTIVITY_COLUMNS} events={events} arrived={arrived} />
+        )}
+      </Box>
+    </Paper>
+  );
+};
+
+// Details-modal target: the literal "new" creates, any other value is the id of
+// the dashboard being edited (uuids never collide with the sentinel). Held as an
+// id rather than the row so submit reads the version the list currently has — a
+// retry after a 409 would otherwise resend the stale one forever.
+type DetailsTarget = string | null;
 
 export const DashboardsPage = () => {
   const all = route.useLoaderData();
   const navigate = useNavigate();
   const router = useRouter();
-  const [name, setName] = useState("");
   const [creating, startCreate] = useTransition();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [target, setTarget] = useState<DetailsTarget>(null);
+  const [form, setForm] = useState({ name: "", description: "" });
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -49,7 +121,11 @@ export const DashboardsPage = () => {
   const dashboards = all.filter((d) => !d.isTemplate);
   const templates = all.filter((d) => d.isTemplate);
 
-  const createAndOpen = (json: { name: string; widgets: DashboardResponse["widgets"] }) =>
+  const createAndOpen = (json: {
+    name: string;
+    description: string | null;
+    widgets: DashboardResponse["widgets"];
+  }) =>
     startCreate(async () => {
       const res = await dashboardsApi.dashboards.$post({ json });
       if (!res.ok) throw new Error(`Failed to create dashboard (${res.status})`);
@@ -60,26 +136,55 @@ export const DashboardsPage = () => {
       });
     });
 
-  const create = () => {
-    const trimmed = name.trim();
-    if (trimmed) createAndOpen({ name: trimmed, widgets: [] });
-  };
-
   // All list mutations funnel through here: surface failures (a silent no-op
   // delete reads as "the app is broken") and block double-clicks while one
-  // is in flight.
+  // is in flight. Reload the list either way — after a failure too, so a
+  // retry works from the version the server actually holds.
   const mutate = async (label: string, fn: () => Promise<{ ok: boolean }>) => {
     setBusy(true);
     setError(null);
     try {
       const res = await fn();
       if (!res.ok) throw new Error(label);
-      await router.invalidate();
+      setError(null);
     } catch {
       setError(`${label} failed — try again`);
     } finally {
+      await router.invalidate();
       setBusy(false);
     }
+  };
+
+  const openNew = () => {
+    setForm({ name: "", description: "" });
+    setTarget("new");
+  };
+
+  const openEdit = (d: DashboardResponse) => {
+    setForm({ name: d.name, description: d.description ?? "" });
+    setTarget(d.id);
+  };
+
+  const submitDetails = () => {
+    const name = form.name.trim();
+    if (!name) return;
+    // One truth for "no description": null. An empty string would render the
+    // same but make every reader test two cases.
+    const description = form.description.trim() || null;
+    if (target === "new") {
+      createAndOpen({ name, description, widgets: [] });
+      return;
+    }
+    const current = all.find((d) => d.id === target);
+    if (!current) return;
+    void mutate("Save", async () => {
+      const res = await dashboardsApi.dashboards[":dashboardId"].$patch({
+        param: { dashboardId: current.id },
+        json: { version: current.version, name, description },
+      });
+      if (res.ok) setTarget(null);
+      return res;
+    });
   };
 
   const remove = (d: DashboardResponse) => {
@@ -93,14 +198,23 @@ export const DashboardsPage = () => {
   const duplicate = (source: DashboardResponse) =>
     mutate("Duplicate", () =>
       dashboardsApi.dashboards.$post({
-        json: { name: `${source.name} (copy)`, widgets: source.widgets },
+        json: {
+          name: `${source.name} (copy)`,
+          description: source.description,
+          widgets: source.widgets,
+        },
       }),
     );
 
   const saveAsTemplate = (source: DashboardResponse) =>
     mutate("Save as template", () =>
       dashboardsApi.dashboards.$post({
-        json: { name: source.name, isTemplate: true, widgets: source.widgets },
+        json: {
+          name: source.name,
+          description: source.description,
+          isTemplate: true,
+          widgets: source.widgets,
+        },
       }),
     );
 
@@ -163,6 +277,15 @@ export const DashboardsPage = () => {
       <Menu.Dropdown>
         {!d.isTemplate && (
           <>
+            {/* Templates are keyed by name for seeding, so renaming one would
+                let the next boot re-seed it as a second template. */}
+            <Menu.Item
+              leftSection={<IconPencil size={16} stroke={1.5} />}
+              disabled={busy}
+              onClick={() => openEdit(d)}
+            >
+              Name & description…
+            </Menu.Item>
             <Menu.Item
               leftSection={<IconStar size={16} stroke={1.5} />}
               disabled={busy}
@@ -204,32 +327,144 @@ export const DashboardsPage = () => {
     </Menu>
   );
 
+  const row = (d: DashboardResponse) => (
+    <Paper key={d.id} withBorder p="sm">
+      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
+        <RowInfo dashboard={d} />
+        {rowMenu(d)}
+      </Group>
+    </Paper>
+  );
+
   return (
-    <Container size="xl" py="md">
-      <Group justify="space-between" mb="md">
-        <Title order={2}>Dashboards</Title>
-        <Group>
-          <TextInput
-            placeholder="New dashboard name"
-            value={name}
-            onChange={(e) => setName(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === "Enter" && create()}
-            w={260}
-          />
-          <Button onClick={create} loading={creating} disabled={!name.trim()}>
-            Create
-          </Button>
-          <Button variant="light" onClick={() => setImportOpen(true)}>
-            Import
-          </Button>
-        </Group>
+    <Box p="md" h="calc(100dvh - 48px)" style={{ display: "flex", flexDirection: "column" }}>
+      <Group align="stretch" gap="md" wrap="nowrap" flex={1} mih={0}>
+        <Stack w={LIST_WIDTH} gap="sm" mih={0} style={{ flexShrink: 0 }}>
+          <Group justify="space-between" wrap="nowrap">
+            <Title order={2}>Dashboards</Title>
+            {/* A template is a starting point, not a place you can go — so it
+                belongs in the create control, not in a list beside the real
+                dashboards where the two were indistinguishable. */}
+            <Menu position="bottom-end" shadow="md">
+              <Menu.Target>
+                <Button leftSection={<IconPlus size={16} stroke={1.5} />} loading={creating}>
+                  New
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item onClick={openNew}>Empty dashboard…</Menu.Item>
+                {templates.length > 0 && (
+                  <>
+                    <Menu.Label>From template</Menu.Label>
+                    {templates.map((t) => (
+                      <Menu.Item
+                        key={t.id}
+                        onClick={() =>
+                          createAndOpen({
+                            name: t.name,
+                            description: t.description,
+                            widgets: t.widgets,
+                          })
+                        }
+                      >
+                        <Text fz="sm">{t.name}</Text>
+                        {t.description && (
+                          <Text fz="xs" c="dimmed" lineClamp={2}>
+                            {t.description}
+                          </Text>
+                        )}
+                      </Menu.Item>
+                    ))}
+                  </>
+                )}
+                <Menu.Divider />
+                <Menu.Item
+                  leftSection={<IconFileImport size={16} stroke={1.5} />}
+                  onClick={() => setImportOpen(true)}
+                >
+                  Import from JSON…
+                </Menu.Item>
+                {templates.length > 0 && (
+                  <Menu.Item
+                    leftSection={<IconStar size={16} stroke={1.5} />}
+                    onClick={() => setTemplatesOpen(true)}
+                  >
+                    Manage templates…
+                  </Menu.Item>
+                )}
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
+
+          {error && (
+            <Text c="red.4" fz="sm" role="status">
+              {error}
+            </Text>
+          )}
+
+          <Box flex={1} mih={0} style={{ overflowY: "auto" }}>
+            {dashboards.length === 0 ? (
+              <Placeholder
+                title="No dashboards yet"
+                detail="A dashboard is one screen of widgets — a clock, a live event feed, a status board. Start an empty one, or copy a template."
+                action={{ label: "New dashboard", onClick: openNew }}
+              />
+            ) : (
+              <Stack gap="xs">{dashboards.map(row)}</Stack>
+            )}
+          </Box>
+        </Stack>
+
+        <LatestActivity />
       </Group>
 
-      {error && (
-        <Text c="red.4" fz="sm" mb="sm" role="status">
-          {error}
-        </Text>
-      )}
+      <Modal
+        opened={target !== null}
+        onClose={() => setTarget(null)}
+        title={target === "new" ? "New dashboard" : "Name & description"}
+      >
+        <Stack>
+          <TextInput
+            label="Name"
+            data-autofocus
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.currentTarget.value })}
+            onKeyDown={(e) => e.key === "Enter" && submitDetails()}
+            maxLength={100}
+          />
+          <Textarea
+            label="Description"
+            description="Shown in the dashboard list — what this board is for, so near-identical names stay apart."
+            autosize
+            minRows={2}
+            maxRows={5}
+            maxLength={DESCRIPTION_MAX}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.currentTarget.value })}
+          />
+          <Group justify="flex-end">
+            <Button onClick={submitDetails} loading={creating || busy} disabled={!form.name.trim()}>
+              {target === "new" ? "Create" : "Save"}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={templatesOpen}
+        onClose={() => setTemplatesOpen(false)}
+        title="Templates"
+        size="lg"
+      >
+        <Stack gap="xs">
+          <Text c="dimmed" fz="sm">
+            A template is a starting point, not a dashboard. Pick one under New to make a copy —
+            editing that copy never changes the template. Templates deployed with the server are
+            restored on restart.
+          </Text>
+          {templates.map(row)}
+        </Stack>
+      </Modal>
 
       <Modal
         opened={importOpen}
@@ -278,59 +513,12 @@ export const DashboardsPage = () => {
           </Group>
         </Stack>
       </Modal>
-
-      {dashboards.length === 0 ? (
-        <Box py="xl">
-          <Placeholder
-            title="No dashboards yet"
-            detail="A dashboard is a screen of widgets. Name one above to start empty, or use a template below."
-          />
-        </Box>
-      ) : (
-        <Stack gap="xs">
-          {dashboards.map((d) => (
-            <Paper key={d.id} withBorder p="sm">
-              <Group justify="space-between">
-                <RowInfo dashboard={d} />
-                {rowMenu(d)}
-              </Group>
-            </Paper>
-          ))}
-        </Stack>
-      )}
-
-      {templates.length > 0 && (
-        <>
-          <Title order={3} mt="xl" mb="sm">
-            Templates
-          </Title>
-          <Stack gap="xs">
-            {templates.map((t) => (
-              <Paper key={t.id} withBorder p="sm">
-                <Group justify="space-between">
-                  <RowInfo dashboard={t} />
-                  <Group gap={4}>
-                    <Button
-                      size="compact-sm"
-                      variant="light"
-                      onClick={() => createAndOpen({ name: t.name, widgets: t.widgets })}
-                    >
-                      Use template
-                    </Button>
-                    {rowMenu(t)}
-                  </Group>
-                </Group>
-              </Paper>
-            ))}
-          </Stack>
-        </>
-      )}
-    </Container>
+    </Box>
   );
 };
 
 const RowInfo = ({ dashboard }: { dashboard: DashboardResponse }) => (
-  <div>
+  <Box mih={0}>
     <Anchor
       renderRoot={(props) => (
         <Link to="/d/$dashboardId" params={{ dashboardId: dashboard.id }} {...props} />
@@ -338,9 +526,14 @@ const RowInfo = ({ dashboard }: { dashboard: DashboardResponse }) => (
     >
       {dashboard.name}
     </Anchor>
+    {dashboard.description && (
+      <Text fz="xs" lineClamp={2} title={dashboard.description}>
+        {dashboard.description}
+      </Text>
+    )}
     <Text c="dimmed" fz="xs">
       {dashboard.widgets.length} widget
       {dashboard.widgets.length === 1 ? "" : "s"} · updated {formatDateTime(dashboard.updatedAt)}
     </Text>
-  </div>
+  </Box>
 );

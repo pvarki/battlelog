@@ -5,6 +5,7 @@ import { exportFilename, parseDashboardImport, toExportJson } from "./transfer.t
 const dashboard: DashboardResponse = {
   id: "018f0000-0000-7000-8000-000000000001",
   name: "Recon North",
+  description: "Northern sector — patrol reports and sensor status",
   isTemplate: false,
   widgets: [
     {
@@ -21,9 +22,10 @@ const dashboard: DashboardResponse = {
   updatedAt: "2026-08-22T10:00:00.000Z",
 };
 
-test("export drops identity and history, keeps name/isTemplate/widgets", () => {
+test("export drops identity and history, keeps name/description/isTemplate/widgets", () => {
   expect(JSON.parse(toExportJson(dashboard))).toEqual({
     name: "Recon North",
+    description: dashboard.description,
     isTemplate: false,
     widgets: dashboard.widgets,
   });
@@ -33,7 +35,12 @@ test("export round-trips through import", () => {
   const parsed = parseDashboardImport(toExportJson(dashboard));
   expect(parsed).toEqual({
     ok: true,
-    value: { name: "Recon North", isTemplate: false, widgets: dashboard.widgets },
+    value: {
+      name: "Recon North",
+      description: dashboard.description,
+      isTemplate: false,
+      widgets: dashboard.widgets,
+    },
   });
 });
 
@@ -51,12 +58,24 @@ test("import names what is wrong instead of posting garbage", () => {
 test("import trims the name and defaults a missing isTemplate to false", () => {
   expect(parseDashboardImport('{"name":" x ","widgets":[]}')).toEqual({
     ok: true,
-    value: { name: "x", isTemplate: false, widgets: [] },
+    value: { name: "x", description: null, isTemplate: false, widgets: [] },
   });
   expect(parseDashboardImport('{"name":"x","isTemplate":true,"widgets":[]}')).toEqual({
     ok: true,
-    value: { name: "x", isTemplate: true, widgets: [] },
+    value: { name: "x", description: null, isTemplate: true, widgets: [] },
   });
+});
+
+test("import normalises every flavour of absent description to null", () => {
+  const description = (json: string) => {
+    const parsed = parseDashboardImport(json);
+    return parsed.ok ? parsed.value.description : "not parsed";
+  };
+  expect(description('{"name":"x","widgets":[]}')).toBe(null);
+  expect(description('{"name":"x","description":null,"widgets":[]}')).toBe(null);
+  expect(description('{"name":"x","description":"  ","widgets":[]}')).toBe(null);
+  expect(description('{"name":"x","description":42,"widgets":[]}')).toBe(null);
+  expect(description('{"name":"x","description":" kept ","widgets":[]}')).toBe("kept");
 });
 
 test("filename slugifies, with a fallback for names that slugify to nothing", () => {

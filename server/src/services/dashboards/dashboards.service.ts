@@ -8,7 +8,9 @@ export type CreateDashboardInput = Omit<
   DashboardInsert,
   "id" | "version" | "createdAt" | "updatedAt"
 >;
-export type UpdateDashboardPatch = Partial<Pick<DashboardInsert, "name" | "widgets">>;
+export type UpdateDashboardPatch = Partial<
+  Pick<DashboardInsert, "name" | "description" | "widgets">
+>;
 
 /** Thrown when the caller's version is stale — the dashboard was edited elsewhere. */
 export class VersionConflictError extends Error {

@@ -7,12 +7,17 @@ import type { DashboardResponse } from "../api.ts";
  */
 export type DashboardExport = {
   name: string;
+  description: string | null;
   isTemplate: boolean;
   widgets: DashboardResponse["widgets"];
 };
 
 export const toExportJson = (d: DashboardResponse): string =>
-  JSON.stringify({ name: d.name, isTemplate: d.isTemplate, widgets: d.widgets }, null, 2);
+  JSON.stringify(
+    { name: d.name, description: d.description, isTemplate: d.isTemplate, widgets: d.widgets },
+    null,
+    2,
+  );
 
 export const exportFilename = (name: string): string => {
   const slug = name
@@ -44,6 +49,14 @@ export const parseDashboardImport = (text: string): ImportResult => {
   if (!Array.isArray(d.widgets)) return { ok: false, error: "Missing a widgets list" };
   return {
     ok: true,
-    value: { name: d.name.trim(), isTemplate: d.isTemplate === true, widgets: d.widgets },
+    value: {
+      name: d.name.trim(),
+      // Absent, blank and null all mean "no description" — normalise so the
+      // list never has to distinguish an empty string from nothing at all.
+      description:
+        typeof d.description === "string" && d.description.trim() ? d.description.trim() : null,
+      isTemplate: d.isTemplate === true,
+      widgets: d.widgets,
+    },
   };
 };
