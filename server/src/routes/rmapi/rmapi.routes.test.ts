@@ -10,17 +10,40 @@ test("healthcheck responds without auth", async () => {
   expect(await res.json()).toMatchObject({ healthy: true });
 });
 
-test("admin description is served regardless of card visibility", async () => {
-  const res = await rmRoutes.request("/api/v2/admin/description/fi");
+test("v2 description carries the home-grid card", async () => {
+  const res = await rmRoutes.request("/api/v2/description/fi");
   expect(res.status).toBe(200);
   const body = await res.json();
   expect(body).toMatchObject({ shortname: "bl", language: "fi" });
   expect(body.component.type).toBe("link");
+  expect(body.docs).toBeTruthy();
 });
 
-test("v1 description 404s — no main-UI card exists yet", async () => {
+// RM's v1 ProductDescription model is extra="forbid": any extra key makes RM
+// drop the product from the list entirely, so v1 must stay trimmed.
+test("v1 description omits the v2-only fields", async () => {
   const res = await rmRoutes.request("/api/v1/description/en");
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(Object.keys(body).sort()).toEqual([
+    "description",
+    "icon",
+    "language",
+    "shortname",
+    "title",
+  ]);
+});
+
+// Serving this would list BattleLog under admin tools as well as the main grid.
+test("v2 admin description 404s so the card is not duplicated", async () => {
+  const res = await rmRoutes.request("/api/v2/admin/description/en");
   expect(res.status).toBe(404);
+});
+
+test("unknown language falls back to en", async () => {
+  const res = await rmRoutes.request("/api/v2/description/xx");
+  expect(res.status).toBe(200);
+  expect((await res.json()).language).toBe("en");
 });
 
 test("user lifecycle webhooks acknowledge", async () => {

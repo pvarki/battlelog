@@ -85,6 +85,12 @@ const descriptionFor = (language: string) => {
   };
 };
 
+/** RM's v1 description model forbids extra keys, so drop the v2-only fields. */
+const descriptionV1For = (language: string) => {
+  const { shortname, title, icon, description, language: resolved } = descriptionFor(language);
+  return { shortname, title, icon, description, language: resolved };
+};
+
 export const rmRoutes = new Hono();
 const rmOnly = requireRmCaller();
 const noOp = (c: Context) => c.json({ success: true });
@@ -93,13 +99,17 @@ rmRoutes.get("/api/v1/healthcheck", (c) =>
   c.json({ healthy: true, extra: "Battlelog RM API routes available" }),
 );
 
-// No main-UI card exists yet, so the card-facing descriptions 404. When one
-// ships, serve descriptionFor() here (v1 without component/docs, v2 in full —
-// the admin route below shows the shape).
-rmRoutes.get("/api/v1/description/:language", rmOnly, (c) => c.json({ error: "Not found" }, 404));
-rmRoutes.get("/api/v2/description/:language", rmOnly, (c) => c.json({ error: "Not found" }, 404));
-rmRoutes.get("/api/v2/admin/description/:language", rmOnly, (c) =>
+// RM routes the card by which endpoint answers: the Deploy App home grid reads
+// v2, the admin-tools list reads v2/admin. Serving only the user-facing pair
+// puts BattleLog on the main grid instead of duplicating it under admin tools.
+rmRoutes.get("/api/v1/description/:language", rmOnly, (c) =>
+  c.json(descriptionV1For(c.req.param("language"))),
+);
+rmRoutes.get("/api/v2/description/:language", rmOnly, (c) =>
   c.json(descriptionFor(c.req.param("language"))),
+);
+rmRoutes.get("/api/v2/admin/description/:language", rmOnly, (c) =>
+  c.json({ error: "Not found" }, 404),
 );
 
 rmRoutes.post("/api/v1/instructions/:language", rmOnly, async (c) => {
