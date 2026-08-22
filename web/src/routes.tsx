@@ -3,10 +3,11 @@ import { useMediaQuery } from "@mantine/hooks";
 import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
 import { createRootRoute, createRoute, Link, Outlet } from "@tanstack/react-router";
 import { dashboardsApi } from "./api.ts";
+import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
-import { EventExplorerPage, validateEventSearch } from "./pages/EventExplorerPage.tsx";
+import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
 
 // The current page renders full-strength; elsewhere links stay dimmed.
 const NavLink = ({ to, children }: { to: string; children: string }) => (
