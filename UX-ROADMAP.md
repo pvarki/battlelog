@@ -50,12 +50,18 @@ Not a spec. One slice at a time: issue → decision → fix.
 
 ## Surfaces
 
-- [~] **5. Dashboard canvas.** Undo/redo DONE — `dashboard/history.ts`, coalescing
-      per widget for config and per gesture for drags, edit-mode gated, text fields
-      excluded, visible buttons, session-scoped. Drag coalescing is unit-tested but
-      NOT browser-verified (synthetic and CDP drags don't drive react-grid-layout —
-      needs one real mouse drag). STILL TO DO: add-widget flow, and full-canvas
-      behaviour is still undefined.
+- [x] **5. Dashboard canvas.** DONE. Undo/redo in `dashboard/history.ts` —
+      config edits coalesce per widget, edit-mode gated, text fields excluded,
+      visible buttons, session-scoped. Layout coalescing was removed once the
+      library showed one drag emits one usable `onLayoutChange`. Placement now
+      uses `dashboard/placement.ts` (`firstFreeSlot`), which fixed a real bug —
+      the old clamp silently stacked a widget on top of another once content
+      passed row `24 - h` — and made widgets tile instead of piling at `x: 0`.
+      Add-widget menu stays open across picks. Full canvas refuses with a
+      notification instead of stacking.
+      NOT DONE (deliberate): per-descriptor icons (spreads across 9 widget
+      folders); drag-from-palette (`dropConfig` makes it viable, but free-slot
+      tiling took most of its value); menu search/grouping (revisit ~15 widgets).
 - [~] **6. Event Explorer.** Shell DONE — full-height workspace, active-filter chips, filter drawer, header search that debounce-applies, `event-filters.ts` extracted and tested. STILL TO DO: sortable columns; unbounded `tags`/`location` will wreck the column grid on real data; Admiralty as a designed component (note: the column is empty on every row today, so capture may be the real gap). Active-filter chips (highest leverage — makes filter
       state readable and collapsing safe). Draft-vs-applied dirty indicator.
       Sortable columns. Unbounded `tags`/`location` will wreck the column grid.
