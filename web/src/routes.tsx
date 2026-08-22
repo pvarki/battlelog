@@ -65,12 +65,18 @@ export const dashboardsRoute = createRoute({
 export const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/d/$dashboardId",
+  // The list feeds the top-bar dashboard switcher.
   loader: async ({ params }) => {
-    const res = await dashboardsApi.dashboards[":dashboardId"].$get({
-      param: { dashboardId: params.dashboardId },
-    });
-    if (!res.ok) throw new Error(`Failed to load dashboard (${res.status})`);
-    return res.json();
+    const [one, all] = await Promise.all([
+      dashboardsApi.dashboards[":dashboardId"].$get({
+        param: { dashboardId: params.dashboardId },
+      }),
+      dashboardsApi.dashboards.$get(),
+    ]);
+    if (!one.ok || !all.ok) {
+      throw new Error(`Failed to load dashboard (${one.status}/${all.status})`);
+    }
+    return { dashboard: await one.json(), dashboards: await all.json() };
   },
   component: DashboardPage,
 });

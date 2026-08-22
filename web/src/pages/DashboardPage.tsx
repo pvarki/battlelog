@@ -1,6 +1,17 @@
-import { Box, Button, Drawer, Group, Loader, Menu, Text, Title } from "@mantine/core";
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Drawer,
+  Group,
+  Loader,
+  Menu,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
-import { getRouteApi, useRouter } from "@tanstack/react-router";
+import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
@@ -23,23 +34,39 @@ const SAVE_DEBOUNCE_MS = 800;
 const fixedCanvasCompactor = getCompactor(null, false, true);
 
 type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
+type PendingPatch = { name?: string; widgets?: Widget[] };
 
 export const DashboardPage = () => {
-  const dashboard = route.useLoaderData();
+  const { dashboard, dashboards } = route.useLoaderData();
   // Key by version too: a conflict reload must remount with fresh server state.
-  return <DashboardGrid key={`${dashboard.id}:${dashboard.version}`} dashboard={dashboard} />;
+  return (
+    <DashboardGrid
+      key={`${dashboard.id}:${dashboard.version}`}
+      dashboard={dashboard}
+      dashboards={dashboards}
+    />
+  );
 };
 
-const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
+const DashboardGrid = ({
+  dashboard,
+  dashboards,
+}: {
+  dashboard: DashboardResponse;
+  dashboards: DashboardResponse[];
+}) => {
   const router = useRouter();
+  const navigate = useNavigate();
   const [widgets, setWidgets] = useState<Widget[]>(dashboard.widgets);
+  const [name, setName] = useState(dashboard.name);
+  const [renaming, setRenaming] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [editMode, setEditMode] = useState(false);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
   const { ref: gridRef, width, height } = useElementSize();
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const version = useRef(dashboard.version);
-  const pending = useRef<Widget[] | null>(null);
+  const pending = useRef<PendingPatch | null>(null);
   const saving = useRef(false);
 
   // Unmount with an unsent edit: fire it keepalive so navigation (or tab
@@ -53,7 +80,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           keepalive: true,
-          body: JSON.stringify({ version: version.current, widgets: pending.current }),
+          body: JSON.stringify({ version: version.current, ...pending.current }),
         }).catch(() => {});
       }
     },
@@ -85,7 +112,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
         try {
           const res = await dashboardsApi.dashboards[":dashboardId"].$patch({
             param: { dashboardId: dashboard.id },
-            json: { version: version.current, widgets: payload },
+            json: { version: version.current, ...payload },
           });
           if (res.status === 200) {
             version.current = (await res.json()).version;
@@ -101,7 +128,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
           }
         } catch {
           // Network blip: keep the newest unsaved state and retry shortly.
-          pending.current ??= payload;
+          pending.current = { ...payload, ...(pending.current ?? {}) };
           setSaveState("error");
           saveTimer.current = setTimeout(runSave, 3000);
           return;
@@ -112,11 +139,23 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     }
   };
 
-  const persist = (next: Widget[]) => {
-    setWidgets(next);
-    pending.current = next;
+  const schedule = (patch: PendingPatch) => {
+    pending.current = { ...pending.current, ...patch };
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(runSave, SAVE_DEBOUNCE_MS);
+  };
+
+  const persist = (next: Widget[]) => {
+    setWidgets(next);
+    schedule({ widgets: next });
+  };
+
+  const rename = (value: string) => {
+    setRenaming(false);
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === name) return;
+    setName(trimmed);
+    schedule({ name: trimmed });
   };
 
   const onLayoutChange = (layout: Layout) => {
@@ -218,8 +257,49 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
       style={{ display: "flex", flexDirection: "column" }}
     >
       <Group justify="space-between" mb="sm">
-        <Group gap="sm">
-          <Title order={3}>{dashboard.name}</Title>
+        <Group gap="xs">
+          {renaming ? (
+            <TextInput
+              size="xs"
+              w={260}
+              defaultValue={name}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") rename(e.currentTarget.value);
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              onBlur={(e) => rename(e.currentTarget.value)}
+            />
+          ) : (
+            <Title
+              order={3}
+              onClick={() => editMode && setRenaming(true)}
+              style={{ cursor: editMode ? "text" : "default" }}
+              title={editMode ? "Click to rename" : undefined}
+            >
+              {name}
+            </Title>
+          )}
+          <Menu position="bottom-start">
+            <Menu.Target>
+              <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Switch dashboard">
+                ▾
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {dashboards.map((d) => (
+                <Menu.Item
+                  key={d.id}
+                  disabled={d.id === dashboard.id}
+                  onClick={() => navigate({ to: "/d/$dashboardId", params: { dashboardId: d.id } })}
+                >
+                  {d.name}
+                </Menu.Item>
+              ))}
+              <Menu.Divider />
+              <Menu.Item onClick={() => navigate({ to: "/" })}>All dashboards…</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
           <Text c="dimmed" fz="xs">
             {saveState === "saving" && "Saving…"}
             {saveState === "saved" && "Saved"}
