@@ -14,7 +14,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useClipboard } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
@@ -35,7 +35,6 @@ export const DashboardsPage = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
-  const clipboard = useClipboard({ timeout: 2000 });
 
   const dashboards = all.filter((d) => !d.isTemplate);
   const templates = all.filter((d) => d.isTemplate);
@@ -105,6 +104,18 @@ export const DashboardsPage = () => {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  // navigator.clipboard rejects outside a secure context — say so rather than
+  // letting the menu item look like it did nothing.
+  const copy = (d: DashboardResponse) =>
+    navigator.clipboard.writeText(toExportJson(d)).then(
+      () => notifications.show({ color: "teal", message: `Copied “${d.name}” JSON to clipboard` }),
+      () =>
+        notifications.show({
+          color: "red",
+          message: "Clipboard unavailable — use Download JSON instead",
+        }),
+    );
+
   // Own error state (not `mutate`'s): a rejected file is expected input here,
   // and the message belongs next to the textarea the user can fix.
   const runImport = () => {
@@ -153,7 +164,7 @@ export const DashboardsPage = () => {
         <Menu.Item leftSection="⤓" onClick={() => download(d)}>
           Download JSON
         </Menu.Item>
-        <Menu.Item leftSection="⎘" onClick={() => clipboard.copy(toExportJson(d))}>
+        <Menu.Item leftSection="⎘" onClick={() => copy(d)}>
           Copy JSON
         </Menu.Item>
         <Menu.Divider />
@@ -188,18 +199,6 @@ export const DashboardsPage = () => {
       {error && (
         <Text c="red.4" fz="sm" mb="sm" role="status">
           {error}
-        </Text>
-      )}
-
-      {clipboard.copied && (
-        <Text c="dimmed" fz="sm" mb="sm" role="status">
-          Copied to clipboard
-        </Text>
-      )}
-
-      {clipboard.error && (
-        <Text c="red.4" fz="sm" mb="sm" role="status">
-          Clipboard unavailable — use Download instead
         </Text>
       )}
 
