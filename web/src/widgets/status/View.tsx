@@ -1,6 +1,7 @@
 import { ActionIcon, Badge, ColorSwatch, Group, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
+import { buildStatusTree, flattenTree } from "./tree.ts";
 import type { StatusConfig, StatusRow, StatusValues } from "./widget.ts";
 
 const parseValues = (data: unknown): StatusValues => {
@@ -38,34 +39,48 @@ const StatusView = ({ config, updateConfig }: WidgetViewProps<StatusConfig>) => 
 
   return (
     <Stack gap={6} p="xs" h="100%" style={{ overflowY: "auto" }}>
-      {config.statuses.map((row) => (
-        <Group key={row.id} justify="space-between" wrap="nowrap">
-          <Tooltip
-            label={row.description}
-            disabled={!row.description?.trim()}
-            openDelay={600}
-            multiline
-            maw={320}
-            position="top-start"
+      {flattenTree(buildStatusTree(config.statuses)).map((node) => {
+        const row = node.row;
+        return (
+          <Group
+            key={row?.id ?? node.path}
+            justify="space-between"
+            wrap="nowrap"
+            pl={node.depth * 16}
           >
-            <Text fz="sm" truncate style={row.description?.trim() ? { cursor: "help" } : undefined}>
-              {row.label}
-            </Text>
-          </Tooltip>
-          {row.kind === "count" ? (
-            <CountChip
-              count={Number(value.values[row.id] ?? 0)}
-              onChange={(n) => setRowValue(row.id, n)}
-            />
-          ) : (
-            <ChoiceChip
-              row={row}
-              current={value.values[row.id]}
-              onChange={(v) => setRowValue(row.id, v)}
-            />
-          )}
-        </Group>
-      ))}
+            <Tooltip
+              label={row?.description}
+              disabled={!row?.description?.trim()}
+              openDelay={600}
+              multiline
+              maw={320}
+              position="top-start"
+            >
+              <Text
+                fz="sm"
+                truncate
+                fw={node.children.length > 0 ? 600 : undefined}
+                style={row?.description?.trim() ? { cursor: "help" } : undefined}
+              >
+                {node.name}
+              </Text>
+            </Tooltip>
+            {row &&
+              (row.kind === "count" ? (
+                <CountChip
+                  count={Number(value.values[row.id] ?? 0)}
+                  onChange={(n) => setRowValue(row.id, n)}
+                />
+              ) : (
+                <ChoiceChip
+                  row={row}
+                  current={value.values[row.id]}
+                  onChange={(v) => setRowValue(row.id, v)}
+                />
+              ))}
+          </Group>
+        );
+      })}
       <Text c="dimmed" fz="xs" ta="right" mt="auto" mih="1.2em">
         {DOC_STATUS_LABEL[status]}
       </Text>
