@@ -12,6 +12,7 @@ test("a full status board config validates", () => {
       {
         id: "r1",
         label: "Pena",
+        description: "Jääkäri Penttilä, 1. ryhmä",
         kind: "choice",
         options: [
           { value: "kusella", color: "yellow" },
