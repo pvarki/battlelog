@@ -1,0 +1,198 @@
+{
+  "name": "Päivystäjä",
+  "widgets": [
+    {
+      "id": "37f18a71-f563-4dd6-88fa-ed41407c36b4",
+      "type": "table",
+      "config": {
+        "title": "Tilanne taulukko",
+        "columns": [
+          { "id": "A", "kind": "text", "label": "A" },
+          { "id": "B", "kind": "text", "label": "B" },
+          { "id": "C", "kind": "text", "label": "C" },
+          { "id": "D", "kind": "text", "label": "D" }
+        ],
+        "rowCount": 10,
+        "columnCount": 4,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": { "h": 11, "w": 20, "x": 28, "y": 0 }
+    },
+    {
+      "id": "604331f7-5e34-4128-9f72-23ebbf36a2a0",
+      "type": "schedule",
+      "config": {
+        "title": "Taistelurytmi"
+      },
+      "layout": { "h": 12, "w": 15, "x": 0, "y": 11 }
+    },
+    {
+      "id": "2337c23b-3b10-4c78-8ec4-25ca4bc05f90",
+      "type": "note",
+      "config": {},
+      "layout": { "h": 12, "w": 13, "x": 15, "y": 11 }
+    },
+    {
+      "id": "14819722-0dad-4a01-888e-3f59b524f4fc",
+      "type": "form",
+      "config": {
+        "title": "Lisää päiväkirjaan",
+        "fields": [
+          {
+            "id": "2cdb347c-3a1a-4ba1-9d9b-e4076b47587b",
+            "kind": "event",
+            "field": "eventTime",
+            "label": "Tapahtuma-ajankohta",
+            "required": true
+          },
+          {
+            "id": "32f1c7be-14fd-4c67-8637-51a9a5759c9c",
+            "kind": "data",
+            "input": "checkbox",
+            "label": "Sotapäiväkirja",
+            "options": []
+          },
+          {
+            "id": "b16fcb9d-ca6c-4931-8077-64888e1b69de",
+            "kind": "data",
+            "input": "select",
+            "label": "Desk",
+            "options": ["ARKI", "MATI"],
+            "description": ""
+          },
+          {
+            "id": "80630529-170a-43ad-a95d-7b1e26786e24",
+            "kind": "data",
+            "input": "text",
+            "label": "Verkko",
+            "options": []
+          },
+          {
+            "id": "988df749-c4ad-4b38-8aac-e7e492478ae6",
+            "kind": "data",
+            "input": "text",
+            "label": "Vastaanottaja",
+            "options": []
+          },
+          {
+            "id": "05349fe2-b034-41f5-93ab-70e8ec299175",
+            "kind": "data",
+            "input": "text",
+            "label": "Lähettäjä",
+            "options": []
+          },
+          {
+            "id": "137a58fc-955d-4c22-971e-a7759efbe454",
+            "kind": "data",
+            "input": "text",
+            "label": "Viesti",
+            "options": []
+          },
+          {
+            "id": "5409fc8f-a956-4912-ae63-95c5a4a89b55",
+            "kind": "data",
+            "input": "text",
+            "label": "Viestiväline",
+            "options": []
+          },
+          {
+            "id": "e09c7e4d-836d-4dfc-bc6d-7a1b8c0e968d",
+            "kind": "data",
+            "input": "text",
+            "label": "Muuta",
+            "options": []
+          }
+        ],
+        "reportType": "report"
+      },
+      "layout": { "h": 11, "w": 8, "x": 20, "y": 0 }
+    },
+    {
+      "id": "65564a32-b9ad-449f-818b-fd05265b8a97",
+      "type": "feed",
+      "config": {
+        "rows": 20,
+        "title": "Päiväkirja",
+        "types": ["form-report"],
+        "columns": [
+          {
+            "id": "time",
+            "label": "Tapahtuma-ajankohta",
+            "source": "time",
+            "dataPath": ""
+          },
+          {
+            "id": "header",
+            "label": "Sotapäiväkirja",
+            "source": "data",
+            "dataPath": "sotap-iv-kirja"
+          },
+          {
+            "id": "type",
+            "label": "Desk",
+            "source": "data",
+            "dataPath": "desk"
+          },
+          {
+            "id": "fccfdc5c-1337-4d8e-836b-9996beabc4d7",
+            "label": "Verkko",
+            "source": "data",
+            "dataPath": "verkko"
+          },
+          {
+            "id": "33863000-42eb-4af5-9883-15dd3dd1425d",
+            "label": "Vastaanottaja",
+            "source": "data",
+            "dataPath": "vastaanottaja"
+          },
+          {
+            "id": "60740c58-fc2f-4f5b-9b32-71ec098e53d4",
+            "label": "Lähettäjä",
+            "source": "data",
+            "dataPath": "l-hett-j"
+          },
+          {
+            "id": "cf35d56d-d82f-4540-8d19-96d6a28e127c",
+            "label": "Viesti",
+            "source": "data",
+            "dataPath": "viesti"
+          },
+          {
+            "id": "9c741bb5-6186-4d83-a7fd-629fb1c3b707",
+            "label": "Viestiväline",
+            "source": "data",
+            "dataPath": "viestiv-line"
+          },
+          {
+            "id": "d45259dc-2f77-411c-9a38-bff358e66362",
+            "label": "Muuta",
+            "source": "data",
+            "dataPath": "muuta"
+          }
+        ]
+      },
+      "layout": { "h": 11, "w": 20, "x": 0, "y": 0 }
+    },
+    {
+      "id": "e7b9e2c8-9782-430f-bdad-197a80f3fa94",
+      "type": "table",
+      "config": {
+        "title": "Huolto",
+        "columns": [
+          { "id": "A", "kind": "text", "label": "A" },
+          { "id": "B", "kind": "text", "label": "B" },
+          { "id": "C", "kind": "text", "label": "C" },
+          { "id": "D", "kind": "text", "label": "D" },
+          { "id": "E", "kind": "text", "label": "E" },
+          { "id": "F", "kind": "text", "label": "F" }
+        ],
+        "rowCount": 10,
+        "columnCount": 6,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": { "h": 12, "w": 20, "x": 28, "y": 11 }
+    }
+  ]
+}
