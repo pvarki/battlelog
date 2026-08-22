@@ -11,7 +11,16 @@ import {
 } from "@mantine/core";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
-import { type FeedColumn, type FeedConfig, FIELD_LABEL, FIELDS, labelFor } from "./widget.ts";
+import {
+  columnWidth,
+  type FeedColumn,
+  type FeedConfig,
+  FIELD_LABEL,
+  FIELDS,
+  labelFor,
+  MAX_COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+} from "./widget.ts";
 
 const SOURCE_OPTIONS = [
   ...FIELDS.map((f) => ({ value: f, label: FIELD_LABEL[f] })),
@@ -111,6 +120,16 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
                 onChange={(e) => setColumn(col.id, { dataPath: e.currentTarget.value })}
               />
             )}
+            <NumberInput
+              label="Width"
+              size="xs"
+              min={MIN_COLUMN_WIDTH}
+              max={MAX_COLUMN_WIDTH}
+              value={columnWidth(col)}
+              onChange={(width) => {
+                if (typeof width === "number") setColumn(col.id, { width });
+              }}
+            />
           </Stack>
         </Paper>
       ))}
