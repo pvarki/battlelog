@@ -84,6 +84,36 @@ Not a spec. One slice at a time: issue → decision → fix.
       the likeliest failure there). Connection indicator landed in slice 2.
       STILL TO DO: the too-narrow-screen guard is a dead end that says what is
       wrong but not what to do; the header doesn't show which dashboard you are in.
+- [~] **12. Dashboards landing page.** (Numbered by discovery, not priority — it
+      surfaced after the first eleven were written.) Three defects, two fixed.
+      (a) Templates were rendered as *peers* of dashboards: own `Title order={3}`
+      section, identical `Paper`, identical meta line — so a template named
+      "Soldier" sat directly below a dashboard named "Soldier" with nothing to
+      tell them apart. A template is a starting point, not a destination, so it
+      no longer appears in a list of places you can go: the `New` control is a
+      menu (Empty / From template / Import / Manage templates…), and template
+      housekeeping lives in a modal. FIXED.
+      (b) The page was ~60% dead space, and a situational-awareness product whose
+      landing page shows no situation is the wrong first screen. Now a ⅓ / ⅔
+      split: the list left, `Latest activity` right — the newest 40 events, live.
+      It reuses the feed widget's `FeedTable`, so a row arriving here washes with
+      the same animation it does inside a dashboard, and the SSE connection was
+      already held open on this route by the header indicator. FIXED.
+      (c) Rows carried two facts, a widget count and a timestamp, neither of
+      which helps you choose. Dashboards now have a `description` — new nullable
+      column, in create/patch/export/import and in seeded template files — edited
+      from the row menu (`Name & description…`), shown under the name in the list
+      and under each template in the New menu. FIXED.
+      NOT DONE (deliberate): a widget-type list per row (a count plus a
+      description says enough); relative "updated 4 min ago" (its own helper and
+      test, and the house timestamp dialect is a settled decision); making the
+      whole card clickable (it would nest a link inside a click target, which is
+      exactly the a11y defect slice 10 already records); any "N events today"
+      counter — there is no count endpoint, and a number derived from a
+      `limit`-capped page would be a lying stat.
+      Templates cannot be renamed from the list on purpose: the seeding upsert is
+      keyed on name, so a rename would let the next boot re-seed the original as
+      a second template.
 
 ## Finish
 

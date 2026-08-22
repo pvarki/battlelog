@@ -10,6 +10,7 @@ import { dashboards } from "./schema.ts";
 
 const templateFileSchema = z.object({
   name: z.string().min(1).max(100),
+  description: z.string().max(280).optional(),
   widgets: z.array(widgetSchema).max(50),
 });
 
@@ -42,13 +43,14 @@ export const seedTemplates = async (dir = "./templates"): Promise<number> => {
       logger.error({ file, issues: parsed.error.issues }, "template file invalid; skipped");
       continue;
     }
-    const { name, widgets } = parsed.data;
+    const { name, description = null, widgets } = parsed.data;
     // Upsert against the partial unique index — safe under concurrent boots.
     await db
       .insert(dashboards)
       .values({
         id: uuidv7(),
         name,
+        description,
         widgets,
         isTemplate: true,
         version: uuidv7(),
@@ -57,7 +59,13 @@ export const seedTemplates = async (dir = "./templates"): Promise<number> => {
       .onConflictDoUpdate({
         target: dashboards.name,
         targetWhere: sql`${dashboards.isTemplate}`,
-        set: { widgets, version: uuidv7(), updatedAt: new Date(), updatedBy: "system" },
+        set: {
+          description,
+          widgets,
+          version: uuidv7(),
+          updatedAt: new Date(),
+          updatedBy: "system",
+        },
       });
     count++;
   }

@@ -30,6 +30,7 @@ export const dashboardResponseSchema = z
   .object({
     id: z.string().uuid(),
     name: z.string(),
+    description: z.string().nullable(),
     isTemplate: z.boolean(),
     widgets: z.array(widgetSchema),
     version: z.string(),
@@ -44,6 +45,7 @@ export type DashboardResponse = z.infer<typeof dashboardResponseSchema>;
 export const createDashboardRequestSchema = z
   .object({
     name: z.string().min(1).max(100),
+    description: z.string().max(280).nullish(),
     isTemplate: z.boolean().default(false),
     widgets: z.array(widgetSchema).max(50).default([]),
   })
@@ -54,6 +56,8 @@ export const updateDashboardRequestSchema = z
     /** Version the client last saw; mismatch → 409 (edited elsewhere). */
     version: z.string().min(1),
     name: z.string().min(1).max(100).optional(),
+    /** `null` clears it — the list has to be able to go back to just a name. */
+    description: z.string().max(280).nullish(),
     widgets: z.array(widgetSchema).max(50).optional(),
   })
   .openapi("UpdateDashboardRequest");
@@ -61,6 +65,7 @@ export const updateDashboardRequestSchema = z
 export const toApiDashboard = (row: DashboardRow): DashboardResponse => ({
   id: row.id,
   name: row.name,
+  description: row.description,
   isTemplate: row.isTemplate,
   // Stored widgets were validated by widgetSchema on every write.
   widgets: row.widgets as Widget[],
