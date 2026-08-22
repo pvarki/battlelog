@@ -13,6 +13,8 @@ const isValidTimeZone = (tz: string) => {
 
 const configSchema = z
   .object({
+    /** Shown bold in the widget header (rendered by the wrapper). */
+    title: z.string().max(100).optional(),
     /** IANA timezone; absent = system timezone. */
     timeZone: z.string().refine(isValidTimeZone, "Unknown timezone").optional(),
     format: z.enum(["24h", "12h"]).default("24h"),

@@ -5,7 +5,6 @@ export interface WidgetViewProps<TConfig> {
   config: TConfig;
   instanceId: string;
   editMode: boolean;
-  /** Persist a config change made by the widget itself (e.g. a captured event id). */
   updateConfig: (next: TConfig) => void;
 }
 
