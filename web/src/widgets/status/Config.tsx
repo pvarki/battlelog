@@ -43,6 +43,7 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
             <Group wrap="nowrap" align="flex-end">
               <TextInput
                 label="Label"
+                description="Use / to group, e.g. 1.ryhmä/Pena (3 levels max)"
                 size="xs"
                 style={{ flex: 1 }}
                 value={row.label}
