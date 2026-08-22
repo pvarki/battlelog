@@ -31,7 +31,9 @@ export const seedTemplates = async (dir = "./templates"): Promise<number> => {
   for (const file of files) {
     let parsed: ReturnType<typeof templateFileSchema.safeParse>;
     try {
-      parsed = templateFileSchema.safeParse(JSON.parse(await readFile(path.join(dir, file), "utf8")));
+      parsed = templateFileSchema.safeParse(
+        JSON.parse(await readFile(path.join(dir, file), "utf8")),
+      );
     } catch (err) {
       logger.error({ file, err }, "template file unreadable; skipped");
       continue;
@@ -44,7 +46,14 @@ export const seedTemplates = async (dir = "./templates"): Promise<number> => {
     // Upsert against the partial unique index — safe under concurrent boots.
     await db
       .insert(dashboards)
-      .values({ id: uuidv7(), name, widgets, isTemplate: true, version: uuidv7(), createdBy: "system" })
+      .values({
+        id: uuidv7(),
+        name,
+        widgets,
+        isTemplate: true,
+        version: uuidv7(),
+        createdBy: "system",
+      })
       .onConflictDoUpdate({
         target: dashboards.name,
         targetWhere: sql`${dashboards.isTemplate}`,
