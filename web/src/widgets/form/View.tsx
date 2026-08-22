@@ -2,6 +2,7 @@ import {
   Button,
   Checkbox,
   Group,
+  Input,
   NumberInput,
   Select,
   Stack,
@@ -16,11 +17,11 @@ import { api } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import {
   buildEvent,
-  EVENT_FIELDS,
   type FormConfig,
-  type FormField,
   type FormValues,
+  fieldLabel,
   missingRequired,
+  type VisibleField,
 } from "./widget.ts";
 
 type Status = "idle" | "sending" | "sent" | "error";
@@ -64,7 +65,7 @@ const FormView = ({ config }: WidgetViewProps<FormConfig>) => {
     }
   };
 
-  const visible = config.fields.filter((f) => f.kind !== "fixed");
+  const visible = config.fields.filter((f): f is VisibleField => f.kind !== "fixed");
 
   return (
     <Stack h="100%" gap="xs" p="xs">
@@ -113,15 +114,20 @@ const FieldInput = ({
   error,
   onChange,
 }: {
-  field: FormField;
+  field: VisibleField;
   value: unknown;
   error?: string;
   onChange: (v: unknown) => void;
 }) => {
-  if (field.kind === "fixed") return null;
+  const common = {
+    label: fieldLabel(field),
+    description: field.description?.trim() || undefined,
+    required: field.required,
+    error,
+    size: "xs" as const,
+  };
 
   if (field.kind === "data") {
-    const common = { label: field.label, required: field.required, error, size: "xs" as const };
     switch (field.input) {
       case "text":
         return (
@@ -163,10 +169,7 @@ const FieldInput = ({
       case "checkbox":
         return (
           <Checkbox
-            label={field.label}
-            required={field.required}
-            error={error}
-            size="xs"
+            {...common}
             checked={value === true}
             onChange={(e) => onChange(e.currentTarget.checked)}
           />
@@ -174,12 +177,6 @@ const FieldInput = ({
     }
   }
 
-  const common = {
-    label: EVENT_FIELDS[field.field],
-    required: field.required,
-    error,
-    size: "xs" as const,
-  };
   switch (field.field) {
     case "header":
     case "location":
@@ -219,31 +216,32 @@ const FieldInput = ({
     case "locationPoint": {
       const p = (value as { lat?: number | string; lng?: number | string }) ?? {};
       return (
-        <Group gap="xs" grow>
-          <NumberInput
-            label="Lat"
-            required={field.required}
-            error={error}
-            size="xs"
-            hideControls
-            decimalScale={6}
-            min={-90}
-            max={90}
-            value={p.lat ?? ""}
-            onChange={(v) => onChange({ ...p, lat: v === "" ? undefined : v })}
-          />
-          <NumberInput
-            label="Lng"
-            required={field.required}
-            size="xs"
-            hideControls
-            decimalScale={6}
-            min={-180}
-            max={180}
-            value={p.lng ?? ""}
-            onChange={(v) => onChange({ ...p, lng: v === "" ? undefined : v })}
-          />
-        </Group>
+        <Input.Wrapper {...common}>
+          <Group gap="xs" grow>
+            <NumberInput
+              aria-label="Latitude"
+              placeholder="Lat"
+              size="xs"
+              hideControls
+              decimalScale={6}
+              min={-90}
+              max={90}
+              value={p.lat ?? ""}
+              onChange={(v) => onChange({ ...p, lat: v === "" ? undefined : v })}
+            />
+            <NumberInput
+              aria-label="Longitude"
+              placeholder="Lng"
+              size="xs"
+              hideControls
+              decimalScale={6}
+              min={-180}
+              max={180}
+              value={p.lng ?? ""}
+              onChange={(v) => onChange({ ...p, lng: v === "" ? undefined : v })}
+            />
+          </Group>
+        </Input.Wrapper>
       );
     }
   }
