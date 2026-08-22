@@ -210,8 +210,8 @@ export const DashboardsPage = () => {
       >
         <Stack>
           <Text c="dimmed" fz="sm">
-            Layout and widget settings are restored. Note, todo, table and status widgets arrive
-            empty — their contents live in this system's event log, not in the file.
+            Layout and widget settings are restored. Contents that live in the event log don't
+            travel with the file — those widgets arrive empty and start a fresh chain on first edit.
           </Text>
           <Group>
             <FileButton
