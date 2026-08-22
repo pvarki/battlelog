@@ -9,6 +9,8 @@ export type StatusColor = (typeof STATUS_COLORS)[number];
 const optionSchema = z.object({
   value: z.string().min(1).max(40),
   color: z.enum(STATUS_COLORS).default("gray"),
+  /** Shown as a tooltip when hovering the chip while this option is selected. */
+  description: z.string().max(300).optional(),
 });
 export type StatusOption = z.infer<typeof optionSchema>;
 

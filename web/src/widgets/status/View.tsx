@@ -101,13 +101,22 @@ const ChoiceChip = ({
   return (
     <Menu position="bottom-end">
       <Menu.Target>
-        <Badge
-          color={selected?.color ?? "gray"}
-          variant={selected ? "filled" : "outline"}
-          style={{ cursor: "pointer" }}
+        <Tooltip
+          label={selected?.description}
+          disabled={!selected?.description?.trim()}
+          openDelay={600}
+          multiline
+          maw={320}
+          position="top-end"
         >
-          {selected?.value ?? "—"}
-        </Badge>
+          <Badge
+            color={selected?.color ?? "gray"}
+            variant={selected ? "filled" : "outline"}
+            style={{ cursor: "pointer" }}
+          >
+            {selected?.value ?? "—"}
+          </Badge>
+        </Tooltip>
       </Menu.Target>
       <Menu.Dropdown>
         {row.options.length === 0 && <Menu.Item disabled>No options configured</Menu.Item>}
@@ -118,6 +127,11 @@ const ChoiceChip = ({
             onClick={() => onChange(option.value)}
           >
             {option.value}
+            {option.description?.trim() && (
+              <Text fz="xs" c="dimmed">
+                {option.description}
+              </Text>
+            )}
           </Menu.Item>
         ))}
       </Menu.Dropdown>

@@ -146,38 +146,51 @@ const OptionEditor = ({
   onChange: (next: StatusOption) => void;
   onRemove: () => void;
 }) => (
-  <Group gap={6} wrap="nowrap">
-    <Group gap={4} wrap="nowrap">
-      {STATUS_COLORS.map((color) => (
-        <ColorSwatch
-          key={color}
-          size={18}
-          color={`var(--mantine-color-${color}-6)`}
-          component="button"
-          style={{ cursor: "pointer" }}
-          aria-label={color}
-          onClick={() => onChange({ ...option, color: color as StatusColor })}
-        >
-          {option.color === color && <CheckIcon size={10} color="white" />}
-        </ColorSwatch>
-      ))}
+  <Stack gap={2}>
+    <Group gap={6} wrap="nowrap">
+      <Group gap={4} wrap="nowrap">
+        {STATUS_COLORS.map((color) => (
+          <ColorSwatch
+            key={color}
+            size={18}
+            color={`var(--mantine-color-${color}-6)`}
+            component="button"
+            style={{ cursor: "pointer" }}
+            aria-label={color}
+            onClick={() => onChange({ ...option, color: color as StatusColor })}
+          >
+            {option.color === color && <CheckIcon size={10} color="white" />}
+          </ColorSwatch>
+        ))}
+      </Group>
+      <TextInput
+        size="xs"
+        style={{ flex: 1 }}
+        value={option.value}
+        onChange={(e) => onChange({ ...option, value: e.currentTarget.value })}
+      />
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        size="sm"
+        aria-label="Remove option"
+        onClick={onRemove}
+      >
+        ✕
+      </ActionIcon>
     </Group>
     <TextInput
       size="xs"
-      style={{ flex: 1 }}
-      value={option.value}
-      onChange={(e) => onChange({ ...option, value: e.currentTarget.value })}
+      placeholder="Tooltip shown while this option is selected (optional)"
+      value={option.description ?? ""}
+      onChange={(e) =>
+        onChange({
+          ...option,
+          description: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
+        })
+      }
     />
-    <ActionIcon
-      variant="subtle"
-      color="gray"
-      size="sm"
-      aria-label="Remove option"
-      onClick={onRemove}
-    >
-      ✕
-    </ActionIcon>
-  </Group>
+  </Stack>
 );
 
 export default StatusConfigForm;
