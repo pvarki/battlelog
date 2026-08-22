@@ -66,5 +66,4 @@ Hono · `@hono/zod-openapi` · Drizzle · Postgres + PostGIS · Zod · pino · O
 
 ## Docs
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — module layout, conventions, request flow, data model
 - [LICENSE](./LICENSE)
