@@ -29,8 +29,9 @@ const ClockView = ({ config }: WidgetViewProps<ClockConfig>) => {
 
   return (
     <Stack align="center" justify="center" h="100%" gap={4} style={{ containerType: "size" }}>
-      {/* 12h strings run 11 chars; scale with the widget so they never clip. */}
-      <Text ff="monospace" fw={600} lh={1} style={{ fontSize: "min(11cqw, 55cqh, 3rem)" }}>
+      {/* 12h strings run 11 chars; scale with the widget so they never clip.
+          Digits hold still via tabular figures (global.css), not monospace. */}
+      <Text fw={600} lh={1} style={{ fontSize: "min(11cqw, 55cqh, 3rem)" }}>
         {time}
       </Text>
       <Text c="dimmed" fz="sm">
