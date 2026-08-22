@@ -139,6 +139,30 @@ Not a spec. One slice at a time: issue → decision → fix.
       save-as-template did — the copy points at the original's chains. It almost
       certainly wants `forkWidgets` too, but that is a behaviour change on a path
       nobody asked about, so it is recorded rather than done.
+      SCALING THE LISTING, third pass. Measured first: the picker is 440px wide
+      with a 774px cap, and title + label + Name + Description + Create take
+      ~380px of that, leaving room for about **five** cards. So the naming step
+      fell below the fold at six templates, not the ten that prompted the
+      question. Fixed by bounding the card list at 220px with its own scrollbar
+      (the dialog no longer scrolls at 13 templates on a 720px-tall viewport, and
+      Create stays visible), plus a search box over name and description that
+      appears only past `SEARCH_FROM` = 6. Cards went to two lines: name, then
+      `N widgets · description` clamped to one.
+      `LayoutThumbnail` draws a dashboard's silhouette from the widgets' own
+      `x/y/w/h` against the shared 48×24 grid — the constants moved out of
+      `DashboardPage` into `dashboard/grid.ts`, since the canvas and the
+      thumbnail have to measure against the same grid. It is on template cards,
+      dashboard rows and the manage-templates rows: "8 widgets" does not identify
+      a board, its shape does. Monochrome on purpose — nine widget types would
+      need nine colours, and colour alone is not allowed to carry meaning here —
+      and `aria-hidden`, since the adjacent text already gives the count.
+      `layoutBlocks` clamps to the grid so a hand-edited import cannot paint
+      outside the frame; that arithmetic is what `grid.test.ts` covers.
+      NOT DONE (deliberate): template categories or tags (a schema change with no
+      evidence anyone needs them); sort controls (alphabetical is fine at this
+      scale); pagination (never right for tens of items); a two-pane picker with
+      a preview pane, or a `/templates` gallery route — the thumbnail delivered
+      what the preview pane was for, at a fraction of the cost.
 
 ## Finish
 

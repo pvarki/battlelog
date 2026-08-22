@@ -26,6 +26,7 @@ import {
   IconFileImport,
   IconPencil,
   IconPlus,
+  IconSearch,
   IconStar,
   IconTrash,
 } from "@tabler/icons-react";
@@ -33,6 +34,7 @@ import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-route
 import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
+import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
 import {
   exportFilename,
   forkWidgets,
@@ -106,6 +108,20 @@ const LatestActivity = () => {
 
 const widgetCount = (n: number) => `${n} widget${n === 1 ? "" : "s"}`;
 
+// Above this many templates, eyeballing the list stops working and it gets a
+// search box. Below it, the box is one more thing to read for no gain.
+const SEARCH_FROM = 6;
+
+// Roughly four cards; past that the list scrolls instead of the dialog.
+const TEMPLATE_LIST_MAX_H = 220;
+
+const matchesQuery = (d: DashboardResponse, query: string): boolean => {
+  const q = query.trim().toLowerCase();
+  return (
+    !q || d.name.toLowerCase().includes(q) || (d.description?.toLowerCase().includes(q) ?? false)
+  );
+};
+
 /**
  * What the details modal is currently for. Every one of the four asks for a name
  * and a description; only the submit differs. `edit` and `saveTemplate` hold an
@@ -150,12 +166,15 @@ export const DashboardsPage = () => {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", description: "" });
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templateQuery, setTemplateQuery] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
 
   const dashboards = all.filter((d) => !d.isTemplate);
   const templates = all.filter((d) => d.isTemplate);
+  const shownTemplates = templates.filter((t) => matchesQuery(t, templateQuery));
+  const searchable = templates.length > SEARCH_FROM;
 
   // Creating a dashboard leaves this page, so a failure has to keep the modal
   // open with the field the user can fix — a thrown error would hand a name
@@ -224,6 +243,7 @@ export const DashboardsPage = () => {
   const openFromTemplate = () => {
     const first = templates[0];
     if (!first) return;
+    setTemplateQuery("");
     setTemplateId(first.id);
     open({ kind: "fromTemplate" }, first.name, first.description);
   };
@@ -419,7 +439,8 @@ export const DashboardsPage = () => {
 
   const row = (d: DashboardResponse) => (
     <Paper key={d.id} withBorder p="sm">
-      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
+      <Group wrap="nowrap" align="center" gap="sm">
+        <LayoutThumbnail widgets={d.widgets} />
         <RowInfo dashboard={d} />
         {rowMenu(d)}
       </Group>
@@ -459,7 +480,10 @@ export const DashboardsPage = () => {
                 {templates.length > 0 && (
                   <Menu.Item
                     leftSection={<IconStar size={16} stroke={1.5} />}
-                    onClick={() => setTemplatesOpen(true)}
+                    onClick={() => {
+                      setTemplateQuery("");
+                      setTemplatesOpen(true);
+                    }}
                   >
                     Manage templates…
                   </Menu.Item>
@@ -503,28 +527,45 @@ export const DashboardsPage = () => {
               label="Template"
               description="Copies its widgets and layout. Editing the copy never changes the template."
             >
-              <Stack gap="xs" mt="xs">
-                {templates.map((t) => (
-                  <Radio.Card key={t.id} value={t.id} p="sm" withBorder>
-                    <Group wrap="nowrap" align="flex-start" gap="sm">
-                      <Radio.Indicator />
-                      <Box mih={0}>
-                        <Text fz="sm" fw={500}>
-                          {t.name}
-                        </Text>
-                        {t.description && (
-                          <Text fz="xs" c="dimmed">
-                            {t.description}
+              {searchable && (
+                <TextInput
+                  mt="xs"
+                  placeholder="Search templates"
+                  leftSection={<IconSearch size={16} stroke={1.5} />}
+                  value={templateQuery}
+                  onChange={(e) => setTemplateQuery(e.currentTarget.value)}
+                />
+              )}
+              {/* Bounded, so the name field and Create button stay put however
+                  many templates there are — the modal caps at the viewport, and
+                  six cards used to be enough to push the button below the fold. */}
+              <Box mah={TEMPLATE_LIST_MAX_H} mt="xs" style={{ overflowY: "auto" }}>
+                <Stack gap="xs">
+                  {shownTemplates.map((t) => (
+                    <Radio.Card key={t.id} value={t.id} p="xs" withBorder>
+                      <Group wrap="nowrap" align="center" gap="sm">
+                        <Radio.Indicator />
+                        <LayoutThumbnail widgets={t.widgets} />
+                        <Box mih={0} style={{ flex: 1 }}>
+                          <Text fz="sm" fw={500} truncate>
+                            {t.name}
                           </Text>
-                        )}
-                        <Text fz="xs" c="dimmed">
-                          {widgetCount(t.widgets.length)}
-                        </Text>
-                      </Box>
-                    </Group>
-                  </Radio.Card>
-                ))}
-              </Stack>
+                          <Text fz="xs" c="dimmed" lineClamp={1}>
+                            {t.description
+                              ? `${widgetCount(t.widgets.length)} · ${t.description}`
+                              : widgetCount(t.widgets.length)}
+                          </Text>
+                        </Box>
+                      </Group>
+                    </Radio.Card>
+                  ))}
+                  {shownTemplates.length === 0 && (
+                    <Text fz="xs" c="dimmed">
+                      No template matches “{templateQuery}”.
+                    </Text>
+                  )}
+                </Stack>
+              </Box>
             </Radio.Group>
           )}
           <TextInput
@@ -575,7 +616,20 @@ export const DashboardsPage = () => {
             editing that copy never changes the template. Templates deployed with the server are
             restored on restart.
           </Text>
-          {templates.map(row)}
+          {searchable && (
+            <TextInput
+              placeholder="Search templates"
+              leftSection={<IconSearch size={16} stroke={1.5} />}
+              value={templateQuery}
+              onChange={(e) => setTemplateQuery(e.currentTarget.value)}
+            />
+          )}
+          {shownTemplates.map(row)}
+          {shownTemplates.length === 0 && (
+            <Text fz="xs" c="dimmed">
+              No template matches “{templateQuery}”.
+            </Text>
+          )}
         </Stack>
       </Modal>
 
@@ -631,7 +685,7 @@ export const DashboardsPage = () => {
 };
 
 const RowInfo = ({ dashboard }: { dashboard: DashboardResponse }) => (
-  <Box mih={0}>
+  <Box mih={0} style={{ flex: 1 }}>
     <Anchor
       renderRoot={(props) => (
         <Link to="/d/$dashboardId" params={{ dashboardId: dashboard.id }} {...props} />

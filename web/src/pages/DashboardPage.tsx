@@ -20,6 +20,7 @@ import { Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
+import { GRID_COLS, GRID_MARGIN, GRID_ROWS } from "../dashboard/grid.ts";
 import {
   canRedo as historyCanRedo,
   canUndo as historyCanUndo,
@@ -41,11 +42,6 @@ import { Placeholder } from "../Placeholder.tsx";
 
 const route = getRouteApi("/d/$dashboardId");
 
-// Wall-display grid: fills the viewport exactly (no scrolling), sized for
-// FullHD. Rows/cols are fixed; cell size derives from the available space.
-const GRID_COLS = 48;
-const GRID_ROWS = 24;
-const GRID_MARGIN = 8;
 const SAVE_DEBOUNCE_MS = 800;
 
 // Fixed canvas: no compaction (widgets stay where placed) and collisions are
