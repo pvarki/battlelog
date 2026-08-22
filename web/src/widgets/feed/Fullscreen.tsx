@@ -13,7 +13,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { EventResponse } from "../../api.ts";
 import { EventDetail } from "../../EventDetail.tsx";
 import { useLiveEvents } from "../../live-events.ts";
@@ -56,8 +56,20 @@ const toExtras = (f: typeof EMPTY): FeedExtras => ({
 const lockedNote = (values: string[] | undefined): string | undefined =>
   values?.length ? `Locked by widget config: ${values.join(", ")}` : undefined;
 
-const FeedFullscreen = ({ config, onClose }: { config: FeedConfig; onClose: () => void }) => {
+const FeedFullscreen = ({
+  opened,
+  config,
+  onClose,
+}: {
+  opened: boolean;
+  config: FeedConfig;
+  onClose: () => void;
+}) => {
   const navigate = useNavigate();
+  // Open one tick after mount: a Modal that mounts already-open skips its
+  // enter transition, and this component mounts on the first open click.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [selected, setSelected] = useState<EventResponse | null>(null);
   const [filters, setFilters] = useState(EMPTY);
   const set = (patch: Partial<typeof EMPTY>) => setFilters((f) => ({ ...f, ...patch }));
@@ -84,7 +96,13 @@ const FeedFullscreen = ({ config, onClose }: { config: FeedConfig; onClose: () =
   });
 
   return (
-    <Modal opened onClose={onClose} fullScreen title={config.title || "Event feed"}>
+    <Modal
+      opened={opened && mounted}
+      onClose={onClose}
+      fullScreen
+      title={config.title || "Event feed"}
+      transitionProps={{ transition: "pop", duration: 180 }}
+    >
       <Fieldset legend="Filters" mb="sm">
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           <TagsInput
