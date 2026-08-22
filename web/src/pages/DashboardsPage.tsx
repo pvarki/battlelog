@@ -3,17 +3,22 @@ import {
   Anchor,
   Button,
   Container,
+  FileButton,
   Group,
+  Modal,
   Paper,
   Stack,
   Text,
+  Textarea,
   TextInput,
   Title,
 } from "@mantine/core";
+import { useClipboard } from "@mantine/hooks";
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
+import { exportFilename, parseDashboardImport, toExportJson } from "../dashboard/transfer.ts";
 import { formatDateTime } from "../time.ts";
 
 const route = getRouteApi("/");
@@ -26,6 +31,10 @@ export const DashboardsPage = () => {
   const [creating, startCreate] = useTransition();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
+  const clipboard = useClipboard({ timeout: 2000 });
 
   const dashboards = all.filter((d) => !d.isTemplate);
   const templates = all.filter((d) => d.isTemplate);
@@ -85,6 +94,61 @@ export const DashboardsPage = () => {
       }),
     );
 
+  const download = (d: DashboardResponse) => {
+    const url = URL.createObjectURL(new Blob([toExportJson(d)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportFilename(d.name);
+    a.click();
+    // Revoking in the same tick can cancel the download before it starts.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  // Own error state (not `mutate`'s): a rejected file is expected input here,
+  // and the message belongs next to the textarea the user can fix.
+  const runImport = () => {
+    const parsed = parseDashboardImport(importText);
+    if (!parsed.ok) {
+      setImportError(parsed.error);
+      return;
+    }
+    setImportError(null);
+    startCreate(async () => {
+      const res = await dashboardsApi.dashboards.$post({ json: parsed.value });
+      if (!res.ok) {
+        setImportError(`Rejected by the server (${res.status}) — not a valid dashboard export`);
+        return;
+      }
+      const created = await res.json();
+      setImportOpen(false);
+      setImportText("");
+      await navigate({ to: "/d/$dashboardId", params: { dashboardId: created.id } });
+    });
+  };
+
+  const exportButtons = (d: DashboardResponse) => (
+    <>
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        aria-label={`Download ${d.name} as JSON`}
+        title="Download as JSON"
+        onClick={() => download(d)}
+      >
+        ⤓
+      </ActionIcon>
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        aria-label={`Copy ${d.name} JSON to clipboard`}
+        title="Copy JSON to clipboard"
+        onClick={() => clipboard.copy(toExportJson(d))}
+      >
+        ⎘
+      </ActionIcon>
+    </>
+  );
+
   return (
     <Container size="xl" py="md">
       <Group justify="space-between" mb="md">
@@ -100,6 +164,9 @@ export const DashboardsPage = () => {
           <Button onClick={create} loading={creating} disabled={!name.trim()}>
             Create
           </Button>
+          <Button variant="light" onClick={() => setImportOpen(true)}>
+            Import
+          </Button>
         </Group>
       </Group>
 
@@ -108,6 +175,66 @@ export const DashboardsPage = () => {
           {error}
         </Text>
       )}
+
+      {clipboard.copied && (
+        <Text c="dimmed" fz="sm" mb="sm" role="status">
+          Copied to clipboard
+        </Text>
+      )}
+
+      {clipboard.error && (
+        <Text c="red.4" fz="sm" mb="sm" role="status">
+          Clipboard unavailable — use Download instead
+        </Text>
+      )}
+
+      <Modal
+        opened={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import dashboard"
+        size="lg"
+      >
+        <Stack>
+          <Text c="dimmed" fz="sm">
+            Layout and widget settings are restored. Note, todo, table and status widgets arrive
+            empty — their contents live in this system's event log, not in the file.
+          </Text>
+          <Group>
+            <FileButton
+              accept="application/json,.json"
+              onChange={async (file) => {
+                if (!file) return;
+                setImportError(null);
+                setImportText(await file.text());
+              }}
+            >
+              {(props) => (
+                <Button variant="light" {...props}>
+                  Choose file…
+                </Button>
+              )}
+            </FileButton>
+          </Group>
+          <Textarea
+            label="or paste exported JSON"
+            autosize
+            minRows={6}
+            maxRows={16}
+            value={importText}
+            onChange={(e) => setImportText(e.currentTarget.value)}
+          />
+          {importError && (
+            <Text c="red.4" fz="sm" role="status">
+              {importError}
+            </Text>
+          )}
+          <Group justify="flex-end">
+            <Button onClick={runImport} loading={creating} disabled={!importText.trim()}>
+              Import
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {dashboards.length === 0 ? (
         <Text c="dimmed">No dashboards yet — create one above or start from a template.</Text>
@@ -118,6 +245,7 @@ export const DashboardsPage = () => {
               <Group justify="space-between">
                 <RowInfo dashboard={d} />
                 <Group gap={4}>
+                  {exportButtons(d)}
                   <ActionIcon
                     variant="subtle"
                     color="gray"
@@ -173,6 +301,7 @@ export const DashboardsPage = () => {
                     >
                       Use template
                     </Button>
+                    {exportButtons(t)}
                     <ActionIcon
                       variant="subtle"
                       color="red"
