@@ -29,6 +29,9 @@ COPY --from=build /usr/src/app/web/dist ./web/dist
 
 RUN mkdir -p server/uploads && chown -R node:node /usr/src/app
 
+# Drives the env schema's forEnv() defaults: mTLS user enforcement on, Swagger off.
+ENV NODE_ENV=production
+
 USER node
 
 WORKDIR /usr/src/app/server

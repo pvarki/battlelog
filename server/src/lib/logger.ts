@@ -1,21 +1,15 @@
 import "varlock/auto-load";
-import pino, { type StreamEntry } from "pino";
+import pino from "pino";
 import { ENV } from "varlock/env";
 
-const streams: StreamEntry[] = [{ level: ENV.LOG_LEVEL, stream: process.stdout }];
-
-if (ENV.NODE_ENV === "production") {
-  streams.push({
-    level: ENV.LOG_LEVEL,
-    stream: pino.transport({ target: "pino-opentelemetry-transport" }),
-  });
-}
-
-export const logger = pino(
-  {
-    level: ENV.LOG_LEVEL,
-    base: { service: "battlelog" },
-    timestamp: pino.stdTimeFunctions.isoTime,
-  },
-  pino.multistream(streams),
-);
+// ponytail: stdout only. The pino-opentelemetry-transport worker stream this
+// used to attach under NODE_ENV=production exited on its own and made the next
+// log write throw "the worker has exited", killing the process seconds after
+// boot. Container stdout already carries structured JSON for a collector to
+// scrape. To re-add OTLP log export: gate it on OTEL_EXPORTER_OTLP_ENDPOINT the
+// way instrumentation.ts does, and handle the stream's 'error' event.
+export const logger = pino({
+  level: ENV.LOG_LEVEL,
+  base: { service: "battlelog" },
+  timestamp: pino.stdTimeFunctions.isoTime,
+});
