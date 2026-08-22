@@ -150,6 +150,13 @@ export type LiveEvents = {
   events: EventResponse[] | null;
   /** The initial fetch failed, so an empty list means "unknown", not "none". */
   failed: boolean;
+  /**
+   * Row ids that arrived on the live stream rather than in the initial fetch,
+   * so a view can mark what is new. Keyed by row id, not event id, so a new
+   * version of an event already on screen counts as an arrival. Pruned to the
+   * rows still listed, so it stays bounded by `limit`.
+   */
+  arrived: ReadonlySet<string>;
 };
 
 // Rows worth merging: matches, plus new versions of events already shown —
@@ -164,6 +171,19 @@ export const relevantRows = (
     ? incoming.filter((r) => match(r) || current.some((c) => c.eventId === r.eventId))
     : incoming;
 
+// Ids to mark as newly arrived: the incoming rows plus whatever was already
+// marked, minus anything no longer listed. Pruning against the rendered list is
+// what bounds the set — an id dropped by `limit` or rejected by `match` never
+// had a row to wash, and must not sit in the set forever.
+export const markArrived = (
+  previous: ReadonlySet<string>,
+  incoming: EventResponse[],
+  listed: EventResponse[],
+): ReadonlySet<string> => {
+  const shown = new Set(listed.map((r) => r.id));
+  return new Set([...previous, ...incoming.map((r) => r.id)].filter((id) => shown.has(id)));
+};
+
 /** Latest events, newest first, kept live via the shared SSE stream. */
 export const useLiveEvents = ({
   limit = 100,
@@ -172,6 +192,7 @@ export const useLiveEvents = ({
 }: LiveEventsOptions = {}): LiveEvents => {
   const [events, setEvents] = useState<EventResponse[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [arrived, setArrived] = useState<ReadonlySet<string>>(() => new Set());
   // Refs so a new predicate/query identity per render doesn't restart the
   // effect; the effect re-runs only when the query's content changes.
   const matchRef = useRef(match);
@@ -184,17 +205,23 @@ export const useLiveEvents = ({
   useEffect(() => {
     let alive = true;
     let current: EventResponse[] = [];
-    const apply = (rows: EventResponse[]) => {
+    const apply = (rows: EventResponse[], live = false) => {
       const m = matchRef.current;
       current = mergeEvents(current, relevantRows(current, rows, m), limit);
       if (m) current = current.filter(m);
       setEvents(current);
+      if (!live) return;
+      // Captured: the updater can run after a later apply() has reassigned
+      // `current`, and this row set is the one being pruned against.
+      const listed = current;
+      setArrived((prev) => markArrived(prev, rows, listed));
     };
 
     setFailed(false);
+    setArrived(new Set());
     // Subscribe before the fetch: merge dedupes rows that arrive on both paths.
     const unsubscribe = subscribeToEvents((row) => {
-      if (alive) apply([row]);
+      if (alive) apply([row], true);
     });
     api.events
       .$get({ query: { ...queryRef.current, limit } })
@@ -221,5 +248,5 @@ export const useLiveEvents = ({
     };
   }, [limit, queryKey]);
 
-  return { events, failed };
+  return { events, failed, arrived };
 };

@@ -89,10 +89,32 @@ Not a spec. One slice at a time: issue → decision → fix.
 
 - [ ] **8. Widget-by-widget pass.** Apply foundations per folder. `table/View.tsx`
       (441 lines) and `form/Config.tsx` (279) are worth splitting on the way through.
-- [ ] **9. Motion.** Rule: motion marks a state *change*, never a state *condition* —
-      a badge that pulses forever is noise in a minute and harmful on a wall display.
-      120–200ms budget. Honor `prefers-reduced-motion` from the start.
-      `feed/Fullscreen.tsx` already sets a precedent (`transition: "pop"`, 180ms).
+- [~] **9. Motion.** Rule: motion marks a state *change*, never a state
+      *condition* — a badge that pulses forever is noise in a minute and harmful
+      on a wall display. Both animations live in `global.css`, run once, and
+      loop never.
+      DONE: (a) a widget added to the canvas fades and scales in at its slot,
+      150ms — `firstFreeSlot` picks the slot rather than the user, so "where did
+      it land?" is a question the UI created and has to answer. Driven by an
+      `enteringId` in `DashboardGrid` and an `entering` prop on `WidgetWrapper`;
+      never cleared, because a CSS animation is one-shot per mount. (b) a row
+      arriving on the live SSE stream washes accent-9 and decays, 800ms —
+      `useLiveEvents` now returns `arrived`, the row ids that came from the
+      stream rather than the initial fetch, pruned to the rows still listed by
+      `markArrived` so the set stays bounded by `limit`. Keyed on row id, so a
+      new *version* of a visible event counts as an arrival too.
+      Budget: 150ms for the widget, deliberately 800ms for the row wash — the
+      120–200ms budget governs motion that gates interaction, and nothing waits
+      on an arrival highlight, which has to survive a glance away.
+      `prefers-reduced-motion` swaps the widget animation for a fade-only
+      keyframe set (a colour or opacity fade is not a vestibular trigger, so
+      reduced-motion users keep the information and lose only the movement).
+      NOT DONE (deliberate): exit animation on widget removal — it needs a ghost
+      element outliving the state that removed it, and delete already has a
+      confirm. Undo/redo settle, and crossfading the save-state label: both are
+      real but small, and neither is a question the UI created. Skipped on
+      principle: page transitions (they make navigation feel slower, always),
+      hover motion, and staggered list entrances.
 - [!] **10. Accessibility. ACKNOWLEDGED, NOT PLANNED** — a deliberate call, recorded
       so it isn't rediscovered as a surprise. Note this accepts a gap against design
       principle 4 ("keyboard-first, full keyboard operability"), so the principle and

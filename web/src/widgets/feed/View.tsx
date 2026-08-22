@@ -41,11 +41,14 @@ const cell = (col: FeedColumn, e: EventResponse): ReactNode =>
 export const FeedTable = ({
   columns,
   events,
+  arrived,
   onRowClick,
   onColumnWidthChange,
 }: {
   columns: FeedColumn[];
   events: EventResponse[];
+  /** Row ids that came in on the live stream; those rows wash once on arrival. */
+  arrived?: ReadonlySet<string>;
   onRowClick?: (event: EventResponse) => void;
   onColumnWidthChange?: (columnId: string, width: number) => void;
 }) => {
@@ -136,6 +139,7 @@ export const FeedTable = ({
         {events.map((event) => (
           <Table.Tr
             key={event.eventId}
+            className={arrived?.has(event.id) ? "row-arrived" : undefined}
             onClick={onRowClick && (() => onRowClick(event))}
             style={onRowClick && { cursor: "pointer" }}
           >
@@ -157,7 +161,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const [everOpened, setEverOpened] = useState(false);
   const query = queryFor(config);
   const match = (row: EventResponse) => matchesFeed(row, config);
-  const { events, failed } = useLiveEvents({ limit: config.rows, query, match });
+  const { events, failed, arrived } = useLiveEvents({ limit: config.rows, query, match });
 
   if (!events) {
     return (
@@ -198,6 +202,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
         <FeedTable
           columns={config.columns}
           events={events}
+          arrived={arrived}
           onColumnWidthChange={(columnId, width) =>
             updateConfig({
               ...config,

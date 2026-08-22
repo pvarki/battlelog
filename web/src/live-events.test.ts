@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { EventResponse } from "./api.ts";
-import { mergeEvents, relevantRows } from "./live-events.ts";
+import { markArrived, mergeEvents, relevantRows } from "./live-events.ts";
 
 const row = (id: string, eventId: string): EventResponse =>
   ({ id, eventId, header: `h-${id}` }) as EventResponse;
@@ -31,6 +31,25 @@ describe("relevantRows", () => {
     // e1's new version passes (already shown), e2 is dropped, e3 matches.
     expect(relevantRows(current, incoming, match).map((e) => e.id)).toEqual(["01b", "01d"]);
     expect(relevantRows(current, incoming, undefined)).toEqual(incoming);
+  });
+});
+
+describe("markArrived", () => {
+  it("marks incoming rows, keeps earlier marks, and forgets rows no longer listed", () => {
+    const listed = [row("01b", "e2"), row("01a", "e1")];
+    const first = markArrived(new Set(), [row("01a", "e1")], listed);
+    expect([...first]).toEqual(["01a"]);
+
+    // A second arrival keeps the first mark: both rows are still on screen.
+    const second = markArrived(first, [row("01b", "e2")], listed);
+    expect([...second].sort()).toEqual(["01a", "01b"]);
+
+    // 01a fell off the end of the list, so its mark goes with it — otherwise
+    // the set grows for the life of the session.
+    expect([...markArrived(second, [], [row("01b", "e2")])]).toEqual(["01b"]);
+
+    // A row the match predicate rejected is never listed, so it never marks.
+    expect([...markArrived(new Set(), [row("01c", "e3")], listed)]).toEqual([]);
   });
 });
 

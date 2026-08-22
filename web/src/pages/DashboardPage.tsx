@@ -106,6 +106,10 @@ const DashboardGrid = ({
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
+  // The widget just added, so it can animate into the slot that was chosen
+  // for it. Never cleared: the CSS animation is one-shot per mount, so a
+  // stale id does nothing until the next add replaces it.
+  const [enteringId, setEnteringId] = useState<string | null>(null);
   const { ref: gridRef, width, height } = useElementSize();
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -310,10 +314,12 @@ const DashboardGrid = ({
     const slot = place(descriptor.defaultSize);
     if (!slot) return;
     setEditMode(true);
+    const id = crypto.randomUUID();
+    setEnteringId(id);
     persist([
       ...widgets,
       {
-        id: crypto.randomUUID(),
+        id,
         type,
         config: descriptor.defaultConfig,
         layout: { ...slot, ...descriptor.defaultSize },
@@ -324,7 +330,9 @@ const DashboardGrid = ({
   const duplicateWidget = (w: Widget) => {
     const slot = place(w.layout);
     if (!slot) return;
-    persist([...widgets, { ...w, id: crypto.randomUUID(), layout: { ...w.layout, ...slot } }]);
+    const id = crypto.randomUUID();
+    setEnteringId(id);
+    persist([...widgets, { ...w, id, layout: { ...w.layout, ...slot } }]);
   };
 
   const resetWidgetSize = (id: string) => {
@@ -524,6 +532,7 @@ const DashboardGrid = ({
                   onResetSize={() => resetWidgetSize(w.id)}
                   onResetConfig={() => resetWidgetConfig(w.id)}
                   onUpdateConfig={(config) => updateWidgetConfig(w.id, config)}
+                  entering={w.id === enteringId}
                 />
               </div>
             ))}

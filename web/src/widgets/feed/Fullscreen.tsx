@@ -90,7 +90,7 @@ const FeedFullscreen = ({
   const columns = candidates.filter((c) => visible.includes(c.id));
 
   const extras = toExtras(filters);
-  const { events, failed } = useLiveEvents({
+  const { events, failed, arrived } = useLiveEvents({
     limit: LIMIT,
     query: queryFor(config, extras),
     match: (row: EventResponse) => matchesFeed(row, config, extras),
@@ -186,7 +186,7 @@ const FeedFullscreen = ({
         </Center>
       ) : (
         <Box style={{ overflowX: "auto" }}>
-          <FeedTable columns={columns} events={events} onRowClick={setSelected} />
+          <FeedTable columns={columns} events={events} arrived={arrived} onRowClick={setSelected} />
         </Box>
       )}
 

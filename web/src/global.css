@@ -8,3 +8,67 @@
 :root {
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * Motion marks a state *change*, never a state *condition*. Both animations
+ * below run once and end; nothing here loops. `prefers-reduced-motion` drops
+ * the transform — a colour or opacity fade is not a vestibular trigger, so
+ * reduced-motion users keep the information and lose only the movement.
+ */
+
+/*
+ * A widget added to the canvas gets its slot chosen for it by firstFreeSlot, so
+ * "where did it land?" is a question the UI created and has to answer.
+ */
+@keyframes widget-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.widget-enter {
+  animation: widget-enter 150ms ease-out;
+}
+
+/*
+ * A row arriving on the live stream. Held at full wash for the first quarter so
+ * it survives a glance away, then decayed — a live log where new information
+ * appears silently is the failure this product exists to prevent. Longer than
+ * the 150ms interaction budget on purpose: nothing is waiting on it.
+ */
+@keyframes row-arrived {
+  0%,
+  25% {
+    background-color: var(--mantine-color-accent-9);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.row-arrived > td {
+  animation: row-arrived 800ms ease-out;
+}
+
+/* Reduced motion keeps the fade and drops the scale. Swapping animation-name
+ * rather than redefining widget-enter avoids relying on same-name @keyframes
+ * precedence between a conditional group and the base rule. */
+@keyframes widget-enter-still {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .widget-enter {
+    animation-name: widget-enter-still;
+  }
+}
