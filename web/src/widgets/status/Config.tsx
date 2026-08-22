@@ -9,6 +9,7 @@ import {
   Stack,
   TextInput,
 } from "@mantine/core";
+import { IconX } from "@tabler/icons-react";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import {
@@ -51,11 +52,11 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
               />
               <ActionIcon
                 variant="subtle"
-                color="red"
+                color="gray"
                 aria-label={`Remove ${row.label}`}
                 onClick={() => setRows(config.statuses.filter((r) => r.id !== row.id))}
               >
-                ✕
+                <IconX size={18} stroke={1.5} />
               </ActionIcon>
             </Group>
 
@@ -174,7 +175,7 @@ const OptionEditor = ({
         aria-label="Remove option"
         onClick={onRemove}
       >
-        ✕
+        <IconX size={16} stroke={1.5} />
       </ActionIcon>
     </Group>
     <TextInput
