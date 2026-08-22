@@ -194,5 +194,90 @@
       },
       "layout": { "h": 12, "w": 20, "x": 28, "y": 11 }
     }
+  ],
+  "templateEvents": [
+    {
+      "widgetId": "37f18a71-f563-4dd6-88fa-ed41407c36b4",
+      "header": "Tilanne taulukko",
+      "type": "table",
+      "data": {
+        "rows": [
+          {
+            "A": "Joukko",
+            "B": "Tila ",
+            "C": "Tehtävä",
+            "D": "Vihollinen"
+          },
+          {
+            "A": "1 jk\n\n\n\n",
+            "C": "\n",
+            "__rowHeight": "54"
+          },
+          {
+            "A": "2 jk.",
+            "__rowHeight": "52"
+          },
+          {
+            "A": "3 jk.\n\n\n\n\n\n",
+            "__rowHeight": "50"
+          },
+          {
+            "A": "4 jk.",
+            "__rowHeight": "51"
+          }
+        ]
+      }
+    },
+    {
+      "widgetId": "604331f7-5e34-4128-9f72-23ebbf36a2a0",
+      "header": "Schedule 0 timers",
+      "type": "schedule",
+      "data": {
+        "timers": []
+      }
+    },
+    {
+      "widgetId": "e7b9e2c8-9782-430f-bdad-197a80f3fa94",
+      "header": "Huolto",
+      "type": "table",
+      "data": {
+        "rows": [
+          {
+            "A": "Joukko",
+            "B": "Ammus",
+            "C": "Polttoaine",
+            "D": "Ruoka",
+            "E": "Vesi",
+            "F": "Vahvuus"
+          },
+          {
+            "A": "1 jk.",
+            "B": ""
+          },
+          {
+            "A": "2 jk."
+          },
+          {
+            "A": "3 jk."
+          },
+          {
+            "A": "4 jk."
+          },
+          {},
+          {
+            "A": "0=musta"
+          },
+          {
+            "A": "1=punanen"
+          },
+          {
+            "A": "2=keltanen"
+          },
+          {
+            "A": "3=vihreä"
+          }
+        ]
+      }
+    }
   ]
 }

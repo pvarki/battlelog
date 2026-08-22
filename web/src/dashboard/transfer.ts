@@ -9,10 +9,20 @@ export type DashboardExport = {
   name: string;
   isTemplate: boolean;
   widgets: DashboardResponse["widgets"];
+  templateEvents?: DashboardResponse["templateEvents"];
 };
 
 export const toExportJson = (d: DashboardResponse): string =>
-  JSON.stringify({ name: d.name, isTemplate: d.isTemplate, widgets: d.widgets }, null, 2);
+  JSON.stringify(
+    {
+      name: d.name,
+      isTemplate: d.isTemplate,
+      widgets: d.widgets,
+      ...(d.templateEvents.length ? { templateEvents: d.templateEvents } : {}),
+    },
+    null,
+    2,
+  );
 
 export const exportFilename = (name: string): string => {
   const slug = name
@@ -42,8 +52,15 @@ export const parseDashboardImport = (text: string): ImportResult => {
   if (typeof d.name !== "string" || !d.name.trim())
     return { ok: false, error: "Missing a dashboard name" };
   if (!Array.isArray(d.widgets)) return { ok: false, error: "Missing a widgets list" };
+  if (d.templateEvents !== undefined && !Array.isArray(d.templateEvents))
+    return { ok: false, error: "Template events must be a list" };
   return {
     ok: true,
-    value: { name: d.name.trim(), isTemplate: d.isTemplate === true, widgets: d.widgets },
+    value: {
+      name: d.name.trim(),
+      isTemplate: d.isTemplate === true,
+      widgets: d.widgets,
+      ...(d.templateEvents ? { templateEvents: d.templateEvents } : {}),
+    },
   };
 };

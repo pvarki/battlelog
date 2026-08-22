@@ -1,8 +1,13 @@
 import { and, desc, eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db/client.ts";
-import type { DashboardInsert, DashboardRow } from "../../db/schema.ts";
-import { dashboards } from "../../db/schema.ts";
+import type {
+  DashboardInsert,
+  DashboardRow,
+  DashboardTemplateEvent,
+  DashboardWidget,
+} from "../../db/schema.ts";
+import { dashboards, events } from "../../db/schema.ts";
 
 export type CreateDashboardInput = Omit<
   DashboardInsert,
@@ -26,13 +31,73 @@ export const getDashboard = async (id: string): Promise<DashboardRow | null> => 
   return row ?? null;
 };
 
+const withForkedTemplateEvents = (
+  widgets: DashboardWidget[],
+  templateEvents: DashboardTemplateEvent[],
+): {
+  widgets: DashboardWidget[];
+  eventRows: (typeof events.$inferInsert)[];
+} => {
+  const documents = new Map(templateEvents.map((doc) => [doc.widgetId, doc]));
+  const eventRows: (typeof events.$inferInsert)[] = [];
+  const nextWidgets = widgets.map((widget) => {
+    const document = documents.get(widget.id);
+    if (!document) return widget;
+
+    const id = uuidv7();
+    eventRows.push({
+      id,
+      eventId: id,
+      updateFor: null,
+      createdBy: "",
+      updatedBy: null,
+      header: document.header,
+      type: document.type,
+      data: document.data ?? null,
+      eventTime: null,
+      tags: null,
+      hcoeDomains: null,
+      admiraltyReliability: null,
+      admiraltyAccuracy: null,
+      location: null,
+      locationPoint: null,
+      inputSource: null,
+      sourceUri: null,
+    });
+    return {
+      ...widget,
+      config: {
+        ...(typeof widget.config === "object" && widget.config !== null ? widget.config : {}),
+        eventId: id,
+      },
+    };
+  });
+  return { widgets: nextWidgets, eventRows };
+};
+
 export const createDashboard = async (input: CreateDashboardInput): Promise<DashboardRow> => {
-  const [row] = await db
-    .insert(dashboards)
-    .values({ ...input, id: uuidv7(), version: uuidv7() })
-    .returning();
-  if (!row) throw new Error("createDashboard: insert returned no row");
-  return row;
+  return db.transaction(async (tx) => {
+    const templateEvents = input.templateEvents ?? [];
+    const widgets = input.widgets ?? [];
+    const forked = input.isTemplate
+      ? { widgets, eventRows: [] }
+      : withForkedTemplateEvents(widgets, templateEvents);
+    const eventRows = forked.eventRows.map((row) => ({ ...row, createdBy: input.createdBy }));
+    if (eventRows.length) await tx.insert(events).values(eventRows);
+
+    const [row] = await tx
+      .insert(dashboards)
+      .values({
+        ...input,
+        widgets: forked.widgets,
+        templateEvents: input.isTemplate ? templateEvents : [],
+        id: uuidv7(),
+        version: uuidv7(),
+      })
+      .returning();
+    if (!row) throw new Error("createDashboard: insert returned no row");
+    return row;
+  });
 };
 
 /**

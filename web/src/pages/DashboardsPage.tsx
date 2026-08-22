@@ -39,7 +39,11 @@ export const DashboardsPage = () => {
   const dashboards = all.filter((d) => !d.isTemplate);
   const templates = all.filter((d) => d.isTemplate);
 
-  const createAndOpen = (json: { name: string; widgets: DashboardResponse["widgets"] }) =>
+  const createAndOpen = (json: {
+    name: string;
+    widgets: DashboardResponse["widgets"];
+    templateEvents?: DashboardResponse["templateEvents"];
+  }) =>
     startCreate(async () => {
       const res = await dashboardsApi.dashboards.$post({ json });
       if (!res.ok) throw new Error(`Failed to create dashboard (${res.status})`);
@@ -161,6 +165,19 @@ export const DashboardsPage = () => {
             </Menu.Item>
           </>
         )}
+        {d.isTemplate && (
+          <Menu.Item
+            leftSection="✎"
+            onClick={() =>
+              navigate({
+                to: "/d/$dashboardId",
+                params: { dashboardId: d.id },
+              })
+            }
+          >
+            Edit template
+          </Menu.Item>
+        )}
         <Menu.Item leftSection="⤓" onClick={() => download(d)}>
           Download JSON
         </Menu.Item>
@@ -279,7 +296,13 @@ export const DashboardsPage = () => {
                     <Button
                       size="compact-sm"
                       variant="light"
-                      onClick={() => createAndOpen({ name: t.name, widgets: t.widgets })}
+                      onClick={() =>
+                        createAndOpen({
+                          name: t.name,
+                          widgets: t.widgets,
+                          templateEvents: t.templateEvents,
+                        })
+                      }
                     >
                       Use template
                     </Button>
@@ -297,13 +320,17 @@ export const DashboardsPage = () => {
 
 const RowInfo = ({ dashboard }: { dashboard: DashboardResponse }) => (
   <div>
-    <Anchor
-      renderRoot={(props) => (
-        <Link to="/d/$dashboardId" params={{ dashboardId: dashboard.id }} {...props} />
-      )}
-    >
-      {dashboard.name}
-    </Anchor>
+    {dashboard.isTemplate ? (
+      <Text>{dashboard.name}</Text>
+    ) : (
+      <Anchor
+        renderRoot={(props) => (
+          <Link to="/d/$dashboardId" params={{ dashboardId: dashboard.id }} {...props} />
+        )}
+      >
+        {dashboard.name}
+      </Anchor>
+    )}
     <Text c="dimmed" fz="xs">
       {dashboard.widgets.length} widget
       {dashboard.widgets.length === 1 ? "" : "s"} · updated {formatDateTime(dashboard.updatedAt)}

@@ -14,6 +14,7 @@ const dashboard: DashboardResponse = {
       layout: { x: 0, y: 0, w: 8, h: 8 },
     },
   ],
+  templateEvents: [],
   version: "018f0000-0000-7000-8000-000000000002",
   createdBy: "CN=alice",
   updatedBy: null,
@@ -37,6 +38,27 @@ test("export round-trips through import", () => {
   });
 });
 
+test("templateEvents are accepted but not required in imports", () => {
+  const templateEvents = [{ widgetId: "w1", header: "Initial todo", type: "todo", data: [] }];
+  expect(
+    parseDashboardImport(
+      JSON.stringify({
+        name: "Template",
+        isTemplate: true,
+        widgets: dashboard.widgets,
+        templateEvents,
+      }),
+    ),
+  ).toEqual({
+    ok: true,
+    value: { name: "Template", isTemplate: true, widgets: dashboard.widgets, templateEvents },
+  });
+  expect(parseDashboardImport('{"name":"Plain","widgets":[]}')).toEqual({
+    ok: true,
+    value: { name: "Plain", isTemplate: false, widgets: [] },
+  });
+});
+
 test("import names what is wrong instead of posting garbage", () => {
   expect(parseDashboardImport("{oops")).toEqual({ ok: false, error: "Not valid JSON" });
   expect(parseDashboardImport("[]").ok).toBe(false);
@@ -46,6 +68,7 @@ test("import names what is wrong instead of posting garbage", () => {
   expect(parseDashboardImport('{"name":"  ","widgets":[]}').ok).toBe(false);
   expect(parseDashboardImport('{"name":"x"}').ok).toBe(false);
   expect(parseDashboardImport('{"name":"x","widgets":{}}').ok).toBe(false);
+  expect(parseDashboardImport('{"name":"x","widgets":[],"templateEvents":{}}').ok).toBe(false);
 });
 
 test("import trims the name and defaults a missing isTemplate to false", () => {

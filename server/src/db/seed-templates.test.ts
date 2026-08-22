@@ -22,7 +22,13 @@ describe.runIf(dbUp)("seedTemplates", () => {
   test("upserts by name idempotently and skips invalid files", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "tmpl-"));
     const clock = { id: "c1", type: "clock", config: {}, layout: { x: 0, y: 0, w: 8, h: 6 } };
-    await writeFile(path.join(dir, "a.json"), JSON.stringify({ name: runName, widgets: [clock] }));
+    const templateEvents = [
+      { widgetId: "c1", header: "Clock state", type: "clock", data: { zone: "UTC" } },
+    ];
+    await writeFile(
+      path.join(dir, "a.json"),
+      JSON.stringify({ name: runName, widgets: [clock], templateEvents }),
+    );
     await writeFile(path.join(dir, "bad.json"), "{nope");
     expect(await seedTemplates(dir)).toBe(1);
 
@@ -34,6 +40,7 @@ describe.runIf(dbUp)("seedTemplates", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.isTemplate).toBe(true);
     expect(rows[0]?.widgets).toEqual([]);
+    expect(rows[0]?.templateEvents).toEqual([]);
     await rm(dir, { recursive: true, force: true });
   });
 
