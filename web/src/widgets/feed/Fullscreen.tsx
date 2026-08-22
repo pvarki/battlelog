@@ -3,6 +3,7 @@ import {
   Button,
   Center,
   Chip,
+  Drawer,
   Fieldset,
   Group,
   Loader,
@@ -11,8 +12,10 @@ import {
   TagsInput,
   TextInput,
 } from "@mantine/core";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { EventResponse } from "../../api.ts";
+import { EventDetail } from "../../EventDetail.tsx";
 import { useLiveEvents } from "../../live-events.ts";
 import { FeedTable } from "./View.tsx";
 import {
@@ -54,6 +57,8 @@ const lockedNote = (values: string[] | undefined): string | undefined =>
   values?.length ? `Locked by widget config: ${values.join(", ")}` : undefined;
 
 const FeedFullscreen = ({ config, onClose }: { config: FeedConfig; onClose: () => void }) => {
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState<EventResponse | null>(null);
   const [filters, setFilters] = useState(EMPTY);
   const set = (patch: Partial<typeof EMPTY>) => setFilters((f) => ({ ...f, ...patch }));
 
@@ -156,9 +161,31 @@ const FeedFullscreen = ({ config, onClose }: { config: FeedConfig; onClose: () =
         </Center>
       ) : (
         <Box style={{ overflowX: "auto" }}>
-          <FeedTable columns={columns} events={events} />
+          <FeedTable columns={columns} events={events} onRowClick={setSelected} />
         </Box>
       )}
+
+      <Drawer
+        opened={!!selected}
+        onClose={() => setSelected(null)}
+        position="right"
+        size="md"
+        title={selected?.header}
+      >
+        {selected && (
+          <EventDetail
+            event={selected}
+            onShowHistory={() => {
+              setSelected(null);
+              onClose();
+              void navigate({
+                to: "/events",
+                search: { eventId: selected.eventId, includeHistory: true },
+              });
+            }}
+          />
+        )}
+      </Drawer>
     </Modal>
   );
 };
