@@ -1,0 +1,82 @@
+on:
+  pull_request:
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  versiontag:
+    name: Validate version bump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pvarki/config-ci-library/.github/actions/validate-bumpversion@main
+
+  pre_commit:
+    name: Run pre-commit checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: pvarki/config-ci-library/.github/actions/setup-typescript@main
+        with:
+          node-version: "24"
+          pnpm-version: "11"
+      # The tsc hook needs server/src/env.d.ts, which is generated and gitignored.
+      - name: Generate env types
+        run: pnpm -C server exec varlock typegen
+      - uses: j178/prek-action@v2
+
+  snyk:
+    name: Run Snyk test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: pvarki/config-ci-library/.github/actions/setup-typescript@main
+        with:
+          node-version: "24"
+          pnpm-version: "11"
+      - uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # master as of 2026-04-29
+      - name: Snyk test
+        run: |
+          snyk test \
+            --all-projects \
+            --org=deployapp-core-services \
+            --show-vulnerable-paths=all \
+            --severity-threshold=critical
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  docker_builds:
+    name: Build Docker images
+    runs-on: arc-runner-set
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Build production target
+        run: docker build --target production -t battlelog:production .
+
+  publish:
+    name: Publish Docker image
+    needs: [versiontag, pre_commit, snyk, docker_builds]
+    runs-on: arc-runner-set
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Publish Docker image
+        uses: pvarki/config-ci-library/.github/actions/publish-image@main
+        with:
+          product: battlelog
+          component: server
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          acr-repo: ${{ vars.ACR_REPO }}
+          acr-username: ${{ vars.ACR_USERNAME }}
+          acr-token: ${{ secrets.ACR_TOKEN }}
