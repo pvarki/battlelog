@@ -21,16 +21,9 @@ export const useWakeLock = () => {
             return;
           }
           lock = l;
-          // The browser also releases on its own — low battery, power-save
-          // mode — with no visibilitychange. Without listening to the sentinel
-          // itself, the lock would silently stay off for the rest of the
-          // watch. Retry is self-limiting: while power-save holds, request()
-          // just rejects below.
           l.addEventListener("release", reacquire);
         })
         .catch((err: unknown) => {
-          // Denied (battery saver etc.) — the screen just dims, but leave a
-          // trace so a dimming wall display is diagnosable in the field.
           console.debug("Screen wake lock unavailable", err);
         });
     };

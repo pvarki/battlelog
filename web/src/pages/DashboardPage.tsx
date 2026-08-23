@@ -61,8 +61,6 @@ type PendingPatch = { name?: string; widgets?: Widget[] };
 
 export const DashboardPage = () => {
   const { dashboard, dashboards } = route.useLoaderData();
-  // Wall displays and field phones alike must not dim mid-watch — before the
-  // mobile branch, so both layouts hold the lock.
   useWakeLock();
   // Phones get the switcher — one widget fullscreen, bottom bar to change.
   // No edit machinery mounts at all, so mobile editing is disabled by
