@@ -193,6 +193,7 @@ const DashboardGrid = ({
           });
           if (res.status === 200) {
             version.current = (await res.json()).version;
+            if (payload.name !== undefined) void router.invalidate();
             setSaveState("saved");
             // A permanent "Saved" is noise on an ops display: fade to idle.
             clearTimeout(savedTimer.current);
