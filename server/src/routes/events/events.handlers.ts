@@ -73,8 +73,9 @@ export const streamNewEvents = (c: Context) => {
   const filter = queryToFilter(parsed.data);
 
   // EventSource sends the last received SSE id on reconnect; replay what was
-  // missed since then. Ignore anything that isn't a UUID.
-  const header = c.req.header("last-event-id");
+  // missed since then. A fresh page can't set that header, so its stored
+  // cursor arrives as ?since= instead. Ignore anything that isn't a UUID.
+  const header = c.req.header("last-event-id") ?? c.req.query("since");
   const lastEventId = header && isUuid(header) ? header : undefined;
 
   return streamSSE(
