@@ -52,10 +52,11 @@ const heardFromServer = () => {
 // rows per connection, and one IDB transaction per batch beats one per row.
 // The cursor advances only after the batch commits — a cursor past rows the
 // store never got would make the server skip them on every future replay.
+// The 1s timer alone bounds each batch: the server pages replay at
+// REPLAY_LIMIT rows per connection, so the buffer can't outgrow one page.
 let pendingRows: EventResponse[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 const FLUSH_DELAY_MS = 1000;
-const FLUSH_MAX_ROWS = 200;
 
 const flushRows = () => {
   clearTimeout(flushTimer);
@@ -89,8 +90,7 @@ const open = () => {
     heardFromServer();
     const row = JSON.parse(e.data) as EventResponse;
     pendingRows.push(row);
-    if (pendingRows.length >= FLUSH_MAX_ROWS) flushRows();
-    else flushTimer ??= setTimeout(flushRows, FLUSH_DELAY_MS);
+    flushTimer ??= setTimeout(flushRows, FLUSH_DELAY_MS);
     for (const l of listeners) l(row);
   });
   es.addEventListener("error", () => {

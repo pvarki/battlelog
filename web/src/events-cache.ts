@@ -10,8 +10,8 @@ const DB_NAME = "battlelog-events-cache";
 const STORE = "events";
 const CURSOR_KEY = "battlelog.eventsCursor";
 
-export const MAX_ROWS = 10_000;
-export const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_ROWS = 10_000;
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 // Cache retention is not a sane replay window: resuming a 30-day-old cursor
 // would page through weeks of rows at REPLAY_LIMIT per reconnect. Past this,
 // start live-only and let the initial fetches reseed history.
