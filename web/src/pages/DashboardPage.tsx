@@ -43,6 +43,7 @@ import {
 import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 import { Placeholder } from "../Placeholder.tsx";
+import { useWakeLock } from "../use-wake-lock.ts";
 
 const route = getRouteApi("/d/$dashboardId");
 
@@ -60,6 +61,9 @@ type PendingPatch = { name?: string; widgets?: Widget[] };
 
 export const DashboardPage = () => {
   const { dashboard, dashboards } = route.useLoaderData();
+  // Wall displays and field phones alike must not dim mid-watch — before the
+  // mobile branch, so both layouts hold the lock.
+  useWakeLock();
   // Phones get the switcher — one widget fullscreen, bottom bar to change.
   // No edit machinery mounts at all, so mobile editing is disabled by
   // construction, not by flags.
