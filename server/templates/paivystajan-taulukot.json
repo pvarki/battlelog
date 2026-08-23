@@ -1,5 +1,6 @@
 {
   "name": "Päivystäjän taulukot",
+  "description": "Sisältää neljä kirjattavaa taulua: Tilanneilmoitus, Hälytystaulukko, Toimivaltuustaulukko ja Heti ilmoitettavat asiat. Taulujen nimiä voi muokata.",
   "widgets": [
     {
       "id": "56722eb6-10f7-4d72-8183-a9350d1a0612",
