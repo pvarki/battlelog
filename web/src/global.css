@@ -74,6 +74,18 @@
 }
 
 /*
+ * Phones: the theme's compact type (md = 0.875rem) is tuned for an ops display
+ * at arm's length, not a phone in the field. Bump the root so everything
+ * Mantine renders in rem grows ~12%. Keep in sync with MOBILE_QUERY in
+ * src/dashboard/mobile.ts.
+ */
+@media (max-width: 767px), (max-height: 479px) {
+  :root {
+    font-size: 18px;
+  }
+}
+
+/*
  * Wall displays: Mantine sizes everything in rem, so scaling the root font
  * scales the whole UI. Past FullHD, text tracks the viewport width — 16px at
  * 1920, 32px at 3840 — so 4K at 100% OS scaling reads exactly like FullHD

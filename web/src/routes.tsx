@@ -53,7 +53,14 @@ const ConnectionIndicator = () => {
   return (
     <Group gap={4} ml="auto" c={c} title={`Event stream: ${label}`} role="status">
       <Icon size={16} stroke={1.5} />
-      {state === "live" ? <VisuallyHidden>{label}</VisuallyHidden> : <Text fz="xs">{label}</Text>}
+      {state === "live" ? (
+        <VisuallyHidden>{label}</VisuallyHidden>
+      ) : (
+        // Icon-only on phones: the label wraps the 48px header onto the page.
+        <Text fz="xs" visibleFrom="sm">
+          {label}
+        </Text>
+      )}
     </Group>
   );
 };
@@ -62,7 +69,7 @@ const RootLayout = () => {
   return (
     <AppShell header={{ height: 48 }} padding={0}>
       <AppShell.Header>
-        <Group h="100%" px="md" gap="lg">
+        <Group h="100%" px="md" gap="lg" wrap="nowrap">
           <Text fw={700} style={{ letterSpacing: "0.04em" }}>
             BATTLELOG
           </Text>

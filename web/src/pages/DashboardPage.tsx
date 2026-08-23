@@ -32,6 +32,7 @@ import {
   step,
 } from "../dashboard/history.ts";
 import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
+import { MOBILE_QUERY } from "../dashboard/mobile.ts";
 import { firstFreeSlot } from "../dashboard/placement.ts";
 import {
   getWidget,
@@ -61,10 +62,8 @@ export const DashboardPage = () => {
   const { dashboard, dashboards } = route.useLoaderData();
   // Phones get the switcher — one widget fullscreen, bottom bar to change.
   // No edit machinery mounts at all, so mobile editing is disabled by
-  // construction, not by flags. The height clause catches landscape phones,
-  // which are wide enough for the grid's columns but far too short for its
-  // 24 rows.
-  const isMobile = useMediaQuery("(max-width: 767px), (max-height: 479px)", false, {
+  // construction, not by flags.
+  const isMobile = useMediaQuery(MOBILE_QUERY, false, {
     getInitialValueInEffect: false,
   });
   if (isMobile) {
