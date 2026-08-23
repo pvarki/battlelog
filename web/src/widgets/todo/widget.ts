@@ -2,13 +2,11 @@ import { IconChecklist } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 const configSchema = z
   .object({
-    /** Shown bold in the widget header (rendered by the wrapper). */
-    title: z.string().max(100).optional(),
-    /** Per-instance mobile visibility; default shown. */
-    showOnMobile: z.boolean().optional(),
+    ...baseWidgetConfig,
     /**
      * Logical event id the list follows: items live in the event log as a
      * type:"todo" event, and every change appends a version to its chain.

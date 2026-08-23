@@ -4,6 +4,7 @@ import { lazy } from "react";
 import { z } from "zod";
 import type { api, EventResponse } from "../../api.ts";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 type EventsQuery = InferRequestType<typeof api.events.$get>["query"];
 
@@ -46,10 +47,7 @@ export type FeedColumn = z.infer<typeof columnSchema>;
 
 const configSchema = z
   .object({
-    /** Shown bold in the widget header (rendered by the wrapper). */
-    title: z.string().max(100).optional(),
-    /** Per-instance mobile visibility; default shown. */
-    showOnMobile: z.boolean().optional(),
+    ...baseWidgetConfig,
     types: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
     /** Header substring, case-insensitive. */

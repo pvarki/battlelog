@@ -14,7 +14,7 @@ import {
   Title,
   UnstyledButton,
 } from "@mantine/core";
-import { useElementSize, useMediaQuery } from "@mantine/hooks";
+import { useElementSize } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconArrowBackUp, IconArrowForwardUp, IconChevronDown } from "@tabler/icons-react";
 import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
@@ -32,7 +32,7 @@ import {
   step,
 } from "../dashboard/history.ts";
 import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
-import { MOBILE_QUERY } from "../dashboard/mobile.ts";
+import { useIsMobile } from "../dashboard/mobile.ts";
 import { firstFreeSlot } from "../dashboard/placement.ts";
 import {
   getWidget,
@@ -63,9 +63,7 @@ export const DashboardPage = () => {
   // Phones get the switcher — one widget fullscreen, bottom bar to change.
   // No edit machinery mounts at all, so mobile editing is disabled by
   // construction, not by flags.
-  const isMobile = useMediaQuery(MOBILE_QUERY, false, {
-    getInitialValueInEffect: false,
-  });
+  const isMobile = useIsMobile();
   if (isMobile) {
     return <MobileSwitcher key={`${dashboard.id}:${dashboard.version}`} dashboard={dashboard} />;
   }

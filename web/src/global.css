@@ -79,7 +79,7 @@
  * Mantine renders in rem grows ~12%. Keep in sync with MOBILE_QUERY in
  * src/dashboard/mobile.ts.
  */
-@media (max-width: 767px), (max-height: 479px) {
+@media (max-width: 1023px), (max-height: 479px) {
   :root {
     font-size: 18px;
   }
@@ -91,7 +91,8 @@
  * 1920, 32px at 3840 — so 4K at 100% OS scaling reads exactly like FullHD
  * physically instead of shrinking. Capped there so 5K/8K stops growing.
  */
-@media (min-width: 1921px) {
+@media (min-width: 1921px) and (min-height: 480px) {
+  /* min-height keeps a short-wide strip window on the mobile rule above. */
   :root {
     font-size: min(calc(100vw / 120), 32px);
   }

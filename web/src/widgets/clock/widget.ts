@@ -2,6 +2,7 @@ import { IconClock } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 const isValidTimeZone = (tz: string) => {
   try {
@@ -14,10 +15,7 @@ const isValidTimeZone = (tz: string) => {
 
 const configSchema = z
   .object({
-    /** Shown bold in the widget header (rendered by the wrapper). */
-    title: z.string().max(100).optional(),
-    /** Per-instance mobile visibility; default shown. */
-    showOnMobile: z.boolean().optional(),
+    ...baseWidgetConfig,
     /** IANA timezone; absent = system timezone. */
     timeZone: z.string().refine(isValidTimeZone, "Unknown timezone").optional(),
     format: z.enum(["24h", "12h"]).default("24h"),

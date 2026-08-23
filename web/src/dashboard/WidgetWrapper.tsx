@@ -4,9 +4,14 @@ import { Component, type ReactNode, Suspense, useMemo } from "react";
 import type { Widget } from "../api.ts";
 import { Placeholder } from "../Placeholder.tsx";
 import { getWidget, validateWidgetConfig } from "./registry.ts";
+import { configTitle } from "./widget-base.ts";
 
-// Callbacks are optional: they're only reachable in edit mode, and the mobile
-// switcher renders widgets with no edit affordances at all.
+const noop = () => {};
+
+// Callbacks are optional so read-only hosts can omit the edit-menu ones — but
+// onConfigure and onUpdateConfig fire OUTSIDE edit mode too (empty-config CTAs;
+// useEventDocument persisting a captured eventId). A host that renders live
+// widgets must pass those two or edits can be silently dropped.
 type Props = {
   instance: Widget;
   editMode: boolean;
@@ -47,8 +52,6 @@ class WidgetErrorBoundary extends Component<
  * "delete me" callbacks. Each widget is its own error boundary, so one crash
  * never takes the dashboard down; Views are lazy, so Suspense covers loading.
  */
-const noop = () => {};
-
 export const WidgetWrapper = ({
   instance,
   editMode,
@@ -68,8 +71,7 @@ export const WidgetWrapper = ({
 
   // Convention: a `title` string in any widget's config renders bold in the
   // header under the type caption (per the design mock).
-  const configTitle = (instance.config as { title?: unknown } | null | undefined)?.title;
-  const title = typeof configTitle === "string" && configTitle.trim() ? configTitle : undefined;
+  const title = configTitle(instance.config);
 
   return (
     <Paper

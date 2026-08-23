@@ -20,13 +20,12 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../admiralty.ts";
 import { api, type EventResponse } from "../api.ts";
-import { MOBILE_QUERY } from "../dashboard/mobile.ts";
+import { useIsMobile } from "../dashboard/mobile.ts";
 import { EventDetail } from "../EventDetail.tsx";
 import {
   activeChips,
@@ -172,7 +171,21 @@ export const EventExplorerPage = () => {
   const geoPartial =
     [draft.lat, draft.lng, draft.radiusMeters].filter((v) => v !== "").length % 3 !== 0;
 
-  const isMobile = useMediaQuery(MOBILE_QUERY, false, { getInitialValueInEffect: false });
+  const isMobile = useIsMobile();
+
+  const countText = rows !== null && rows.length > 0 && (
+    <Text fz="xs" c="dimmed" role="status" style={{ whiteSpace: "nowrap" }}>
+      {rows.length}
+      {atEnd ? "" : "+"} {applied.includeHistory ? "version" : "event"}
+      {rows.length === 1 ? "" : "s"}
+    </Text>
+  );
+
+  const clearAllButton = chips.length > 0 && (
+    <Button size="xs" variant="subtle" color="gray" style={{ flexShrink: 0 }} onClick={clearAll}>
+      Clear all
+    </Button>
+  );
 
   const chipBadges = chips.map((chip) => (
     <Badge
@@ -237,15 +250,8 @@ export const EventExplorerPage = () => {
           {chips.length > 0 && (
             <Group gap={4} wrap="nowrap" style={{ overflowX: "auto", minWidth: 0 }}>
               {chipBadges}
-              <Button
-                size="compact-xs"
-                variant="subtle"
-                color="gray"
-                style={{ flexShrink: 0 }}
-                onClick={clearAll}
-              >
-                Clear all
-              </Button>
+              {clearAllButton}
+              {countText}
             </Group>
           )}
         </Stack>
@@ -260,18 +266,8 @@ export const EventExplorerPage = () => {
             </Group>
           </Group>
           <Group gap="xs" wrap="nowrap">
-            {rows !== null && rows.length > 0 && (
-              <Text fz="xs" c="dimmed" role="status" style={{ whiteSpace: "nowrap" }}>
-                {rows.length}
-                {atEnd ? "" : "+"} {applied.includeHistory ? "version" : "event"}
-                {rows.length === 1 ? "" : "s"}
-              </Text>
-            )}
-            {chips.length > 0 && (
-              <Button size="xs" variant="subtle" color="gray" onClick={clearAll}>
-                Clear all
-              </Button>
-            )}
+            {countText}
+            {clearAllButton}
             {filtersButton}
           </Group>
         </Group>
@@ -302,14 +298,18 @@ export const EventExplorerPage = () => {
             />
           </Box>
         ) : isMobile ? (
+          /* Each card is a real button, like the desktop row's anchor:
+             keyboard and screen-reader users must be able to open the detail. */
           <Stack gap="xs">
             {rows.map((event) => (
               <Paper
                 key={event.id}
+                component="button"
+                type="button"
                 withBorder
                 p="sm"
                 onClick={() => setSelected(event)}
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", textAlign: "left", width: "100%" }}
               >
                 <Group justify="space-between" wrap="nowrap" gap="xs">
                   <Text fw={600} truncate style={{ flex: 1, minWidth: 0 }}>

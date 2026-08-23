@@ -1,4 +1,5 @@
 import { Anchor, AppShell, Group, Text, VisuallyHidden } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
 import {
   createRootRoute,
@@ -10,6 +11,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { dashboardsApi } from "./api.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
@@ -50,16 +52,40 @@ const ConnectionIndicator = () => {
   const state = useConnectionState();
   const label = CONNECTION_LABEL[state];
   const { Icon, c } = STREAM_LOOK[state];
+  const previous = useRef(state);
+
+  // A toast on losing/regaining the stream: on a phone the header shows only
+  // a small icon, and even on desktop a stalled live log failing silently is
+  // the product's core hazard. Transitions only — the initial connect is not
+  // an outage.
+  useEffect(() => {
+    if (state === "down" && previous.current !== "down") {
+      notifications.show({
+        color: "red",
+        title: "Event stream down",
+        message: "Live updates are not arriving — data shown may be stale.",
+        autoClose: 8000,
+      });
+    } else if (state === "live" && previous.current === "down") {
+      notifications.show({ color: "teal", message: "Event stream reconnected" });
+    }
+    previous.current = state;
+  }, [state]);
+
   return (
     <Group gap={4} ml="auto" c={c} title={`Event stream: ${label}`} role="status">
       <Icon size={16} stroke={1.5} />
       {state === "live" ? (
         <VisuallyHidden>{label}</VisuallyHidden>
       ) : (
-        // Icon-only on phones: the label wraps the 48px header onto the page.
-        <Text fz="xs" visibleFrom="sm">
-          {label}
-        </Text>
+        // Icon-only on phones (the label wraps the 48px header onto the
+        // page), but the status text must stay readable to screen readers.
+        <>
+          <Text fz="xs" visibleFrom="sm">
+            {label}
+          </Text>
+          <VisuallyHidden hiddenFrom="sm">{label}</VisuallyHidden>
+        </>
       )}
     </Group>
   );

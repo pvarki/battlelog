@@ -1,6 +1,6 @@
 # web/
 
-Vite + React SPA (TanStack Router, Mantine, dark-only theme). Desktop-only: 1280px+ is the design target, mobile is intentionally unsupported.
+Vite + React SPA (TanStack Router, Mantine, dark-only theme). Responsive: desktop (1024px+) gets the full grid/management UI; below that (and on landscape phones) every page renders a mobile layout — the gate is `useIsMobile()` / `MOBILE_QUERY` in `src/dashboard/mobile.ts`, mirrored in `global.css` for the font-size bumps. Dashboards on mobile render as the `MobileSwitcher` (one widget fullscreen, bottom bar); editing and management are desktop-only by construction.
 
 React Compiler is enabled (`babel-plugin-react-compiler` in `vite.config.ts`): don't add `useMemo`/`useCallback`/`memo` for render performance, and don't name plain functions `use*` — the compiler treats them as hooks.
 
@@ -8,7 +8,8 @@ React Compiler is enabled (`babel-plugin-react-compiler` in `vite.config.ts`): d
 
 - The registry auto-discovers `src/widgets/*/widget.ts` via `import.meta.glob` — a new widget is one folder (descriptor with a `.strict()` Zod config schema, lazy `View.tsx` / `Config.tsx`, `widget.test.ts`), no registration step. Copy an existing widget.
 - Descriptors load eagerly at startup: keep heavy deps (mathjs etc.) out of `widget.ts`, import them only in the lazy View/Config chunks.
-- Config schemas include optional `title: z.string().max(100)` — the wrapper renders it for every widget.
+- Every config schema MUST spread `...baseWidgetConfig` (from `registry.ts`: optional `title` + `showOnMobile`). The settings drawer writes `showOnMobile` into any widget's config, so a `.strict()` schema without it gets bricked by the toggle.
+- Widget types that don't work on a phone set `showOnMobile: false` on the descriptor (see table).
 
 ## Invariants
 

@@ -2,6 +2,7 @@ import { IconTable } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 const columnSchema = z.object({
   id: z.string().min(1).max(64),
@@ -50,10 +51,7 @@ export const tableRowCount = (count: number | undefined): number => {
 
 const configSchema = z
   .object({
-    /** Shown bold in the widget header (rendered by the wrapper). */
-    title: z.string().max(100).optional(),
-    /** Per-instance mobile visibility; default shown. */
-    showOnMobile: z.boolean().optional(),
+    ...baseWidgetConfig,
     columns: z.array(columnSchema).max(26).default([]),
     columnCount: z.number().int().min(1).max(26).default(DEFAULT_COLUMN_COUNT),
     rowCount: z.number().int().min(1).max(500).default(DEFAULT_ROW_COUNT),

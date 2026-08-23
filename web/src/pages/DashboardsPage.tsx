@@ -17,7 +17,6 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconClipboardCopy,
@@ -36,7 +35,7 @@ import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
-import { MOBILE_QUERY } from "../dashboard/mobile.ts";
+import { useIsMobile } from "../dashboard/mobile.ts";
 import {
   exportFilename,
   forkWidgets,
@@ -161,7 +160,7 @@ export const DashboardsPage = () => {
   // Phones get a plain picker: just the dashboards, whole row tappable. No
   // create/rename/delete/import/templates and no activity feed — managing
   // boards is desktop work, a phone is for getting to one.
-  const isMobile = useMediaQuery(MOBILE_QUERY, false, { getInitialValueInEffect: false });
+  const isMobile = useIsMobile();
   return isMobile ? <MobileDashboards /> : <DesktopDashboards />;
 };
 
