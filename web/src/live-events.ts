@@ -1,6 +1,7 @@
 import type { InferRequestType } from "hono/client";
 import { useEffect, useRef, useState } from "react";
 import { api, type EventResponse } from "./api.ts";
+import { cacheEvents, loadCachedEvents, loadCursor, saveCursor } from "./events-cache.ts";
 
 type Listener = (row: EventResponse) => void;
 
@@ -50,13 +51,22 @@ const heardFromServer = () => {
 const open = () => {
   clearTimeout(reopenTimer);
   source?.close();
-  const es = new EventSource("/api/v1/events/stream");
+  // Resume from the cached cursor: EventSource only sends Last-Event-ID on
+  // its own reconnects, so a fresh page passes it as ?since= instead and the
+  // server replays what this browser missed while closed.
+  const since = loadCursor();
+  const es = new EventSource(
+    since ? `/api/v1/events/stream?since=${since}` : "/api/v1/events/stream",
+  );
   source = es;
   es.addEventListener("open", heardFromServer);
   es.addEventListener("ping", heardFromServer);
   es.addEventListener("event", (e) => {
     heardFromServer();
     const row = JSON.parse(e.data) as EventResponse;
+    // Rows arrive in ascending id order, so the cursor is monotonic.
+    cacheEvents([row]);
+    saveCursor(row.id);
     for (const l of listeners) l(row);
   });
   es.addEventListener("error", () => {
@@ -228,18 +238,21 @@ export const useLiveEvents = ({
       .then(async (res) => {
         if (!res.ok) throw new Error(`Failed to load events (${res.status})`);
         const rows = await res.json();
+        cacheEvents(rows);
         if (alive) apply(rows);
       })
-      .catch((err: unknown) => {
+      .catch(async (err: unknown) => {
         // Keep going live-only: the stream still fills the list. Callers get
         // `failed` so an empty table can say so instead of reading as "none".
         // ponytail: no refetch — the next query change retries. Add a retry if
         // a long-lived dashboard losing its history turns out to matter.
         console.error("Initial events fetch failed", err);
-        if (alive) {
-          setFailed(true);
-          setEvents((cur) => cur ?? []);
-        }
+        if (!alive) return;
+        setFailed(true);
+        // Offline fallback: last-known rows from the cache, funneled through
+        // the same `match` mirror and version merge the live stream uses.
+        const cached = await loadCachedEvents();
+        if (alive) apply(cached);
       });
 
     return () => {

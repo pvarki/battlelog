@@ -125,6 +125,19 @@ describe("GET /events/stream", () => {
     expect(sentIds(text)).toHaveLength(REPLAY_LIMIT);
   });
 
+  test("accepts the cursor as ?since= when the Last-Event-ID header is absent", async () => {
+    const row = makeRow(uid(2));
+    vi.mocked(listEventsSince).mockResolvedValue([row]);
+
+    const res = await app.request(`/api/v1/events/stream?since=${uid(1)}`);
+    expect(res.status).toBe(200);
+    const reader = readerOf(res);
+    const { text } = await readStream(reader, (t) => sentIds(t).length >= 1);
+    expect(sentIds(text)).toEqual([row.id]);
+    expect(vi.mocked(listEventsSince)).toHaveBeenCalledWith(uid(1), expect.anything());
+    await reader.cancel();
+  });
+
   test("rejects malformed query params", async () => {
     const res = await app.request("/api/v1/events/stream?limit=abc");
     expect(res.status).toBe(400);
