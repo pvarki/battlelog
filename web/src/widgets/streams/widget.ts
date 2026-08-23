@@ -1,3 +1,4 @@
+import { IconVideo } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
@@ -9,6 +10,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     /** Empty until configured — mid-edit states must validate or the settings form resets. */
     url: z.string().max(2000).default(""),
     /** "auto" picks a player from the URL shape; explicit for when detection guesses wrong. */
@@ -34,6 +37,7 @@ export const resolveType = (
 
 const descriptor: WidgetDescriptor<StreamsConfig> = {
   type: "streams",
+  Icon: IconVideo,
   name: "Stream",
   description: "Live video from MediaMTX (WHEP/HLS) or an external source",
   configSchema,

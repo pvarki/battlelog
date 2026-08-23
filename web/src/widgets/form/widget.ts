@@ -1,3 +1,4 @@
+import { IconForms } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
@@ -69,6 +70,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     /**
      * Submitted as type "form-<reportType>": the prefix keeps form events out
      * of the widget-owned chains (note/status/todo) other widgets follow.
@@ -218,6 +221,7 @@ export const missingRequired = (
 
 const descriptor: WidgetDescriptor<FormConfig> = {
   type: "form",
+  Icon: IconForms,
   name: "Form",
   description: "Post events to the feed from configurable fields",
   configSchema,

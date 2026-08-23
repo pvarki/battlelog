@@ -1,3 +1,4 @@
+import { IconTable } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
@@ -51,6 +52,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     columns: z.array(columnSchema).max(26).default([]),
     columnCount: z.number().int().min(1).max(26).default(DEFAULT_COLUMN_COUNT),
     rowCount: z.number().int().min(1).max(500).default(DEFAULT_ROW_COUNT),
@@ -81,6 +84,8 @@ export const parseRows = (data: unknown): TableDoc => {
 
 const descriptor: WidgetDescriptor<TableConfig> = {
   type: "table",
+  Icon: IconTable,
+  showOnMobile: false,
   name: "Table",
   description: "Spreadsheet-style table with preset columns",
   configSchema,

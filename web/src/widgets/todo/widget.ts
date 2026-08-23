@@ -1,3 +1,4 @@
+import { IconChecklist } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
@@ -6,6 +7,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     /**
      * Logical event id the list follows: items live in the event log as a
      * type:"todo" event, and every change appends a version to its chain.
@@ -37,6 +40,7 @@ export const headerFor = (items: TodoItem[]): string =>
 
 const descriptor: WidgetDescriptor<TodoConfig> = {
   type: "todo",
+  Icon: IconChecklist,
   name: "Todo",
   description: "Checkbox list stored as a versioned event — tap to mark done",
   configSchema,

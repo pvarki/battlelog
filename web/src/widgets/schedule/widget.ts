@@ -1,3 +1,4 @@
+import { IconCalendarTime } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
@@ -6,6 +7,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     /**
      * Logical event id the timer list follows: timers live in the event log as
      * a type:"schedule" event, and every change appends a version to its chain.
@@ -48,6 +51,7 @@ export const formatDelta = (ms: number): string => {
 
 const descriptor: WidgetDescriptor<ScheduleConfig> = {
   type: "schedule",
+  Icon: IconCalendarTime,
   name: "Schedule",
   description: "Countdown timers to fixed points in time — shared as a versioned event",
   configSchema,
