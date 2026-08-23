@@ -1,5 +1,6 @@
 {
   "name": "Target pack",
+  "description": "Sisältää kaksi taulukkoa: Henkilölistaus ja Ajoneuvolistaus.",
   "widgets": [
     {
       "id": "fc953f49-2ea0-4b8d-b5ac-5e4865073acb",
