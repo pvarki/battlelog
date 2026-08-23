@@ -23,6 +23,7 @@ repos:
     -   id: check-added-large-files
     -   id: check-case-conflict
     -   id: check-json
+    -   id: check-toml
     -   id: check-merge-conflict
     -   id: check-symlinks
 -   repo: https://github.com/IamTheFij/docker-pre-commit.git
@@ -31,6 +32,10 @@ repos:
     -   id: docker-compose-check
         files: "docker-compose.*.yml"
         exclude: ".*.tpl"
+-   repo: https://github.com/rhysd/actionlint
+    rev: v1.7.10
+    hooks:
+    -   id: actionlint
 -   repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
