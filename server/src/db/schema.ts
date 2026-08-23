@@ -159,6 +159,7 @@ export type DashboardTemplateEvent = {
   widgetId: string;
   header: string;
   type: string;
+  tags?: string[];
   data?: unknown;
 };
 
