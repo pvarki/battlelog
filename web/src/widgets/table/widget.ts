@@ -1,7 +1,7 @@
 import { IconTable } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
-import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import type { WidgetDescriptor, WidgetDocumentDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 const columnSchema = z.object({
@@ -80,7 +80,15 @@ export const parseRows = (data: unknown): TableDoc => {
   };
 };
 
-const descriptor: WidgetDescriptor<TableConfig> = {
+export const widgetDocument: WidgetDocumentDescriptor<TableConfig, TableDoc> = {
+  eventType: "table",
+  empty: { rows: [] },
+  parse: parseRows,
+  headerFor: (config) => config.title?.trim() || "Table",
+  debounceMs: 6000,
+};
+
+export const descriptor: WidgetDescriptor<TableConfig> = {
   type: "table",
   Icon: IconTable,
   showOnMobile: false,
@@ -96,6 +104,7 @@ const descriptor: WidgetDescriptor<TableConfig> = {
   },
   defaultSize: { w: 18, h: 10 },
   minSize: { w: 6, h: 4 },
+  document: widgetDocument,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

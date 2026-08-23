@@ -1,6 +1,12 @@
 import { expect, test } from "vitest";
 import type { DashboardResponse } from "../api.ts";
-import { exportFilename, forkWidgets, parseDashboardImport, toExportJson } from "./transfer.ts";
+import {
+  exportFilename,
+  forkWidgets,
+  parseDashboardImport,
+  toExportJson,
+  widgetEventPointers,
+} from "./transfer.ts";
 
 const L = { x: 0, y: 0, w: 4, h: 4 };
 
@@ -51,6 +57,28 @@ test("forkWidgets clears eventId so a copy starts its own chain", () => {
   expect(widgets[0]?.config).toEqual({ eventId: "e1", title: "kept" });
 });
 
+test("widgetEventPointers finds document-backed widgets", () => {
+  expect(
+    widgetEventPointers([
+      {
+        id: "a",
+        type: "note",
+        config: { eventId: "018f0000-0000-7000-8000-0000000000aa", title: "kept" },
+        layout: L,
+      },
+      { id: "b", type: "clock", config: { tz: "UTC" }, layout: L },
+      { id: "c", type: "todo", config: { eventId: 42 }, layout: L },
+      { id: "d", type: "table", config: null, layout: L },
+    ]),
+  ).toEqual([
+    {
+      widgetId: "a",
+      widgetType: "note",
+      eventId: "018f0000-0000-7000-8000-0000000000aa",
+    },
+  ]);
+});
+
 test("export round-trips through import", () => {
   const parsed = parseDashboardImport(toExportJson(dashboard));
   expect(parsed).toEqual({
@@ -65,7 +93,9 @@ test("export round-trips through import", () => {
 });
 
 test("templateEvents are accepted but not required in imports", () => {
-  const templateEvents = [{ widgetId: "w1", header: "Initial todo", type: "todo", data: [] }];
+  const templateEvents = [
+    { widgetId: "w1", header: "Initial todo", type: "todo", tags: ["template"], data: [] },
+  ];
   expect(
     parseDashboardImport(
       JSON.stringify({
@@ -77,11 +107,17 @@ test("templateEvents are accepted but not required in imports", () => {
     ),
   ).toEqual({
     ok: true,
-    value: { name: "Template", isTemplate: true, widgets: dashboard.widgets, templateEvents },
+    value: {
+      name: "Template",
+      description: null,
+      isTemplate: true,
+      widgets: dashboard.widgets,
+      templateEvents,
+    },
   });
   expect(parseDashboardImport('{"name":"Plain","widgets":[]}')).toEqual({
     ok: true,
-    value: { name: "Plain", isTemplate: false, widgets: [] },
+    value: { name: "Plain", description: null, isTemplate: false, widgets: [] },
   });
 });
 

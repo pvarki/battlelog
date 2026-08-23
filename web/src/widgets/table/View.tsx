@@ -9,15 +9,14 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
+import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { evaluateFormula } from "./formula.ts";
 import {
-  parseRows,
   type TableConfig,
-  type TableDoc,
   tableColumnCount,
   tableColumns,
   tableRowCount,
+  widgetDocument,
 } from "./widget.ts";
 
 const GRID_BORDER = "1px solid var(--mantine-color-dark-3)";
@@ -25,7 +24,6 @@ const GRID_HEADER_BORDER = "1px solid var(--mantine-color-dark-2)";
 const ROW_NUMBER_WIDTH = 48;
 const COLUMN_WIDTH = 112;
 const HORIZONTAL_SCROLL_MIN_WIDTH_FACTOR = 0.5;
-const SAVE_DEBOUNCE_MS = 6000;
 const RESIZE_EDGE_THRESHOLD = 12;
 const RESIZE_EDGE_GROWTH_PER_FRAME = 2;
 const CELL_FONT_SIZE = 12;
@@ -78,7 +76,7 @@ const compactRows = (rows: Record<string, string>[]): Record<string, string>[] =
   return lastContentIndex === -1 ? [] : rows.slice(0, lastContentIndex + 1);
 };
 
-const TableView = ({ config, updateConfig }: WidgetViewProps<TableConfig>) => {
+const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps<TableConfig>) => {
   const configuredRows = tableRowCount(config.rowCount);
   const columns = useMemo(
     () => tableColumns(tableColumnCount(config.columnCount)),
@@ -87,14 +85,11 @@ const TableView = ({ config, updateConfig }: WidgetViewProps<TableConfig>) => {
   const cellRefs = useRef(new Map<string, HTMLTextAreaElement>());
   const scrollBoxRef = useRef<HTMLDivElement>(null);
   const [draftRowHeights, setDraftRowHeights] = useState(new Map<number, number>());
-  const { value, update, status } = useEventDocument<TableDoc>({
-    eventId: config.eventId,
-    eventType: "table",
-    headerFor: () => config.title?.trim() || "Table",
-    empty: { rows: [] },
-    parse: parseRows,
-    onEventIdCaptured: (id) => updateConfig({ ...config, eventId: id }),
-    debounceMs: SAVE_DEBOUNCE_MS,
+  const { value, update, status } = useWidgetDocument({
+    config,
+    updateConfig,
+    dashboardIsTemplate,
+    document: widgetDocument,
   });
 
   // ponytail: whole-doc last-writer-wins, same as the status widget — two

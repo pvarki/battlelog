@@ -1,19 +1,14 @@
 import { Stack, Text, Textarea } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
-import { headerFor, type NoteConfig } from "./widget.ts";
+import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
+import { widgetDocument, type NoteConfig } from "./widget.ts";
 
-type NoteDoc = { text: string };
-
-const NoteView = ({ config, updateConfig }: WidgetViewProps<NoteConfig>) => {
-  const { value, update, flush, status } = useEventDocument<NoteDoc>({
-    eventId: config.eventId,
-    eventType: "note",
-    headerFor: (doc) => headerFor(doc.text),
-    empty: { text: "" },
-    parse: (data) => ({ text: (data as { text?: string } | null)?.text ?? "" }),
-    onEventIdCaptured: (id) => updateConfig({ ...config, eventId: id }),
-    debounceMs: 2000,
+const NoteView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps<NoteConfig>) => {
+  const { value, update, flush, status } = useWidgetDocument({
+    config,
+    updateConfig,
+    dashboardIsTemplate,
+    document: widgetDocument,
   });
 
   return (

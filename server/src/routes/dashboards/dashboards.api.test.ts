@@ -82,6 +82,25 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
     const created = await post.json();
     expect(created.isTemplate).toBe(true);
 
+    const templateEvents = [
+      {
+        widgetId: clockWidget.id,
+        header: "Clock state",
+        type: "clock",
+        tags: ["template"],
+        data: { zone: "UTC" },
+      },
+    ];
+    const patch = await app.request(`/api/v1/dashboards/${created.id}`, {
+      method: "PATCH",
+      headers: json,
+      body: JSON.stringify({ version: created.version, templateEvents }),
+    });
+    expect(patch.status).toBe(200);
+    const patched = await patch.json();
+    expect(patched.templateEvents).toEqual(templateEvents);
+    expect(patched.version).not.toBe(created.version);
+
     const plain = await app.request("/api/v1/dashboards", {
       method: "POST",
       headers: json,
@@ -149,6 +168,7 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
       eventId,
       header: "Initial note",
       type: "note",
+      tags: ["template"],
       data: { text: "ready" },
       createdBy: runId,
     });

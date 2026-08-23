@@ -1,7 +1,7 @@
 import { IconChecklist } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
-import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import type { WidgetDescriptor, WidgetDocumentDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 const configSchema = z
@@ -25,6 +25,7 @@ const todoItemSchema = z.object({
   done: z.boolean(),
 });
 export type TodoItem = z.infer<typeof todoItemSchema>;
+export type TodoDoc = { items: TodoItem[] };
 
 /** Tolerant read: an event with foreign or malformed data renders empty, not a crash. */
 export const parseItems = (data: unknown): TodoItem[] => {
@@ -36,7 +37,16 @@ export const parseItems = (data: unknown): TodoItem[] => {
 export const headerFor = (items: TodoItem[]): string =>
   `Todo ${items.filter((i) => i.done).length}/${items.length}`;
 
-const descriptor: WidgetDescriptor<TodoConfig> = {
+export const widgetDocument: WidgetDocumentDescriptor<TodoConfig, TodoDoc> = {
+  eventType: "todo",
+  empty: { items: [] },
+  parse: (data) => ({ items: parseItems(data) }),
+  headerFor: (_config, doc) => headerFor(doc.items),
+  // Shorter than note's: a checkbox tap is a complete edit, not mid-typing.
+  debounceMs: 500,
+};
+
+export const descriptor: WidgetDescriptor<TodoConfig> = {
   type: "todo",
   Icon: IconChecklist,
   name: "Todo",
@@ -45,6 +55,7 @@ const descriptor: WidgetDescriptor<TodoConfig> = {
   defaultConfig: {},
   defaultSize: { w: 8, h: 8 },
   minSize: { w: 4, h: 3 },
+  document: widgetDocument,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

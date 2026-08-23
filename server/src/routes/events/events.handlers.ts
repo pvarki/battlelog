@@ -134,6 +134,7 @@ export const streamNewEvents = (c: Context) => {
           replaying = false;
         }
 
+        await stream.writeSSE({ event: "ping", data: "" });
         while (!stream.aborted) {
           await stream.sleep(15000);
           if (stream.aborted) break;

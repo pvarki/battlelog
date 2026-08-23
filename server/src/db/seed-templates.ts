@@ -18,6 +18,7 @@ const templateFileSchema = z.object({
         widgetId: z.string().min(1).max(64),
         header: z.string().min(1).max(100),
         type: z.string().min(1).max(64),
+        tags: z.array(z.string().min(1)).optional(),
         data: z.any().optional(),
       }),
     )
