@@ -5,15 +5,17 @@ import type { Widget } from "../api.ts";
 import { Placeholder } from "../Placeholder.tsx";
 import { getWidget, validateWidgetConfig } from "./registry.ts";
 
+// Callbacks are optional: they're only reachable in edit mode, and the mobile
+// switcher renders widgets with no edit affordances at all.
 type Props = {
   instance: Widget;
   editMode: boolean;
-  onConfigure: () => void;
-  onRemove: () => void;
-  onDuplicate: () => void;
-  onResetSize: () => void;
-  onResetConfig: () => void;
-  onUpdateConfig: (config: unknown) => void;
+  onConfigure?: () => void;
+  onRemove?: () => void;
+  onDuplicate?: () => void;
+  onResetSize?: () => void;
+  onResetConfig?: () => void;
+  onUpdateConfig?: (config: unknown) => void;
   /** Just added to the canvas: plays the entrance animation once. */
   entering?: boolean;
 };
@@ -45,15 +47,17 @@ class WidgetErrorBoundary extends Component<
  * "delete me" callbacks. Each widget is its own error boundary, so one crash
  * never takes the dashboard down; Views are lazy, so Suspense covers loading.
  */
+const noop = () => {};
+
 export const WidgetWrapper = ({
   instance,
   editMode,
-  onConfigure,
-  onRemove,
-  onDuplicate,
-  onResetSize,
-  onResetConfig,
-  onUpdateConfig,
+  onConfigure = noop,
+  onRemove = noop,
+  onDuplicate = noop,
+  onResetSize = noop,
+  onResetConfig = noop,
+  onUpdateConfig = noop,
   entering,
 }: Props) => {
   const descriptor = getWidget(instance.type);
