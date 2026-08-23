@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
-import { loadCachedEventHead } from "../events-cache.ts";
+import { cacheEvents, loadCachedEventHead } from "../events-cache.ts";
 import { subscribeToEvents } from "../live-events.ts";
 
 export type DocStatus =
@@ -96,7 +96,9 @@ export const useEventDocument = <T>(opts: Options<T>) => {
           return;
         }
         if (res.status !== 200) throw new Error(`load failed (${res.status})`);
-        setValue(optsRef.current.parse((await res.json()).data));
+        const row = await res.json();
+        cacheEvents([row]);
+        setValue(optsRef.current.parse(row.data));
         loaded.current = true;
         setStatus("idle");
       } catch {
