@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { idCutoff, staleKeys } from "./events-cache.ts";
+import type { EventResponse } from "./api.ts";
+import { idCutoff, newestVersion, staleKeys } from "./events-cache.ts";
 
 // A UUIDv7-shaped id minted at the given unix millisecond.
 const uuidAt = (ms: number) => {
@@ -37,5 +38,18 @@ describe("staleKeys", () => {
 
   test("caps combine without double-evicting", () => {
     expect(staleKeys(keys, "c", 4)).toEqual(["a", "b"]);
+  });
+});
+
+describe("newestVersion", () => {
+  const row = (id: string, eventId: string) => ({ id, eventId }) as EventResponse;
+  const rows = [row("1", "x"), row("3", "x"), row("2", "x"), row("9", "y")];
+
+  test("picks the highest row id of the chain", () => {
+    expect(newestVersion(rows, "x")?.id).toBe("3");
+  });
+
+  test("returns undefined for an unknown chain", () => {
+    expect(newestVersion(rows, "z")).toBeUndefined();
   });
 });
