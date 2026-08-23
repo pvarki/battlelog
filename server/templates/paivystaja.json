@@ -1,5 +1,6 @@
 {
   "name": "Päivystäjä",
+  "description": "Sisältää päiväkirjan syöttölomakkeen ja lokin, taistelurytmin, tilannetaulukon, huoltotaulukon sekä muistiinpanokentän.",
   "widgets": [
     {
       "id": "37f18a71-f563-4dd6-88fa-ed41407c36b4",
