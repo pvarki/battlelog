@@ -207,6 +207,12 @@ const DashboardGrid = ({
             setSaveState("stale");
             router.invalidate();
             return;
+          } else if (res.status === 404) {
+            // Deleted while we were away — a cached offline copy can outlive
+            // its dashboard. Reloading routes to the not-found screen instead
+            // of retrying a save that can never land.
+            router.invalidate();
+            return;
           } else {
             // HTTP error: keep the payload and retry on a timer. Waiting for the
             // user's next keystroke instead would leave "Save failed — retrying"

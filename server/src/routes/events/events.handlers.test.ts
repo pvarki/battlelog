@@ -134,8 +134,38 @@ describe("GET /events/stream", () => {
     const reader = readerOf(res);
     const { text } = await readStream(reader, (t) => sentIds(t).length >= 1);
     expect(sentIds(text)).toEqual([row.id]);
-    expect(vi.mocked(listEventsSince)).toHaveBeenCalledWith(uid(1), expect.anything());
+    // The exact filter matters: ?since= must be a cursor, never a filter key —
+    // eventsQuerySchema strips it, and this pins that against a later .passthrough().
+    expect(vi.mocked(listEventsSince)).toHaveBeenCalledWith(
+      uid(1),
+      expect.not.objectContaining({ since: expect.anything() }),
+    );
     await reader.cancel();
+  });
+
+  test("the Last-Event-ID header beats ?since=, so replay paging advances", async () => {
+    // The client repages a large gap by reconnecting with the header while the
+    // stale ?since= still sits in the URL; header precedence is what stops it
+    // re-requesting the same page forever.
+    vi.mocked(listEventsSince).mockResolvedValue([makeRow(uid(3))]);
+
+    const res = await app.request(`/api/v1/events/stream?since=${uid(1)}`, {
+      headers: { "last-event-id": uid(2) },
+    });
+    const reader = readerOf(res);
+    await readStream(reader, (t) => sentIds(t).length >= 1);
+    expect(vi.mocked(listEventsSince)).toHaveBeenCalledWith(uid(2), expect.anything());
+    await reader.cancel();
+  });
+
+  test("a non-UUID ?since= is ignored: live-only, no replay", async () => {
+    const baseline = eventsEmitter.listenerCount("new");
+    const res = await app.request("/api/v1/events/stream?since=not-a-uuid");
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => expect(eventsEmitter.listenerCount("new")).toBe(baseline + 1));
+    expect(vi.mocked(listEventsSince)).not.toHaveBeenCalled();
+    await readerOf(res).cancel();
+    await vi.waitFor(() => expect(eventsEmitter.listenerCount("new")).toBe(baseline));
   });
 
   test("rejects malformed query params", async () => {

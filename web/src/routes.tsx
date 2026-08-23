@@ -5,7 +5,6 @@ import {
   createRootRoute,
   createRoute,
   type ErrorComponentProps,
-  isNotFound,
   Link,
   notFound,
   Outlet,
@@ -184,15 +183,19 @@ export const dashboardsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   loader: async () => {
+    let res: Awaited<ReturnType<typeof dashboardsApi.dashboards.$get>>;
     try {
-      const res = await dashboardsApi.dashboards.$get();
-      if (!res.ok) throw new Error(`Failed to load dashboards (${res.status})`);
-      const dashboards = await res.json();
-      cacheDashboards(dashboards);
-      return dashboards;
+      res = await dashboardsApi.dashboards.$get();
     } catch (err) {
+      // Transport failure (offline): last-known copy. A server that answered
+      // with an error still gets the error screen — cached data must not
+      // dress a 500 up as a fresh load.
       return cachedDashboards() ?? Promise.reject(err);
     }
+    if (!res.ok) throw new Error(`Failed to load dashboards (${res.status})`);
+    const dashboards = await res.json();
+    cacheDashboards(dashboards);
+    return dashboards;
   },
   component: DashboardsPage,
 });
@@ -201,30 +204,33 @@ export const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/d/$dashboardId",
   loader: async ({ params }) => {
+    let one: Awaited<ReturnType<(typeof dashboardsApi.dashboards)[":dashboardId"]["$get"]>>;
+    let all: Awaited<ReturnType<typeof dashboardsApi.dashboards.$get>>;
     try {
-      const [one, all] = await Promise.all([
+      [one, all] = await Promise.all([
         dashboardsApi.dashboards[":dashboardId"].$get({
           param: { dashboardId: params.dashboardId },
         }),
         dashboardsApi.dashboards.$get(),
       ]);
-      // A stale link to a deleted dashboard is the likeliest failure on this
-      // route, and it deserves the not-found screen rather than a status code.
-      if (one.status === 404) throw notFound();
-      if (!one.ok || !all.ok) {
-        throw new Error(`Failed to load dashboard (${one.status}/${all.status})`);
-      }
-      const data = { dashboard: await one.json(), dashboards: await all.json() };
-      cacheDashboards(data.dashboards);
-      return data;
     } catch (err) {
-      // The server said the dashboard is gone — that's not an offline case.
-      if (isNotFound(err)) throw err;
+      // Transport failure (offline): last-known copy. Server-answered errors
+      // (403/500, and 404 below) fall through to their usual screens instead
+      // of a stale render.
       const dashboards = cachedDashboards();
       const dashboard = dashboards?.find((d) => d.id === params.dashboardId);
       if (dashboards && dashboard) return { dashboard, dashboards };
       throw err;
     }
+    // A stale link to a deleted dashboard is the likeliest failure on this
+    // route, and it deserves the not-found screen rather than a status code.
+    if (one.status === 404) throw notFound();
+    if (!one.ok || !all.ok) {
+      throw new Error(`Failed to load dashboard (${one.status}/${all.status})`);
+    }
+    const data = { dashboard: await one.json(), dashboards: await all.json() };
+    cacheDashboards(data.dashboards);
+    return data;
   },
   component: DashboardPage,
 });

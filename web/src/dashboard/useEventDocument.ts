@@ -97,7 +97,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
         }
         if (res.status !== 200) throw new Error(`load failed (${res.status})`);
         const row = await res.json();
-        cacheEvents([row]);
+        void cacheEvents([row]);
         setValue(optsRef.current.parse(row.data));
         loaded.current = true;
         setStatus("idle");
@@ -105,14 +105,15 @@ export const useEventDocument = <T>(opts: Options<T>) => {
         // Doc stays read-only (update() no-ops) until a load succeeds.
         // ponytail: blanket retry on transport/5xx errors — back off if it matters.
         if (cancelled) return;
+        // Status and retry first: a throwing `parse` below must not leave the
+        // widget stuck at "Loading…" with the retry loop dead.
+        setStatus("unavailable");
+        retry = setTimeout(load, 5000);
         // Offline fallback: show the newest cached version while retrying.
         // `loaded` stays false on purpose — an edit of a stale copy could
         // overwrite a newer remote version the moment the link returns.
         const cached = await loadCachedEventHead(followedId);
-        if (cancelled) return;
-        if (cached) setValue(optsRef.current.parse(cached.data));
-        setStatus("unavailable");
-        retry = setTimeout(load, 5000);
+        if (!cancelled && cached) setValue(optsRef.current.parse(cached.data));
       }
     };
     void load();

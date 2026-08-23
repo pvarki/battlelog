@@ -12,6 +12,11 @@ const CURSOR_KEY = "battlelog.eventsCursor";
 
 export const MAX_ROWS = 10_000;
 export const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+// Cache retention is not a sane replay window: resuming a 30-day-old cursor
+// would page through weeks of rows at REPLAY_LIMIT per reconnect. Past this,
+// start live-only and let the initial fetches reseed history.
+export const CURSOR_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 // UUIDv7 opens with 48 bits of unix millis, so a timestamp converts to the
 // smallest id of that instant and plain string order doubles as age order.
@@ -29,6 +34,9 @@ export const staleKeys = (keys: string[], cutoff: string, maxRows: number): stri
   return keys.filter((key, i) => i < overflow || key < cutoff);
 };
 
+export const isCursorFresh = (id: string | null | undefined, now: number): id is string =>
+  !!id && id >= idCutoff(now, CURSOR_MAX_AGE_MS);
+
 const request = <T>(req: IDBRequest<T>): Promise<T> =>
   new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
@@ -42,10 +50,7 @@ const openDb = (): Promise<IDBDatabase | undefined> => {
     try {
       const open = indexedDB.open(DB_NAME, 1);
       open.onupgradeneeded = () => open.result.createObjectStore(STORE, { keyPath: "id" });
-      open.onsuccess = () => {
-        resolve(open.result);
-        evictStale(Date.now()).catch(() => {}); // oversized until the next sweep
-      };
+      open.onsuccess = () => resolve(open.result);
       open.onerror = () => resolve(undefined);
     } catch {
       resolve(undefined); // no IndexedDB (private mode etc.): cache is simply off
@@ -57,16 +62,37 @@ const openDb = (): Promise<IDBDatabase | undefined> => {
 const store = (db: IDBDatabase, mode: IDBTransactionMode) =>
   db.transaction(STORE, mode).objectStore(STORE);
 
-/** Mirror rows into the cache. Fire-and-forget: a failed write only costs offline depth. */
-export const cacheEvents = (rows: EventResponse[]): void => {
-  if (rows.length === 0) return;
-  openDb()
-    .then((db) => {
-      if (!db) return;
-      const s = store(db, "readwrite");
-      for (const row of rows) s.put(row);
-    })
-    .catch(() => {});
+let lastSweep = 0;
+
+/**
+ * Mirror rows into the cache in one transaction. Resolves true only once the
+ * transaction commits — the caller's cursor must not advance past rows that
+ * were never stored (browsers evict IndexedDB independently of localStorage).
+ */
+export const cacheEvents = async (rows: EventResponse[]): Promise<boolean> => {
+  if (rows.length === 0) return true;
+  try {
+    const db = await openDb();
+    if (!db) return false;
+    const tx = db.transaction(STORE, "readwrite");
+    const s = tx.objectStore(STORE);
+    for (const row of rows) s.put(row);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+    // Wall-display tabs live for days: sweep periodically, not just at open,
+    // or the caps stop being caps and quota failures eat the newest writes.
+    const now = Date.now();
+    if (now - lastSweep > SWEEP_INTERVAL_MS) {
+      lastSweep = now;
+      evictStale(now).catch(() => {}); // oversized until the next sweep
+    }
+    return true;
+  } catch {
+    return false; // a failed write only costs offline depth
+  }
 };
 
 // Version rows share an eventId; the highest row id is the chain's head.
@@ -108,9 +134,7 @@ const evictStale = async (now: number): Promise<void> => {
 export const loadCursor = (): string | undefined => {
   try {
     const id = globalThis.localStorage?.getItem(CURSOR_KEY);
-    // A cursor past the age window would replay thousands of rows that
-    // eviction is about to delete anyway — start fresh instead.
-    return id && id >= idCutoff(Date.now()) ? id : undefined;
+    return isCursorFresh(id, Date.now()) ? id : undefined;
   } catch {
     return undefined;
   }

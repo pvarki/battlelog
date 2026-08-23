@@ -48,6 +48,30 @@ const heardFromServer = () => {
   }, PING_TIMEOUT_MS);
 };
 
+// Mirror stream rows in batches: a ?since= replay delivers up to REPLAY_LIMIT
+// rows per connection, and one IDB transaction per batch beats one per row.
+// The cursor advances only after the batch commits — a cursor past rows the
+// store never got would make the server skip them on every future replay.
+let pendingRows: EventResponse[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | undefined;
+const FLUSH_DELAY_MS = 1000;
+const FLUSH_MAX_ROWS = 200;
+
+const flushRows = () => {
+  clearTimeout(flushTimer);
+  flushTimer = undefined;
+  const batch = pendingRows;
+  pendingRows = [];
+  if (batch.length === 0) return;
+  // Rows arrive in ascending id order per connection, so the batch's last row
+  // is its newest. (Two tabs share the key and may interleave; a rewind only
+  // costs a re-replay that mergeEvents dedupes.)
+  const newest = batch.at(-1);
+  void cacheEvents(batch).then((stored) => {
+    if (stored && newest) saveCursor(newest.id);
+  });
+};
+
 const open = () => {
   clearTimeout(reopenTimer);
   source?.close();
@@ -64,9 +88,9 @@ const open = () => {
   es.addEventListener("event", (e) => {
     heardFromServer();
     const row = JSON.parse(e.data) as EventResponse;
-    // Rows arrive in ascending id order, so the cursor is monotonic.
-    cacheEvents([row]);
-    saveCursor(row.id);
+    pendingRows.push(row);
+    if (pendingRows.length >= FLUSH_MAX_ROWS) flushRows();
+    else flushTimer ??= setTimeout(flushRows, FLUSH_DELAY_MS);
     for (const l of listeners) l(row);
   });
   es.addEventListener("error", () => {
@@ -83,6 +107,7 @@ const open = () => {
 };
 
 const teardown = () => {
+  flushRows();
   clearTimeout(pingTimer);
   clearTimeout(reopenTimer);
   source?.close();
@@ -236,21 +261,30 @@ export const useLiveEvents = ({
     api.events
       .$get({ query: { ...queryRef.current, limit } })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load events (${res.status})`);
+        if (!res.ok) {
+          // The server answered and refused: that's an error to show, not an
+          // offline moment — serving cached rows here would dress a 500 up as
+          // history. Keep going live-only, as before the cache existed.
+          console.error(`Initial events fetch failed (${res.status})`);
+          if (!alive) return;
+          setFailed(true);
+          setEvents((cur) => cur ?? []);
+          return;
+        }
         const rows = await res.json();
-        cacheEvents(rows);
+        void cacheEvents(rows);
         if (alive) apply(rows);
       })
       .catch(async (err: unknown) => {
-        // Keep going live-only: the stream still fills the list. Callers get
-        // `failed` so an empty table can say so instead of reading as "none".
+        // Transport failure (offline): fall back to last-known rows from the
+        // cache, funneled through the same `match` mirror and version merge
+        // the live stream uses. Callers get `failed` so views can mark the
+        // rows as stale instead of letting them read as live.
         // ponytail: no refetch — the next query change retries. Add a retry if
         // a long-lived dashboard losing its history turns out to matter.
         console.error("Initial events fetch failed", err);
         if (!alive) return;
         setFailed(true);
-        // Offline fallback: last-known rows from the cache, funneled through
-        // the same `match` mirror and version merge the live stream uses.
         const cached = await loadCachedEvents();
         if (alive) apply(cached);
       });
