@@ -10,6 +10,7 @@ import {
 import type { EventResponse } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { useLiveEvents } from "../../live-events.ts";
+import { StaleNotice } from "../../StaleNotice.tsx";
 import { formatShortDateTime } from "../../time.ts";
 import {
   columnWidth,
@@ -199,6 +200,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
         <IconMaximize size={16} stroke={1.5} />
       </ActionIcon>
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
+        {failed && <StaleNotice />}
         <FeedTable
           columns={config.columns}
           events={events}

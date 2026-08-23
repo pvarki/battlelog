@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import type { EventResponse } from "../../api.ts";
 import { EventDetail } from "../../EventDetail.tsx";
 import { useLiveEvents } from "../../live-events.ts";
+import { StaleNotice } from "../../StaleNotice.tsx";
 import { FeedTable } from "./View.tsx";
 import {
   type FeedColumn,
@@ -186,6 +187,7 @@ const FeedFullscreen = ({
         </Center>
       ) : (
         <Box style={{ overflowX: "auto" }}>
+          {failed && <StaleNotice />}
           <FeedTable columns={columns} events={events} arrived={arrived} onRowClick={setSelected} />
         </Box>
       )}

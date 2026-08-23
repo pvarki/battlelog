@@ -44,6 +44,7 @@ import {
 } from "../dashboard/transfer.ts";
 import { useLiveEvents } from "../live-events.ts";
 import { Placeholder } from "../Placeholder.tsx";
+import { StaleNotice } from "../StaleNotice.tsx";
 import { formatDateTime } from "../time.ts";
 import { FeedTable } from "../widgets/feed/View.tsx";
 import type { FeedColumn } from "../widgets/feed/widget.ts";
@@ -100,7 +101,10 @@ const LatestActivity = () => {
             }
           />
         ) : (
-          <FeedTable columns={ACTIVITY_COLUMNS} events={events} arrived={arrived} />
+          <>
+            {failed && <StaleNotice />}
+            <FeedTable columns={ACTIVITY_COLUMNS} events={events} arrived={arrived} />
+          </>
         )}
       </Box>
     </Paper>
