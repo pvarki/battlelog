@@ -12,6 +12,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
+        id: "/",
         name: "BattleLog",
         short_name: "BattleLog",
         description: "Event log for situational awareness",
@@ -32,8 +33,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
-        // The SPA fallback must never swallow /api (incl. SSE) or /api-docs.
-        navigateFallbackDenylist: [/^\/api/],
+        // Every non-SPA mount the server owns (see server/src/app.ts): the SPA
+        // fallback answering /healthz or an /uploads file with cached dashboard
+        // HTML would make a dead server look healthy.
+        navigateFallbackDenylist: [/^\/(api|uploads|rmapi|healthz|openapi\.json)/],
       },
     }),
   ],

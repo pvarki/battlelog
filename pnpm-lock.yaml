@@ -175,6 +175,9 @@ importers:
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@7.3.6(@types/node@24.13.3)(sugarss@5.0.1(postcss@8.5.26))(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
 
 packages:
 
