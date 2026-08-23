@@ -128,9 +128,39 @@ test("import names what is wrong instead of posting garbage", () => {
   expect(parseDashboardImport('"a string"').ok).toBe(false);
   expect(parseDashboardImport('{"widgets":[]}').ok).toBe(false);
   expect(parseDashboardImport('{"name":"  ","widgets":[]}').ok).toBe(false);
+  expect(parseDashboardImport(`{"name":"${"x".repeat(101)}","widgets":[]}`)).toEqual({
+    ok: false,
+    error: "Dashboard name is too long — the maximum is 100 characters",
+  });
+  expect(parseDashboardImport('{"name":"x","description":42,"widgets":[]}')).toEqual({
+    ok: false,
+    error: "Description must be a string or null",
+  });
+  expect(parseDashboardImport('{"name":"x","isTemplate":"yes","widgets":[]}')).toEqual({
+    ok: false,
+    error: "isTemplate must be true or false",
+  });
   expect(parseDashboardImport('{"name":"x"}').ok).toBe(false);
   expect(parseDashboardImport('{"name":"x","widgets":{}}').ok).toBe(false);
+  expect(parseDashboardImport('{"name":"x","widgets":[{"id":"w1","type":"note"}]}')).toEqual({
+    ok: false,
+    error: "Widget 1 is missing a layout object",
+  });
+  expect(
+    parseDashboardImport(
+      '{"name":"x","widgets":[{"id":"w1","type":"note","layout":{"x":0,"y":0,"w":0,"h":1}}]}',
+    ),
+  ).toEqual({
+    ok: false,
+    error: "Widget 1 layout must contain integer x/y >= 0 and w/h >= 1",
+  });
   expect(parseDashboardImport('{"name":"x","widgets":[],"templateEvents":{}}').ok).toBe(false);
+  expect(
+    parseDashboardImport('{"name":"x","widgets":[],"templateEvents":[{"widgetId":"w1"}]}'),
+  ).toEqual({
+    ok: false,
+    error: "Template event 1 is missing a header",
+  });
 });
 
 test("import trims the name and defaults a missing isTemplate to false", () => {
@@ -152,7 +182,6 @@ test("import normalises every flavour of absent description to null", () => {
   expect(description('{"name":"x","widgets":[]}')).toBe(null);
   expect(description('{"name":"x","description":null,"widgets":[]}')).toBe(null);
   expect(description('{"name":"x","description":"  ","widgets":[]}')).toBe(null);
-  expect(description('{"name":"x","description":42,"widgets":[]}')).toBe(null);
   expect(description('{"name":"x","description":" kept ","widgets":[]}')).toBe("kept");
 });
 

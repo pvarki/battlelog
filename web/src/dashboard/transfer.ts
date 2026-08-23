@@ -85,10 +85,60 @@ export const exportFilename = (name: string): string => {
 
 export type ImportResult = { ok: true; value: DashboardExport } | { ok: false; error: string };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const intAtLeast = (value: unknown, min: number): boolean =>
+  typeof value === "number" && Number.isInteger(value) && value >= min;
+
+const validateWidgets = (widgets: unknown[]): string | null => {
+  if (widgets.length > 50) return "Too many widgets — the maximum is 50";
+  for (const [index, widget] of widgets.entries()) {
+    const label = `Widget ${index + 1}`;
+    if (!isRecord(widget)) return `${label} must be an object`;
+    if (typeof widget.id !== "string" || !widget.id.trim())
+      return `${label} is missing a string id`;
+    if (widget.id.length > 64) return `${label} id is too long`;
+    if (typeof widget.type !== "string" || !widget.type.trim())
+      return `${label} is missing a string type`;
+    if (widget.type.length > 64) return `${label} type is too long`;
+    if (!isRecord(widget.layout)) return `${label} is missing a layout object`;
+    const { x, y, w, h } = widget.layout;
+    if (!intAtLeast(x, 0) || !intAtLeast(y, 0) || !intAtLeast(w, 1) || !intAtLeast(h, 1)) {
+      return `${label} layout must contain integer x/y >= 0 and w/h >= 1`;
+    }
+  }
+  return null;
+};
+
+const validateTemplateEvents = (events: unknown[]): string | null => {
+  if (events.length > 50) return "Too many template events — the maximum is 50";
+  for (const [index, event] of events.entries()) {
+    const label = `Template event ${index + 1}`;
+    if (!isRecord(event)) return `${label} must be an object`;
+    if (typeof event.widgetId !== "string" || !event.widgetId.trim())
+      return `${label} is missing a widgetId`;
+    if (event.widgetId.length > 64) return `${label} widgetId is too long`;
+    if (typeof event.header !== "string" || !event.header.trim())
+      return `${label} is missing a header`;
+    if (event.header.length > 100) return `${label} header is too long`;
+    if (typeof event.type !== "string" || !event.type.trim())
+      return `${label} is missing a type`;
+    if (event.type.length > 64) return `${label} type is too long`;
+    if (
+      event.tags !== undefined &&
+      (!Array.isArray(event.tags) || event.tags.some((tag) => typeof tag !== "string" || !tag))
+    ) {
+      return `${label} tags must be a list of non-empty strings`;
+    }
+  }
+  return null;
+};
+
 /**
- * Shape check only — enough to name what's wrong with a hand-edited or foreign
- * file. The server's createDashboardRequestSchema is the real validator; every
- * widget's own config is validated by the registry on render.
+ * Validates the dashboard JSON format produced by `toExportJson`. Widget config
+ * is intentionally kept opaque here; each widget validates its own config
+ * against the registry schema when it renders.
  */
 export const parseDashboardImport = (text: string): ImportResult => {
   let raw: unknown;
@@ -102,9 +152,23 @@ export const parseDashboardImport = (text: string): ImportResult => {
   const d = raw as Partial<DashboardExport>;
   if (typeof d.name !== "string" || !d.name.trim())
     return { ok: false, error: "Missing a dashboard name" };
+  if (d.name.trim().length > 100)
+    return { ok: false, error: "Dashboard name is too long — the maximum is 100 characters" };
+  if (d.description !== undefined && d.description !== null && typeof d.description !== "string")
+    return { ok: false, error: "Description must be a string or null" };
+  if (typeof d.description === "string" && d.description.length > 280)
+    return { ok: false, error: "Description is too long — the maximum is 280 characters" };
+  if (d.isTemplate !== undefined && typeof d.isTemplate !== "boolean")
+    return { ok: false, error: "isTemplate must be true or false" };
   if (!Array.isArray(d.widgets)) return { ok: false, error: "Missing a widgets list" };
+  const widgetError = validateWidgets(d.widgets);
+  if (widgetError) return { ok: false, error: widgetError };
   if (d.templateEvents !== undefined && !Array.isArray(d.templateEvents))
     return { ok: false, error: "Template events must be a list" };
+  if (d.templateEvents) {
+    const templateEventError = validateTemplateEvents(d.templateEvents);
+    if (templateEventError) return { ok: false, error: templateEventError };
+  }
   return {
     ok: true,
     value: {
