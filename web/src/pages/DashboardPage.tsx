@@ -7,12 +7,14 @@ import {
   Group,
   Loader,
   Menu,
+  Stack,
+  Switch,
   Text,
   TextInput,
   Title,
   UnstyledButton,
 } from "@mantine/core";
-import { useElementSize } from "@mantine/hooks";
+import { useElementSize, useMediaQuery } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconArrowBackUp, IconArrowForwardUp, IconChevronDown } from "@tabler/icons-react";
 import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
@@ -29,6 +31,7 @@ import {
   type Snapshot,
   step,
 } from "../dashboard/history.ts";
+import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
 import { firstFreeSlot } from "../dashboard/placement.ts";
 import {
   getWidget,
@@ -56,6 +59,17 @@ type PendingPatch = { name?: string; widgets?: Widget[] };
 
 export const DashboardPage = () => {
   const { dashboard, dashboards } = route.useLoaderData();
+  // Phones get the switcher — one widget fullscreen, bottom bar to change.
+  // No edit machinery mounts at all, so mobile editing is disabled by
+  // construction, not by flags. The height clause catches landscape phones,
+  // which are wide enough for the grid's columns but far too short for its
+  // 24 rows.
+  const isMobile = useMediaQuery("(max-width: 767px), (max-height: 479px)", false, {
+    getInitialValueInEffect: false,
+  });
+  if (isMobile) {
+    return <MobileSwitcher key={`${dashboard.id}:${dashboard.version}`} dashboard={dashboard} />;
+  }
   // Key by version too: a conflict reload must remount with fresh server state.
   return (
     <DashboardGrid
@@ -575,7 +589,6 @@ const WidgetConfigPanel = ({
   onChange: (next: unknown) => void;
 }) => {
   const ConfigForm = descriptor.ConfigForm;
-  if (!ConfigForm) return null;
   const validation = validateWidgetConfig(widget.type, widget.config);
   const formConfig = validation.ok
     ? validation.value
@@ -584,8 +597,25 @@ const WidgetConfigPanel = ({
         ...(widget.config as Record<string, unknown>),
       };
   return (
-    <Suspense fallback={<Loader size="sm" />}>
-      <ConfigForm config={formConfig} onChange={onChange} />
-    </Suspense>
+    <Stack>
+      {descriptor.showOnMobile !== false && (
+        <Switch
+          label="Show on mobile"
+          description="Include this widget in the phone view of the dashboard"
+          checked={(formConfig as { showOnMobile?: boolean }).showOnMobile !== false}
+          onChange={(e) =>
+            onChange({
+              ...(formConfig as Record<string, unknown>),
+              showOnMobile: e.currentTarget.checked,
+            })
+          }
+        />
+      )}
+      {ConfigForm && (
+        <Suspense fallback={<Loader size="sm" />}>
+          <ConfigForm config={formConfig} onChange={onChange} />
+        </Suspense>
+      )}
+    </Stack>
   );
 };

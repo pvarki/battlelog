@@ -1,3 +1,4 @@
+import { IconNote } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
@@ -6,6 +7,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     /**
      * Logical event id the note follows: content lives in the event log as a
      * type:"note" event, and every edit appends a version to its chain.
@@ -26,6 +29,7 @@ export const headerFor = (text: string): string => {
 
 const descriptor: WidgetDescriptor<NoteConfig> = {
   type: "note",
+  Icon: IconNote,
   name: "Note",
   description: "Free-text note, stored as a versioned event",
   configSchema,

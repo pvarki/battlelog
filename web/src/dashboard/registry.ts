@@ -30,6 +30,14 @@ export interface WidgetDescriptor<TConfig = unknown> {
   type: string;
   name: string;
   description?: string;
+  /** Icon for the mobile switcher's bottom nav. */
+  Icon?: ComponentType<{ size?: number | string; stroke?: number | string }>;
+  /**
+   * Whether this widget type is usable on a phone at all. Defaults to true;
+   * types that fundamentally need a desktop (pointer, keyboard, width) set
+   * false and never appear in the mobile switcher.
+   */
+  showOnMobile?: boolean;
   /** Input typed unknown so schemas may apply defaults (input ≠ output). */
   configSchema: z.ZodType<TConfig, z.ZodTypeDef, unknown>;
   defaultConfig: TConfig;

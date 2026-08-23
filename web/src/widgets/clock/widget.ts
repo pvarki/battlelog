@@ -1,3 +1,4 @@
+import { IconClock } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
@@ -15,6 +16,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     /** IANA timezone; absent = system timezone. */
     timeZone: z.string().refine(isValidTimeZone, "Unknown timezone").optional(),
     format: z.enum(["24h", "12h"]).default("24h"),
@@ -25,6 +28,7 @@ export type ClockConfig = z.infer<typeof configSchema>;
 
 const descriptor: WidgetDescriptor<ClockConfig> = {
   type: "clock",
+  Icon: IconClock,
   name: "Clock",
   description: "Digital clock — time and date",
   configSchema,

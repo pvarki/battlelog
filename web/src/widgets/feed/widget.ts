@@ -1,3 +1,4 @@
+import { IconActivity } from "@tabler/icons-react";
 import type { InferRequestType } from "hono/client";
 import { lazy } from "react";
 import { z } from "zod";
@@ -47,6 +48,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     types: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
     /** Header substring, case-insensitive. */
@@ -153,6 +156,7 @@ export const matchesFeed = (
 
 const descriptor: WidgetDescriptor<FeedConfig> = {
   type: "feed",
+  Icon: IconActivity,
   name: "Event feed",
   description: "Live event list with a configurable filter and columns",
   configSchema,

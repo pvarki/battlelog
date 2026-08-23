@@ -1,3 +1,4 @@
+import { IconGauge } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
@@ -29,6 +30,8 @@ const configSchema = z
   .object({
     /** Shown bold in the widget header (rendered by the wrapper). */
     title: z.string().max(100).optional(),
+    /** Per-instance mobile visibility; default shown. */
+    showOnMobile: z.boolean().optional(),
     statuses: z.array(statusRowSchema).max(30).default([]),
     /** Current values live in the event log as a type:"status" event chain. */
     eventId: z.string().uuid().optional(),
@@ -42,6 +45,7 @@ export type StatusValues = { values: Record<string, string | number> };
 
 const descriptor: WidgetDescriptor<StatusConfig> = {
   type: "status",
+  Icon: IconGauge,
   name: "Status board",
   description: "Unit/task statuses — colored state chips and counters",
   configSchema,

@@ -1,5 +1,4 @@
-import { Anchor, AppShell, Center, Group, Stack, Text, Title, VisuallyHidden } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
+import { Anchor, AppShell, Group, Text, VisuallyHidden } from "@mantine/core";
 import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
 import {
   createRootRoute,
@@ -60,25 +59,6 @@ const ConnectionIndicator = () => {
 };
 
 const RootLayout = () => {
-  // Desktop-only for now: FullHD is the design target, small screens get an error.
-  const tooNarrow = useMediaQuery("(max-width: 1279px)", false, {
-    getInitialValueInEffect: false,
-  });
-
-  if (tooNarrow) {
-    return (
-      <Center h="100vh" p="md">
-        <Stack align="center" gap="xs">
-          <Title order={3}>Screen too small</Title>
-          <Text c="dimmed" ta="center">
-            BattleLog needs a screen at least 1280 px wide — use a desktop or laptop display. Mobile
-            is not supported yet.
-          </Text>
-        </Stack>
-      </Center>
-    );
-  }
-
   return (
     <AppShell header={{ height: 48 }} padding={0}>
       <AppShell.Header>
