@@ -5,7 +5,7 @@ import { ENV } from "varlock/env";
 import { afterAll, describe, expect, test } from "vitest";
 import { createApp } from "../../app.ts";
 import { db, pool } from "../../db/client.ts";
-import { dashboards } from "../../db/schema.ts";
+import { dashboards, events } from "../../db/schema.ts";
 import { checkDbUp } from "../../db/test-helpers.ts";
 
 // Integration test: requires the local compose DB (docker compose up -d db).
@@ -20,6 +20,7 @@ const clockWidget = { id: "w1", type: "clock", config: {}, layout: { x: 0, y: 0,
 
 describe.runIf(dbUp)("dashboards HTTP contract", () => {
   afterAll(async () => {
+    await db.delete(events).where(like(events.createdBy, `${runId}%`));
     await db.delete(dashboards).where(like(dashboards.createdBy, `${runId}%`));
     await pool.end();
   });
@@ -81,6 +82,25 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
     const created = await post.json();
     expect(created.isTemplate).toBe(true);
 
+    const templateEvents = [
+      {
+        widgetId: clockWidget.id,
+        header: "Clock state",
+        type: "clock",
+        tags: ["template"],
+        data: { zone: "UTC" },
+      },
+    ];
+    const patch = await app.request(`/api/v1/dashboards/${created.id}`, {
+      method: "PATCH",
+      headers: json,
+      body: JSON.stringify({ version: created.version, templateEvents }),
+    });
+    expect(patch.status).toBe(200);
+    const patched = await patch.json();
+    expect(patched.templateEvents).toEqual(templateEvents);
+    expect(patched.version).not.toBe(created.version);
+
     const plain = await app.request("/api/v1/dashboards", {
       method: "POST",
       headers: json,
@@ -116,6 +136,42 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
       body: JSON.stringify({ name: `Duplicate ${runId}`, widgets: [] }),
     });
     expect(plain.status).toBe(201);
+  });
+
+  test("templateEvents fork into fresh widget event chains when creating a dashboard", async () => {
+    const widget = { id: "note", type: "note", config: {}, layout: { x: 0, y: 0, w: 6, h: 4 } };
+    const post = await app.request("/api/v1/dashboards", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({
+        name: "From template",
+        widgets: [widget],
+        templateEvents: [
+          {
+            widgetId: widget.id,
+            header: "Initial note",
+            type: "note",
+            data: { text: "ready" },
+          },
+        ],
+      }),
+    });
+    expect(post.status).toBe(201);
+    const created = await post.json();
+    const eventId = created.widgets[0]?.config.eventId;
+    expect(eventId).toEqual(expect.any(String));
+    expect(created.templateEvents).toEqual([]);
+
+    const event = await app.request(`/api/v1/events/${eventId}`);
+    expect(event.status).toBe(200);
+    expect(await event.json()).toMatchObject({
+      eventId,
+      header: "Initial note",
+      type: "note",
+      tags: ["template"],
+      data: { text: "ready" },
+      createdBy: runId,
+    });
   });
 
   test("malformed widget structure is rejected", async () => {

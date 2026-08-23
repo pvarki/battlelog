@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import type { DashboardRow } from "../../db/schema.ts";
+import type { DashboardRow, DashboardTemplateEvent } from "../../db/schema.ts";
 
 const widgetLayoutSchema = z.object({
   x: z.number().int().min(0),
@@ -26,6 +26,16 @@ export const widgetSchema = z
   .openapi("DashboardWidget");
 export type Widget = z.infer<typeof widgetSchema>;
 
+const templateEventSchema = z
+  .object({
+    widgetId: z.string().min(1).max(64),
+    header: z.string().min(1).max(100),
+    type: z.string().min(1).max(64),
+    tags: z.array(z.string().min(1)).optional(),
+    data: z.any().optional(),
+  })
+  .openapi("DashboardTemplateEvent");
+
 export const dashboardResponseSchema = z
   .object({
     id: z.string().uuid(),
@@ -33,6 +43,7 @@ export const dashboardResponseSchema = z
     description: z.string().nullable(),
     isTemplate: z.boolean(),
     widgets: z.array(widgetSchema),
+    templateEvents: z.array(templateEventSchema),
     version: z.string(),
     createdBy: z.string(),
     updatedBy: z.string().nullable(),
@@ -48,6 +59,7 @@ export const createDashboardRequestSchema = z
     description: z.string().max(280).nullish(),
     isTemplate: z.boolean().default(false),
     widgets: z.array(widgetSchema).max(50).default([]),
+    templateEvents: z.array(templateEventSchema).max(50).default([]),
   })
   .openapi("CreateDashboardRequest");
 
@@ -59,6 +71,7 @@ export const updateDashboardRequestSchema = z
     /** `null` clears it — the list has to be able to go back to just a name. */
     description: z.string().max(280).nullish(),
     widgets: z.array(widgetSchema).max(50).optional(),
+    templateEvents: z.array(templateEventSchema).max(50).optional(),
   })
   .openapi("UpdateDashboardRequest");
 
@@ -69,6 +82,7 @@ export const toApiDashboard = (row: DashboardRow): DashboardResponse => ({
   isTemplate: row.isTemplate,
   // Stored widgets were validated by widgetSchema on every write.
   widgets: row.widgets as Widget[],
+  templateEvents: row.templateEvents as DashboardTemplateEvent[],
   version: row.version,
   createdBy: row.createdBy,
   updatedBy: row.updatedBy,

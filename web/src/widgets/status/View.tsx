@@ -1,14 +1,9 @@
 import { ActionIcon, Badge, ColorSwatch, Group, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
+import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import { buildStatusTree, flattenTree } from "./tree.ts";
-import type { StatusConfig, StatusRow, StatusValues } from "./widget.ts";
-
-const parseValues = (data: unknown): StatusValues => {
-  const values = (data as { values?: unknown } | null)?.values;
-  return { values: values && typeof values === "object" ? (values as StatusValues["values"]) : {} };
-};
+import { type StatusConfig, type StatusRow, widgetDocument } from "./widget.ts";
 
 // A row switched choice→count still holds its old string value: render 0
 // instead of NaN (a NaN would serialize to null and destroy the stored value).
@@ -17,16 +12,17 @@ const countOf = (stored: string | number | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const StatusView = ({ config, updateConfig, onConfigure }: WidgetViewProps<StatusConfig>) => {
-  const { value, update, status } = useEventDocument<StatusValues>({
-    eventId: config.eventId,
-    eventType: "status",
-    headerFor: () => config.title?.trim() || "Status board",
-    empty: { values: {} },
-    parse: parseValues,
-    onEventIdCaptured: (id) => updateConfig({ ...config, eventId: id }),
-    // Chip clicks are discrete actions — save promptly, coalescing bursts.
-    debounceMs: 400,
+const StatusView = ({
+  config,
+  dashboardIsTemplate,
+  updateConfig,
+  onConfigure,
+}: WidgetViewProps<StatusConfig>) => {
+  const { value, update, status } = useWidgetDocument({
+    config,
+    updateConfig,
+    dashboardIsTemplate,
+    document: widgetDocument,
   });
 
   // ponytail: whole-object last-writer-wins — two screens editing different

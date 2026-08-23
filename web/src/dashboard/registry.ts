@@ -5,6 +5,7 @@ export interface WidgetViewProps<TConfig> {
   config: TConfig;
   instanceId: string;
   editMode: boolean;
+  dashboardIsTemplate?: boolean;
   updateConfig: (next: TConfig) => void;
   /**
    * Opens this widget's settings drawer. A misconfigured widget is the one
@@ -17,6 +18,18 @@ export interface WidgetViewProps<TConfig> {
 export interface WidgetConfigProps<TConfig> {
   config: TConfig;
   onChange: (next: TConfig) => void;
+}
+
+export interface WidgetDocumentDescriptor<TConfig, TDoc> {
+  /** Event `type` used when the first save creates the event. */
+  eventType: string;
+  /** Empty document before an event exists or when loading a missing event. */
+  empty: TDoc;
+  /** Extract the document from an event's jsonb `data`. */
+  parse: (data: unknown) => TDoc;
+  /** Event header shown in the log. */
+  headerFor: (config: TConfig, doc: TDoc) => string;
+  debounceMs?: number;
 }
 
 /**
@@ -43,6 +56,12 @@ export interface WidgetDescriptor<TConfig = unknown> {
   defaultConfig: TConfig;
   defaultSize: { w: number; h: number };
   minSize: { w: number; h: number };
+  /**
+   * Present when the widget owns a versioned event document in addition to its
+   * config. The config still stores `eventId`; this is the explicit registry
+   * contract that tells shared code how to load/save that document.
+   */
+  document?: WidgetDocumentDescriptor<TConfig, any>;
   View: LazyExoticComponent<ComponentType<WidgetViewProps<TConfig>>>;
   ConfigForm?: LazyExoticComponent<ComponentType<WidgetConfigProps<TConfig>>>;
 }

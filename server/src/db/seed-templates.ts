@@ -12,6 +12,18 @@ const templateFileSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(280).optional(),
   widgets: z.array(widgetSchema).max(50),
+  templateEvents: z
+    .array(
+      z.object({
+        widgetId: z.string().min(1).max(64),
+        header: z.string().min(1).max(100),
+        type: z.string().min(1).max(64),
+        tags: z.array(z.string().min(1)).optional(),
+        data: z.any().optional(),
+      }),
+    )
+    .max(50)
+    .default([]),
 });
 
 /**
@@ -43,7 +55,7 @@ export const seedTemplates = async (dir = "./templates"): Promise<number> => {
       logger.error({ file, issues: parsed.error.issues }, "template file invalid; skipped");
       continue;
     }
-    const { name, description = null, widgets } = parsed.data;
+    const { name, description = null, widgets, templateEvents } = parsed.data;
     // Upsert against the partial unique index — safe under concurrent boots.
     await db
       .insert(dashboards)
@@ -52,6 +64,7 @@ export const seedTemplates = async (dir = "./templates"): Promise<number> => {
         name,
         description,
         widgets,
+        templateEvents,
         isTemplate: true,
         version: uuidv7(),
         createdBy: "system",
@@ -62,6 +75,7 @@ export const seedTemplates = async (dir = "./templates"): Promise<number> => {
         set: {
           description,
           widgets,
+          templateEvents,
           version: uuidv7(),
           updatedAt: new Date(),
           updatedBy: "system",

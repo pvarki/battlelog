@@ -1,7 +1,7 @@
 import { IconGauge } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
-import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import type { WidgetDescriptor, WidgetDocumentDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 /** Fixed palette: token-friendly Mantine colors that stay legible on dark. */
@@ -41,7 +41,21 @@ export type StatusConfig = z.infer<typeof configSchema>;
 /** Current value per status row id: option value (choice) or number (count). */
 export type StatusValues = { values: Record<string, string | number> };
 
-const descriptor: WidgetDescriptor<StatusConfig> = {
+export const parseValues = (data: unknown): StatusValues => {
+  const values = (data as { values?: unknown } | null)?.values;
+  return { values: values && typeof values === "object" ? (values as StatusValues["values"]) : {} };
+};
+
+export const widgetDocument: WidgetDocumentDescriptor<StatusConfig, StatusValues> = {
+  eventType: "status",
+  empty: { values: {} },
+  parse: parseValues,
+  headerFor: (config) => config.title?.trim() || "Status board",
+  // Chip clicks are discrete actions — save promptly, coalescing bursts.
+  debounceMs: 400,
+};
+
+export const descriptor: WidgetDescriptor<StatusConfig> = {
   type: "status",
   Icon: IconGauge,
   name: "Status board",
@@ -50,6 +64,7 @@ const descriptor: WidgetDescriptor<StatusConfig> = {
   defaultConfig: { statuses: [] },
   defaultSize: { w: 8, h: 8 },
   minSize: { w: 5, h: 3 },
+  document: widgetDocument,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

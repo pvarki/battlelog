@@ -1,0 +1,91 @@
+{
+  "name": "Target pack",
+  "description": "Sisältää kaksi taulukkoa: Henkilölistaus ja Ajoneuvolistaus.",
+  "widgets": [
+    {
+      "id": "fc953f49-2ea0-4b8d-b5ac-5e4865073acb",
+      "type": "table",
+      "config": {
+        "title": "Henkilölistaus",
+        "columns": [
+          { "id": "A", "kind": "text", "label": "A" },
+          { "id": "B", "kind": "text", "label": "B" },
+          { "id": "C", "kind": "text", "label": "C" },
+          { "id": "D", "kind": "text", "label": "D" },
+          { "id": "E", "kind": "text", "label": "E" },
+          { "id": "F", "kind": "text", "label": "F" },
+          { "id": "G", "kind": "text", "label": "G" },
+          { "id": "H", "kind": "text", "label": "H" }
+        ],
+        "rowCount": 30,
+        "columnCount": 8,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": { "h": 24, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": "4ceb2675-ec60-4916-bbd0-e8797992bd0a",
+      "type": "table",
+      "config": {
+        "title": "Ajoneuvolistaus",
+        "columns": [
+          { "id": "A", "kind": "text", "label": "A" },
+          { "id": "B", "kind": "text", "label": "B" },
+          { "id": "C", "kind": "text", "label": "C" },
+          { "id": "D", "kind": "text", "label": "D" },
+          { "id": "E", "kind": "text", "label": "E" },
+          { "id": "F", "kind": "text", "label": "F" },
+          { "id": "G", "kind": "text", "label": "G" },
+          { "id": "H", "kind": "text", "label": "H" }
+        ],
+        "rowCount": 30,
+        "columnCount": 8,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": { "h": 24, "w": 24, "x": 24, "y": 0 }
+    }
+  ],
+  "templateEvents": [
+    {
+      "widgetId": "fc953f49-2ea0-4b8d-b5ac-5e4865073acb",
+      "header": "Henkilölistaus",
+      "type": "table",
+      "data": {
+        "rows": [
+          {
+            "A": "Sukunimi",
+            "B": "Etunimi",
+            "C": "Sukupuoli",
+            "D": "Syntymä- päivä",
+            "E": "Pituus ",
+            "F": "Tuntomerkit",
+            "H": "Toiminta kohdatessa",
+            "__rowHeight": "42"
+          }
+        ]
+      }
+    },
+    {
+      "widgetId": "4ceb2675-ec60-4916-bbd0-e8797992bd0a",
+      "header": "Ajoneuvolistaus",
+      "type": "table",
+      "data": {
+        "rows": [
+          {
+            "A": "Rekisteri- numero",
+            "B": "Merkki",
+            "C": "Malli",
+            "D": "Väri",
+            "E": "Omistaja",
+            "F": "Tuntomerkit",
+            "G": "Toiminta kohdatessa",
+            "H": "lisätiedot",
+            "__rowHeight": "44"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -15,6 +15,7 @@ const noop = () => {};
 type Props = {
   instance: Widget;
   editMode: boolean;
+  dashboardIsTemplate?: boolean;
   onConfigure?: () => void;
   onRemove?: () => void;
   onDuplicate?: () => void;
@@ -55,6 +56,7 @@ class WidgetErrorBoundary extends Component<
 export const WidgetWrapper = ({
   instance,
   editMode,
+  dashboardIsTemplate,
   onConfigure = noop,
   onRemove = noop,
   onDuplicate = noop,
@@ -156,6 +158,7 @@ export const WidgetWrapper = ({
                 config={validation.value}
                 instanceId={instance.id}
                 editMode={editMode}
+                dashboardIsTemplate={dashboardIsTemplate}
                 updateConfig={onUpdateConfig}
                 onConfigure={onConfigure}
               />

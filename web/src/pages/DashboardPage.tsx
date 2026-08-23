@@ -21,7 +21,7 @@ import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
 import { Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
-import { dashboardsApi } from "../api.ts";
+import { api, dashboardsApi } from "../api.ts";
 import { GRID_COLS, GRID_MARGIN, GRID_ROWS } from "../dashboard/grid.ts";
 import {
   canRedo as historyCanRedo,
@@ -40,6 +40,7 @@ import {
   validateWidgetConfig,
   type WidgetDescriptor,
 } from "../dashboard/registry.ts";
+import { TEMPLATE_TAG, templateEventFor, widgetEventPointers } from "../dashboard/transfer.ts";
 import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 import { Placeholder } from "../Placeholder.tsx";
@@ -56,7 +57,11 @@ const fixedCanvasCompactor = getCompactor(null, false, true);
 // Shortcut hints are the only place edit-mode keys are discoverable.
 const MOD = navigator.platform.includes("Mac") ? "\u2318" : "Ctrl+";
 
-type PendingPatch = { name?: string; widgets?: Widget[] };
+type PendingPatch = {
+  name?: string;
+  widgets?: Widget[];
+  templateEvents?: DashboardResponse["templateEvents"];
+};
 
 export const DashboardPage = () => {
   const { dashboard, dashboards } = route.useLoaderData();
@@ -178,6 +183,44 @@ const DashboardGrid = ({
   // One save in flight at a time: overlapping PATCHes would read a stale
   // version ref and self-409, discarding the user's own newer edit. The loop
   // drains `pending`, so edits made mid-save coalesce into the next PATCH.
+  const withCurrentTemplateEvents = async (payload: PendingPatch): Promise<PendingPatch> => {
+    if (!dashboard.isTemplate) return payload;
+    const nextWidgets = payload.widgets ?? widgets;
+    const pointers = widgetEventPointers(nextWidgets);
+    if (pointers.length === 0) return { ...payload, templateEvents: [] };
+
+    const templateEvents = await Promise.all(
+      pointers.map(async (pointer) => {
+        const res = await api.events[":eventId"].$get({ param: { eventId: pointer.eventId } });
+        if (!res.ok) throw new Error(`event ${pointer.eventId}`);
+        return templateEventFor(pointer, await res.json());
+      }),
+    );
+    return { ...payload, templateEvents };
+  };
+
+  const clearTemplateTags = async (payload: PendingPatch): Promise<void> => {
+    if (dashboard.isTemplate) return;
+    const nextWidgets = payload.widgets ?? widgets;
+    const pointers = widgetEventPointers(nextWidgets);
+    if (pointers.length === 0) return;
+
+    await Promise.all(
+      pointers.map(async ({ eventId }) => {
+        const res = await api.events[":eventId"].$get({ param: { eventId } });
+        if (!res.ok) throw new Error(`event ${eventId}`);
+        const event = await res.json();
+        if (!event.tags?.includes(TEMPLATE_TAG)) return;
+        const tags = event.tags.filter((tag) => tag !== TEMPLATE_TAG);
+        const patch = await api.events[":eventId"].$patch({
+          param: { eventId },
+          json: { tags: tags.length ? tags : null },
+        });
+        if (!patch.ok) throw new Error(`event ${eventId}`);
+      }),
+    );
+  };
+
   const runSave = async () => {
     if (saving.current) return;
     saving.current = true;
@@ -187,12 +230,15 @@ const DashboardGrid = ({
         pending.current = null;
         setSaveState("saving");
         try {
+          await clearTemplateTags(payload);
+          const json = await withCurrentTemplateEvents(payload);
           const res = await dashboardsApi.dashboards[":dashboardId"].$patch({
             param: { dashboardId: dashboard.id },
-            json: { version: version.current, ...payload },
+            json: { version: version.current, ...json },
           });
           if (res.status === 200) {
             version.current = (await res.json()).version;
+            if (json.name !== undefined) void router.invalidate();
             setSaveState("saved");
             // A permanent "Saved" is noise on an ops display: fade to idle.
             clearTimeout(savedTimer.current);
@@ -234,6 +280,11 @@ const DashboardGrid = ({
     setSaveState("waiting");
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(runSave, SAVE_DEBOUNCE_MS);
+  };
+
+  const toggleEditMode = () => {
+    if (editMode && dashboard.isTemplate) schedule({ widgets });
+    setEditMode((v) => !v);
   };
 
   const syncHistoryFlags = () => {
@@ -497,7 +548,7 @@ const DashboardGrid = ({
           )}
           <Button
             variant={editMode ? "filled" : "default"}
-            onClick={() => setEditMode((v) => !v)}
+            onClick={toggleEditMode}
             title={`Toggle edit mode (${MOD}E)`}
           >
             {editMode ? "Done" : "Edit"}
@@ -533,6 +584,7 @@ const DashboardGrid = ({
                 <WidgetWrapper
                   instance={w}
                   editMode={editMode}
+                  dashboardIsTemplate={dashboard.isTemplate}
                   onConfigure={() => setConfiguringId(w.id)}
                   onRemove={() => removeWidget(w.id)}
                   onDuplicate={() => duplicateWidget(w)}

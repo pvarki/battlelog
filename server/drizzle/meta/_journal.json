@@ -78,6 +78,13 @@
       "when": 1787438998252,
       "tag": "0010_medical_dexter_bennett",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787429471000,
+      "tag": "0011_dashboard-template-events",
+      "breakpoints": true
     }
   ]
 }

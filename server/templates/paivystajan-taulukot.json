@@ -1,0 +1,38 @@
+{
+  "name": "Päivystäjän taulukot",
+  "description": "Sisältää neljä kirjattavaa taulua: Tilanneilmoitus, Hälytystaulukko, Toimivaltuustaulukko ja Heti ilmoitettavat asiat. Taulujen nimiä voi muokata.",
+  "widgets": [
+    {
+      "id": "56722eb6-10f7-4d72-8183-a9350d1a0612",
+      "type": "note",
+      "config": {
+        "title": "Tilanneilmoitus"
+      },
+      "layout": { "h": 24, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": "fec3fb83-c179-4c7f-9f3c-30daf5a0bb37",
+      "type": "note",
+      "config": {
+        "title": "Hälytystaulukko"
+      },
+      "layout": { "h": 24, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": "1d72bb62-1a28-4f88-97af-1bb5b5e0c205",
+      "type": "note",
+      "config": {
+        "title": "Toimivaltuustaulukko"
+      },
+      "layout": { "h": 24, "w": 12, "x": 24, "y": 0 }
+    },
+    {
+      "id": "d5d9ecde-9af5-464c-8acc-df1f981fe5f4",
+      "type": "note",
+      "config": {
+        "title": "Heti ilmoitettavat asiat"
+      },
+      "layout": { "h": 24, "w": 12, "x": 36, "y": 0 }
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
 import { subscribeToEvents } from "../live-events.ts";
+import type { WidgetDocumentDescriptor } from "./registry.ts";
+import { TEMPLATE_TAG } from "./transfer.ts";
 
 export type DocStatus =
   | "idle"
@@ -35,6 +37,8 @@ type Options<T> = {
   parse: (data: unknown) => T;
   /** First save created the event — persist the id into widget config. */
   onEventIdCaptured: (id: string) => void;
+  /** Template editor documents keep the template tag; normal dashboard edits remove it. */
+  templateDocument?: boolean;
   debounceMs?: number;
 };
 
@@ -52,6 +56,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
   // (A plain ref-equality guard breaks under StrictMode's double-run.)
   const selfCaptured = useRef<string | undefined>(undefined);
   const pending = useRef<T | null>(null);
+  const tags = useRef<string[] | null>(null);
   // Guards update(): editing before the followed head has loaded would save
   // an empty doc over the real remote content.
   const loaded = useRef(!opts.eventId);
@@ -73,6 +78,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
     }
     loaded.current = !followedId;
     if (!followedId) {
+      tags.current = null;
       setValue(optsRef.current.empty);
       setStatus("idle");
       return;
@@ -95,7 +101,9 @@ export const useEventDocument = <T>(opts: Options<T>) => {
           return;
         }
         if (res.status !== 200) throw new Error(`load failed (${res.status})`);
-        setValue(optsRef.current.parse((await res.json()).data));
+        const row = await res.json();
+        tags.current = row.tags;
+        setValue(optsRef.current.parse(row.data));
         loaded.current = true;
         setStatus("idle");
       } catch {
@@ -121,6 +129,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
       subscribeToEvents((row) => {
         if (!eventId.current || row.eventId !== eventId.current) return;
         if (pending.current !== null || saving.current) return;
+        tags.current = row.tags;
         setValue(optsRef.current.parse(row.data));
       }),
     [],
@@ -128,6 +137,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
 
   // Unmount with an unsent edit: flush keepalive. (A first-ever save can't
   // persist its captured eventId after unmount; that narrow case is lost.)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: latest save fields are read through refs
   useEffect(
     () => () => {
       clearTimeout(timer.current);
@@ -136,10 +146,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           keepalive: true,
-          body: JSON.stringify({
-            header: optsRef.current.headerFor(pending.current),
-            data: pending.current,
-          }),
+          body: JSON.stringify(eventPayload(pending.current)),
         }).catch(() => {});
       }
     },
@@ -147,6 +154,23 @@ export const useEventDocument = <T>(opts: Options<T>) => {
   );
 
   // One save in flight at a time; edits made mid-save coalesce into the next.
+  const tagsForSave = (): string[] | null | undefined => {
+    const current = tags.current ?? [];
+    if (optsRef.current.templateDocument) return [...new Set([...current, TEMPLATE_TAG])];
+    if (!current.includes(TEMPLATE_TAG)) return undefined;
+    const withoutTemplate = current.filter((tag) => tag !== TEMPLATE_TAG);
+    return withoutTemplate.length ? withoutTemplate : null;
+  };
+
+  const eventPayload = (doc: T) => {
+    const nextTags = tagsForSave();
+    return {
+      header: optsRef.current.headerFor(doc),
+      data: doc,
+      ...(nextTags === undefined ? {} : { tags: nextTags }),
+    };
+  };
+
   const runSave = async () => {
     if (saving.current) return;
     saving.current = true;
@@ -159,14 +183,14 @@ export const useEventDocument = <T>(opts: Options<T>) => {
           if (!eventId.current) {
             const res = await api.events.$post({
               json: {
-                header: optsRef.current.headerFor(doc),
+                ...eventPayload(doc),
                 type: optsRef.current.eventType,
-                data: doc,
               },
             });
             // Non-201 falls through to the catch: keep the edit, retry.
             if (res.status !== 201) throw new Error(`create failed (${res.status})`);
             const created = await res.json();
+            tags.current = created.tags;
             eventId.current = created.eventId;
             selfCaptured.current = created.eventId;
             optsRef.current.onEventIdCaptured(created.eventId);
@@ -174,16 +198,21 @@ export const useEventDocument = <T>(opts: Options<T>) => {
           } else {
             const res = await api.events[":eventId"].$patch({
               param: { eventId: eventId.current },
-              json: { header: optsRef.current.headerFor(doc), data: doc },
+              json: eventPayload(doc),
             });
             if (res.status === 200) {
+              tags.current = (await res.json()).tags;
               setStatus("saved");
             } else if (res.status === 409) {
               // Lost a concurrent-edit race: take the remote head.
               const head = await api.events[":eventId"].$get({
                 param: { eventId: eventId.current },
               });
-              if (head.status === 200) setValue(optsRef.current.parse((await head.json()).data));
+              if (head.status === 200) {
+                const row = await head.json();
+                tags.current = row.tags;
+                setValue(optsRef.current.parse(row.data));
+              }
               setStatus("stale");
             } else {
               // Non-2xx falls through to the catch: keep the edit, retry.
@@ -220,3 +249,20 @@ export const useEventDocument = <T>(opts: Options<T>) => {
 
   return { value, update, flush, status };
 };
+
+export const useWidgetDocument = <TConfig extends { eventId?: string }, TDoc>(opts: {
+  config: TConfig;
+  updateConfig: (next: TConfig) => void;
+  dashboardIsTemplate?: boolean;
+  document: WidgetDocumentDescriptor<TConfig, TDoc>;
+}) =>
+  useEventDocument<TDoc>({
+    eventId: opts.config.eventId,
+    eventType: opts.document.eventType,
+    headerFor: (doc) => opts.document.headerFor(opts.config, doc),
+    empty: opts.document.empty,
+    parse: opts.document.parse,
+    onEventIdCaptured: (id) => opts.updateConfig({ ...opts.config, eventId: id }),
+    templateDocument: opts.dashboardIsTemplate,
+    debounceMs: opts.document.debounceMs,
+  });
