@@ -20,7 +20,9 @@ jobs:
       - uses: pvarki/config-ci-library/.github/actions/setup-typescript@main
         with:
           node-version: "24"
-          pnpm-version: "11"
+          # Empty so pnpm/action-setup defers to packageManager in package.json;
+          # passing "11" conflicts with the pinned pnpm@11.3.0 and hard-errors.
+          pnpm-version: ""
       # The tsc hook needs server/src/env.d.ts, which is generated and gitignored.
       - name: Generate env types
         run: pnpm -C server exec varlock typegen
@@ -36,7 +38,9 @@ jobs:
       - uses: pvarki/config-ci-library/.github/actions/setup-typescript@main
         with:
           node-version: "24"
-          pnpm-version: "11"
+          # Empty so pnpm/action-setup defers to packageManager in package.json;
+          # passing "11" conflicts with the pinned pnpm@11.3.0 and hard-errors.
+          pnpm-version: ""
       - uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # master as of 2026-04-29
       - name: Snyk test
         run: |
