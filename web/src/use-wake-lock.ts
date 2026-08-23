@@ -34,16 +34,13 @@ export const useWakeLock = () => {
           console.debug("Screen wake lock unavailable", err);
         });
     };
-    // The browser releases the lock whenever the tab is hidden; take it back
-    // when the tab returns, or it silently stays off for the rest of the watch.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") acquire();
-    };
+    // The browser also releases the lock whenever the tab is hidden; the same
+    // reacquire brings it back when the tab returns.
     acquire();
-    document.addEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", reacquire);
     return () => {
       alive = false;
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", reacquire);
       lock?.release();
     };
   }, []);
