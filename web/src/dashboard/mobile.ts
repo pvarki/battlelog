@@ -1,12 +1,18 @@
+import { useMediaQuery } from "@mantine/hooks";
 import type { Widget } from "../api.ts";
 import { getWidget } from "./registry.ts";
 
 /**
- * One definition of "phone" for the whole app. The height clause catches
- * landscape phones — wide enough for desktop layouts but far too short.
- * Mirrored in global.css (CSS can't import this).
+ * One definition of "mobile" for the whole app: desktop layouts (the grid,
+ * the management landing page, the results table) need ~1024px to work, so
+ * everything under that gets the mobile treatment — phones and portrait
+ * tablets alike. The height clause catches landscape phones. Mirrored in
+ * global.css (CSS can't import this).
  */
-export const MOBILE_QUERY = "(max-width: 767px), (max-height: 479px)";
+export const MOBILE_QUERY = "(max-width: 1023px), (max-height: 479px)";
+
+export const useIsMobile = () =>
+  useMediaQuery(MOBILE_QUERY, false, { getInitialValueInEffect: false });
 
 /**
  * The widgets a phone shows, in reading order (top-to-bottom, left-to-right
