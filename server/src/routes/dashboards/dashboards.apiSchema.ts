@@ -31,6 +31,7 @@ const templateEventSchema = z
     widgetId: z.string().min(1).max(64),
     header: z.string().min(1).max(100),
     type: z.string().min(1).max(64),
+    tags: z.array(z.string().min(1)).optional(),
     data: z.any().optional(),
   })
   .openapi("DashboardTemplateEvent");
@@ -70,6 +71,7 @@ export const updateDashboardRequestSchema = z
     /** `null` clears it — the list has to be able to go back to just a name. */
     description: z.string().max(280).nullish(),
     widgets: z.array(widgetSchema).max(50).optional(),
+    templateEvents: z.array(templateEventSchema).max(50).optional(),
   })
   .openapi("UpdateDashboardRequest");
 

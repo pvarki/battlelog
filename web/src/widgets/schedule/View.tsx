@@ -12,16 +12,13 @@ import {
 import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
+import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import {
   formatDelta,
-  headerFor,
-  parseTimers,
   type ScheduleConfig,
   type ScheduleTimer,
+  widgetDocument,
 } from "./widget.ts";
-
-type ScheduleDoc = { timers: ScheduleTimer[] };
 
 const formatTarget = (iso: string): string =>
   new Intl.DateTimeFormat(undefined, {
@@ -70,22 +67,22 @@ const TimerRow = ({
   );
 };
 
-const ScheduleView = ({ config, updateConfig }: WidgetViewProps<ScheduleConfig>) => {
+const ScheduleView = ({
+  config,
+  dashboardIsTemplate,
+  updateConfig,
+}: WidgetViewProps<ScheduleConfig>) => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const { value, update, status } = useEventDocument<ScheduleDoc>({
-    eventId: config.eventId,
-    eventType: "schedule",
-    headerFor: (doc) => headerFor(doc.timers),
-    empty: { timers: [] },
-    parse: (data) => ({ timers: parseTimers(data) }),
-    onEventIdCaptured: (id) => updateConfig({ ...config, eventId: id }),
-    // Adding or removing a timer is a complete edit, not mid-typing.
-    debounceMs: 500,
+  const { value, update, status } = useWidgetDocument({
+    config,
+    updateConfig,
+    dashboardIsTemplate,
+    document: widgetDocument,
   });
   const timers = [...value.timers].sort((a, b) => a.target.localeCompare(b.target));
 

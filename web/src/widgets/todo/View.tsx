@@ -2,26 +2,20 @@ import { ActionIcon, Checkbox, Group, Stack, Text, TextInput } from "@mantine/co
 import { IconX } from "@tabler/icons-react";
 import { useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
-import { headerFor, parseItems, type TodoConfig, type TodoItem } from "./widget.ts";
-
-type TodoDoc = { items: TodoItem[] };
+import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
+import { widgetDocument, type TodoConfig, type TodoItem } from "./widget.ts";
 
 // A checkbox list stored as one event document, sharing the note widget's
 // autosave machinery. ponytail: the whole list is one event, so two screens
 // toggling simultaneously race — loser gets 409, reloads the head and re-taps;
 // item-per-event when tasks become ordered/reported entities.
-const TodoView = ({ config, updateConfig }: WidgetViewProps<TodoConfig>) => {
+const TodoView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps<TodoConfig>) => {
   const [draft, setDraft] = useState("");
-  const { value, update, status } = useEventDocument<TodoDoc>({
-    eventId: config.eventId,
-    eventType: "todo",
-    headerFor: (doc) => headerFor(doc.items),
-    empty: { items: [] },
-    parse: (data) => ({ items: parseItems(data) }),
-    onEventIdCaptured: (id) => updateConfig({ ...config, eventId: id }),
-    // Shorter than note's: a checkbox tap is a complete edit, not mid-typing.
-    debounceMs: 500,
+  const { value, update, status } = useWidgetDocument({
+    config,
+    updateConfig,
+    dashboardIsTemplate,
+    document: widgetDocument,
   });
   const items = value.items;
 

@@ -33,14 +33,16 @@ import {
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
-import { dashboardsApi } from "../api.ts";
+import { api, dashboardsApi } from "../api.ts";
 import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import {
   exportFilename,
   forkWidgets,
   parseDashboardImport,
+  templateEventFor,
   toExportJson,
+  widgetEventPointers,
 } from "../dashboard/transfer.ts";
 import { useLiveEvents } from "../live-events.ts";
 import { Placeholder } from "../Placeholder.tsx";
@@ -394,10 +396,35 @@ const DesktopDashboards = () => {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  const exportJsonWithCurrentDocuments = async (d: DashboardResponse): Promise<string> => {
+    const pointers = widgetEventPointers(d.widgets);
+    if (pointers.length === 0) return toExportJson(d);
+
+    const templateEvents = await Promise.all(
+      pointers.map(async (pointer) => {
+        const res = await api.events[":eventId"].$get({ param: { eventId: pointer.eventId } });
+        if (!res.ok) throw new Error(`event ${pointer.eventId}`);
+        return templateEventFor(pointer, await res.json());
+      }),
+    );
+    return toExportJson({ ...d, templateEvents });
+  };
+
   // navigator.clipboard rejects outside a secure context — say so rather than
   // letting the menu item look like it did nothing.
-  const copy = (d: DashboardResponse) =>
-    navigator.clipboard.writeText(toExportJson(d)).then(
+  const copy = async (d: DashboardResponse) => {
+    let json: string;
+    try {
+      json = await exportJsonWithCurrentDocuments(d);
+    } catch {
+      notifications.show({
+        color: "red",
+        message: "Couldn't copy JSON — one of the widget documents could not be loaded",
+      });
+      return;
+    }
+
+    navigator.clipboard.writeText(json).then(
       () => notifications.show({ color: "teal", message: `Copied “${d.name}” JSON to clipboard` }),
       () =>
         notifications.show({
@@ -405,6 +432,7 @@ const DesktopDashboards = () => {
           message: "Clipboard unavailable — use Download JSON instead",
         }),
     );
+  };
 
   // Own error state (not `mutate`'s): a rejected file is expected input here,
   // and the message belongs next to the textarea the user can fix.

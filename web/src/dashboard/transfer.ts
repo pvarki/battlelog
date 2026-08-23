@@ -1,4 +1,5 @@
-import type { DashboardResponse } from "../api.ts";
+import type { DashboardResponse, EventResponse } from "../api.ts";
+import { getWidget } from "./registry.ts";
 
 /**
  * The export file is exactly the body `POST /dashboards` accepts, so import is
@@ -12,6 +13,14 @@ export type DashboardExport = {
   widgets: DashboardResponse["widgets"];
   templateEvents?: DashboardResponse["templateEvents"];
 };
+
+export type WidgetEventPointer = {
+  widgetId: string;
+  widgetType: string;
+  eventId: string;
+};
+
+export const TEMPLATE_TAG = "template";
 
 /**
  * Widgets with their content pointer dropped. `eventId` is the one uniform
@@ -28,6 +37,27 @@ export const forkWidgets = (widgets: DashboardResponse["widgets"]): DashboardRes
     delete config.eventId;
     return { ...w, config };
   });
+
+export const widgetEventPointers = (widgets: DashboardResponse["widgets"]): WidgetEventPointer[] =>
+  widgets.flatMap((widget) => {
+    if (!getWidget(widget.type)?.document) return [];
+    if (!widget.config || typeof widget.config !== "object") return [];
+    const { eventId } = widget.config as Record<string, unknown>;
+    return typeof eventId === "string"
+      ? [{ widgetId: widget.id, widgetType: widget.type, eventId }]
+      : [];
+  });
+
+export const templateEventFor = (
+  pointer: WidgetEventPointer,
+  event: EventResponse,
+): DashboardResponse["templateEvents"][number] => ({
+  widgetId: pointer.widgetId,
+  header: event.header,
+  type: event.type ?? pointer.widgetType,
+  tags: [...new Set([...(event.tags ?? []), TEMPLATE_TAG])],
+  ...(event.data === null || event.data === undefined ? {} : { data: event.data }),
+});
 
 export const toExportJson = (d: DashboardResponse): string =>
   JSON.stringify(

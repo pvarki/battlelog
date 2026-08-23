@@ -1,7 +1,7 @@
 import { IconCalendarTime } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
-import type { WidgetDescriptor } from "../../dashboard/registry.ts";
+import type { WidgetDescriptor, WidgetDocumentDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
 const configSchema = z
@@ -26,6 +26,7 @@ const timerSchema = z.object({
   target: z.string().datetime(),
 });
 export type ScheduleTimer = z.infer<typeof timerSchema>;
+export type ScheduleDoc = { timers: ScheduleTimer[] };
 
 /** Tolerant read: an event with foreign or malformed data renders empty, not a crash. */
 export const parseTimers = (data: unknown): ScheduleTimer[] => {
@@ -47,7 +48,16 @@ export const formatDelta = (ms: number): string => {
   return days > 0 ? `${days}d ${hms}` : hms;
 };
 
-const descriptor: WidgetDescriptor<ScheduleConfig> = {
+export const widgetDocument: WidgetDocumentDescriptor<ScheduleConfig, ScheduleDoc> = {
+  eventType: "schedule",
+  empty: { timers: [] },
+  parse: (data) => ({ timers: parseTimers(data) }),
+  headerFor: (_config, doc) => headerFor(doc.timers),
+  // Adding or removing a timer is a complete edit, not mid-typing.
+  debounceMs: 500,
+};
+
+export const descriptor: WidgetDescriptor<ScheduleConfig> = {
   type: "schedule",
   Icon: IconCalendarTime,
   name: "Schedule",
@@ -56,6 +66,7 @@ const descriptor: WidgetDescriptor<ScheduleConfig> = {
   defaultConfig: {},
   defaultSize: { w: 8, h: 8 },
   minSize: { w: 4, h: 3 },
+  document: widgetDocument,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

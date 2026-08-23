@@ -14,7 +14,7 @@ export type CreateDashboardInput = Omit<
   "id" | "version" | "createdAt" | "updatedAt"
 >;
 export type UpdateDashboardPatch = Partial<
-  Pick<DashboardInsert, "name" | "description" | "widgets">
+  Pick<DashboardInsert, "name" | "description" | "widgets" | "templateEvents">
 >;
 
 /**
@@ -42,6 +42,12 @@ export class VersionConflictError extends Error {
     this.name = "VersionConflictError";
   }
 }
+
+const TEMPLATE_TAG = "template";
+
+const withTemplateTag = (tags: string[] | null | undefined): string[] => [
+  ...new Set([...(tags ?? []), TEMPLATE_TAG]),
+];
 
 export const listDashboards = async (): Promise<DashboardRow[]> =>
   db.select().from(dashboards).orderBy(desc(dashboards.createdAt));
@@ -75,7 +81,7 @@ const withForkedTemplateEvents = (
       type: document.type,
       data: document.data ?? null,
       eventTime: null,
-      tags: null,
+      tags: withTemplateTag(document.tags),
       hcoeDomains: null,
       admiraltyReliability: null,
       admiraltyAccuracy: null,
