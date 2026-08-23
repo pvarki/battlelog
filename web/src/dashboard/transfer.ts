@@ -122,8 +122,7 @@ const validateTemplateEvents = (events: unknown[]): string | null => {
     if (typeof event.header !== "string" || !event.header.trim())
       return `${label} is missing a header`;
     if (event.header.length > 100) return `${label} header is too long`;
-    if (typeof event.type !== "string" || !event.type.trim())
-      return `${label} is missing a type`;
+    if (typeof event.type !== "string" || !event.type.trim()) return `${label} is missing a type`;
     if (event.type.length > 64) return `${label} type is too long`;
     if (
       event.tags !== undefined &&

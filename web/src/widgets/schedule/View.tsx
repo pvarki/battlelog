@@ -13,12 +13,7 @@ import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
-import {
-  formatDelta,
-  type ScheduleConfig,
-  type ScheduleTimer,
-  widgetDocument,
-} from "./widget.ts";
+import { formatDelta, type ScheduleConfig, type ScheduleTimer, widgetDocument } from "./widget.ts";
 
 const formatTarget = (iso: string): string =>
   new Intl.DateTimeFormat(undefined, {
