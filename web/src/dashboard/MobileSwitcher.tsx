@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Drawer, Group, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Box, Drawer, Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconMenu2 } from "@tabler/icons-react";
 import { useState } from "react";
 import type { DashboardResponse, Widget } from "../api.ts";
@@ -16,8 +16,6 @@ const widgetLabel = (w: Widget, descriptor: WidgetDescriptor) => {
   const title = (w.config as { title?: unknown } | null)?.title;
   return typeof title === "string" && title.trim() ? title : descriptor.name;
 };
-
-const noop = () => {};
 
 /**
  * Phone rendering of a dashboard: one widget fullscreen at a time, a bottom
@@ -65,17 +63,7 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
   return (
     <Box h="calc(100dvh - 48px)" style={{ display: "flex", flexDirection: "column" }}>
       <Box flex={1} mih={0} p="xs">
-        <WidgetWrapper
-          key={active.id}
-          instance={active}
-          editMode={false}
-          onConfigure={noop}
-          onRemove={noop}
-          onDuplicate={noop}
-          onResetSize={noop}
-          onResetConfig={noop}
-          onUpdateConfig={noop}
-        />
+        <WidgetWrapper key={active.id} instance={active} editMode={false} />
       </Box>
       <Group
         h={BAR_HEIGHT}
@@ -129,16 +117,8 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
                   background: isActive ? "var(--mantine-color-dark-6)" : undefined,
                 }}
               >
-                <Group gap="sm">
-                  {Icon && (
-                    <ActionIcon
-                      component="span"
-                      variant="subtle"
-                      color={isActive ? "accent" : "gray"}
-                    >
-                      <Icon size={20} stroke={1.5} />
-                    </ActionIcon>
-                  )}
+                <Group gap="sm" c={isActive ? "accent.4" : undefined}>
+                  {Icon && <Icon size={20} stroke={1.5} />}
                   <Text fw={isActive ? 600 : 400}>{widgetLabel(w, descriptor)}</Text>
                 </Group>
               </UnstyledButton>

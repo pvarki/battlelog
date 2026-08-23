@@ -208,6 +208,19 @@ export const EventExplorerPage = () => {
     </Button>
   );
 
+  const searchBox = (
+    <TextInput
+      size="xs"
+      w={isMobile ? undefined : 240}
+      style={isMobile ? { flex: 1 } : undefined}
+      placeholder="Header contains…"
+      aria-label="Search event headers"
+      leftSection={<IconSearch size={14} stroke={1.5} />}
+      value={searchInput}
+      onChange={(e) => onSearchChange(e.currentTarget.value)}
+    />
+  );
+
   return (
     <Box
       px="md"
@@ -218,15 +231,7 @@ export const EventExplorerPage = () => {
       {isMobile ? (
         <Stack gap="xs" mb="xs">
           <Group gap="xs" wrap="nowrap">
-            <TextInput
-              size="xs"
-              style={{ flex: 1 }}
-              placeholder="Header contains…"
-              aria-label="Search event headers"
-              leftSection={<IconSearch size={14} stroke={1.5} />}
-              value={searchInput}
-              onChange={(e) => onSearchChange(e.currentTarget.value)}
-            />
+            {searchBox}
             {filtersButton}
           </Group>
           {chips.length > 0 && (
@@ -247,15 +252,7 @@ export const EventExplorerPage = () => {
       ) : (
         <Group justify="space-between" wrap="nowrap" gap="sm" mb="xs">
           <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-            <TextInput
-              size="xs"
-              w={240}
-              placeholder="Header contains…"
-              aria-label="Search event headers"
-              leftSection={<IconSearch size={14} stroke={1.5} />}
-              value={searchInput}
-              onChange={(e) => onSearchChange(e.currentTarget.value)}
-            />
+            {searchBox}
             {/* Chips scroll sideways rather than wrapping — wrapping would eat the
                 height the results need. */}
             <Group gap={4} wrap="nowrap" style={{ overflowX: "auto", minWidth: 0 }}>
@@ -305,127 +302,106 @@ export const EventExplorerPage = () => {
             />
           </Box>
         ) : isMobile ? (
-          <>
-            <Stack gap="xs">
+          <Stack gap="xs">
+            {rows.map((event) => (
+              <Paper
+                key={event.id}
+                withBorder
+                p="sm"
+                onClick={() => setSelected(event)}
+                style={{ cursor: "pointer" }}
+              >
+                <Group justify="space-between" wrap="nowrap" gap="xs">
+                  <Text fw={600} truncate style={{ flex: 1, minWidth: 0 }}>
+                    {event.header}
+                  </Text>
+                  {event.type && (
+                    // Capped so a verbose type never crushes the header text.
+                    <Badge variant="light" maw="45%" title={event.type}>
+                      {event.type}
+                    </Badge>
+                  )}
+                </Group>
+                <Text fz="xs" c="dimmed">
+                  {formatDateTime(event.eventTime ?? event.createdAt)}
+                  {event.location ? ` · ${event.location}` : ""}
+                </Text>
+                {event.tags && event.tags.length > 0 && <TagsCell tags={event.tags} />}
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={150}>Time</Table.Th>
+                <Table.Th>Header</Table.Th>
+                <Table.Th w={130}>Type</Table.Th>
+                <Table.Th w={200}>Tags</Table.Th>
+                <Table.Th
+                  w={100}
+                  title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
+                >
+                  Admiralty
+                </Table.Th>
+                <Table.Th w={170}>Location</Table.Th>
+                <Table.Th w={130}>By</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {rows.map((event) => (
-                <Paper
+                <Table.Tr
                   key={event.id}
-                  withBorder
-                  p="sm"
                   onClick={() => setSelected(event)}
                   style={{ cursor: "pointer" }}
                 >
-                  <Group justify="space-between" wrap="nowrap" gap="xs">
-                    <Text fw={600} truncate style={{ flex: 1, minWidth: 0 }}>
+                  <Table.Td>{formatDateTime(event.eventTime ?? event.createdAt)}</Table.Td>
+                  <Table.Td style={TRUNCATE}>
+                    {/* Real button inside the row so keyboard users can open the detail too. */}
+                    <Anchor
+                      component="button"
+                      type="button"
+                      truncate
+                      display="block"
+                      maw="100%"
+                      title={event.header}
+                      onClick={() => setSelected(event)}
+                    >
                       {event.header}
-                    </Text>
-                    {event.type && (
-                      // Capped so a verbose type never crushes the header text.
-                      <Badge variant="light" maw="45%" title={event.type}>
+                    </Anchor>
+                  </Table.Td>
+                  <Table.Td>
+                    {event.type ? (
+                      <Badge variant="light" maw="100%" title={event.type}>
                         {event.type}
                       </Badge>
-                    )}
-                  </Group>
-                  <Text fz="xs" c="dimmed">
-                    {formatDateTime(event.eventTime ?? event.createdAt)}
-                    {event.location ? ` · ${event.location}` : ""}
-                  </Text>
-                  {event.tags && event.tags.length > 0 && <TagsCell tags={event.tags} />}
-                </Paper>
-              ))}
-            </Stack>
-            {!atEnd && (
-              <Center my="md">
-                <Button
-                  variant="default"
-                  loading={loading}
-                  onClick={() =>
-                    rows.length && void run({ ...EMPTY, ...applied }, rows[rows.length - 1]?.id)
-                  }
-                >
-                  Load more
-                </Button>
-              </Center>
-            )}
-          </>
-        ) : (
-          <>
-            <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th w={150}>Time</Table.Th>
-                  <Table.Th>Header</Table.Th>
-                  <Table.Th w={130}>Type</Table.Th>
-                  <Table.Th w={200}>Tags</Table.Th>
-                  <Table.Th
-                    w={100}
-                    title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
-                  >
-                    Admiralty
-                  </Table.Th>
-                  <Table.Th w={170}>Location</Table.Th>
-                  <Table.Th w={130}>By</Table.Th>
+                    ) : null}
+                  </Table.Td>
+                  <Table.Td>{event.tags?.length ? <TagsCell tags={event.tags} /> : null}</Table.Td>
+                  <Table.Td>
+                    {[event.admiraltyReliability, event.admiraltyAccuracy].filter(Boolean).join("")}
+                  </Table.Td>
+                  <Table.Td style={TRUNCATE} title={event.location ?? undefined}>
+                    {event.location}
+                  </Table.Td>
+                  <Table.Td style={TRUNCATE}>{event.updatedBy ?? event.createdBy}</Table.Td>
                 </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((event) => (
-                  <Table.Tr
-                    key={event.id}
-                    onClick={() => setSelected(event)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <Table.Td>{formatDateTime(event.eventTime ?? event.createdAt)}</Table.Td>
-                    <Table.Td style={TRUNCATE}>
-                      {/* Real button inside the row so keyboard users can open the detail too. */}
-                      <Anchor
-                        component="button"
-                        type="button"
-                        truncate
-                        display="block"
-                        maw="100%"
-                        title={event.header}
-                        onClick={() => setSelected(event)}
-                      >
-                        {event.header}
-                      </Anchor>
-                    </Table.Td>
-                    <Table.Td>
-                      {event.type ? (
-                        <Badge variant="light" maw="100%" title={event.type}>
-                          {event.type}
-                        </Badge>
-                      ) : null}
-                    </Table.Td>
-                    <Table.Td>
-                      {event.tags?.length ? <TagsCell tags={event.tags} /> : null}
-                    </Table.Td>
-                    <Table.Td>
-                      {[event.admiraltyReliability, event.admiraltyAccuracy]
-                        .filter(Boolean)
-                        .join("")}
-                    </Table.Td>
-                    <Table.Td style={TRUNCATE} title={event.location ?? undefined}>
-                      {event.location}
-                    </Table.Td>
-                    <Table.Td style={TRUNCATE}>{event.updatedBy ?? event.createdBy}</Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-            {!atEnd && (
-              <Center my="md">
-                <Button
-                  variant="default"
-                  loading={loading}
-                  onClick={() =>
-                    rows.length && void run({ ...EMPTY, ...applied }, rows[rows.length - 1]?.id)
-                  }
-                >
-                  Load more
-                </Button>
-              </Center>
-            )}
-          </>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
+        {rows && rows.length > 0 && !atEnd && (
+          <Center my="md">
+            <Button
+              variant="default"
+              loading={loading}
+              onClick={() =>
+                rows.length && void run({ ...EMPTY, ...applied }, rows[rows.length - 1]?.id)
+              }
+            >
+              Load more
+            </Button>
+          </Center>
         )}
       </Box>
 
