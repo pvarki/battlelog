@@ -17,6 +17,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconClipboardCopy,
@@ -35,6 +36,7 @@ import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
+import { MOBILE_QUERY } from "../dashboard/mobile.ts";
 import {
   exportFilename,
   forkWidgets,
@@ -156,6 +158,55 @@ const suggested = (current: string, previous: string, next: string) =>
   !current.trim() || current === previous ? next : current;
 
 export const DashboardsPage = () => {
+  // Phones get a plain picker: just the dashboards, whole row tappable. No
+  // create/rename/delete/import/templates and no activity feed — managing
+  // boards is desktop work, a phone is for getting to one.
+  const isMobile = useMediaQuery(MOBILE_QUERY, false, { getInitialValueInEffect: false });
+  return isMobile ? <MobileDashboards /> : <DesktopDashboards />;
+};
+
+const MobileDashboards = () => {
+  const all = route.useLoaderData();
+  const dashboards = all.filter((d) => !d.isTemplate);
+  return (
+    <Box p="md" h="calc(100dvh - 48px)" style={{ overflowY: "auto" }}>
+      {dashboards.length === 0 ? (
+        <Placeholder
+          title="No dashboards yet"
+          detail="Dashboards are created and managed on a desktop screen."
+        />
+      ) : (
+        <Stack gap="xs">
+          {dashboards.map((d) => (
+            <Paper
+              key={d.id}
+              withBorder
+              p="md"
+              renderRoot={(props) => (
+                <Link to="/d/$dashboardId" params={{ dashboardId: d.id }} {...props} />
+              )}
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <Group wrap="nowrap" align="center" gap="sm">
+                <LayoutThumbnail widgets={d.widgets} />
+                <Box mih={0} style={{ flex: 1 }}>
+                  <Text fw={600}>{d.name}</Text>
+                  {d.description && (
+                    <Text fz="sm" c="dimmed" lineClamp={2}>
+                      {d.description}
+                    </Text>
+                  )}
+                </Box>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  );
+};
+
+const DesktopDashboards = () => {
   const all = route.useLoaderData();
   const navigate = useNavigate();
   const router = useRouter();

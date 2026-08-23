@@ -12,6 +12,7 @@ import {
   Loader,
   MultiSelect,
   NumberInput,
+  Paper,
   SimpleGrid,
   Stack,
   Table,
@@ -19,11 +20,13 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../admiralty.ts";
 import { api, type EventResponse } from "../api.ts";
+import { MOBILE_QUERY } from "../dashboard/mobile.ts";
 import { EventDetail } from "../EventDetail.tsx";
 import {
   activeChips,
@@ -169,6 +172,42 @@ export const EventExplorerPage = () => {
   const geoPartial =
     [draft.lat, draft.lng, draft.radiusMeters].filter((v) => v !== "").length % 3 !== 0;
 
+  const isMobile = useMediaQuery(MOBILE_QUERY, false, { getInitialValueInEffect: false });
+
+  const chipBadges = chips.map((chip) => (
+    <Badge
+      key={chip.id}
+      variant="light"
+      color="accent"
+      size="sm"
+      style={{ flexShrink: 0, textTransform: "none" }}
+      rightSection={
+        <ActionIcon
+          size={14}
+          variant="transparent"
+          color="accent"
+          aria-label={`Remove filter ${chip.label}`}
+          onClick={() => removeChip(chip)}
+        >
+          <IconX size={12} stroke={2} />
+        </ActionIcon>
+      }
+    >
+      {chip.label}
+    </Badge>
+  ));
+
+  const filtersButton = (
+    <Button
+      size="xs"
+      variant="default"
+      leftSection={<IconFilter size={14} stroke={1.5} />}
+      onClick={openFilters}
+    >
+      Filters{drawerCount ? ` · ${drawerCount}` : ""}
+    </Button>
+  );
+
   return (
     <Box
       px="md"
@@ -176,67 +215,70 @@ export const EventExplorerPage = () => {
       h="calc(100dvh - 48px)"
       style={{ display: "flex", flexDirection: "column" }}
     >
-      <Group justify="space-between" wrap="nowrap" gap="sm" mb="xs">
-        <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-          <TextInput
-            size="xs"
-            w={240}
-            placeholder="Header contains…"
-            aria-label="Search event headers"
-            leftSection={<IconSearch size={14} stroke={1.5} />}
-            value={searchInput}
-            onChange={(e) => onSearchChange(e.currentTarget.value)}
-          />
-          {/* Chips scroll sideways rather than wrapping — wrapping would eat the
-              height the results need. */}
-          <Group gap={4} wrap="nowrap" style={{ overflowX: "auto", minWidth: 0 }}>
-            {chips.map((chip) => (
-              <Badge
-                key={chip.id}
-                variant="light"
-                color="accent"
-                size="sm"
-                style={{ flexShrink: 0, textTransform: "none" }}
-                rightSection={
-                  <ActionIcon
-                    size={14}
-                    variant="transparent"
-                    color="accent"
-                    aria-label={`Remove filter ${chip.label}`}
-                    onClick={() => removeChip(chip)}
-                  >
-                    <IconX size={12} stroke={2} />
-                  </ActionIcon>
-                }
+      {isMobile ? (
+        <Stack gap="xs" mb="xs">
+          <Group gap="xs" wrap="nowrap">
+            <TextInput
+              size="xs"
+              style={{ flex: 1 }}
+              placeholder="Header contains…"
+              aria-label="Search event headers"
+              leftSection={<IconSearch size={14} stroke={1.5} />}
+              value={searchInput}
+              onChange={(e) => onSearchChange(e.currentTarget.value)}
+            />
+            {filtersButton}
+          </Group>
+          {chips.length > 0 && (
+            <Group gap={4} wrap="nowrap" style={{ overflowX: "auto", minWidth: 0 }}>
+              {chipBadges}
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="gray"
+                style={{ flexShrink: 0 }}
+                onClick={clearAll}
               >
-                {chip.label}
-              </Badge>
-            ))}
+                Clear all
+              </Button>
+            </Group>
+          )}
+        </Stack>
+      ) : (
+        <Group justify="space-between" wrap="nowrap" gap="sm" mb="xs">
+          <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <TextInput
+              size="xs"
+              w={240}
+              placeholder="Header contains…"
+              aria-label="Search event headers"
+              leftSection={<IconSearch size={14} stroke={1.5} />}
+              value={searchInput}
+              onChange={(e) => onSearchChange(e.currentTarget.value)}
+            />
+            {/* Chips scroll sideways rather than wrapping — wrapping would eat the
+                height the results need. */}
+            <Group gap={4} wrap="nowrap" style={{ overflowX: "auto", minWidth: 0 }}>
+              {chipBadges}
+            </Group>
+          </Group>
+          <Group gap="xs" wrap="nowrap">
+            {rows !== null && rows.length > 0 && (
+              <Text fz="xs" c="dimmed" role="status" style={{ whiteSpace: "nowrap" }}>
+                {rows.length}
+                {atEnd ? "" : "+"} {applied.includeHistory ? "version" : "event"}
+                {rows.length === 1 ? "" : "s"}
+              </Text>
+            )}
+            {chips.length > 0 && (
+              <Button size="xs" variant="subtle" color="gray" onClick={clearAll}>
+                Clear all
+              </Button>
+            )}
+            {filtersButton}
           </Group>
         </Group>
-        <Group gap="xs" wrap="nowrap">
-          {rows !== null && rows.length > 0 && (
-            <Text fz="xs" c="dimmed" role="status" style={{ whiteSpace: "nowrap" }}>
-              {rows.length}
-              {atEnd ? "" : "+"} {applied.includeHistory ? "version" : "event"}
-              {rows.length === 1 ? "" : "s"}
-            </Text>
-          )}
-          {chips.length > 0 && (
-            <Button size="xs" variant="subtle" color="gray" onClick={clearAll}>
-              Clear all
-            </Button>
-          )}
-          <Button
-            size="xs"
-            variant="default"
-            leftSection={<IconFilter size={14} stroke={1.5} />}
-            onClick={openFilters}
-          >
-            Filters{drawerCount ? ` · ${drawerCount}` : ""}
-          </Button>
-        </Group>
-      </Group>
+      )}
 
       <Box flex={1} mih={0} style={{ overflowY: "auto" }}>
         {error && (
@@ -262,6 +304,50 @@ export const EventExplorerPage = () => {
               }
             />
           </Box>
+        ) : isMobile ? (
+          <>
+            <Stack gap="xs">
+              {rows.map((event) => (
+                <Paper
+                  key={event.id}
+                  withBorder
+                  p="sm"
+                  onClick={() => setSelected(event)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <Group justify="space-between" wrap="nowrap" gap="xs">
+                    <Text fw={600} truncate style={{ flex: 1, minWidth: 0 }}>
+                      {event.header}
+                    </Text>
+                    {event.type && (
+                      // Capped so a verbose type never crushes the header text.
+                      <Badge variant="light" maw="45%" title={event.type}>
+                        {event.type}
+                      </Badge>
+                    )}
+                  </Group>
+                  <Text fz="xs" c="dimmed">
+                    {formatDateTime(event.eventTime ?? event.createdAt)}
+                    {event.location ? ` · ${event.location}` : ""}
+                  </Text>
+                  {event.tags && event.tags.length > 0 && <TagsCell tags={event.tags} />}
+                </Paper>
+              ))}
+            </Stack>
+            {!atEnd && (
+              <Center my="md">
+                <Button
+                  variant="default"
+                  loading={loading}
+                  onClick={() =>
+                    rows.length && void run({ ...EMPTY, ...applied }, rows[rows.length - 1]?.id)
+                  }
+                >
+                  Load more
+                </Button>
+              </Center>
+            )}
+          </>
         ) : (
           <>
             <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
@@ -352,7 +438,7 @@ export const EventExplorerPage = () => {
       >
         <Stack gap="xs">
           <Fieldset legend="Content">
-            <SimpleGrid cols={2} spacing="sm">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
               <TagsInput label="Types" value={draft.types} onChange={(types) => set({ types })} />
               <TagsInput label="Tags" value={draft.tags} onChange={(tags) => set({ tags })} />
               <TagsInput
@@ -364,7 +450,7 @@ export const EventExplorerPage = () => {
           </Fieldset>
 
           <Fieldset legend="Time">
-            <SimpleGrid cols={2} spacing="sm">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
               <TextInput
                 type="datetime-local"
                 label="Event time from"
@@ -419,7 +505,7 @@ export const EventExplorerPage = () => {
           </Fieldset>
 
           <Fieldset legend="Assessment">
-            <SimpleGrid cols={2} spacing="sm">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
               <MultiSelect
                 label="Reliability"
                 data={RELIABILITY}
@@ -436,7 +522,7 @@ export const EventExplorerPage = () => {
           </Fieldset>
 
           <Fieldset legend="Origin & history">
-            <SimpleGrid cols={2} spacing="sm">
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
               <TextInput
                 label="Created by"
                 value={draft.createdBy}

@@ -1,6 +1,6 @@
 import { ActionIcon, Box, Drawer, Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconMenu2 } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { Placeholder } from "../Placeholder.tsx";
 import { mobileWidgets } from "./mobile.ts";
@@ -9,7 +9,6 @@ import { WidgetWrapper } from "./WidgetWrapper.tsx";
 
 const BAR_HEIGHT = 64;
 const MAX_BAR_BUTTONS = 5;
-const SWIPE_MIN_PX = 48;
 
 const lastViewedKey = (dashboardId: string) => `battlelog.mobile.active.${dashboardId}`;
 
@@ -36,8 +35,6 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
     }
   });
   const [menuOpen, setMenuOpen] = useState(false);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const swipeBlocked = useRef(false);
 
   const active = widgets.find((w) => w.id === activeId) ?? widgets[0];
 
@@ -49,44 +46,6 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
     } catch {
       // per-viewer convenience only
     }
-  };
-
-  const swipeTo = (delta: number) => {
-    if (!active) return;
-    const index = widgets.findIndex((w) => w.id === active.id);
-    const next = widgets[index + delta];
-    if (next) activate(next.id);
-  };
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    if (!t) return;
-    touchStart.current = { x: t.clientX, y: t.clientY };
-    // Swipe yields to content that scrolls horizontally (feed tables etc.):
-    // native scrolling wins over widget switching.
-    // ponytail: any horizontally-scrollable ancestor blocks the swipe in both
-    // directions; make it direction-aware (scrollLeft vs max) if it annoys.
-    swipeBlocked.current = false;
-    let el = e.target as HTMLElement | null;
-    while (el && el !== e.currentTarget) {
-      if (el.scrollWidth > el.clientWidth + 1) {
-        swipeBlocked.current = true;
-        break;
-      }
-      el = el.parentElement;
-    }
-  };
-
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const start = touchStart.current;
-    touchStart.current = null;
-    if (!start || swipeBlocked.current) return;
-    const t = e.changedTouches[0];
-    if (!t) return;
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    swipeTo(dx < 0 ? 1 : -1);
   };
 
   if (!active) {
@@ -105,7 +64,7 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
 
   return (
     <Box h="calc(100dvh - 48px)" style={{ display: "flex", flexDirection: "column" }}>
-      <Box flex={1} mih={0} p="xs" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <Box flex={1} mih={0} p="xs">
         <WidgetWrapper
           key={active.id}
           instance={active}
