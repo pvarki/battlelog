@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
+import { loadCachedEventHead } from "../events-cache.ts";
 import { subscribeToEvents } from "../live-events.ts";
 
 export type DocStatus =
@@ -101,10 +102,15 @@ export const useEventDocument = <T>(opts: Options<T>) => {
       } catch {
         // Doc stays read-only (update() no-ops) until a load succeeds.
         // ponytail: blanket retry on transport/5xx errors — back off if it matters.
-        if (!cancelled) {
-          setStatus("unavailable");
-          retry = setTimeout(load, 5000);
-        }
+        if (cancelled) return;
+        // Offline fallback: show the newest cached version while retrying.
+        // `loaded` stays false on purpose — an edit of a stale copy could
+        // overwrite a newer remote version the moment the link returns.
+        const cached = await loadCachedEventHead(followedId);
+        if (cancelled) return;
+        if (cached) setValue(optsRef.current.parse(cached.data));
+        setStatus("unavailable");
+        retry = setTimeout(load, 5000);
       }
     };
     void load();

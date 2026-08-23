@@ -5,6 +5,7 @@ import {
   createRootRoute,
   createRoute,
   type ErrorComponentProps,
+  isNotFound,
   Link,
   notFound,
   Outlet,
@@ -12,7 +13,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import { dashboardsApi } from "./api.ts";
+import { type DashboardResponse, dashboardsApi } from "./api.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
 import { Placeholder } from "./Placeholder.tsx";
@@ -156,13 +157,42 @@ const rootRoute = createRootRoute({
   errorComponent: RouteError,
 });
 
+// Offline fallback for the route loaders: the last successful dashboards list,
+// one localStorage key. A handful of small JSON docs overwritten on every
+// successful load, so no eviction. Saves stay online-only; editing a stale
+// copy after reconnect lands in the existing 409 version-conflict path.
+const DASHBOARDS_CACHE_KEY = "battlelog.dashboards";
+
+const cacheDashboards = (dashboards: DashboardResponse[]) => {
+  try {
+    localStorage.setItem(DASHBOARDS_CACHE_KEY, JSON.stringify(dashboards));
+  } catch {
+    // storage denied — offline reloads just fail as before
+  }
+};
+
+const cachedDashboards = (): DashboardResponse[] | undefined => {
+  try {
+    const raw = localStorage.getItem(DASHBOARDS_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as DashboardResponse[]) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const dashboardsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   loader: async () => {
-    const res = await dashboardsApi.dashboards.$get();
-    if (!res.ok) throw new Error(`Failed to load dashboards (${res.status})`);
-    return res.json();
+    try {
+      const res = await dashboardsApi.dashboards.$get();
+      if (!res.ok) throw new Error(`Failed to load dashboards (${res.status})`);
+      const dashboards = await res.json();
+      cacheDashboards(dashboards);
+      return dashboards;
+    } catch (err) {
+      return cachedDashboards() ?? Promise.reject(err);
+    }
   },
   component: DashboardsPage,
 });
@@ -171,19 +201,30 @@ export const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/d/$dashboardId",
   loader: async ({ params }) => {
-    const [one, all] = await Promise.all([
-      dashboardsApi.dashboards[":dashboardId"].$get({
-        param: { dashboardId: params.dashboardId },
-      }),
-      dashboardsApi.dashboards.$get(),
-    ]);
-    // A stale link to a deleted dashboard is the likeliest failure on this
-    // route, and it deserves the not-found screen rather than a status code.
-    if (one.status === 404) throw notFound();
-    if (!one.ok || !all.ok) {
-      throw new Error(`Failed to load dashboard (${one.status}/${all.status})`);
+    try {
+      const [one, all] = await Promise.all([
+        dashboardsApi.dashboards[":dashboardId"].$get({
+          param: { dashboardId: params.dashboardId },
+        }),
+        dashboardsApi.dashboards.$get(),
+      ]);
+      // A stale link to a deleted dashboard is the likeliest failure on this
+      // route, and it deserves the not-found screen rather than a status code.
+      if (one.status === 404) throw notFound();
+      if (!one.ok || !all.ok) {
+        throw new Error(`Failed to load dashboard (${one.status}/${all.status})`);
+      }
+      const data = { dashboard: await one.json(), dashboards: await all.json() };
+      cacheDashboards(data.dashboards);
+      return data;
+    } catch (err) {
+      // The server said the dashboard is gone — that's not an offline case.
+      if (isNotFound(err)) throw err;
+      const dashboards = cachedDashboards();
+      const dashboard = dashboards?.find((d) => d.id === params.dashboardId);
+      if (dashboards && dashboard) return { dashboard, dashboards };
+      throw err;
     }
-    return { dashboard: await one.json(), dashboards: await all.json() };
   },
   component: DashboardPage,
 });

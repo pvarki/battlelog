@@ -69,6 +69,23 @@ export const cacheEvents = (rows: EventResponse[]): void => {
     .catch(() => {});
 };
 
+// Version rows share an eventId; the highest row id is the chain's head.
+export const newestVersion = (
+  rows: EventResponse[],
+  eventId: string,
+): EventResponse | undefined => {
+  let head: EventResponse | undefined;
+  for (const row of rows) {
+    if (row.eventId === eventId && (!head || row.id > head.id)) head = row;
+  }
+  return head;
+};
+
+/** Newest cached version of one event chain, if any. */
+export const loadCachedEventHead = async (eventId: string): Promise<EventResponse | undefined> =>
+  // ponytail: linear scan, runs only on failed loads — index eventId if it matters
+  newestVersion(await loadCachedEvents(), eventId);
+
 /** Every cached row. Empty when the cache is missing or broken. */
 export const loadCachedEvents = async (): Promise<EventResponse[]> => {
   try {
