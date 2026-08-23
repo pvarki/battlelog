@@ -1,0 +1,50 @@
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  snyk_monitor:
+    name: Run Snyk monitor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: pvarki/config-ci-library/.github/actions/setup-typescript@main
+        with:
+          node-version: "24"
+          # Empty so pnpm/action-setup defers to packageManager in package.json;
+          # passing "11" conflicts with the pinned pnpm@11.3.0 and hard-errors.
+          pnpm-version: ""
+      - uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # master as of 2026-04-29
+      - name: Snyk monitor (sync to web UI)
+        run: |
+          snyk monitor \
+            --all-projects \
+            --target-reference=${{ github.ref_name }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  publish:
+    name: Publish Docker image
+    runs-on: arc-runner-set
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Publish Docker image
+        uses: pvarki/config-ci-library/.github/actions/publish-image@main
+        with:
+          product: battlelog
+          component: server
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          acr-repo: ${{ vars.ACR_REPO }}
+          acr-username: ${{ vars.ACR_USERNAME }}
+          acr-token: ${{ secrets.ACR_TOKEN }}

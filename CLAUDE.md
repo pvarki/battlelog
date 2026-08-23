@@ -21,4 +21,3 @@ Edit the feature's `*.dbSchema.ts` → `pnpm -C server db:generate` → `pnpm -C
 - Events are **append-only version chains**: PATCH creates a new version; a concurrent PATCH loses to the `update_for` unique constraint and returns 409.
 - Routes mount under both `/api` and `/api/v1`; keep both live.
 - `routes/<feature>/<feature>.apiSchema.ts` (Zod) is the OpenAPI source of truth.
-
