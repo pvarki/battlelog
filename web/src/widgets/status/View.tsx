@@ -3,7 +3,7 @@ import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import { buildStatusTree, flattenTree } from "./tree.ts";
-import { widgetDocument, type StatusConfig, type StatusRow } from "./widget.ts";
+import { type StatusConfig, type StatusRow, widgetDocument } from "./widget.ts";
 
 // A row switched choice→count still holds its old string value: render 0
 // instead of NaN (a NaN would serialize to null and destroy the stored value).

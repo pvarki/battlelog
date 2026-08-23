@@ -1,7 +1,7 @@
 import { Stack, Text, Textarea } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
-import { widgetDocument, type NoteConfig } from "./widget.ts";
+import { type NoteConfig, widgetDocument } from "./widget.ts";
 
 const NoteView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps<NoteConfig>) => {
   const { value, update, flush, status } = useWidgetDocument({

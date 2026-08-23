@@ -250,10 +250,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
   return { value, update, flush, status };
 };
 
-export const useWidgetDocument = <
-  TConfig extends { eventId?: string },
-  TDoc,
->(opts: {
+export const useWidgetDocument = <TConfig extends { eventId?: string }, TDoc>(opts: {
   config: TConfig;
   updateConfig: (next: TConfig) => void;
   dashboardIsTemplate?: boolean;

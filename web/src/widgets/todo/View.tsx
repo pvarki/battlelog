@@ -3,7 +3,7 @@ import { IconX } from "@tabler/icons-react";
 import { useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
-import { widgetDocument, type TodoConfig, type TodoItem } from "./widget.ts";
+import { type TodoConfig, type TodoItem, widgetDocument } from "./widget.ts";
 
 // A checkbox list stored as one event document, sharing the note widget's
 // autosave machinery. ponytail: the whole list is one event, so two screens
