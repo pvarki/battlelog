@@ -46,7 +46,6 @@ jobs:
         run: |
           snyk test \
             --all-projects \
-            --org=deployapp-core-services \
             --show-vulnerable-paths=all \
             --severity-threshold=critical
         env:

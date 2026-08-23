@@ -23,7 +23,6 @@ jobs:
         run: |
           snyk monitor \
             --all-projects \
-            --org=deployapp-core-services \
             --target-reference=${{ github.ref_name }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

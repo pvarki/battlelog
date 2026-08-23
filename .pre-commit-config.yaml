@@ -17,6 +17,8 @@ repos:
     -   id: check-executables-have-shebangs
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
+        # drizzle-kit emits these without a trailing newline; never hand-edit them.
+        exclude: "^server/drizzle/"
     -   id: check-yaml
     -   id: check-added-large-files
     -   id: check-case-conflict
