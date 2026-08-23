@@ -1,6 +1,6 @@
 {
   "name": "battlelog",
-  "version": "2.0.0+260823",
+  "version": "2.1.0+260823",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.3.0",
