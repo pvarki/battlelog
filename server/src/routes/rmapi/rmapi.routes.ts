@@ -5,6 +5,12 @@ import { ENV } from "varlock/env";
 import { parseDistinguishedName } from "../../lib/client-cert.ts";
 import { getManifestProductUri, getManifestRmCertCn } from "../../lib/kraftwerk.ts";
 import { logger } from "../../lib/logger.ts";
+import {
+  type RmUser,
+  revokeUser,
+  setUserAdmin,
+  upsertUser,
+} from "../../services/users/users.service.ts";
 
 /**
  * RM (Rasenmaeher) product-integration API — endpoints the deployment app
@@ -93,7 +99,6 @@ const descriptionV1For = (language: string) => {
 
 export const rmRoutes = new Hono();
 const rmOnly = requireRmCaller();
-const noOp = (c: Context) => c.json({ success: true });
 
 rmRoutes.get("/api/v1/healthcheck", (c) =>
   c.json({ healthy: true, extra: "Battlelog RM API routes available" }),
@@ -130,10 +135,79 @@ rmRoutes.post("/api/v2/admin/clients/data", rmOnly, (c) =>
   c.json({ data: { url: battlelogUrl(), admin: true } }),
 );
 
-// User-cert lifecycle webhooks — acknowledged but not persisted (as before).
-// Wire these to a users table when callsign resolution is needed.
-rmRoutes.post("/api/v1/users/created", rmOnly, noOp);
-rmRoutes.post("/api/v1/users/revoked", rmOnly, noOp);
-rmRoutes.post("/api/v1/users/promoted", rmOnly, noOp);
-rmRoutes.post("/api/v1/users/demoted", rmOnly, noOp);
-rmRoutes.put("/api/v1/users/updated", rmOnly, noOp);
+/**
+ * User-cert lifecycle webhooks. These are what tell us who exists and who is an
+ * admin, which is what gates the ingest settings.
+ *
+ * RM treats a failure as a provisioning error, so anything recoverable answers
+ * {success: true} and logs instead — the same contract matrixrmapi's usercrud
+ * follows. Only a malformed request is worth failing.
+ */
+const rmUserFromBody = async (c: Context): Promise<RmUser | undefined> => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.uuid !== "string" || typeof body.callsign !== "string") {
+    return undefined;
+  }
+  return {
+    uuid: body.uuid,
+    callsign: body.callsign,
+    x509cert: typeof body.x509cert === "string" ? body.x509cert : "",
+  };
+};
+
+/** Runs `action` for a valid user payload, turning anything unexpected into a logged failure. */
+const userHook = (what: string, action: (user: RmUser) => Promise<void>) => async (c: Context) => {
+  const user = await rmUserFromBody(c);
+  if (!user) {
+    logger.error({ hook: what }, "RM user hook called with an unusable body");
+    return c.json({ success: false, error: "Invalid user payload" }, 400);
+  }
+  try {
+    await action(user);
+    logger.info({ hook: what, callsign: user.callsign }, "RM user hook applied");
+  } catch (err) {
+    // Deliberately not fatal to RM: the hook is replayable and the only thing
+    // we lose meanwhile is knowing this user is an admin.
+    logger.error({ err, hook: what, callsign: user.callsign }, "RM user hook failed");
+    return c.json({ success: false, error: `Could not apply ${what}` }, 500);
+  }
+  return c.json({ success: true });
+};
+
+rmRoutes.post(
+  "/api/v1/users/created",
+  rmOnly,
+  userHook("created", async (user) => {
+    await upsertUser(user);
+  }),
+);
+rmRoutes.post(
+  "/api/v1/users/revoked",
+  rmOnly,
+  userHook("revoked", async (user) => {
+    await revokeUser(user.uuid);
+  }),
+);
+rmRoutes.post(
+  "/api/v1/users/promoted",
+  rmOnly,
+  userHook("promoted", async (user) => {
+    // Promotion can arrive for a user we never saw created, so upsert first.
+    await upsertUser(user);
+    await setUserAdmin(user.uuid, true);
+  }),
+);
+rmRoutes.post(
+  "/api/v1/users/demoted",
+  rmOnly,
+  userHook("demoted", async (user) => {
+    await setUserAdmin(user.uuid, false);
+  }),
+);
+rmRoutes.put(
+  "/api/v1/users/updated",
+  rmOnly,
+  userHook("updated", async (user) => {
+    await upsertUser(user);
+  }),
+);

@@ -183,3 +183,73 @@ export const dashboards = pgTable(
 
 export type DashboardRow = typeof dashboards.$inferSelect;
 export type DashboardInsert = typeof dashboards.$inferInsert;
+
+/**
+ * Users, as RASENMAEHER tells us about them. We store them for exactly one
+ * reason: `isAdmin`, which gates who may change what gets ingested. RM is the
+ * source of truth, so every field here is written by the /rmapi user hooks and
+ * never by the app itself.
+ */
+export const users = pgTable("users", {
+  /** RM's person primary key, sent as `uuid` in the user CRUD payload. */
+  uuid: text("uuid").primaryKey(),
+  /**
+   * Not unique: RM can hand the same callsign to a new person after the old one
+   * is revoked, and a unique constraint made that a 500 on the /rmapi hook —
+   * which RM reads as a provisioning failure. {@link findUserByCn} prefers the
+   * live row instead.
+   */
+  callsign: text("callsign").notNull(),
+  /**
+   * CN of the user's client certificate, when it differs from the callsign.
+   * `createdBy` and the admin gate both work off the CN in the mTLS DN header,
+   * so this is what maps an incoming request back to an RM user.
+   */
+  certCn: text("cert_cn"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  /** Set when RM revokes the user's cert. Rows are kept: events still reference them. */
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type UserRow = typeof users.$inferSelect;
+export type UserInsert = typeof users.$inferInsert;
+
+export const ingestKindEnum = pgEnum("ingest_kind", ["tak", "matrix"]);
+
+/**
+ * One row per thing being ingested into the feed. This is the selection surface:
+ * an admin adds, edits and disables these at runtime, and the ingesters re-read
+ * them on every cycle rather than at boot.
+ *
+ * `config` is opaque here and validated per kind at the API boundary
+ * (routes/ingest/ingest.apiSchema.ts), the same way dashboard widget config is.
+ */
+export const ingestSources = pgTable("ingest_sources", {
+  id: uuid("id").primaryKey(),
+  kind: ingestKindEnum("kind").notNull(),
+  name: text("name").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  config: jsonb("config").notNull().default({}),
+  createdBy: text("created_by").notNull(),
+  updatedBy: text("updated_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type IngestSourceRow = typeof ingestSources.$inferSelect;
+export type IngestSourceInsert = typeof ingestSources.$inferInsert;
+
+/**
+ * Resume points for pull-based ingesters, one row per upstream feed. The value
+ * is whatever opaque token that upstream pages with — for Matrix, a /sync
+ * next_batch. The TAK stream is push-side and needs none.
+ */
+export const ingestCursors = pgTable("ingest_cursors", {
+  source: text("source").primaryKey(),
+  cursor: text("cursor").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type IngestCursorRow = typeof ingestCursors.$inferSelect;

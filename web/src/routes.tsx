@@ -19,6 +19,7 @@ import { Placeholder } from "./Placeholder.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
+import { IngestSettingsPage } from "./pages/IngestSettingsPage.tsx";
 
 // The current page renders full-strength; elsewhere links stay dimmed.
 const NavLink = ({ to, children }: { to: string; children: string }) => (
@@ -101,6 +102,7 @@ const RootLayout = () => {
           </Text>
           <NavLink to="/">Dashboards</NavLink>
           <NavLink to="/events">Event Explorer</NavLink>
+          <NavLink to="/ingest">Ingest</NavLink>
           <ConnectionIndicator />
         </Group>
       </AppShell.Header>
@@ -242,8 +244,15 @@ export const eventExplorerRoute = createRoute({
   component: EventExplorerPage,
 });
 
+export const ingestSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/ingest",
+  component: IngestSettingsPage,
+});
+
 export const routeTree = rootRoute.addChildren([
   dashboardsRoute,
   dashboardRoute,
   eventExplorerRoute,
+  ingestSettingsRoute,
 ]);
