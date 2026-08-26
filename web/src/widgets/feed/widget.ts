@@ -161,6 +161,30 @@ export const matchesFeed = (
   return true;
 };
 
+/**
+ * The filters this widget is currently narrowing by, in words.
+ *
+ * An empty feed is otherwise indistinguishable from a quiet one, and the
+ * difference matters: a filter naming something nothing produces will never fill
+ * up, however long you wait or whatever else you change. Filters AND together,
+ * so listing them all is what makes an impossible combination obvious.
+ */
+export const activeFilters = (config: FeedConfig): string[] => {
+  const parts: string[] = [];
+  if (config.types?.length) parts.push(`type: ${config.types.join(", ")}`);
+  if (config.tags?.length) parts.push(`tag: ${config.tags.join(", ")}`);
+  if (config.ingestSources?.length) {
+    parts.push(
+      config.ingestSources.length === 1
+        ? "one ingest setup"
+        : `${config.ingestSources.length} ingest setups`,
+    );
+  }
+  if (config.search) parts.push(`text: ${config.search}`);
+  if (config.createdBy) parts.push(`by: ${config.createdBy}`);
+  return parts;
+};
+
 const descriptor: WidgetDescriptor<FeedConfig> = {
   type: "feed",
   Icon: IconActivity,

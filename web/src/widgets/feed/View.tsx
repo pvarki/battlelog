@@ -13,6 +13,7 @@ import { useLiveEvents } from "../../live-events.ts";
 import { StaleNotice } from "../../StaleNotice.tsx";
 import { formatShortDateTime } from "../../time.ts";
 import {
+  activeFilters,
   columnWidth,
   dataValue,
   type FeedColumn,
@@ -178,6 +179,30 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
       <Center h="100%" p="sm">
         <Text c="dimmed" fz="xs" ta="center">
           Could not load events — new ones will still arrive on the live stream.
+        </Text>
+      </Center>
+    );
+  }
+
+  // An empty table reads as "nothing has happened". When the emptiness is the
+  // filter's doing, say so and name it — a filter for something nothing produces
+  // will never fill up, and no other setting can change that.
+  if (events.length === 0) {
+    const filters = activeFilters(config);
+    return (
+      <Center h="100%" p="sm">
+        <Text c="dimmed" fz="xs" ta="center">
+          {filters.length ? (
+            <>
+              Nothing matches this widget&apos;s filters.
+              <br />
+              {filters.join(" · ")}
+              <br />
+              All of them have to match.
+            </>
+          ) : (
+            "No events yet."
+          )}
         </Text>
       </Center>
     );

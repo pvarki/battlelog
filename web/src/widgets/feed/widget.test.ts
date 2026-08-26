@@ -1,6 +1,13 @@
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import type { EventResponse } from "../../api.ts";
-import descriptor, { columnWidth, dataValue, labelFor, matchesFeed, queryFor } from "./widget.ts";
+import descriptor, {
+  activeFilters,
+  columnWidth,
+  dataValue,
+  labelFor,
+  matchesFeed,
+  queryFor,
+} from "./widget.ts";
 
 test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
@@ -151,5 +158,26 @@ test("queryFor sends config filters plus extras' time ranges and gap-fillers", (
   ).toEqual({
     eventTimeFrom: "2026-08-20T09:00",
     createdAtTo: "2026-08-21T00:00",
+  });
+});
+
+/** A config as the schema would produce it, with only these fields set. */
+const cfg = (over: Record<string, unknown>) =>
+  descriptor.configSchema.parse({ ...descriptor.defaultConfig, ...over });
+
+describe("activeFilters", () => {
+  test("says nothing when the widget filters nothing", () => {
+    expect(activeFilters(cfg({}))).toEqual([]);
+  });
+
+  test("names each filter, so an impossible combination is visible", () => {
+    // The case that prompted this: a template feed filtered to a type nothing
+    // produces, where changing ingest settings could never help.
+    expect(activeFilters(cfg({ types: ["form-report"] }))).toEqual(["type: form-report"]);
+    expect(
+      activeFilters(
+        cfg({ types: ["form-report"], ingestSources: ["01920000-0000-7000-8000-0000000000aa"] }),
+      ),
+    ).toEqual(["type: form-report", "one ingest setup"]);
   });
 });
