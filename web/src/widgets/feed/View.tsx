@@ -181,36 +181,59 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const views = config.views ?? [];
   const { events, failed, arrived } = useLiveEvents({ limit: config.rows, query, match });
 
-  if (!events) {
-    return (
-      <Center h="100%">
-        <Loader size="sm" />
-      </Center>
-    );
-  }
+  // The chrome stays put whatever the rows are doing. An empty view used to
+  // return before the switcher rendered, which left nothing to tap: pick a view
+  // with no rows in it and you were stuck there.
+  const switcher = view ? (
+    <UnstyledButton
+      onClick={() => updateConfig({ ...config, activeViewId: nextViewId(config) })}
+      disabled={views.length < 2}
+      mb={4}
+      title={
+        views.length < 2
+          ? undefined
+          : `Tap for the next view: ${views.map((v) => v.label).join(" → ")}`
+      }
+    >
+      <Group gap={4} wrap="nowrap">
+        <Text fz="xs" fw={600}>
+          {view.label}
+        </Text>
+        {views.length > 1 && (
+          <Text fz="xs" c="dimmed">
+            {views.findIndex((v) => v.id === view.id) + 1}/{views.length} ▸
+          </Text>
+        )}
+      </Group>
+    </UnstyledButton>
+  ) : null;
 
-  // An empty table after a failed load would read as "no events matched".
-  if (failed && events.length === 0) {
-    return (
-      <Center h="100%" p="sm">
-        <Text c="dimmed" fz="xs" ta="center">
+  const body = () => {
+    if (!events) {
+      return (
+        <Center h="100%">
+          <Loader size="sm" />
+        </Center>
+      );
+    }
+    // An empty table after a failed load would read as "no events matched".
+    if (failed && events.length === 0) {
+      return (
+        <Text c="dimmed" fz="xs" ta="center" p="sm">
           Could not load events — new ones will still arrive on the live stream.
         </Text>
-      </Center>
-    );
-  }
-
-  // An empty table reads as "nothing has happened". When the emptiness is the
-  // filter's doing, say so and name it — a filter for something nothing produces
-  // will never fill up, and no other setting can change that.
-  if (events.length === 0) {
-    const filters = activeFilters(effectiveConfig(config));
-    return (
-      <Center h="100%" p="sm">
-        <Text c="dimmed" fz="xs" ta="center">
+      );
+    }
+    // An empty table reads as "nothing has happened". When the emptiness is the
+    // filter's doing, say so and name it — a filter for something nothing
+    // produces will never fill up, and no other setting can change that.
+    if (events.length === 0) {
+      const filters = activeFilters(effectiveConfig(config));
+      return (
+        <Text c="dimmed" fz="xs" ta="center" p="sm">
           {filters.length ? (
             <>
-              Nothing matches this widget&apos;s filters.
+              Nothing matches {view ? `the ${view.label} view` : "this widget's filters"}.
               <br />
               {filters.join(" · ")}
               <br />
@@ -220,9 +243,40 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
             "No events yet."
           )}
         </Text>
-      </Center>
+      );
+    }
+    return (
+      <FeedTable
+        columns={effectiveColumns(config)}
+        events={events}
+        arrived={arrived}
+        onColumnWidthChange={(columnId, width) =>
+          updateConfig({
+            ...config,
+            // A width belongs to the view's own columns when one is active.
+            ...(view
+              ? {
+                  views: (config.views ?? []).map((v) =>
+                    v.id === view.id
+                      ? {
+                          ...v,
+                          columns: v.columns.map((col) =>
+                            col.id === columnId ? { ...col, width: Math.round(width) } : col,
+                          ),
+                        }
+                      : v,
+                  ),
+                }
+              : {
+                  columns: config.columns.map((col) =>
+                    col.id === columnId ? { ...col, width: Math.round(width) } : col,
+                  ),
+                }),
+          })
+        }
+      />
     );
-  }
+  };
 
   return (
     <Box h="100%" style={{ position: "relative" }}>
@@ -241,61 +295,9 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
         <IconMaximize size={16} stroke={1.5} />
       </ActionIcon>
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
-        {failed && <StaleNotice />}
-        {view && (
-          // Tapping moves to the next view. Persisted, so the board reads the
-          // same to everyone looking at it.
-          <UnstyledButton
-            onClick={() => updateConfig({ ...config, activeViewId: nextViewId(config) })}
-            disabled={views.length < 2}
-            mb={4}
-            title={
-              views.length < 2
-                ? undefined
-                : `Tap for the next view: ${views.map((v) => v.label).join(" → ")}`
-            }
-          >
-            <Group gap={4} wrap="nowrap">
-              <Text fz="xs" fw={600}>
-                {view.label}
-              </Text>
-              {views.length > 1 && (
-                <Text fz="xs" c="dimmed">
-                  {views.findIndex((v) => v.id === view.id) + 1}/{views.length} ▸
-                </Text>
-              )}
-            </Group>
-          </UnstyledButton>
-        )}
-        <FeedTable
-          columns={effectiveColumns(config)}
-          events={events}
-          arrived={arrived}
-          onColumnWidthChange={(columnId, width) =>
-            updateConfig({
-              ...config,
-              // A width belongs to the view's own columns when one is active.
-              ...(view
-                ? {
-                    views: (config.views ?? []).map((v) =>
-                      v.id === view.id
-                        ? {
-                            ...v,
-                            columns: v.columns.map((col) =>
-                              col.id === columnId ? { ...col, width: Math.round(width) } : col,
-                            ),
-                          }
-                        : v,
-                    ),
-                  }
-                : {
-                    columns: config.columns.map((col) =>
-                      col.id === columnId ? { ...col, width: Math.round(width) } : col,
-                    ),
-                  }),
-            })
-          }
-        />
+        {failed && events !== null && events.length > 0 && <StaleNotice />}
+        {switcher}
+        {body()}
       </Box>
       {everOpened && (
         <Suspense fallback={null}>
