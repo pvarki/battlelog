@@ -14,6 +14,7 @@ import {
 import { MatrixClient } from "../../services/matrix/matrix.client.ts";
 import { toApiIngestSource, toApiIngestSourceName, transportStatuses } from "./ingest.apiSchema.ts";
 import type {
+  createMatrixRoomRoute,
   deleteIngestSourceRoute,
   listIngestSourceNamesRoute,
   listIngestSourcesRoute,
@@ -79,6 +80,50 @@ export const transportStatusHandler: RouteHandler<typeof transportStatusRoute> =
   c.json(transportStatuses(), 200);
 
 /**
+ * The deployment's Space, resolved from our own kraftwerk manifest.
+ *
+ * matrixrmapi builds the alias from the same deployment name and domain we
+ * already have, so it does not have to expose room ids to us.
+ */
+const spaceIdFor = async (
+  client: MatrixClient,
+): Promise<{ spaceId: string } | { error: string }> => {
+  const deployment = getManifestDeployment();
+  const domain = (getManifestProductDns() ?? "").split(".").slice(1).join(".");
+  if (!deployment || !domain) {
+    return { error: "Deployment name or domain missing from the manifest" };
+  }
+  const spaceId = await client.roomIdForAlias(`#${deployment}-space:${domain}`);
+  if (!spaceId) return { error: "Deployment Space not found on the homeserver" };
+  return { spaceId };
+};
+
+/**
+ * Create a room the ingester can read, inside the Space.
+ *
+ * This exists because there is otherwise no way to get one: a client creating a
+ * room turns on encryption by default and Matrix cannot undo it, so every room
+ * made the ordinary way is permanently unreadable to a consumer without megolm
+ * support. Rather than document that trap, we offer the room.
+ */
+export const createMatrixRoomHandler: RouteHandler<typeof createMatrixRoomRoute> = async (c) => {
+  const baseUrl = ENV.MATRIX_HOMESERVER_URL;
+  if (!baseUrl) return c.json({ error: "Matrix ingest is not configured" }, 503);
+  const client = new MatrixClient(baseUrl);
+  try {
+    await client.setup();
+    const space = await spaceIdFor(client);
+    if ("error" in space) return c.json({ error: space.error }, 503);
+    const roomId = await client.createIngestRoom(c.req.valid("json").name, space.spaceId);
+    logger.info({ roomId, by: c.get("userCn") }, "created an ingestible Matrix room");
+    return c.json({ roomId }, 201);
+  } catch (err) {
+    logger.error({ err }, "could not create a Matrix room");
+    return c.json({ error: "Could not create the room" }, 503);
+  }
+};
+
+/**
  * Rooms in the deployment's Matrix Space, so the settings page can offer a list
  * instead of asking someone to type a room ID.
  *
@@ -97,9 +142,9 @@ export const listMatrixRoomsHandler: RouteHandler<typeof listMatrixRoomsRoute> =
   const client = new MatrixClient(baseUrl);
   try {
     await client.setup();
-    const spaceId = await client.roomIdForAlias(`#${deployment}-space:${domain}`);
-    if (!spaceId) return c.json({ error: "Deployment Space not found on the homeserver" }, 503);
-    const rooms = await client.spaceRooms(spaceId);
+    const space = await spaceIdFor(client);
+    if ("error" in space) return c.json({ error: space.error }, 503);
+    const rooms = await client.spaceRooms(space.spaceId);
     return c.json(
       rooms.filter((room) => !room.isSpace),
       200,

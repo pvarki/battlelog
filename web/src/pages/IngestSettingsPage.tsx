@@ -360,6 +360,31 @@ const AddSourceModal = ({
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [madeRooms, setMadeRooms] = useState<MatrixRoom[]>([]);
+
+  /**
+   * Make a room the ingester can read. Needed because a room created in a Matrix
+   * client is encrypted by default and Matrix cannot undo that, so an ingestible
+   * room has to be made this way.
+   */
+  const createRoom = async () => {
+    if (!name.trim()) return;
+    setCreating(true);
+    const res = await ingestApi.ingest.matrix.rooms.$post({ json: { name: name.trim() } });
+    setCreating(false);
+    if (!res.ok) {
+      notifications.show({ color: "red", message: `Could not create the room (${res.status})` });
+      return;
+    }
+    const { roomId: made } = (await res.json()) as { roomId: string };
+    setMadeRooms((prev) => [...prev, { roomId: made, name: `${name.trim()} (new)` }]);
+    setRoomId(made);
+    notifications.show({
+      color: "teal",
+      message: "Room created in the Space, unencrypted and ready to ingest.",
+    });
+  };
 
   const submit = async () => {
     if (!kind || !name.trim()) return;
@@ -404,18 +429,36 @@ const AddSourceModal = ({
           data-autofocus
         />
         {kind === "matrix" && (
-          <Select
-            label="Room"
-            description="Rooms in this deployment's Matrix Space."
-            data={rooms.map((room) => ({
-              value: room.roomId,
-              label: room.name ?? room.alias ?? room.roomId,
-            }))}
-            value={roomId}
-            onChange={(value) => setRoomId(value ?? "")}
-            searchable
-            nothingFoundMessage="No rooms found"
-          />
+          <>
+            <Select
+              label="Room"
+              description="Rooms in this deployment's Matrix Space."
+              data={[...madeRooms, ...rooms].map((room) => ({
+                value: room.roomId,
+                label: room.name ?? room.alias ?? room.roomId,
+              }))}
+              value={roomId}
+              onChange={(value) => setRoomId(value ?? "")}
+              searchable
+              nothingFoundMessage="No rooms found"
+            />
+            <Alert color="gray" variant="light">
+              The deployment's standard rooms are end-to-end encrypted and cannot be read, and a
+              room made in Element is encrypted by default — Matrix cannot undo that afterwards.
+              Create one here instead and it will be unencrypted, inside the Space, and joinable by
+              anyone in it.
+              <Button
+                mt="sm"
+                size="xs"
+                variant="light"
+                loading={creating}
+                disabled={!name.trim()}
+                onClick={() => void createRoom()}
+              >
+                Create "{name.trim() || "…"}" as an ingestible room
+              </Button>
+            </Alert>
+          </>
         )}
         {kind === "tak" && (
           <Text fz="sm" c="dimmed">

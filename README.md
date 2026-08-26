@@ -146,12 +146,21 @@ Reads messages from selected rooms in the deployment's Matrix Space as the
 product interop API using the same client certificate, so no Matrix secret is
 ever put in this container's environment.
 
+The ingester joins the rooms it is told to ingest, so adding a setup is enough:
+a room the Space makes joinable is joined outright, and an invite-only one has
+its invite accepted on the next cycle. A room it is not in reports `not-joined`
+rather than looking healthy while delivering nothing.
+
 **The standard rooms are end-to-end encrypted, and joining a room does not change
-that** — megolm keys travel client to device, never through the server. Those
-rooms arrive as `m.room.encrypted` and are skipped, with the source's status
-reading "Encrypted, unreadable" rather than sitting silently at zero. Only a room
-created without encryption yields plaintext until this grows a crypto-capable
-client.
+that** — megolm keys travel client to device, never through the server. Encryption
+is read from room state when joining, so an unreadable room says so immediately
+instead of looking fine until someone speaks.
+
+**A room created in a Matrix client is encrypted by default and Matrix cannot undo
+it**, which makes every room made the ordinary way permanently unreadable here.
+`POST /api/v1/ingest/matrix/rooms` creates one that is not: unencrypted, inside
+the Space, joinable by anyone in it, and with a topic saying its contents are
+recorded. The settings page offers it as a button when adding a Matrix source.
 
 There is no backfill: the first `/sync` keeps only its cursor. That cursor is
 persisted, so a restart resumes rather than replaying.

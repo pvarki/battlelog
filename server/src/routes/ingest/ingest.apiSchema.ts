@@ -152,6 +152,10 @@ export const ingestSourceNameSchema = z
   })
   .openapi("IngestSourceName");
 
+export const createMatrixRoomRequestSchema = z
+  .object({ name: z.string().min(1).max(100) })
+  .openapi("CreateMatrixRoomRequest");
+
 export const errorResponseSchema = z.object({ error: z.string() }).openapi("ErrorResponse");
 
 /** Config still has to be re-checked here: rows predate any later schema change. */

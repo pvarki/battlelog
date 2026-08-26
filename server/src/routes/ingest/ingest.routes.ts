@@ -3,6 +3,7 @@ import { requireAdmin } from "../../middleware/require-admin.ts";
 import { userIdentity } from "../../middleware/user-identity.ts";
 import {
   createIngestSourceRequestSchema,
+  createMatrixRoomRequestSchema,
   errorResponseSchema,
   ingestSourceNameSchema,
   ingestSourceResponseSchema,
@@ -11,6 +12,7 @@ import {
   updateIngestSourceRequestSchema,
 } from "./ingest.apiSchema.ts";
 import {
+  createMatrixRoomHandler,
   deleteIngestSourceHandler,
   listIngestSourceNamesHandler,
   listIngestSourcesHandler,
@@ -116,6 +118,19 @@ export const transportStatusRoute = createRoute({
   },
 });
 
+export const createMatrixRoomRoute = createRoute({
+  method: "post",
+  path: "/ingest/matrix/rooms",
+  middleware: [userIdentity({ required: true }), requireAdmin()] as const,
+  request: { body: jsonContent(createMatrixRoomRequestSchema, "Room to create") },
+  responses: {
+    201: jsonContent(z.object({ roomId: z.string() }), "Created room"),
+    400: jsonContent(errorResponseSchema, "Invalid input"),
+    503: jsonContent(errorResponseSchema, "Matrix is not configured or not reachable"),
+    ...adminErrors,
+  },
+});
+
 export const listMatrixRoomsRoute = createRoute({
   method: "get",
   path: "/ingest/matrix/rooms",
@@ -138,6 +153,7 @@ export const ingestRoutes = new OpenAPIHono({
   .openapi(postIngestSourceRoute, postIngestSourceHandler)
   .openapi(transportStatusRoute, transportStatusHandler)
   .openapi(listMatrixRoomsRoute, listMatrixRoomsHandler)
+  .openapi(createMatrixRoomRoute, createMatrixRoomHandler)
   .openapi(patchIngestSourceRoute, patchIngestSourceHandler)
   .openapi(deleteIngestSourceRoute, deleteIngestSourceHandler);
 

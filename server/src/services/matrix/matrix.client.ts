@@ -143,11 +143,11 @@ export class MatrixClient {
     return this.call<MatrixSyncResponse>("/_matrix/client/v3/sync", params, opts.signal);
   }
 
-  private async post<T>(path: string): Promise<T> {
+  private async post<T>(path: string, body: unknown = {}): Promise<T> {
     const res = await fetch(new URL(path, this.baseUrl), {
       method: "POST",
       headers: { ...this.authHeaders, "content-type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(body),
     });
     const text = await res.text();
     if (!res.ok) {
@@ -194,6 +194,78 @@ export class MatrixClient {
       // No such state event: the room is not encrypted.
       if (err instanceof MatrixError && err.status === 404) return false;
       throw err;
+    }
+  }
+
+  /**
+   * Create a room the ingester can actually read, and attach it to the Space.
+   *
+   * Deliberately without `m.room.encryption`: a client creating a private room
+   * turns encryption on by default, and Matrix cannot undo that afterwards, so a
+   * room meant to be ingested has to be made this way from the start. The topic
+   * says as much, because a room whose contents are logged elsewhere should not
+   * be a surprise to the people typing in it.
+   *
+   * The join rule mirrors the deployment's other rooms: anyone in the Space can
+   * join, so nobody has to be invited one at a time.
+   */
+  async createIngestRoom(name: string, spaceId: string): Promise<string> {
+    const created = await this.post<{ room_id: string }>("/_matrix/client/v3/createRoom", {
+      name,
+      preset: "private_chat",
+      visibility: "private",
+      topic: `Messages here are recorded into BattleLog's event feed. Not end-to-end encrypted.`,
+      // The one thing that must not be here is an m.room.encryption event.
+      initial_state: [
+        {
+          type: "m.room.join_rules",
+          state_key: "",
+          content: {
+            join_rule: "restricted",
+            allow: [{ type: "m.room_membership", room_id: spaceId }],
+          },
+        },
+        {
+          type: "m.room.history_visibility",
+          state_key: "",
+          content: { history_visibility: "joined" },
+        },
+      ],
+      // Room version 8+ is required for restricted join rules.
+      room_version: "10",
+    });
+
+    // Attach it to the Space so it shows up for everyone. matrixrmapi lowers the
+    // m.space.child level to 0, so an ordinary member may do this.
+    await this.putState(spaceId, "m.space.child", created.room_id, {
+      via: [this.mxid?.split(":")[1] ?? ""],
+      suggested: true,
+    });
+    return created.room_id;
+  }
+
+  private async putState(
+    roomId: string,
+    type: string,
+    stateKey: string,
+    content: unknown,
+  ): Promise<void> {
+    const res = await fetch(
+      new URL(
+        `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/${type}/${encodeURIComponent(stateKey)}`,
+        this.baseUrl,
+      ),
+      {
+        method: "PUT",
+        headers: { ...this.authHeaders, "content-type": "application/json" },
+        body: JSON.stringify(content),
+      },
+    );
+    if (!res.ok) {
+      throw new MatrixError(
+        `state ${type} on ${roomId} returned ${res.status}: ${(await res.text()).slice(0, 200)}`,
+        res.status,
+      );
     }
   }
 
