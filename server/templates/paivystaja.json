@@ -164,22 +164,22 @@
             "dataPath": ""
           },
           {
-            "id": "createdBy",
-            "label": "Lähde",
-            "source": "createdBy",
-            "dataPath": ""
-          },
-          {
             "id": "d1",
-            "label": "",
+            "label": "Sotapäiväkirja",
             "source": "data",
             "dataPath": "sotap-iv-kirja"
           },
           {
             "id": "d2",
-            "label": "",
+            "label": "Desk",
             "source": "data",
-            "dataPath": "body"
+            "dataPath": "desk"
+          },
+          {
+            "id": "createdBy",
+            "label": "Lähde",
+            "source": "createdBy",
+            "dataPath": ""
           }
         ]
       },

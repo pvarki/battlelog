@@ -162,30 +162,6 @@ export const matchesFeed = (
 };
 
 /**
- * Data keys present on the events shown, for a column to cycle through.
- *
- * Taken from the rows rather than from a schema because `data` has no schema:
- * its shape follows `type`, so one feed showing form entries and ingested
- * messages has two different sets of keys, and only the rows know which.
- */
-export const dataFieldsOf = (events: { data?: unknown }[]): string[] => {
-  const keys = new Set<string>();
-  for (const e of events) {
-    if (e.data && typeof e.data === "object" && !Array.isArray(e.data)) {
-      for (const k of Object.keys(e.data)) keys.add(k);
-    }
-  }
-  return [...keys].sort();
-};
-
-/** The next field to show, wrapping. An unknown current field starts at the top. */
-export const nextDataField = (current: string, fields: string[]): string => {
-  if (!fields.length) return current;
-  const at = fields.indexOf(current);
-  return fields[(at + 1) % fields.length] ?? current;
-};
-
-/**
  * The filters this widget is currently narrowing by, in words.
  *
  * An empty feed is otherwise indistinguishable from a quiet one, and the

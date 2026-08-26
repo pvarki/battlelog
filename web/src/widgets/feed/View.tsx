@@ -15,7 +15,6 @@ import { formatShortDateTime } from "../../time.ts";
 import {
   activeFilters,
   columnWidth,
-  dataFieldsOf,
   dataValue,
   type FeedColumn,
   type FeedConfig,
@@ -24,7 +23,6 @@ import {
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
   matchesFeed,
-  nextDataField,
   queryFor,
 } from "./widget.ts";
 
@@ -48,7 +46,6 @@ export const FeedTable = ({
   arrived,
   onRowClick,
   onColumnWidthChange,
-  onColumnFieldChange,
 }: {
   columns: FeedColumn[];
   events: EventResponse[];
@@ -56,12 +53,7 @@ export const FeedTable = ({
   arrived?: ReadonlySet<string>;
   onRowClick?: (event: EventResponse) => void;
   onColumnWidthChange?: (columnId: string, width: number) => void;
-  /** Cycle a data column to another field. Absent = columns are not tappable. */
-  onColumnFieldChange?: (columnId: string, dataPath: string) => void;
 }) => {
-  // Which data fields exist depends on what is in the feed right now, so it is
-  // read from the rows on every render rather than configured.
-  const dataFields = dataFieldsOf(events);
   const totalWidth = columns.reduce((sum, col) => sum + columnWidth(col), 0);
   const startColumnResize = (col: FeedColumn, event: ReactPointerEvent) => {
     if (!onColumnWidthChange) return;
@@ -110,29 +102,7 @@ export const FeedTable = ({
       <Table.Thead>
         <Table.Tr>
           {columns.map((col) => (
-            <Table.Th
-              key={col.id}
-              style={{
-                position: "relative",
-                cursor: onColumnFieldChange && col.source === "data" ? "pointer" : undefined,
-                userSelect: "none",
-              }}
-              // Tapping a data column moves it to the next field the rows carry.
-              // A feed mixing form entries with ingested messages has no single
-              // right field, so the choice belongs where the data is visible.
-              onClick={
-                onColumnFieldChange && col.source === "data"
-                  ? () => onColumnFieldChange(col.id, nextDataField(col.dataPath, dataFields))
-                  : undefined
-              }
-              title={
-                onColumnFieldChange && col.source === "data"
-                  ? dataFields.length
-                    ? `Tap to show the next field: ${dataFields.join(", ")}`
-                    : "No data fields in these events"
-                  : undefined
-              }
-            >
+            <Table.Th key={col.id} style={{ position: "relative" }}>
               {labelFor(col)}
               {onColumnWidthChange && (
                 <Box
@@ -265,15 +235,6 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
               ...config,
               columns: config.columns.map((col) =>
                 col.id === columnId ? { ...col, width: Math.round(width) } : col,
-              ),
-            })
-          }
-          onColumnFieldChange={(columnId, dataPath) =>
-            updateConfig({
-              ...config,
-              columns: config.columns.map((col) =>
-                // The label follows the field unless it was named by hand.
-                col.id === columnId ? { ...col, dataPath } : col,
               ),
             })
           }

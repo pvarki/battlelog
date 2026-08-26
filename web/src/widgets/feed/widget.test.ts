@@ -3,11 +3,9 @@ import type { EventResponse } from "../../api.ts";
 import descriptor, {
   activeFilters,
   columnWidth,
-  dataFieldsOf,
   dataValue,
   labelFor,
   matchesFeed,
-  nextDataField,
   queryFor,
 } from "./widget.ts";
 
@@ -181,37 +179,5 @@ describe("activeFilters", () => {
         cfg({ types: ["form-report"], ingestSources: ["01920000-0000-7000-8000-0000000000aa"] }),
       ),
     ).toEqual(["type: form-report", "one ingest setup"]);
-  });
-});
-
-describe("cycling a data column through the fields the rows carry", () => {
-  const row = (data: unknown) => ({ data }) as unknown as EventResponse;
-
-  test("collects the keys across mixed event shapes", () => {
-    // A feed showing both form entries and ingested messages: two different
-    // shapes, and only the rows know what is available.
-    expect(
-      dataFieldsOf([row({ desk: "A", verkko: "B" }), row({ body: "hi", sender: "@a:b" })]),
-    ).toEqual(["body", "desk", "sender", "verkko"]);
-  });
-
-  test("ignores rows with no usable data", () => {
-    expect(dataFieldsOf([row(null), row(undefined), row("nope"), row([1, 2])])).toEqual([]);
-    expect(dataFieldsOf([])).toEqual([]);
-  });
-
-  test("cycles and wraps", () => {
-    const fields = ["body", "sender"];
-    expect(nextDataField("body", fields)).toBe("sender");
-    expect(nextDataField("sender", fields)).toBe("body");
-  });
-
-  test("an unset or unknown field starts at the first one", () => {
-    expect(nextDataField("", ["body", "sender"])).toBe("body");
-    expect(nextDataField("gone", ["body", "sender"])).toBe("body");
-  });
-
-  test("with no fields to show it stays put rather than clearing", () => {
-    expect(nextDataField("body", [])).toBe("body");
   });
 });
