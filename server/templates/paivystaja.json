@@ -7,17 +7,38 @@
       "config": {
         "title": "Tilanne taulukko",
         "columns": [
-          { "id": "A", "kind": "text", "label": "A" },
-          { "id": "B", "kind": "text", "label": "B" },
-          { "id": "C", "kind": "text", "label": "C" },
-          { "id": "D", "kind": "text", "label": "D" }
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          }
         ],
         "rowCount": 10,
         "columnCount": 4,
         "hideRowNumbers": true,
         "hideColumnHeaders": true
       },
-      "layout": { "h": 11, "w": 20, "x": 28, "y": 0 }
+      "layout": {
+        "h": 11,
+        "w": 20,
+        "x": 28,
+        "y": 0
+      }
     },
     {
       "id": "604331f7-5e34-4128-9f72-23ebbf36a2a0",
@@ -25,13 +46,23 @@
       "config": {
         "title": "Taistelurytmi"
       },
-      "layout": { "h": 12, "w": 15, "x": 0, "y": 11 }
+      "layout": {
+        "h": 12,
+        "w": 15,
+        "x": 0,
+        "y": 11
+      }
     },
     {
       "id": "2337c23b-3b10-4c78-8ec4-25ca4bc05f90",
       "type": "note",
       "config": {},
-      "layout": { "h": 12, "w": 13, "x": 15, "y": 11 }
+      "layout": {
+        "h": 12,
+        "w": 13,
+        "x": 15,
+        "y": 11
+      }
     },
     {
       "id": "14819722-0dad-4a01-888e-3f59b524f4fc",
@@ -106,7 +137,12 @@
         ],
         "reportType": "report"
       },
-      "layout": { "h": 11, "w": 8, "x": 20, "y": 0 }
+      "layout": {
+        "h": 11,
+        "w": 8,
+        "x": 20,
+        "y": 0
+      }
     },
     {
       "id": "65564a32-b9ad-449f-818b-fd05265b8a97",
@@ -172,7 +208,12 @@
           }
         ]
       },
-      "layout": { "h": 11, "w": 20, "x": 0, "y": 0 }
+      "layout": {
+        "h": 11,
+        "w": 20,
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "id": "e7b9e2c8-9782-430f-bdad-197a80f3fa94",
@@ -180,19 +221,89 @@
       "config": {
         "title": "Huolto",
         "columns": [
-          { "id": "A", "kind": "text", "label": "A" },
-          { "id": "B", "kind": "text", "label": "B" },
-          { "id": "C", "kind": "text", "label": "C" },
-          { "id": "D", "kind": "text", "label": "D" },
-          { "id": "E", "kind": "text", "label": "E" },
-          { "id": "F", "kind": "text", "label": "F" }
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          },
+          {
+            "id": "E",
+            "kind": "text",
+            "label": "E"
+          },
+          {
+            "id": "F",
+            "kind": "text",
+            "label": "F"
+          }
         ],
         "rowCount": 10,
         "columnCount": 6,
         "hideRowNumbers": true,
         "hideColumnHeaders": true
       },
-      "layout": { "h": 12, "w": 20, "x": 28, "y": 11 }
+      "layout": {
+        "h": 12,
+        "w": 20,
+        "x": 28,
+        "y": 11
+      }
+    },
+    {
+      "id": "b7e4c1a0-6f3d-4b52-9c81-2ad5e0f4c7b9",
+      "type": "feed",
+      "layout": {
+        "x": 0,
+        "y": 23,
+        "w": 28,
+        "h": 12
+      },
+      "config": {
+        "title": "Viestit",
+        "rows": 20,
+        "types": ["matrix.message", "tak-chat", "tak-cot"],
+        "columns": [
+          {
+            "id": "time",
+            "label": "Aika",
+            "source": "time",
+            "dataPath": ""
+          },
+          {
+            "id": "header",
+            "label": "Viesti",
+            "source": "header",
+            "dataPath": ""
+          },
+          {
+            "id": "createdBy",
+            "label": "Lähettäjä",
+            "source": "createdBy",
+            "dataPath": ""
+          },
+          {
+            "id": "tags",
+            "label": "Lähde",
+            "source": "tags",
+            "dataPath": ""
+          }
+        ]
+      }
     }
   ]
 }
