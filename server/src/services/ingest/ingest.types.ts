@@ -64,6 +64,12 @@ export type IngestStatusName =
   | "connecting"
   | "connected"
   | "error"
+  /**
+   * The room exists and is selectable, but the bot is not a member, so /sync
+   * returns nothing for it. Distinct from "connected" on purpose: a source that
+   * looks fine while silently delivering nothing is the worst state to be in.
+   */
+  | "not-joined"
   /** Joined and reachable, but the room is end-to-end encrypted and unreadable. */
   | "encrypted";
 

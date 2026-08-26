@@ -46,3 +46,15 @@ export const countEvent = (key: string, at: Date = new Date()): void => {
 };
 
 export const getStatus = (key: string): IngestStatus => current(key);
+
+/**
+ * The Matrix ingest bot's MXID, once it has told us. The settings page needs it:
+ * "invite the bot" is useless without saying which account.
+ */
+let matrixBotUserId: string | undefined;
+
+export const setMatrixBotUserId = (mxid: string | undefined): void => {
+  matrixBotUserId = mxid;
+};
+
+export const getMatrixBotUserId = (): string | undefined => matrixBotUserId;

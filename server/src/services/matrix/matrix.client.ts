@@ -2,6 +2,7 @@ import "varlock/auto-load";
 import { ENV } from "varlock/env";
 import { logger } from "../../lib/logger.ts";
 import { productAuthzGet, rmInteropAdd, siblingProductHost } from "../../lib/mtls-client.ts";
+import { setMatrixBotUserId } from "../ingest/ingest.state.ts";
 
 /**
  * Client-Server API calls against the deployment's Synapse, as the ingest bot.
@@ -48,6 +49,8 @@ export type MatrixRoomSummary = {
 
 export class MatrixClient {
   private token: string | undefined;
+  /** The bot's MXID, so a "you have to invite this account" message can name it. */
+  private mxid: string | undefined;
 
   constructor(private readonly baseUrl: string) {}
 
@@ -68,12 +71,28 @@ export class MatrixClient {
       throw new Error(`${product} returned authz type "${authz.type}" with no token`);
     }
     this.token = authz.token;
-    logger.info({ product, host }, "matrix ingest: got the ingest bot token");
+    // whoami both confirms the token works and tells us who we are, which is
+    // what a "invite this account" message has to name.
+    try {
+      const me = await this.call<{ user_id?: string }>("/_matrix/client/v3/account/whoami", {});
+      this.mxid = me.user_id;
+      setMatrixBotUserId(me.user_id);
+    } catch (err) {
+      logger.warn({ err }, "matrix ingest: could not read the bot's own user id");
+    }
+    logger.info({ product, host, botUserId: this.mxid }, "matrix ingest: got the ingest bot token");
   }
 
   /** Drop the cached token so the next call fetches a fresh one. */
   forgetToken(): void {
     this.token = undefined;
+    this.mxid = undefined;
+    setMatrixBotUserId(undefined);
+  }
+
+  /** The bot's MXID once known, from whoami. */
+  get userId(): string | undefined {
+    return this.mxid;
   }
 
   get hasToken(): boolean {
@@ -122,6 +141,60 @@ export class MatrixClient {
     };
     if (opts.since) params.since = opts.since;
     return this.call<MatrixSyncResponse>("/_matrix/client/v3/sync", params, opts.signal);
+  }
+
+  private async post<T>(path: string): Promise<T> {
+    const res = await fetch(new URL(path, this.baseUrl), {
+      method: "POST",
+      headers: { ...this.authHeaders, "content-type": "application/json" },
+      body: "{}",
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      let errcode: string | undefined;
+      try {
+        errcode = (JSON.parse(text) as { errcode?: string }).errcode;
+      } catch {
+        // A non-JSON error body is still an error, just a less useful one.
+      }
+      throw new MatrixError(
+        `${path} returned ${res.status}: ${text.slice(0, 200)}`,
+        res.status,
+        errcode,
+      );
+    }
+    return JSON.parse(text) as T;
+  }
+
+  /**
+   * Join a room, or accept a pending invite to it — in Matrix those are the same
+   * call, which is what makes the bot able to sort itself out. Already being a
+   * member is a success, so this is safe to retry.
+   *
+   * Fails with 403 for an invite-only room nobody has invited us to. That is not
+   * an error to retry away: a person has to invite the bot.
+   */
+  async joinRoom(roomId: string): Promise<void> {
+    await this.post(`/_matrix/client/v3/join/${encodeURIComponent(roomId)}`);
+  }
+
+  /**
+   * Whether a room is end-to-end encrypted, read from its state rather than
+   * inferred from traffic — so an unreadable room can be reported the moment we
+   * join it instead of the first time somebody speaks.
+   */
+  async isEncrypted(roomId: string): Promise<boolean> {
+    try {
+      await this.call<unknown>(
+        `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/m.room.encryption`,
+        {},
+      );
+      return true;
+    } catch (err) {
+      // No such state event: the room is not encrypted.
+      if (err instanceof MatrixError && err.status === 404) return false;
+      throw err;
+    }
   }
 
   async roomIdForAlias(alias: string): Promise<string | undefined> {

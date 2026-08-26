@@ -40,7 +40,7 @@ type IngestSource = {
   enabled: boolean;
   config: Record<string, unknown>;
   status: {
-    status: "disabled" | "connecting" | "connected" | "error" | "encrypted";
+    status: "disabled" | "connecting" | "connected" | "error" | "not-joined" | "encrypted";
     lastError?: string;
     lastEventAt?: string;
     eventCount: number;
@@ -53,6 +53,7 @@ const STATUS_LOOK: Record<IngestSource["status"]["status"], { c: string; label: 
   connected: { c: "teal", label: "Live" },
   connecting: { c: "yellow", label: "Connecting" },
   error: { c: "red", label: "Error" },
+  "not-joined": { c: "orange", label: "Bot not in room" },
   encrypted: { c: "orange", label: "Encrypted, unreadable" },
   disabled: { c: "gray", label: "Off" },
 };
@@ -109,6 +110,7 @@ export const IngestSettingsPage = () => {
   const [forbidden, setForbidden] = useState(false);
   const [adding, setAdding] = useState<"tak" | "matrix" | null>(null);
   const [opened, setOpened] = useState<string[]>([]);
+  const [botUserId, setBotUserId] = useState<string | null>(null);
 
   // useEffectEvent: reload is recreated every render but the polling effect must
   // not restart because of it.
@@ -121,6 +123,10 @@ export const IngestSettingsPage = () => {
     }
     if (!res.ok) throw new Error(`Failed to load ingest sources (${res.status})`);
     setSources((await res.json()) as IngestSource[]);
+    // Who to invite, for the not-joined case.
+    const status = await ingestApi.ingest.status.$get();
+    if (status.ok)
+      setBotUserId(((await status.json()) as { matrixBotUserId: string | null }).matrixBotUserId);
     setLoading(false);
   });
 
@@ -259,6 +265,20 @@ export const IngestSettingsPage = () => {
               </ActionIcon>
             </Group>
             <Accordion.Panel>
+              {source.status.status === "not-joined" && (
+                <Alert
+                  color="orange"
+                  icon={<IconAlertTriangle size={16} />}
+                  mb="sm"
+                  title="The bot is not in this room"
+                >
+                  Nothing from it reaches the feed until it is. A room the deployment Space makes
+                  joinable is joined automatically within a few seconds; an invite-only room needs a
+                  member to invite <strong>{botUserId ?? "the ingest bot"}</strong> — the invite is
+                  then accepted on its own, no restart needed.
+                </Alert>
+              )}
+
               {source.status.status === "encrypted" && (
                 <Alert
                   color="orange"

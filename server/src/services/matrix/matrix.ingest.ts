@@ -72,11 +72,67 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
   let stopped = false;
   /** Rooms we have already complained about, so one warning each, not one per poll. */
   const warnedEncrypted = new Set<string>();
+  /** Rooms we have confirmed membership of, so the join is attempted once. */
+  const joined = new Set<string>();
+  /** One "cannot join" warning per room, cleared when we get in. */
+  const warnedNotJoined = new Set<string>();
 
   const pause = (ms: number) =>
     new Promise((resolve) => {
       setTimeout(resolve, ms);
     });
+
+  /**
+   * Make sure we are in a room we have been told to ingest, and report what we
+   * find. Called for every configured room until it is joined.
+   *
+   * Joining is on us rather than on matrixrmapi: it only sweeps rooms at its own
+   * startup, so a room created afterwards would never get the bot, and an invite
+   * would sit unaccepted forever. A room the space makes joinable we simply
+   * join; an invite-only one needs a person, and says so.
+   */
+  const ensureJoined = async (roomId: string, sourceId: string): Promise<boolean> => {
+    if (joined.has(roomId)) return true;
+    try {
+      await client.joinRoom(roomId);
+      joined.add(roomId);
+    } catch (err) {
+      const forbidden = err instanceof MatrixError && err.status === 403;
+      setStatus(sourceId, "not-joined", forbidden ? "Invite the bot to this room" : String(err));
+      if (!warnedNotJoined.has(roomId)) {
+        warnedNotJoined.add(roomId);
+        logger.warn(
+          { err, roomId, botUserId: client.userId },
+          forbidden
+            ? "matrix ingest: cannot join this room by itself, a member has to invite the bot"
+            : "matrix ingest: could not join room",
+        );
+      }
+      return false;
+    }
+    warnedNotJoined.delete(roomId);
+    logger.info({ roomId }, "matrix ingest: joined room");
+
+    // Read the room's own state rather than waiting for an encrypted message:
+    // an unreadable room should say so before anyone wastes time wondering.
+    try {
+      if (await client.isEncrypted(roomId)) {
+        setStatus(sourceId, "encrypted");
+        if (!warnedEncrypted.has(roomId)) {
+          warnedEncrypted.add(roomId);
+          logger.warn(
+            { roomId },
+            "matrix ingest: room is end-to-end encrypted, its messages cannot be read",
+          );
+        }
+        return true;
+      }
+    } catch (err) {
+      logger.warn({ err, roomId }, "matrix ingest: could not read the room's encryption state");
+    }
+    setStatus(sourceId, "connected");
+    return true;
+  };
 
   const handleRoom = async (
     roomId: string,
@@ -141,9 +197,21 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
       return { polled: false };
     }
 
+    // Get into anything we are not in yet. A room we cannot join is left out of
+    // the filter — /sync would return nothing for it anyway, and its source
+    // already says why.
+    const syncable: string[] = [];
+    for (const [roomId, target] of byRoom) {
+      if (await ensureJoined(roomId, target.sourceId)) syncable.push(roomId);
+    }
+    if (!syncable.length) {
+      setStatus(MATRIX, "not-joined", "Not a member of any selected room");
+      return { polled: false };
+    }
+
     const body = await client.sync({
       since,
-      filter: syncFilter([...byRoom.keys()]),
+      filter: syncFilter(syncable),
       // First call returns at once: we want its cursor, not the history that
       // would otherwise arrive with it.
       timeoutMs: since ? SYNC_TIMEOUT_MS : 0,
@@ -154,7 +222,7 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
     setStatus(MATRIX, "connected");
 
     if (!since) {
-      logger.info({ rooms: byRoom.size }, "matrix ingest started, reading from now on");
+      logger.info({ rooms: syncable.length }, "matrix ingest started, reading from now on");
       return { polled: true, cursor: next };
     }
 

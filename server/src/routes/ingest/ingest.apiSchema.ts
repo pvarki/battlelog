@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import type { IngestSourceRow } from "../../db/schema.ts";
-import { getStatus, transportKey } from "../../services/ingest/ingest.state.ts";
+import { getMatrixBotUserId, getStatus, transportKey } from "../../services/ingest/ingest.state.ts";
 import type { IngestKind, IngestStatus } from "../../services/ingest/ingest.types.ts";
 
 /**
@@ -65,7 +65,7 @@ const ingestKindSchema = z.enum(["tak", "matrix"]);
 
 const ingestStatusSchema = z
   .object({
-    status: z.enum(["disabled", "connecting", "connected", "error", "encrypted"]),
+    status: z.enum(["disabled", "connecting", "connected", "error", "not-joined", "encrypted"]),
     lastError: z.string().optional(),
     lastEventAt: z.string().optional(),
     eventCount: z.number().int(),
@@ -123,6 +123,8 @@ export const transportStatusResponseSchema = z
   .object({
     tak: ingestStatusSchema,
     matrix: ingestStatusSchema,
+    /** The ingest bot's MXID — who to invite to an invite-only room. */
+    matrixBotUserId: z.string().nullable(),
   })
   .openapi("IngestTransportStatus");
 
@@ -175,4 +177,5 @@ export const toApiIngestSourceName = (row: IngestSourceRow) => ({
 export const transportStatuses = () => ({
   tak: getStatus(transportKey("tak")),
   matrix: getStatus(transportKey("matrix")),
+  matrixBotUserId: getMatrixBotUserId() ?? null,
 });
