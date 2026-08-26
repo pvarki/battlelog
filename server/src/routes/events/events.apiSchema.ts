@@ -81,6 +81,8 @@ export const eventsQuerySchema = z.object({
   hcoeDomains: csvParam(z.string()),
   types: csvParam(z.string()),
   ingestSources: csvParam(z.string().uuid()),
+  dataKey: z.string().min(1).optional(),
+  dataValue: z.string().optional(),
   reliabilities: csvParam(z.enum(admiraltyReliabilityEnum.enumValues)),
   credibilities: csvParam(z.enum(admiraltyCredibilityEnum.enumValues)),
   createdBy: z.string().optional(),

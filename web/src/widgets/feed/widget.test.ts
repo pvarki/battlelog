@@ -2,10 +2,15 @@ import { describe, expect, test } from "vitest";
 import type { EventResponse } from "../../api.ts";
 import descriptor, {
   activeFilters,
+  activeView,
   columnWidth,
   dataValue,
+  effectiveColumns,
+  effectiveConfig,
+  type FeedView,
   labelFor,
   matchesFeed,
+  nextViewId,
   queryFor,
 } from "./widget.ts";
 
@@ -179,5 +184,86 @@ describe("activeFilters", () => {
         cfg({ types: ["form-report"], ingestSources: ["01920000-0000-7000-8000-0000000000aa"] }),
       ),
     ).toEqual(["type: form-report", "one ingest setup"]);
+  });
+});
+
+describe("views", () => {
+  const view = (over: Partial<FeedView>): FeedView => ({
+    id: "v1",
+    label: "One",
+    dataKey: "",
+    dataValue: "",
+    columns: [{ id: "c", label: "", source: "header", dataPath: "" }],
+    ...over,
+  });
+  const row = (over: Record<string, unknown>) =>
+    ({
+      type: "form-report",
+      tags: [],
+      ingestSourceId: null,
+      header: "h",
+      ...over,
+    }) as unknown as EventResponse;
+
+  test("no views leaves the widget exactly as it was", () => {
+    const c = cfg({});
+    expect(activeView(c)).toBeUndefined();
+    expect(effectiveColumns(c)).toEqual(c.columns);
+    expect(queryFor(c)).toEqual({});
+  });
+
+  test("the first view is what shows until one is chosen", () => {
+    const a = view({ id: "a", label: "A" });
+    const b = view({ id: "b", label: "B" });
+    expect(activeView(cfg({ views: [a, b] }))?.id).toBe("a");
+    expect(activeView(cfg({ views: [a, b], activeViewId: "b" }))?.id).toBe("b");
+    // A stale id falls back rather than showing an empty widget
+    expect(activeView(cfg({ views: [a, b], activeViewId: "gone" }))?.id).toBe("a");
+  });
+
+  test("tapping cycles and wraps, and does nothing with one view", () => {
+    const a = view({ id: "a" });
+    const b = view({ id: "b" });
+    expect(nextViewId(cfg({ views: [a, b], activeViewId: "a" }))).toBe("b");
+    expect(nextViewId(cfg({ views: [a, b], activeViewId: "b" }))).toBe("a");
+    expect(nextViewId(cfg({ views: [a] }))).toBeUndefined();
+  });
+
+  test("a view's condition reaches the server query", () => {
+    const c = cfg({ views: [view({ dataKey: "desk", dataValue: "ARKI" })] });
+    expect(queryFor(c)).toMatchObject({ dataKey: "desk", dataValue: "ARKI" });
+  });
+
+  test("a view's condition is mirrored for rows off the live stream", () => {
+    const c = cfg({ views: [view({ dataKey: "desk", dataValue: "ARKI" })] });
+    expect(matchesFeed(row({ data: { desk: "ARKI" } }), c)).toBe(true);
+    expect(matchesFeed(row({ data: { desk: "MATI" } }), c)).toBe(false);
+    expect(matchesFeed(row({ data: {} }), c)).toBe(false);
+    expect(matchesFeed(row({ data: null }), c)).toBe(false);
+  });
+
+  test("true and 2 are compared as a boolean and a number, not as text", () => {
+    const b = cfg({ views: [view({ dataKey: "journal", dataValue: "true" })] });
+    expect(matchesFeed(row({ data: { journal: true } }), b)).toBe(true);
+    expect(matchesFeed(row({ data: { journal: "true" } }), b)).toBe(false);
+    const n = cfg({ views: [view({ dataKey: "count", dataValue: "2" })] });
+    expect(matchesFeed(row({ data: { count: 2 } }), n)).toBe(true);
+    expect(matchesFeed(row({ data: { count: "2" } }), n)).toBe(false);
+  });
+
+  test("a view overrides the widget's filters and brings its own columns", () => {
+    const c = cfg({
+      types: ["form-report"],
+      views: [
+        view({
+          types: ["matrix.message"],
+          columns: [{ id: "z", label: "Z", source: "time", dataPath: "" }],
+        }),
+      ],
+    });
+    expect(effectiveConfig(c).types).toEqual(["matrix.message"]);
+    expect(effectiveColumns(c).map((x) => x.id)).toEqual(["z"]);
+    expect(matchesFeed(row({ type: "matrix.message" }), c)).toBe(true);
+    expect(matchesFeed(row({ type: "form-report" }), c)).toBe(false);
   });
 });

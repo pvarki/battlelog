@@ -1,4 +1,14 @@
-import { ActionIcon, Badge, Box, Center, Loader, Table, Text } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Center,
+  Group,
+  Loader,
+  Table,
+  Text,
+  UnstyledButton,
+} from "@mantine/core";
 import { IconMaximize } from "@tabler/icons-react";
 import {
   lazy,
@@ -14,8 +24,11 @@ import { StaleNotice } from "../../StaleNotice.tsx";
 import { formatShortDateTime } from "../../time.ts";
 import {
   activeFilters,
+  activeView,
   columnWidth,
   dataValue,
+  effectiveColumns,
+  effectiveConfig,
   type FeedColumn,
   type FeedConfig,
   type Field,
@@ -23,6 +36,7 @@ import {
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
   matchesFeed,
+  nextViewId,
   queryFor,
 } from "./widget.ts";
 
@@ -163,6 +177,8 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const [everOpened, setEverOpened] = useState(false);
   const query = queryFor(config);
   const match = (row: EventResponse) => matchesFeed(row, config);
+  const view = activeView(config);
+  const views = config.views ?? [];
   const { events, failed, arrived } = useLiveEvents({ limit: config.rows, query, match });
 
   if (!events) {
@@ -188,7 +204,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   // filter's doing, say so and name it — a filter for something nothing produces
   // will never fill up, and no other setting can change that.
   if (events.length === 0) {
-    const filters = activeFilters(config);
+    const filters = activeFilters(effectiveConfig(config));
     return (
       <Center h="100%" p="sm">
         <Text c="dimmed" fz="xs" ta="center">
@@ -226,16 +242,57 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
       </ActionIcon>
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
         {failed && <StaleNotice />}
+        {view && (
+          // Tapping moves to the next view. Persisted, so the board reads the
+          // same to everyone looking at it.
+          <UnstyledButton
+            onClick={() => updateConfig({ ...config, activeViewId: nextViewId(config) })}
+            disabled={views.length < 2}
+            mb={4}
+            title={
+              views.length < 2
+                ? undefined
+                : `Tap for the next view: ${views.map((v) => v.label).join(" → ")}`
+            }
+          >
+            <Group gap={4} wrap="nowrap">
+              <Text fz="xs" fw={600}>
+                {view.label}
+              </Text>
+              {views.length > 1 && (
+                <Text fz="xs" c="dimmed">
+                  {views.findIndex((v) => v.id === view.id) + 1}/{views.length} ▸
+                </Text>
+              )}
+            </Group>
+          </UnstyledButton>
+        )}
         <FeedTable
-          columns={config.columns}
+          columns={effectiveColumns(config)}
           events={events}
           arrived={arrived}
           onColumnWidthChange={(columnId, width) =>
             updateConfig({
               ...config,
-              columns: config.columns.map((col) =>
-                col.id === columnId ? { ...col, width: Math.round(width) } : col,
-              ),
+              // A width belongs to the view's own columns when one is active.
+              ...(view
+                ? {
+                    views: (config.views ?? []).map((v) =>
+                      v.id === view.id
+                        ? {
+                            ...v,
+                            columns: v.columns.map((col) =>
+                              col.id === columnId ? { ...col, width: Math.round(width) } : col,
+                            ),
+                          }
+                        : v,
+                    ),
+                  }
+                : {
+                    columns: config.columns.map((col) =>
+                      col.id === columnId ? { ...col, width: Math.round(width) } : col,
+                    ),
+                  }),
             })
           }
         />
