@@ -168,9 +168,8 @@
           {
             "id": "11111111-1111-4111-8111-111111111111",
             "label": "Sotapäiväkirja",
-            "dataKey": "",
-            "dataValue": "",
-            "types": ["form-report"],
+            "dataKey": "sotap-iv-kirja",
+            "dataValue": "true",
             "columns": [
               {
                 "id": "time",
@@ -179,28 +178,122 @@
                 "dataPath": ""
               },
               {
-                "id": "d1",
-                "label": "Sotapäiväkirja",
+                "id": "viesti",
+                "label": "Viesti",
                 "source": "data",
-                "dataPath": "sotap-iv-kirja"
+                "dataPath": "viesti"
               },
               {
-                "id": "d2",
-                "label": "Desk",
+                "id": "lahettaja",
+                "label": "Lähettäjä",
                 "source": "data",
-                "dataPath": "desk"
+                "dataPath": "l-hett-j"
               },
               {
-                "id": "d3",
+                "id": "vastaanottaja",
+                "label": "Vastaanottaja",
+                "source": "data",
+                "dataPath": "vastaanottaja"
+              },
+              {
+                "id": "verkko",
                 "label": "Verkko",
                 "source": "data",
                 "dataPath": "verkko"
               },
               {
-                "id": "d4",
+                "id": "desk",
+                "label": "Desk",
+                "source": "data",
+                "dataPath": "desk"
+              }
+            ]
+          },
+          {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "label": "Desk ARKI",
+            "dataKey": "desk",
+            "dataValue": "ARKI",
+            "columns": [
+              {
+                "id": "time",
+                "label": "Aika",
+                "source": "time",
+                "dataPath": ""
+              },
+              {
+                "id": "viesti",
+                "label": "Viesti",
+                "source": "data",
+                "dataPath": "viesti"
+              },
+              {
+                "id": "lahettaja",
+                "label": "Lähettäjä",
+                "source": "data",
+                "dataPath": "l-hett-j"
+              },
+              {
+                "id": "vastaanottaja",
                 "label": "Vastaanottaja",
                 "source": "data",
                 "dataPath": "vastaanottaja"
+              },
+              {
+                "id": "verkko",
+                "label": "Verkko",
+                "source": "data",
+                "dataPath": "verkko"
+              },
+              {
+                "id": "desk",
+                "label": "Desk",
+                "source": "data",
+                "dataPath": "desk"
+              }
+            ]
+          },
+          {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "label": "Desk MATI",
+            "dataKey": "desk",
+            "dataValue": "MATI",
+            "columns": [
+              {
+                "id": "time",
+                "label": "Aika",
+                "source": "time",
+                "dataPath": ""
+              },
+              {
+                "id": "viesti",
+                "label": "Viesti",
+                "source": "data",
+                "dataPath": "viesti"
+              },
+              {
+                "id": "lahettaja",
+                "label": "Lähettäjä",
+                "source": "data",
+                "dataPath": "l-hett-j"
+              },
+              {
+                "id": "vastaanottaja",
+                "label": "Vastaanottaja",
+                "source": "data",
+                "dataPath": "vastaanottaja"
+              },
+              {
+                "id": "verkko",
+                "label": "Verkko",
+                "source": "data",
+                "dataPath": "verkko"
+              },
+              {
+                "id": "desk",
+                "label": "Desk",
+                "source": "data",
+                "dataPath": "desk"
               }
             ]
           },
