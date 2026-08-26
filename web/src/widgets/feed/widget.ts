@@ -50,6 +50,8 @@ const configSchema = z
     ...baseWidgetConfig,
     types: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
+    /** Ingest setups to show, by id. Empty/absent = every source, ingested or not. */
+    ingestSources: z.array(z.string().uuid()).optional(),
     /** Header substring, case-insensitive. */
     search: z.string().optional(),
     createdBy: z.string().optional(),
@@ -111,6 +113,7 @@ export const queryFor = (config: FeedConfig, extras?: FeedExtras): EventsQuery =
   ({
     ...(config.types?.length ? { types: config.types.join(",") } : {}),
     ...(config.tags?.length ? { tags: config.tags.join(",") } : {}),
+    ...(config.ingestSources?.length ? { ingestSources: config.ingestSources.join(",") } : {}),
     ...(config.search || extras?.search ? { search: config.search || extras?.search } : {}),
     ...(config.createdBy || extras?.createdBy
       ? { createdBy: config.createdBy || extras?.createdBy }
@@ -138,6 +141,12 @@ export const matchesFeed = (
 ): boolean => {
   if (config.types?.length && (row.type === null || !config.types.includes(row.type))) return false;
   if (config.tags?.length && !config.tags.some((t) => row.tags?.includes(t))) return false;
+  if (
+    config.ingestSources?.length &&
+    (!row.ingestSourceId || !config.ingestSources.includes(row.ingestSourceId))
+  ) {
+    return false;
+  }
   if (config.search && !row.header.toLowerCase().includes(config.search.toLowerCase()))
     return false;
   if (config.createdBy && row.createdBy !== config.createdBy) return false;

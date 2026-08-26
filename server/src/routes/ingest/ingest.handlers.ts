@@ -12,9 +12,10 @@ import {
   updateIngestSource,
 } from "../../services/ingest/ingest.service.ts";
 import { MatrixClient } from "../../services/matrix/matrix.client.ts";
-import { toApiIngestSource, transportStatuses } from "./ingest.apiSchema.ts";
+import { toApiIngestSource, toApiIngestSourceName, transportStatuses } from "./ingest.apiSchema.ts";
 import type {
   deleteIngestSourceRoute,
+  listIngestSourceNamesRoute,
   listIngestSourcesRoute,
   listMatrixRoomsRoute,
   patchIngestSourceRoute,
@@ -25,6 +26,14 @@ import type {
 export const listIngestSourcesHandler: RouteHandler<typeof listIngestSourcesRoute> = async (c) => {
   const rows = await listIngestSources();
   return c.json(rows.map(toApiIngestSource), 200);
+};
+
+/** Names only, for anyone choosing which setups a dashboard feed shows. */
+export const listIngestSourceNamesHandler: RouteHandler<typeof listIngestSourceNamesRoute> = async (
+  c,
+) => {
+  const rows = await listIngestSources();
+  return c.json(rows.map(toApiIngestSourceName), 200);
 };
 
 export const postIngestSourceHandler: RouteHandler<typeof postIngestSourceRoute> = async (c) => {

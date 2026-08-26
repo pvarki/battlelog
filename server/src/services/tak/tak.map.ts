@@ -39,7 +39,7 @@ const tagsOf = (cot: CotEvent, isChat: boolean): string[] => {
  * gives "everything Alpha-1 sent" for free. The prefix is also what stops a TAK
  * client from claiming a BattleLog user's identity by picking their callsign.
  */
-export const cotToCreateInput = (cot: CotEvent): CreateEventInput => {
+export const cotToCreateInput = (cot: CotEvent, ingestSourceId?: string): CreateEventInput => {
   const isChat = Boolean(cot.chatRoom || cot.remarks);
   const body = cot.remarks?.trim();
   return {
@@ -60,6 +60,7 @@ export const cotToCreateInput = (cot: CotEvent): CreateEventInput => {
     location: null,
     locationPoint: pointOf(cot),
     inputSource: INPUT_SOURCE.tak,
+    ingestSourceId: ingestSourceId ?? null,
     // Synthetic and not dereferenceable, but stable and unique: it is the key
     // back to the upstream message when someone asks where an entry came from.
     sourceUri: `tak://${cot.uid}${cot.time ? `/${cot.time.toISOString()}` : ""}`,

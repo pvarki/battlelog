@@ -24,23 +24,25 @@ export const EVENT_TYPE = {
 } as const;
 
 /**
- * What to pull out of the TAK CoT stream. Every field is a narrowing filter and
- * an empty or absent list means "no constraint on this field", so a source with
- * nothing set matches every CoT event on the stream.
+ * What one TAK setup pulls out of the CoT stream.
+ *
+ * Every field is a list of unanchored regular expressions. An empty or absent
+ * list means no constraint on that field, so a setup with nothing set matches
+ * every CoT event on the stream. All the constraints that are set must hold.
  */
 export type TakSourceConfig = {
-  /** `type` prefixes, e.g. "a-f-" or "b-t-f". */
+  /** CoT `type`, e.g. "^a-f-" for friendly tracks or "^b-t-f" for chat. */
   cotTypes?: string[];
-  /** GeoChat room names, matched exactly. */
+  /** GeoChat room, e.g. "^RECON$" for exactly that room. */
   chatRooms?: string[];
-  /** Chat recipients, matched exactly. */
+  /** Chat recipient. */
   destCallsigns?: string[];
-  /** Senders, matched exactly. */
+  /** Sender, falling back to the contact callsign when the event is not chat. */
   senderCallsigns?: string[];
   /**
-   * Substrings that must appear in the raw CoT <detail> XML. This is how you
-   * select on things TAK has no server-side concept of — an ATAK client's role
-   * for instance shows up only inside detail.
+   * Matched against the raw CoT <detail> XML. This is how you select on things
+   * TAK has no server-side concept of — an ATAK client's role, for instance,
+   * appears only inside detail.
    */
   detailContains?: string[];
 };

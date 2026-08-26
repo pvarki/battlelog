@@ -1,9 +1,9 @@
 import {
+  Accordion,
   ActionIcon,
   Alert,
   Badge,
   Button,
-  Card,
   Group,
   Loader,
   Modal,
@@ -60,16 +60,16 @@ const STATUS_LOOK: Record<IngestSource["status"]["status"], { c: string; label: 
 const TAK_FIELDS = [
   {
     key: "cotTypes",
-    label: "CoT type prefixes",
-    help: 'Matched as prefixes, e.g. "a-f-" for friendly tracks or "b-t-f" for chat.',
+    label: "CoT type",
+    help: 'e.g. "^a-f-" for friendly tracks, "^b-t-f" for chat, "^a-[fh]-" for either.',
   },
-  { key: "chatRooms", label: "GeoChat rooms", help: "Exact room names, e.g. RECON." },
-  { key: "senderCallsigns", label: "Sender callsigns", help: "Exact callsigns." },
-  { key: "destCallsigns", label: "Recipient callsigns", help: "Exact callsigns, for chat." },
+  { key: "chatRooms", label: "GeoChat room", help: 'e.g. "^RECON$" for exactly that room.' },
+  { key: "senderCallsigns", label: "Sender callsign", help: 'e.g. "^(ALPHA|BRAVO)-\\d+$".' },
+  { key: "destCallsigns", label: "Recipient callsign", help: "For chat addressed to someone." },
   {
     key: "detailContains",
-    label: "Detail contains",
-    help: 'Substrings of the raw CoT <detail> XML, e.g. role="HQ". This is the only way to select on things TAK has no server-side concept of — read a real event\'s detail to find the exact string.',
+    label: "Detail matches",
+    help: 'Matched against the raw CoT <detail> XML, e.g. role="HQ". The only way to select on things TAK has no server-side concept of — read a real event\'s detail to find what to match.',
   },
 ] as const;
 
@@ -108,6 +108,7 @@ export const IngestSettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [adding, setAdding] = useState<"tak" | "matrix" | null>(null);
+  const [opened, setOpened] = useState<string[]>([]);
 
   // useEffectEvent: reload is recreated every render but the polling effect must
   // not restart because of it.
@@ -225,24 +226,29 @@ export const IngestSettingsPage = () => {
         </Alert>
       )}
 
-      {sources.map((source) => (
-        <Card key={source.id} withBorder padding="md">
-          <Group justify="space-between" mb={source.enabled ? "sm" : 0}>
-            <Group gap="sm">
+      <Accordion variant="separated" multiple value={opened} onChange={setOpened}>
+        {sources.map((source) => (
+          <Accordion.Item key={source.id} value={source.id}>
+            <Group wrap="nowrap" gap="xs" pr="sm">
+              {/* Outside the control: toggling or deleting a setup should not
+                  expand it, and a switch inside a button is not clickable. */}
               <Switch
+                ml="sm"
                 checked={source.enabled}
                 onChange={(e) => void patch(source, { enabled: e.currentTarget.checked })}
                 aria-label={`Enable ${source.name}`}
               />
-              <div>
-                <Text fw={600}>{source.name}</Text>
-                <Text c="dimmed" fz="xs" tt="uppercase">
-                  {source.kind}
-                </Text>
-              </div>
-            </Group>
-            <Group gap="xs">
-              <StatusBadge status={source.status} />
+              <Accordion.Control>
+                <Group justify="space-between" wrap="nowrap" pr="sm">
+                  <div>
+                    <Text fw={600}>{source.name}</Text>
+                    <Text c="dimmed" fz="xs" tt="uppercase">
+                      {source.kind}
+                    </Text>
+                  </div>
+                  <StatusBadge status={source.status} />
+                </Group>
+              </Accordion.Control>
               <ActionIcon
                 variant="subtle"
                 color="red"
@@ -252,49 +258,55 @@ export const IngestSettingsPage = () => {
                 <IconTrash size={16} />
               </ActionIcon>
             </Group>
-          </Group>
-
-          {source.status.status === "encrypted" && (
-            <Alert
-              color="orange"
-              icon={<IconAlertTriangle size={16} />}
-              mb="sm"
-              title="This room is end-to-end encrypted"
-            >
-              Its messages cannot be read, so nothing from it reaches the feed. Only a room created
-              without encryption can be ingested.
-            </Alert>
-          )}
-
-          {source.enabled && source.kind === "tak" && (
-            <Stack gap="sm">
-              {TAK_FIELDS.every((field) => listOf(source.config, field.key).length === 0) && (
-                <Alert color="yellow" variant="light">
-                  No filters set, so this takes <strong>every</strong> CoT event on the stream.
+            <Accordion.Panel>
+              {source.status.status === "encrypted" && (
+                <Alert
+                  color="orange"
+                  icon={<IconAlertTriangle size={16} />}
+                  mb="sm"
+                  title="This room is end-to-end encrypted"
+                >
+                  Its messages cannot be read, so nothing from it reaches the feed. Only a room
+                  created without encryption can be ingested.
                 </Alert>
               )}
-              {TAK_FIELDS.map((field) => (
-                <TagsInput
-                  key={field.key}
-                  label={field.label}
-                  description={field.help}
-                  value={listOf(source.config, field.key)}
-                  onChange={(value) =>
-                    void patch(source, { config: { ...source.config, [field.key]: value } })
-                  }
-                  clearable
-                />
-              ))}
-            </Stack>
-          )}
 
-          {source.enabled && source.kind === "matrix" && (
-            <Text fz="sm" c="dimmed">
-              Room {String(source.config.roomName ?? source.config.roomId)}
-            </Text>
-          )}
-        </Card>
-      ))}
+              {source.kind === "tak" && (
+                <Stack gap="sm">
+                  {TAK_FIELDS.every((field) => listOf(source.config, field.key).length === 0) && (
+                    <Alert color="yellow" variant="light">
+                      No filters set, so this takes <strong>every</strong> CoT event on the stream.
+                    </Alert>
+                  )}
+                  <Text fz="xs" c="dimmed">
+                    Every field takes regular expressions, matched anywhere in the value. Anchor
+                    with <code>^</code> and <code>$</code> for an exact match. All the fields you
+                    fill in must match.
+                  </Text>
+                  {TAK_FIELDS.map((field) => (
+                    <TagsInput
+                      key={field.key}
+                      label={field.label}
+                      description={field.help}
+                      value={listOf(source.config, field.key)}
+                      onChange={(value) =>
+                        void patch(source, { config: { ...source.config, [field.key]: value } })
+                      }
+                      clearable
+                    />
+                  ))}
+                </Stack>
+              )}
+
+              {source.kind === "matrix" && (
+                <Text fz="sm" c="dimmed">
+                  Room {String(source.config.roomName ?? source.config.roomId)}
+                </Text>
+              )}
+            </Accordion.Panel>
+          </Accordion.Item>
+        ))}
+      </Accordion>
 
       <AddSourceModal
         // Remounted per kind so the form starts empty without an effect.
@@ -302,8 +314,11 @@ export const IngestSettingsPage = () => {
         kind={adding}
         rooms={rooms}
         onClose={() => setAdding(null)}
-        onAdded={() => {
+        onAdded={(id) => {
           setAdding(null);
+          // Open it: a TAK setup is added empty and the next thing to do is
+          // fill in its search.
+          setOpened((prev) => [...prev, id]);
           void reload();
         }}
       />
@@ -320,7 +335,7 @@ const AddSourceModal = ({
   kind: "tak" | "matrix" | null;
   rooms: MatrixRoom[];
   onClose: () => void;
-  onAdded: () => void;
+  onAdded: (id: string) => void;
 }) => {
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -351,7 +366,7 @@ const AddSourceModal = ({
       notifications.show({ color: "red", message: `Could not add (${res.status})` });
       return;
     }
-    onAdded();
+    onAdded(((await res.json()) as { id: string }).id);
   };
 
   return (

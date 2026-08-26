@@ -41,7 +41,7 @@ const ingest = async (cot: CotEvent): Promise<void> => {
   const sources = await enabledIngestSources("tak");
   const source = matchTakSource(cot, sources);
   if (!source) return;
-  await createEvent(cotToCreateInput(cot));
+  await createEvent(cotToCreateInput(cot, source.id));
   countEvent(source.id);
   countEvent(TAK);
 };

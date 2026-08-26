@@ -3,27 +3,52 @@ import type { IngestSourceRow } from "../../db/schema.ts";
 import { getStatus, transportKey } from "../../services/ingest/ingest.state.ts";
 import type { IngestKind, IngestStatus } from "../../services/ingest/ingest.types.ts";
 
-const trimmedList = z.array(z.string().min(1).max(200)).max(50);
+/**
+ * A list of regular expressions. Validated here so an unparseable pattern is a
+ * 400 at save time rather than a filter that silently matches nothing on the
+ * stream. Length is capped: these run per CoT event, and an operator has no
+ * reason to paste a novel.
+ */
+const patternList = z
+  .array(
+    z
+      .string()
+      .min(1)
+      .max(200)
+      .refine(
+        (pattern) => {
+          try {
+            new RegExp(pattern);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        { message: "Not a valid regular expression" },
+      ),
+  )
+  .max(50);
 
 /**
- * A TAK source's config. Every field narrows what is taken off the CoT stream,
- * and an omitted or empty list means no constraint on that field — so a source
- * with nothing set takes everything, which the settings page says out loud.
+ * One TAK setup's search. Every field is a list of unanchored regular
+ * expressions; an omitted or empty list means no constraint on that field, so a
+ * setup with nothing set takes everything — which the settings page says out
+ * loud. All the constraints that are set must hold.
  */
 export const takSourceConfigSchema = z
   .object({
-    /** CoT `type` prefixes, e.g. "a-f-" for friendly tracks. */
-    cotTypes: trimmedList.optional(),
-    /** GeoChat rooms, matched exactly. This is "a feed of our choosing". */
-    chatRooms: trimmedList.optional(),
-    destCallsigns: trimmedList.optional(),
-    senderCallsigns: trimmedList.optional(),
+    /** CoT `type`, e.g. "^a-f-" for friendly tracks. */
+    cotTypes: patternList.optional(),
+    /** GeoChat room, e.g. "^RECON$". This is "a feed of our choosing". */
+    chatRooms: patternList.optional(),
+    destCallsigns: patternList.optional(),
+    senderCallsigns: patternList.optional(),
     /**
-     * Substrings that must appear in the raw CoT <detail> XML. How to select on
-     * things TAK has no server-side concept of, an ATAK client's role being the
-     * motivating case — find the exact string in an event's detail first.
+     * Matched against the raw CoT <detail> XML. How to select on things TAK has
+     * no server-side concept of, an ATAK client's role being the motivating
+     * case — read a real event's detail to find what to match.
      */
-    detailContains: trimmedList.optional(),
+    detailContains: patternList.optional(),
   })
   .openapi("TakIngestConfig");
 
@@ -110,6 +135,21 @@ export const matrixRoomResponseSchema = z
   })
   .openapi("MatrixRoom");
 
+/**
+ * Just enough to pick a setup by: id, kind and the operator's name for it.
+ *
+ * Separate from the full row on purpose. Anyone building a dashboard needs to
+ * choose which setups a feed shows, but a setup's config says which TAK feeds
+ * and Matrix rooms this deployment watches, which is not for everyone.
+ */
+export const ingestSourceNameSchema = z
+  .object({
+    id: z.string().uuid(),
+    kind: ingestKindSchema,
+    name: z.string(),
+  })
+  .openapi("IngestSourceName");
+
 export const errorResponseSchema = z.object({ error: z.string() }).openapi("ErrorResponse");
 
 /** Config still has to be re-checked here: rows predate any later schema change. */
@@ -124,6 +164,12 @@ export const toApiIngestSource = (row: IngestSourceRow) => ({
   updatedBy: row.updatedBy,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
+});
+
+export const toApiIngestSourceName = (row: IngestSourceRow) => ({
+  id: row.id,
+  kind: row.kind as IngestKind,
+  name: row.name,
 });
 
 export const transportStatuses = () => ({

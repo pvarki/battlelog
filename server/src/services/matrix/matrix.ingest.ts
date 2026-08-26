@@ -103,7 +103,12 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
         }
         continue;
       }
-      const input = matrixEventToCreateInput(ev, { roomId, roomName, serverDomain: domain });
+      const input = matrixEventToCreateInput(ev, {
+        roomId,
+        roomName,
+        serverDomain: domain,
+        ingestSourceId: sourceId,
+      });
       if (!input) continue;
       await createEvent(input);
       countEvent(sourceId);

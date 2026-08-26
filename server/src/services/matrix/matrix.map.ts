@@ -43,7 +43,7 @@ export const parseGeoUri = (uri: string): [number, number] | null => {
  */
 export const matrixEventToCreateInput = (
   ev: MatrixTimelineEvent,
-  ctx: { roomId: string; roomName?: string; serverDomain: string },
+  ctx: { roomId: string; roomName?: string; serverDomain: string; ingestSourceId?: string },
 ): CreateEventInput | null => {
   if (ev.type !== "m.room.message") return null;
   const { event_id: eventId, sender, origin_server_ts: ts, content } = ev;
@@ -69,6 +69,7 @@ export const matrixEventToCreateInput = (
     location: null,
     locationPoint: point,
     inputSource: INPUT_SOURCE.matrix,
+    ingestSourceId: ctx.ingestSourceId ?? null,
     // A permalink, so "where did this come from" opens in the reader's own
     // Matrix client. Unique per event, which also makes it the dedup key.
     sourceUri: `https://matrix.to/#/${encodeURIComponent(ctx.roomId)}/${encodeURIComponent(

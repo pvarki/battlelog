@@ -68,9 +68,16 @@ off unless their host is configured, so a deployment that passes no extra
 environment behaves exactly as before.
 
 *What* they ingest is chosen at runtime, not in the environment: an admin manages
-ingest sources at `/ingest` in the UI (`/api/v1/ingest/sources`), and changes take
+ingest setups at `/ingest` in the UI (`/api/v1/ingest/sources`), and changes take
 effect within seconds without a restart. Admin rights come from RM through the
 `/rmapi/api/v1/users/*` hooks, which is what the `users` table records.
+
+There can be any number of setups per kind, each one a different search. Every
+event records which setup produced it (`events.ingest_source_id`), so a dashboard
+feed widget can be pointed at a chosen set of them — the picker lists setups by
+the name their operator gave them, which is what those names are for. Names are
+readable by any authenticated user (`GET /api/v1/ingest/names`); the searches
+themselves stay admin-only.
 
 ### Startup sequence
 
@@ -117,13 +124,19 @@ the enrolled user a real out-group with `certmod -og default` is necessary but
 still not enough. Resolving this needs a TAK-side change (an LDAP identity for the
 product, or a dedicated input), not a change here.
 
-A TAK source narrows the stream by CoT type prefix, GeoChat room, sender,
-recipient, and by substrings of the raw `<detail>` XML. That last one exists
-because TAK has no server-side notion of a client's role: an ATAK operator's
-`HQ` role appears only inside `detail`, so a substring is the only way to select
-on it. Find the exact string in a real event before relying on it.
+A TAK setup narrows the stream by CoT type, GeoChat room, sender, recipient, and
+by the raw `<detail>` XML. Every field takes **unanchored regular expressions** —
+one rule for all of them, rather than the prefix-here-exact-there mix this
+started as, because a setup exists to express one search. `^a-f-` is a prefix,
+`^RECON$` is exact, `^(ALPHA|BRAVO)-\d+$` is a set. Patterns are compiled and
+validated when saved, so an unparseable one is a 400 rather than a filter that
+silently matches nothing.
 
-A source with no filters set takes **every** CoT event on the stream, and the
+The `detail` field exists because TAK has no server-side notion of a client's
+role: an ATAK operator's `HQ` role appears only inside `detail`. Read a real
+event's detail to find what to match.
+
+A setup with no filters set takes **every** CoT event on the stream, and the
 settings page says so.
 
 ### Matrix

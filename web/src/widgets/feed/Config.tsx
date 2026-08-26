@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Button,
   Group,
+  MultiSelect,
   NumberInput,
   Paper,
   Select,
@@ -10,6 +11,8 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
+import { ingestApi } from "../../api.ts";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import {
@@ -28,7 +31,21 @@ const SOURCE_OPTIONS = [
   { value: "data", label: "Data field" },
 ];
 
+type IngestName = { id: string; kind: string; name: string };
+
 const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => {
+  // Names only — the full ingest list is admin-only, and picking a setup does
+  // not need its config.
+  const [setups, setSetups] = useState<IngestName[]>([]);
+  useEffect(() => {
+    void (async () => {
+      const res = await ingestApi.ingest.names.$get();
+      if (res.ok) setSetups((await res.json()) as IngestName[]);
+    })().catch(() => {
+      // No setups offered; the field just stays empty, which means "all sources"
+    });
+  }, []);
+
   const setColumns = (columns: FeedColumn[]) => onChange({ ...config, columns });
   const setColumn = (id: string, patch: Partial<FeedColumn>) =>
     setColumns(config.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -36,6 +53,20 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
   return (
     <Stack>
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
+      <MultiSelect
+        label="Ingest setups"
+        description={
+          setups.length
+            ? "Only events from these setups; empty = every source"
+            : "No ingest setups configured yet"
+        }
+        data={setups.map((s) => ({ value: s.id, label: `${s.name} (${s.kind})` }))}
+        value={config.ingestSources ?? []}
+        onChange={(v) => onChange({ ...config, ingestSources: v.length ? v : undefined })}
+        searchable
+        clearable
+        disabled={!setups.length}
+      />
       <TagsInput
         label="Types"
         description="Only these event types; empty = all"

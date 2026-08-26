@@ -107,6 +107,15 @@ export const events = pgTable(
 
     /** Input method / ingestion source for the event (e.g. "battlelog-api"). Future sink integrations will populate this. */
     inputSource: text("input_source"),
+    /**
+     * The ingest setup that produced this event, when it came from one. This is
+     * what lets a dashboard show "the events from these setups" — a setup is
+     * named by its operator, so the picker shows names and stores ids.
+     *
+     * Deliberately not a foreign key: deleting a setup must not delete history
+     * or block on it. A dangling id just stops resolving to a name.
+     */
+    ingestSourceId: uuid("ingest_source_id"),
     /** URI back to the originating source (e.g. upstream feed URL, file ref). */
     sourceUri: text("source_uri"),
 
@@ -132,6 +141,7 @@ export const events = pgTable(
     tagsIdx: index("events_tags_gin_idx").using("gin", t.tags),
     hcoeDomainsIdx: index("events_hcoe_domains_gin_idx").using("gin", t.hcoeDomains),
     typeIdx: index("events_type_idx").on(t.type),
+    ingestSourceIdx: index("events_ingest_source_idx").on(t.ingestSourceId),
     createdByIdx: index("events_created_by_idx").on(t.createdBy),
     locationPointIdx: index("events_location_point_gix").using("gist", t.locationPoint),
   }),

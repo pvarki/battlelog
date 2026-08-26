@@ -34,10 +34,39 @@ describe("matchesTakConfig", () => {
     expect(matchesTakConfig(chat, { cotTypes: [], chatRooms: ["  "] })).toBe(true);
   });
 
-  test("cotTypes match on prefix", () => {
+  test("patterns are unanchored regexes, so a bare prefix still works", () => {
     expect(matchesTakConfig(position, { cotTypes: ["a-f-"] })).toBe(true);
     expect(matchesTakConfig(position, { cotTypes: ["a-h-"] })).toBe(false);
     expect(matchesTakConfig(chat, { cotTypes: ["a-f-", "b-t-f"] })).toBe(true);
+  });
+
+  test("anchors give an exact match", () => {
+    expect(matchesTakConfig(chat, { chatRooms: ["^RECON$"] })).toBe(true);
+    // Unanchored would also match RECON-2; anchored must not
+    expect(matchesTakConfig({ ...chat, chatRoom: "RECON-2" }, { chatRooms: ["^RECON$"] })).toBe(
+      false,
+    );
+    expect(matchesTakConfig({ ...chat, chatRoom: "RECON-2" }, { chatRooms: ["^RECON"] })).toBe(
+      true,
+    );
+  });
+
+  test("a regex expresses in one pattern what used to need a list", () => {
+    expect(matchesTakConfig(position, { cotTypes: ["^a-[fh]-"] })).toBe(true);
+    expect(matchesTakConfig(chat, { cotTypes: ["^a-[fh]-"] })).toBe(false);
+    expect(matchesTakConfig(chat, { senderCallsigns: ["^(ALPHA|BRAVO)-\\d+$"] })).toBe(true);
+    expect(matchesTakConfig(position, { senderCallsigns: ["^(ALPHA|BRAVO)-\\d+$"] })).toBe(true);
+    expect(
+      matchesTakConfig(
+        { ...position, callsign: "CHARLIE-9" },
+        { senderCallsigns: ["^(ALPHA|BRAVO)-\\d+$"] },
+      ),
+    ).toBe(false);
+  });
+
+  test("a pattern that will not compile matches nothing rather than throwing", () => {
+    // The API rejects these on save; this only guards rows written before that.
+    expect(matchesTakConfig(chat, { chatRooms: ["*bad("] })).toBe(false);
   });
 
   test("chatRooms pick one feed and exclude the others", () => {

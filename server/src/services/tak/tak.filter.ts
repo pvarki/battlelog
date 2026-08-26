@@ -1,47 +1,66 @@
 import type { IngestSourceRow } from "../../db/schema.ts";
+import { logger } from "../../lib/logger.ts";
 import type { TakSourceConfig } from "../ingest/ingest.types.ts";
 import type { CotEvent } from "./tak.cot.ts";
 
 /**
- * Deciding which configured source, if any, wants a given CoT event.
+ * Deciding which configured setup, if any, wants a given CoT event.
  *
- * Pure on purpose: this is the whole of the selection logic, so it is the part
- * worth testing, and it must be cheap enough to run per event on a live stream.
+ * Every field is a list of regular expressions, matched unanchored — one rule
+ * for all of them rather than the prefix-here-exact-there mix this started as,
+ * because a setup exists to express one search and the operator should not have
+ * to remember which field means which kind of match. Anchor with ^ and $ for an
+ * exact match; `a-f-` still behaves like a prefix in practice.
+ *
+ * Pure and cheap on purpose: this runs per CoT event on a live stream.
  */
 
-const list = (value: string[] | undefined): string[] =>
+/** Compiled patterns, keyed by the pattern text. Bounded by how many a setup has. */
+const cache = new Map<string, RegExp | null>();
+
+/**
+ * Compile once and remember. A pattern that does not compile yields null and is
+ * treated as matching nothing — the API validates patterns on save, so this only
+ * catches rows written before that validation existed.
+ */
+const compile = (pattern: string): RegExp | null => {
+  const hit = cache.get(pattern);
+  if (hit !== undefined) return hit;
+  let compiled: RegExp | null = null;
+  try {
+    compiled = new RegExp(pattern);
+  } catch (err) {
+    logger.warn({ err, pattern }, "tak filter: ignoring an invalid regular expression");
+  }
+  cache.set(pattern, compiled);
+  return compiled;
+};
+
+const patterns = (value: string[] | undefined): string[] =>
   (value ?? []).map((item) => item.trim()).filter(Boolean);
 
-/** No constraint set means no constraint applied — an empty list matches anything. */
-const matchesExact = (candidate: string | undefined, allowed: string[]): boolean => {
-  if (!allowed.length) return true;
-  return candidate !== undefined && allowed.includes(candidate);
-};
-
-const matchesPrefix = (candidate: string | undefined, prefixes: string[]): boolean => {
-  if (!prefixes.length) return true;
-  return candidate !== undefined && prefixes.some((prefix) => candidate.startsWith(prefix));
-};
-
-const matchesSubstring = (candidate: string | undefined, needles: string[]): boolean => {
-  if (!needles.length) return true;
-  return candidate !== undefined && needles.some((needle) => candidate.includes(needle));
+/** No patterns for a field means no constraint on it. */
+const matches = (candidate: string | undefined, list: string[]): boolean => {
+  if (!list.length) return true;
+  if (candidate === undefined) return false;
+  return list.some((pattern) => compile(pattern)?.test(candidate) ?? false);
 };
 
 /** True when every constraint this config sets is satisfied. */
 export const matchesTakConfig = (cot: CotEvent, config: TakSourceConfig): boolean =>
-  matchesPrefix(cot.type, list(config.cotTypes)) &&
-  matchesExact(cot.chatRoom, list(config.chatRooms)) &&
-  matchesExact(cot.destCallsign, list(config.destCallsigns)) &&
-  matchesExact(cot.senderCallsign ?? cot.callsign, list(config.senderCallsigns)) &&
-  matchesSubstring(cot.detail, list(config.detailContains));
+  matches(cot.type, patterns(config.cotTypes)) &&
+  matches(cot.chatRoom, patterns(config.chatRooms)) &&
+  matches(cot.destCallsign, patterns(config.destCallsigns)) &&
+  matches(cot.senderCallsign ?? cot.callsign, patterns(config.senderCallsigns)) &&
+  matches(cot.detail, patterns(config.detailContains));
 
 /**
- * First source that wants this event, or undefined for none.
+ * First setup that wants this event, or undefined for none.
  *
  * First rather than all: one CoT event becomes at most one feed entry. Two
- * overlapping sources would otherwise duplicate everything they share, which is
- * never what someone setting up a second filter meant.
+ * overlapping setups would otherwise duplicate everything they share, which is
+ * never what someone adding a second filter meant. Order is the list order,
+ * which the service sorts by name so it is stable and visible.
  */
 export const matchTakSource = (
   cot: CotEvent,

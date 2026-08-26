@@ -11,6 +11,8 @@ export const eventsFilterSchema = z.object({
   tags: z.array(z.string()).optional(),
   hcoeDomains: z.array(z.string()).optional(),
   types: z.array(z.string()).optional(),
+  /** Ingest setups that produced the event. Empty/absent = no constraint. */
+  ingestSources: z.array(z.string().uuid()).optional(),
   reliabilities: z.array(z.enum(admiraltyReliabilityEnum.enumValues)).optional(),
   credibilities: z.array(z.enum(admiraltyCredibilityEnum.enumValues)).optional(),
   createdBy: z.string().optional(),
@@ -56,6 +58,9 @@ export const buildEventsWhere = (filter: EventsFilter): SQL | undefined => {
   }
   if (filter.types?.length) {
     conditions.push(inArray(events.type, filter.types));
+  }
+  if (filter.ingestSources?.length) {
+    conditions.push(inArray(events.ingestSourceId, filter.ingestSources));
   }
   if (filter.reliabilities?.length) {
     conditions.push(inArray(events.admiraltyReliability, filter.reliabilities));
@@ -120,6 +125,12 @@ export const matchesEventsFilter = (row: EventRow, filter: EventsFilter): boolea
   }
   if (filter.tags?.length && !overlaps(row.tags, filter.tags)) return false;
   if (filter.hcoeDomains?.length && !overlaps(row.hcoeDomains, filter.hcoeDomains)) {
+    return false;
+  }
+  if (
+    filter.ingestSources?.length &&
+    (!row.ingestSourceId || !filter.ingestSources.includes(row.ingestSourceId))
+  ) {
     return false;
   }
   if (filter.types?.length && (!row.type || !filter.types.includes(row.type))) {

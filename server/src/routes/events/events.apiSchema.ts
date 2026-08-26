@@ -48,6 +48,8 @@ export const eventResponseSchema = z
     location: z.string().nullable(),
     locationPoint: latLng.nullable(),
     inputSource: z.string().nullable(),
+    /** Set by an ingester; identifies the setup that produced the event. */
+    ingestSourceId: z.string().uuid().nullable(),
     sourceUri: z.string().nullable(),
     type: z.string().nullable(),
     // z.any (not z.unknown): unknown fails Hono's JSONValue constraint and
@@ -78,6 +80,7 @@ export const eventsQuerySchema = z.object({
   tags: csvParam(z.string()),
   hcoeDomains: csvParam(z.string()),
   types: csvParam(z.string()),
+  ingestSources: csvParam(z.string().uuid()),
   reliabilities: csvParam(z.enum(admiraltyReliabilityEnum.enumValues)),
   credibilities: csvParam(z.enum(admiraltyCredibilityEnum.enumValues)),
   createdBy: z.string().optional(),
@@ -169,6 +172,7 @@ export const toApiEvent = (row: EventRow): EventResponse => ({
     ? { lng: row.locationPoint[0], lat: row.locationPoint[1] }
     : null,
   inputSource: row.inputSource,
+  ingestSourceId: row.ingestSourceId,
   sourceUri: row.sourceUri,
   type: row.type,
   data: row.data,

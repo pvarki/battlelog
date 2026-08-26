@@ -4,6 +4,7 @@ import { userIdentity } from "../../middleware/user-identity.ts";
 import {
   createIngestSourceRequestSchema,
   errorResponseSchema,
+  ingestSourceNameSchema,
   ingestSourceResponseSchema,
   matrixRoomResponseSchema,
   transportStatusResponseSchema,
@@ -11,6 +12,7 @@ import {
 } from "./ingest.apiSchema.ts";
 import {
   deleteIngestSourceHandler,
+  listIngestSourceNamesHandler,
   listIngestSourcesHandler,
   listMatrixRoomsHandler,
   patchIngestSourceHandler,
@@ -48,6 +50,18 @@ export const listIngestSourcesRoute = createRoute({
   responses: {
     200: jsonContent(z.array(ingestSourceResponseSchema), "Configured ingest sources"),
     ...adminErrors,
+  },
+});
+
+export const listIngestSourceNamesRoute = createRoute({
+  method: "get",
+  path: "/ingest/names",
+  // Not admin-gated: names are what a feed widget picks by, and they carry
+  // nothing a dashboard author should not see.
+  middleware: [userIdentity()] as const,
+  responses: {
+    200: jsonContent(z.array(ingestSourceNameSchema), "Ingest setups, names only"),
+    500: jsonContent(errorResponseSchema, "Server error"),
   },
 });
 
@@ -120,6 +134,7 @@ export const ingestRoutes = new OpenAPIHono({
   },
 })
   .openapi(listIngestSourcesRoute, listIngestSourcesHandler)
+  .openapi(listIngestSourceNamesRoute, listIngestSourceNamesHandler)
   .openapi(postIngestSourceRoute, postIngestSourceHandler)
   .openapi(transportStatusRoute, transportStatusHandler)
   .openapi(listMatrixRoomsRoute, listMatrixRoomsHandler)
