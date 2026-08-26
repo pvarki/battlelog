@@ -150,61 +150,36 @@
       "config": {
         "rows": 20,
         "title": "Päiväkirja",
-        "types": ["form-report"],
         "columns": [
           {
             "id": "time",
-            "label": "Tapahtuma-ajankohta",
+            "label": "Aika",
             "source": "time",
             "dataPath": ""
           },
           {
             "id": "header",
-            "label": "Sotapäiväkirja",
+            "label": "Tapahtuma",
+            "source": "header",
+            "dataPath": ""
+          },
+          {
+            "id": "createdBy",
+            "label": "Lähde",
+            "source": "createdBy",
+            "dataPath": ""
+          },
+          {
+            "id": "d1",
+            "label": "",
             "source": "data",
             "dataPath": "sotap-iv-kirja"
           },
           {
-            "id": "type",
-            "label": "Desk",
+            "id": "d2",
+            "label": "",
             "source": "data",
-            "dataPath": "desk"
-          },
-          {
-            "id": "fccfdc5c-1337-4d8e-836b-9996beabc4d7",
-            "label": "Verkko",
-            "source": "data",
-            "dataPath": "verkko"
-          },
-          {
-            "id": "33863000-42eb-4af5-9883-15dd3dd1425d",
-            "label": "Vastaanottaja",
-            "source": "data",
-            "dataPath": "vastaanottaja"
-          },
-          {
-            "id": "60740c58-fc2f-4f5b-9b32-71ec098e53d4",
-            "label": "Lähettäjä",
-            "source": "data",
-            "dataPath": "l-hett-j"
-          },
-          {
-            "id": "cf35d56d-d82f-4540-8d19-96d6a28e127c",
-            "label": "Viesti",
-            "source": "data",
-            "dataPath": "viesti"
-          },
-          {
-            "id": "9c741bb5-6186-4d83-a7fd-629fb1c3b707",
-            "label": "Viestiväline",
-            "source": "data",
-            "dataPath": "viestiv-line"
-          },
-          {
-            "id": "d45259dc-2f77-411c-9a38-bff358e66362",
-            "label": "Muuta",
-            "source": "data",
-            "dataPath": "muuta"
+            "dataPath": "body"
           }
         ]
       },
@@ -262,47 +237,6 @@
         "w": 20,
         "x": 28,
         "y": 11
-      }
-    },
-    {
-      "id": "b7e4c1a0-6f3d-4b52-9c81-2ad5e0f4c7b9",
-      "type": "feed",
-      "layout": {
-        "x": 0,
-        "y": 23,
-        "w": 28,
-        "h": 12
-      },
-      "config": {
-        "title": "Viestit",
-        "rows": 20,
-        "types": ["matrix.message", "tak-chat", "tak-cot"],
-        "columns": [
-          {
-            "id": "time",
-            "label": "Aika",
-            "source": "time",
-            "dataPath": ""
-          },
-          {
-            "id": "header",
-            "label": "Viesti",
-            "source": "header",
-            "dataPath": ""
-          },
-          {
-            "id": "createdBy",
-            "label": "Lähettäjä",
-            "source": "createdBy",
-            "dataPath": ""
-          },
-          {
-            "id": "tags",
-            "label": "Lähde",
-            "source": "tags",
-            "dataPath": ""
-          }
-        ]
       }
     }
   ]

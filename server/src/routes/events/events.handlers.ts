@@ -78,6 +78,12 @@ export const streamNewEvents = (c: Context) => {
   const header = c.req.header("last-event-id") ?? c.req.query("since");
   const lastEventId = header && isUuid(header) ? header : undefined;
 
+  // nginx buffers proxied responses by default, which holds SSE frames until the
+  // buffer fills — the stream looks connected and delivers nothing until the page
+  // is reloaded. nginx honours this header per response, so streaming works
+  // through the deployment's proxy without a change to its config.
+  c.header("X-Accel-Buffering", "no");
+
   return streamSSE(
     c,
     async (stream) => {
