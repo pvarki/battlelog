@@ -35,6 +35,11 @@ export type MatrixTimelineEvent = {
 
 export type MatrixSyncResponse = {
   next_batch?: string;
+  /** Where room keys arrive. Without processing these, nothing decrypts. */
+  to_device?: { events?: unknown[] };
+  device_lists?: { changed?: string[]; left?: string[] };
+  device_one_time_keys_count?: Record<string, number>;
+  device_unused_fallback_key_types?: string[];
   rooms?: {
     join?: Record<string, { timeline?: { events?: MatrixTimelineEvent[]; limited?: boolean } }>;
   };
@@ -51,13 +56,26 @@ export class MatrixClient {
   private token: string | undefined;
   /** The bot's MXID, so a "you have to invite this account" message can name it. */
   private mxid: string | undefined;
+  private device: string | undefined;
 
   constructor(private readonly baseUrl: string) {}
 
+  /** The device this token belongs to, which is what room keys are shared with. */
+  get deviceId(): string | undefined {
+    return this.device;
+  }
+
   /**
-   * Obtain the ingest bot's access token. Asks RM for interop first, which is
-   * idempotent on matrixrmapi's side and is what authorises the fetch that
-   * follows, so it is done on every boot rather than tracked.
+   * Fetch the ingest bot's credentials and find out which device they are for.
+   *
+   * matrixrmapi registers the bot, so the token it hands us is bound to a
+   * device — that is the whole point, since room keys are shared with devices
+   * and a device-less token can be in every room and decrypt nothing. The token
+   * is stable across our restarts, so there is no session of our own to keep;
+   * whoami is what tells us the device id to open the crypto store for.
+   *
+   * Asking RM for interop first is idempotent on matrixrmapi's side, so it
+   * happens every boot rather than being tracked.
    */
   async setup(): Promise<void> {
     const product = ENV.MATRIX_PRODUCT_NAME;
@@ -71,16 +89,26 @@ export class MatrixClient {
       throw new Error(`${product} returned authz type "${authz.type}" with no token`);
     }
     this.token = authz.token;
-    // whoami both confirms the token works and tells us who we are, which is
-    // what a "invite this account" message has to name.
-    try {
-      const me = await this.call<{ user_id?: string }>("/_matrix/client/v3/account/whoami", {});
-      this.mxid = me.user_id;
-      setMatrixBotUserId(me.user_id);
-    } catch (err) {
-      logger.warn({ err }, "matrix ingest: could not read the bot's own user id");
+
+    const me = await this.call<{ user_id?: string; device_id?: string }>(
+      "/_matrix/client/v3/account/whoami",
+      {},
+    );
+    this.mxid = me.user_id;
+    this.device = me.device_id;
+    setMatrixBotUserId(me.user_id);
+    if (!me.device_id) {
+      // Without a device nothing can share room keys with us, so every encrypted
+      // room will stay unreadable however long we wait. Worth saying plainly.
+      logger.error(
+        { botUserId: me.user_id },
+        "matrix ingest: this token has no device, so encrypted rooms cannot be read — matrixrmapi must register the bot rather than mint a token for it",
+      );
     }
-    logger.info({ product, host, botUserId: this.mxid }, "matrix ingest: got the ingest bot token");
+    logger.info(
+      { product, host, botUserId: this.mxid, deviceId: this.device },
+      "matrix ingest: got the ingest bot token",
+    );
   }
 
   /** Drop the cached token so the next call fetches a fresh one. */
@@ -267,6 +295,34 @@ export class MatrixClient {
         res.status,
       );
     }
+  }
+
+  /**
+   * Send one request on the crypto machine's behalf and return the raw body.
+   *
+   * The machine composes these itself and only needs them delivered; it treats
+   * the response as opaque bytes, so no parsing happens here.
+   */
+  async cryptoSend(d: { path: string; body: string; method?: "PUT" }): Promise<string> {
+    const res = await fetch(new URL(d.path, this.baseUrl), {
+      method: d.method ?? "POST",
+      headers: { ...this.authHeaders, "content-type": "application/json" },
+      body: d.body,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      throw new MatrixError(`${d.path} returned ${res.status}: ${text.slice(0, 200)}`, res.status);
+    }
+    return text;
+  }
+
+  /** MXIDs currently joined to a room, for device tracking. */
+  async joinedMembers(roomId: string): Promise<string[]> {
+    const body = await this.call<{ joined?: Record<string, unknown> }>(
+      `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/joined_members`,
+      {},
+    );
+    return Object.keys(body.joined ?? {});
   }
 
   async roomIdForAlias(alias: string): Promise<string | undefined> {

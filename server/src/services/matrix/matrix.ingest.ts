@@ -10,7 +10,8 @@ import {
 } from "../ingest/ingest.service.ts";
 import { countEvent, setStatus, transportKey } from "../ingest/ingest.state.ts";
 import type { MatrixSourceConfig } from "../ingest/ingest.types.ts";
-import { MatrixClient, MatrixError } from "./matrix.client.ts";
+import { MatrixClient, MatrixError, type MatrixTimelineEvent } from "./matrix.client.ts";
+import { MatrixCrypto } from "./matrix.crypto.ts";
 import { matrixEventToCreateInput } from "./matrix.map.ts";
 
 /**
@@ -54,7 +55,8 @@ const syncFilter = (roomIds: string[]): string =>
       rooms: roomIds,
       account_data: { not_types: ["*"] },
       ephemeral: { not_types: ["*"] },
-      state: { not_types: ["*"] },
+      // Membership is needed to track whose devices to expect keys from.
+      state: { types: ["m.room.member"] },
       timeline: { types: ["m.room.message", "m.room.encrypted"], limit: TIMELINE_LIMIT },
     },
   });
@@ -76,6 +78,9 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
   const joined = new Set<string>();
   /** One "cannot join" warning per room, cleared when we get in. */
   const warnedNotJoined = new Set<string>();
+  /** Rooms whose members we have handed to the crypto machine. */
+  const tracked = new Set<string>();
+  let crypto: MatrixCrypto | undefined;
 
   const pause = (ms: number) =>
     new Promise((resolve) => {
@@ -113,32 +118,30 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
     warnedNotJoined.delete(roomId);
     logger.info({ roomId }, "matrix ingest: joined room");
 
-    // Read the room's own state rather than waiting for an encrypted message:
-    // an unreadable room should say so before anyone wastes time wondering.
-    try {
-      if (await client.isEncrypted(roomId)) {
-        setStatus(sourceId, "encrypted");
-        if (!warnedEncrypted.has(roomId)) {
-          warnedEncrypted.add(roomId);
-          logger.warn(
-            { roomId },
-            "matrix ingest: room is end-to-end encrypted, its messages cannot be read",
-          );
-        }
-        return true;
-      }
-    } catch (err) {
-      logger.warn({ err, roomId }, "matrix ingest: could not read the room's encryption state");
-    }
     setStatus(sourceId, "connected");
     return true;
+  };
+
+  /**
+   * Tell the crypto machine who is in a room, so it tracks their devices and
+   * they learn about ours. Done once per room: membership changes arrive through
+   * sync afterwards.
+   */
+  const trackRoom = async (roomId: string): Promise<void> => {
+    if (!crypto || tracked.has(roomId)) return;
+    try {
+      await crypto.trackUsers(await client.joinedMembers(roomId));
+      tracked.add(roomId);
+    } catch (err) {
+      logger.warn({ err, roomId }, "matrix ingest: could not read room membership");
+    }
   };
 
   const handleRoom = async (
     roomId: string,
     sourceId: string,
     roomName: string | undefined,
-    timeline: { events?: { type?: string }[]; limited?: boolean },
+    timeline: { events?: MatrixTimelineEvent[]; limited?: boolean },
     domain: string,
   ): Promise<void> => {
     if (timeline.limited) {
@@ -147,17 +150,31 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
         "matrix ingest: timeline truncated, older messages in this batch were dropped",
       );
     }
-    for (const ev of timeline.events ?? []) {
+    for (const raw of timeline.events ?? []) {
+      let ev = raw;
       if (ev.type === "m.room.encrypted") {
-        setStatus(sourceId, "encrypted");
-        if (!warnedEncrypted.has(roomId)) {
-          warnedEncrypted.add(roomId);
-          logger.warn(
-            { roomId, roomName },
-            "matrix ingest: room is end-to-end encrypted, its messages cannot be read and are skipped",
-          );
+        const decrypted = crypto ? await crypto.decrypt(ev, roomId) : null;
+        if (!decrypted) {
+          // Ordinary for anything sent before this device joined, and for a
+          // sender whose client will not share with an unverified device.
+          setStatus(sourceId, "encrypted", "Waiting for room keys from a sender");
+          if (!warnedEncrypted.has(roomId)) {
+            warnedEncrypted.add(roomId);
+            logger.warn(
+              { roomId, roomName },
+              "matrix ingest: no room key for an encrypted event yet — expected for messages sent before this device joined",
+            );
+          }
+          continue;
         }
-        continue;
+        // The envelope carries who and when; the plaintext carries what.
+        ev = {
+          ...(decrypted as { type?: string; content?: Record<string, unknown> }),
+          event_id: raw.event_id,
+          sender: raw.sender,
+          origin_server_ts: raw.origin_server_ts,
+        };
+        setStatus(sourceId, "connected");
       }
       const input = matrixEventToCreateInput(ev, {
         roomId,
@@ -221,6 +238,13 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
     if (!next) throw new Error("matrix sync response carried no next_batch");
     setStatus(MATRIX, "connected");
 
+    // Before reading the timeline: this is where room keys arrive, and where our
+    // own device keys get published so senders have something to share with.
+    if (crypto) {
+      await crypto.processSync(body, (d) => client.cryptoSend(d));
+      for (const roomId of syncable) await trackRoom(roomId);
+    }
+
     if (!since) {
       logger.info({ rooms: syncable.length }, "matrix ingest started, reading from now on");
       return { polled: true, cursor: next };
@@ -242,6 +266,9 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
       setStatus(MATRIX, "connecting");
       try {
         if (!client.hasToken) await client.setup();
+        if (!crypto && client.userId && client.deviceId) {
+          crypto = await MatrixCrypto.open(client.userId, client.deviceId, ENV.MATRIX_CRYPTO_STORE);
+        }
         const result = await pollOnce(since);
         if (result.polled) {
           if (result.cursor !== since) {

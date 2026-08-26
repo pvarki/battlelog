@@ -23,6 +23,9 @@ importers:
       '@hono/zod-openapi':
         specifier: ^0.18.4
         version: 0.18.4(hono@4.13.3)(zod@3.25.76)
+      '@matrix-org/matrix-sdk-crypto-nodejs':
+        specifier: ^0.6.6
+        version: 0.6.6
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -1324,6 +1327,10 @@ packages:
     resolution: {integrity: sha512-nDmA9S+qnQQ61KYgph06Wt2cx1tj3Z6eeyK3HvFeuLb5FcGycbITsVy/+3LltH2qdqkpNeAA9wQ926NFjn5hvA==}
     peerDependencies:
       react: ^19.2.0
+
+  '@matrix-org/matrix-sdk-crypto-nodejs@0.6.6':
+    resolution: {integrity: sha512-JlYSjq9Sm/0QoUXfk6C7JppsOG0ESY8BHEIaQgjQ8iQ0GkhvJrhPZbMJmd77/Bgeahd1GENf8896nauf4ximzQ==}
+    engines: {node: '>= 24'}
 
   '@minimistjs/subarg@1.0.0':
     resolution: {integrity: sha512-Q/ONBiM2zNeYUy0mVSO44mWWKYM3UHuEK43PKIOzJCbvUnPoMH1K+gk3cf1kgnCVJFlWmddahQQCmrmBGlk9jQ==}
@@ -3216,6 +3223,11 @@ packages:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
     engines: {node: '>=10.5.0'}
     deprecated: Use your platform's native DOMException instead
+
+  node-downloader-helper@2.1.11:
+    resolution: {integrity: sha512-882fH2C9AWdiPCwz/2beq5t8FGMZK9Dx8TJUOIxzMCbvG7XUKM5BuJwN5f0NKo4SCQK6jR4p2TPm54mYGdGchQ==}
+    engines: {node: '>=14.18'}
+    hasBin: true
 
   node-fetch@3.3.2:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
@@ -5221,6 +5233,13 @@ snapshots:
   '@mantine/store@9.5.1(react@19.2.8)':
     dependencies:
       react: 19.2.8
+
+  '@matrix-org/matrix-sdk-crypto-nodejs@0.6.6':
+    dependencies:
+      https-proxy-agent: 7.0.6
+      node-downloader-helper: 2.1.11
+    transitivePeerDependencies:
+      - supports-color
 
   '@minimistjs/subarg@1.0.0':
     dependencies:
@@ -7332,6 +7351,8 @@ snapshots:
   nanoid@3.3.18: {}
 
   node-domexception@1.0.0: {}
+
+  node-downloader-helper@2.1.11: {}
 
   node-fetch@3.3.2:
     dependencies:

@@ -151,16 +151,37 @@ a room the Space makes joinable is joined outright, and an invite-only one has
 its invite accepted on the next cycle. A room it is not in reports `not-joined`
 rather than looking healthy while delivering nothing.
 
-**The standard rooms are end-to-end encrypted, and joining a room does not change
-that** — megolm keys travel client to device, never through the server. Encryption
-is read from room state when joining, so an unreadable room says so immediately
-instead of looking fine until someone speaks.
+### End-to-end encryption
 
-**A room created in a Matrix client is encrypted by default and Matrix cannot undo
-it**, which makes every room made the ordinary way permanently unreadable here.
-`POST /api/v1/ingest/matrix/rooms` creates one that is not: unencrypted, inside
-the Space, joinable by anyone in it, and with a topic saying its contents are
-recorded. The settings page offers it as a button when adding a Matrix source.
+Encrypted rooms are read too. Megolm keys travel client to device, never through
+the server, so this needs a device of its own and the crypto machinery to go with
+it — `@matrix-org/matrix-sdk-crypto-nodejs`, the same Rust implementation Element
+uses, driven from the sync loop.
+
+The device is what makes it possible, and it comes from matrixrmapi registering
+the bot: registration binds a token to a device, whereas the admin
+"login as user" API mints a device-less one that nothing can share keys with. The
+device id comes back from `whoami`, and the crypto store is keyed by it under
+`MATRIX_CRYPTO_STORE` — **on a persistent volume**, because it holds every room
+key shared with that device. Lose it and everything encrypted before becomes
+unreadable.
+
+Two limits are inherent to megolm rather than to this implementation:
+
+- **No history.** Keys are shared forward, so messages sent before the bot's
+  device joined a room cannot be decrypted, ever.
+- **Senders decide.** A client configured never to share with unverified devices
+  will not share with ours. Element shares by default; verify the bot in your
+  client if a particular person's messages stay unreadable.
+
+An undecryptable event leaves the source reading "Waiting for keys" rather than
+counting as a failure, since that is the normal state for a room the bot has just
+joined.
+
+`POST /api/v1/ingest/matrix/rooms` still exists and creates an **unencrypted**
+room inside the Space — useful when you would rather not depend on key sharing at
+all, and the only option for reading anything posted before the bot arrived. The
+settings page offers it as a button when adding a Matrix source.
 
 There is no backfill: the first `/sync` keeps only its cursor. That cursor is
 persisted, so a restart resumes rather than replaying.

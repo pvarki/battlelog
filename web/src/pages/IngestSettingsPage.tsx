@@ -54,7 +54,7 @@ const STATUS_LOOK: Record<IngestSource["status"]["status"], { c: string; label: 
   connecting: { c: "yellow", label: "Connecting" },
   error: { c: "red", label: "Error" },
   "not-joined": { c: "orange", label: "Bot not in room" },
-  encrypted: { c: "orange", label: "Encrypted, unreadable" },
+  encrypted: { c: "yellow", label: "Waiting for keys" },
   disabled: { c: "gray", label: "Off" },
 };
 
@@ -281,13 +281,17 @@ export const IngestSettingsPage = () => {
 
               {source.status.status === "encrypted" && (
                 <Alert
-                  color="orange"
+                  color="yellow"
                   icon={<IconAlertTriangle size={16} />}
                   mb="sm"
-                  title="This room is end-to-end encrypted"
+                  title="Waiting for room keys"
                 >
-                  Its messages cannot be read, so nothing from it reaches the feed. Only a room
-                  created without encryption can be ingested.
+                  This room is end-to-end encrypted, and the bot has a device that senders can share
+                  keys with — but it has not been given a key for these messages. Two ordinary
+                  reasons: they were sent before the bot joined, which no key can undo, or the
+                  sender's client is set not to share with unverified devices. New messages should
+                  arrive; verify <strong>{botUserId ?? "the ingest bot"}</strong> in your Matrix
+                  client if they do not.
                 </Alert>
               )}
 

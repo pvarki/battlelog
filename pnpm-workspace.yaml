@@ -4,5 +4,9 @@ packages:
   - server
   - web
 allowBuilds:
+  # Downloads its per-platform native binary from the matrix-org release
+  # assets in a postinstall; without this the module cannot load at all.
+  '@matrix-org/matrix-sdk-crypto-nodejs': true
   esbuild: true
   protobufjs: true
+
