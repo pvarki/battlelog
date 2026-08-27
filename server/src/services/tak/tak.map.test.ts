@@ -107,8 +107,21 @@ describe("cotToCreateInput", () => {
       lon: 24.6,
       detail: '<detail><contact callsign="VIHOLLINEN-1"/></detail>',
     };
-    const first = cotToCreateInput({ ...marker, time: new Date("2026-08-27T12:00:00Z") });
-    const relayed = cotToCreateInput({ ...marker, time: new Date("2026-08-27T12:00:30Z") });
+    // TAK also stamps its own <_flow-tags_> with the relay time on every hop, so
+    // the two arrivals differ in detail as well as in time. Both have to be
+    // normalised out or nothing deduplicates.
+    const stamp = (t: string) =>
+      `<detail><contact callsign="VIHOLLINEN-1"/><_flow-tags_ TAK-Server-abc="${t}"/></detail>`;
+    const first = cotToCreateInput({
+      ...marker,
+      time: new Date("2026-08-27T12:00:00Z"),
+      detail: stamp("2026-08-27T12:00:00.100Z"),
+    });
+    const relayed = cotToCreateInput({
+      ...marker,
+      time: new Date("2026-08-27T12:00:30Z"),
+      detail: stamp("2026-08-27T12:00:30.900Z"),
+    });
     expect(relayed.sourceUri).toBe(first.sourceUri);
 
     // A unit that has actually moved is a new entry, not a duplicate.

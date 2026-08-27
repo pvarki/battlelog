@@ -53,6 +53,18 @@ const takHeader = (cot: CotEvent, label: string, body?: string): string => {
  * a marker someone edited, is a new row — which is what a log of a moving
  * picture has to do.
  */
+/**
+ * Detail with TAK's own relay bookkeeping removed.
+ *
+ * TAK appends `<_flow-tags_ TAK-Server-<id>="<relay time>"/>` on every hop, so
+ * the detail of an unchanged, re-sent report differs on each arrival. Hashing
+ * it verbatim meant the digest changed every time and nothing deduplicated —
+ * which is what the first attempt at this got wrong. The tag is TAK's, not the
+ * producer's, so it carries nothing about what was reported.
+ */
+const withoutRelayStamps = (detail: string | undefined): string =>
+  (detail ?? "").replace(/<_flow-tags_\b[^>]*\/>/g, "");
+
 const sourceUriOf = (cot: CotEvent, isChat: boolean): string => {
   if (isChat) {
     return cot.messageId
@@ -60,7 +72,9 @@ const sourceUriOf = (cot: CotEvent, isChat: boolean): string => {
       : `tak://${cot.uid}${cot.time ? `/${cot.time.toISOString()}` : ""}`;
   }
   const digest = createHash("sha256")
-    .update(`${cot.type}\n${cot.lat ?? ""},${cot.lon ?? ""},${cot.hae ?? ""}\n${cot.detail ?? ""}`)
+    .update(
+      `${cot.type}\n${cot.lat ?? ""},${cot.lon ?? ""},${cot.hae ?? ""}\n${withoutRelayStamps(cot.detail)}`,
+    )
     .digest("hex")
     .slice(0, 16);
   return `tak://${cot.uid}/${digest}`;
