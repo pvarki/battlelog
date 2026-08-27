@@ -51,8 +51,10 @@ const descriptor: WidgetDescriptor<AlertsConfig> = {
   description: "Alerts raised by any board's rules, with acknowledgement",
   configSchema,
   defaultConfig: { lookback: 200 },
-  defaultSize: { w: 12, h: 8 },
-  minSize: { w: 6, h: 3 },
+  // Folded it is one line tall; the unfolded list is a portalled
+  // popover, so it needs no room on the board.
+  defaultSize: { w: 16, h: 2 },
+  minSize: { w: 6, h: 2 },
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };
