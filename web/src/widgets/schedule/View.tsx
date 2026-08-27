@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Button,
+  Checkbox,
   Group,
   Modal,
   NumberInput,
@@ -14,10 +15,13 @@ import { useEffect, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useEventDocument } from "../../dashboard/useEventDocument.ts";
 import {
+  describeRepeat,
   formatDelta,
   headerFor,
+  nextOccurrence,
   parseTimers,
   type ScheduleConfig,
+  type ScheduleRepeat,
   type ScheduleTimer,
 } from "./widget.ts";
 
@@ -40,8 +44,12 @@ const TimerRow = ({
   now: number;
   onRemove: () => void;
 }) => {
-  const remaining = new Date(timer.target).getTime() - now;
+  // The next occurrence, not the stored anchor: a repeating timer rolls forward
+  // on its own rather than sitting at PASSED.
+  const due = nextOccurrence(timer, now);
+  const remaining = due - now;
   const passed = remaining < 0;
+  const repeats = describeRepeat(timer.repeat);
   return (
     <Group gap="xs" wrap="nowrap" justify="space-between">
       <Stack gap={0} style={{ minWidth: 0 }}>
@@ -49,7 +57,8 @@ const TimerRow = ({
           {timer.label}
         </Text>
         <Text c="dimmed" fz="xs">
-          {formatTarget(timer.target)}
+          {formatTarget(new Date(due).toISOString())}
+          {repeats && ` · ${repeats}`}
         </Text>
       </Stack>
       <Group gap="xs" wrap="nowrap">
@@ -96,12 +105,27 @@ const ScheduleView = ({ config, updateConfig }: WidgetViewProps<ScheduleConfig>)
   const [hours, setHours] = useState<string | number>(0);
   const [minutes, setMinutes] = useState<string | number>(30);
   const [at, setAt] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [every, setEvery] = useState<"hour" | "day" | "week" | "month" | "custom">("day");
+  /** Manually set dates, as datetime-local strings. */
+  const [dates, setDates] = useState<string[]>([]);
+
+  const customDates = dates.filter((d) => d && !Number.isNaN(new Date(d).getTime()));
+  const repeat: ScheduleRepeat | undefined = !recurring
+    ? undefined
+    : every === "custom"
+      ? customDates.length
+        ? { dates: customDates.map((d) => new Date(d).toISOString()) }
+        : undefined
+      : { every };
 
   const durationMs = (Number(hours) || 0) * 3_600_000 + (Number(minutes) || 0) * 60_000;
   const targetMs = mode === "duration" ? now + durationMs : new Date(at).getTime();
   const valid =
     label.trim() !== "" &&
-    (mode === "duration" ? durationMs > 0 : !Number.isNaN(targetMs) && targetMs > now);
+    (mode === "duration" ? durationMs > 0 : !Number.isNaN(targetMs) && targetMs > now) &&
+    // A custom recurrence with no usable dates would silently become a one-off.
+    (!recurring || every !== "custom" || customDates.length > 0);
 
   const add = () => {
     if (!valid) return;
@@ -112,11 +136,14 @@ const ScheduleView = ({ config, updateConfig }: WidgetViewProps<ScheduleConfig>)
           id: crypto.randomUUID(),
           label: label.trim(),
           target: new Date(targetMs).toISOString(),
+          ...(repeat ? { repeat } : {}),
         },
       ],
     });
     setOpened(false);
     setLabel("");
+    setRecurring(false);
+    setDates([]);
   };
   const remove = (id: string) => update({ timers: value.timers.filter((t) => t.id !== id) });
 
@@ -178,6 +205,75 @@ const ScheduleView = ({ config, updateConfig }: WidgetViewProps<ScheduleConfig>)
               value={at}
               onChange={(e) => setAt(e.currentTarget.value)}
             />
+          )}
+          <Checkbox
+            label="Recurring"
+            checked={recurring}
+            onChange={(e) => setRecurring(e.currentTarget.checked)}
+          />
+          {recurring && (
+            <>
+              <SegmentedControl
+                fullWidth
+                size="xs"
+                value={every}
+                onChange={(v) => setEvery(v as typeof every)}
+                data={[
+                  { value: "hour", label: "Hourly" },
+                  { value: "day", label: "Daily" },
+                  { value: "week", label: "Weekly" },
+                  { value: "month", label: "Monthly" },
+                  { value: "custom", label: "Custom" },
+                ]}
+              />
+              {every === "custom" ? (
+                <Stack gap={6}>
+                  <Text fz="xs" c="dimmed">
+                    Set each date this repeats on. The countdown follows the next one still to come.
+                  </Text>
+                  {dates.map((d, i) => (
+                    // Index-keyed on purpose: these rows are positional and have
+                    // no identity of their own.
+                    // biome-ignore lint/suspicious/noArrayIndexKey: positional rows
+                    <Group key={i} gap="xs" wrap="nowrap">
+                      <TextInput
+                        size="xs"
+                        type="datetime-local"
+                        style={{ flex: 1 }}
+                        value={d}
+                        onChange={(e) => {
+                          const next = [...dates];
+                          next[i] = e.currentTarget.value;
+                          setDates(next);
+                        }}
+                      />
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        aria-label="Remove date"
+                        onClick={() => setDates(dates.filter((_, j) => j !== i))}
+                      >
+                        <IconX size={14} stroke={1.5} />
+                      </ActionIcon>
+                    </Group>
+                  ))}
+                  <Button
+                    size="xs"
+                    variant="light"
+                    disabled={dates.length >= 60}
+                    onClick={() => setDates([...dates, ""])}
+                  >
+                    Add date
+                  </Button>
+                </Stack>
+              ) : (
+                <Text fz="xs" c="dimmed">
+                  Repeats {every === "hour" ? "hourly" : `every ${every}`} from the time above.
+                  Daily and longer keep the same clock time across a daylight-saving change.
+                </Text>
+              )}
+            </>
           )}
           <Text c="dimmed" fz="sm">
             {valid
