@@ -181,3 +181,22 @@ export const dismissedKeys = (rows: readonly EventResponse[]): Set<string> => {
   }
   return keys;
 };
+
+/**
+ * Which open alerts have not been announced yet, given what already has been.
+ *
+ * Pulled out of the view so the behaviour that matters — the card unfolds for
+ * something that happened while you were watching, and not for the backlog it
+ * loaded with — is testable without a DOM.
+ *
+ * `announced` of null means nothing has been counted yet: that first call
+ * records the backlog and reports nothing fresh, which is what stops a board
+ * from unfolding on every page load.
+ */
+export const freshAlertKeys = (
+  openKeys: readonly string[],
+  announced: Set<string> | null,
+): string[] => {
+  if (announced === null) return [];
+  return openKeys.filter((k) => !announced.has(k));
+};

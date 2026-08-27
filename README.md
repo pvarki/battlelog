@@ -219,16 +219,22 @@ A raised alert does two things:
 
 1. outlines and pulses the widget that watches for it, then holds the outline
    until it is clicked away — a permanently blinking tile stops being read as new;
-2. unfolds the **Alerts** widget, a folded one-line card listing alerts raised by
-   _every_ board's rules, which an operator acknowledges from there.
+2. unfolds the **alerts bell in the app header**, which lists alerts raised by
+   _every_ board's rules and is where an operator acknowledges them.
 
-Both happen on the board itself. There is deliberately no corner toast: the board
-is what an operator is looking at, and a notification to be dismissed somewhere
-else is one more thing to miss.
+Both happen where the operator is already looking. There is deliberately no
+corner toast: a notification to be dismissed somewhere else is one more thing to
+miss. The bell lives in the header rather than on a board because the header is
+the one thing on screen on every page, and it costs no tile from the board the
+alert is about.
 
-The card unfolds only for an alert arriving while someone is watching, never for
+The list unfolds only for an alert arriving while someone is watching, never for
 the backlog it loads with — otherwise every page load would fling it open over
-alerts dealt with yesterday.
+alerts dealt with yesterday. Tapping the bell opens and closes it at will.
+
+There is also an **Alerts widget** for boards, showing the same list. It is not
+in any template: it exists for a wall display where the list should be
+permanently readable rather than behind a control nobody is standing next to.
 
 Acknowledging writes an `alert-dismissed` event carrying `alertId` and `eventId`,
 so who cleared what is in the same log as everything else rather than in a

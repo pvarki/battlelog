@@ -12,6 +12,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { AlertsBell } from "./AlertsBell.tsx";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
@@ -104,6 +105,10 @@ const RootLayout = () => {
           <NavLink to="/events">Event Explorer</NavLink>
           <NavLink to="/ingest">Ingest</NavLink>
           <ConnectionIndicator />
+          {/* Alerts live in the header, not on a board: it is the one thing on
+              screen on every page, and it costs no tile from the board the alert
+              is about. */}
+          <AlertsBell />
         </Group>
       </AppShell.Header>
       <AppShell.Main>

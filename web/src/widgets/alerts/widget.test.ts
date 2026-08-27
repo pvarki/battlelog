@@ -1,7 +1,14 @@
 import { expect, test } from "vitest";
-import { type Alert, DISMISS_EVENT_TYPE, dismissedKeys, matchesAlert } from "../../alerts.ts";
+import {
+  type Alert,
+  DISMISS_EVENT_TYPE,
+  dismissedKeys,
+  freshAlertKeys,
+  matchesAlert,
+} from "../../alerts.ts";
+import { raisedAlerts } from "../../alerts-panel.tsx";
 import type { EventResponse } from "../../api.ts";
-import descriptor, { freshAlertKeys, raisedAlerts } from "./widget.ts";
+import descriptor from "./widget.ts";
 
 const event = (over: Partial<EventResponse> = {}): EventResponse =>
   ({
