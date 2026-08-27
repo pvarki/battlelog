@@ -21,7 +21,7 @@ Not a spec. One slice at a time: issue → decision → fix.
   Revisit when mobile is on the table (it brings its own questions).
 - **Undo covers composition, not content.** Layout, widget config, add/remove/
   duplicate and the dashboard name flow through `DashboardGrid.persist()` and are
-  undoable. Widget *content* (note text, todo checkmarks, table cells) lives in its
+  undoable. Widget _content_ (note text, todo checkmarks, table cells) lives in its
   own event chain via `useEventDocument` and is not. A stray ⌘Z must never un-tick
   someone's checklist.
 - **Undo history is session-scoped and in-memory**, held in a ref inside
@@ -42,11 +42,11 @@ Not a spec. One slice at a time: issue → decision → fix.
 - [x] **2. Status & connection language.** Done — stream health surfaced, `SaveState` folded into `DocStatus`. Unify `useEventDocument`'s `DocStatus`
       (`idle|loading|waiting|saving|saved|error|stale|unavailable`) with
       `DashboardPage`'s parallel `SaveState`, and surface SSE health — currently
-      invisible. *Stale but plausible* is the dangerous failure on a live display.
+      invisible. _Stale but plausible_ is the dangerous failure on a live display.
 - [x] **3. Empty / error / loading pattern.** Done — shared `Placeholder`, `onConfigure` on the widget contract. Promote `WidgetWrapper.Placeholder`
       to shared. Empty states should teach, not just report absence.
 - [~] **4. Density & hierarchy scale.** SKIPPED deliberately — measured, no defect. Widget body padding is already uniform at `p="xs"`; the 18 raw spacings are all sub-10px, below Mantine's `xs`, which is a legitimate gap in the token scale rather than drift. Retuning `theme.spacing` would silently reflow 60 call sites for no visible gain. Codify spacing in `theme.ts`; it sets type
-      sizes but no spacing, so every file improvises.
+  sizes but no spacing, so every file improvises.
 
 ## Surfaces
 
@@ -63,143 +63,140 @@ Not a spec. One slice at a time: issue → decision → fix.
       folders); drag-from-palette (`dropConfig` makes it viable, but free-slot
       tiling took most of its value); menu search/grouping (revisit ~15 widgets).
 - [~] **6. Event Explorer.** Shell DONE — full-height workspace, active-filter
-      chips, filter drawer, header search that debounce-applies, `event-filters.ts`
-      extracted and tested. Column overflow DONE — `tags` and `location` are
-      unbounded free text in the DB (`text("tags").array()`, `text("location")`,
-      and nothing in the Zod schema caps them either), and under the old
-      auto-layout table one verbose row set the width of every column. The table
-      is now `layout="fixed"` with declared widths, so a long value ellipsizes in
-      its own column instead of stealing a neighbour's; `Header`, `Type`,
-      `Location` and `By` were all unbounded too and got the same treatment. Tags
-      render as badges — first two plus a `+N` count — with the full list in the
-      title tooltip and the detail drawer. Verified at 1280px (the guarded
-      minimum) against a deliberately pathological row.
-      STILL TO DO: sortable columns; Admiralty as a designed component rather
-      than `join("")` (the capture path is fully wired, so this is presentation
-      work).
+  chips, filter drawer, header search that debounce-applies, `event-filters.ts`
+  extracted and tested. Column overflow DONE — `tags` and `location` are
+  unbounded free text in the DB (`text("tags").array()`, `text("location")`,
+  and nothing in the Zod schema caps them either), and under the old
+  auto-layout table one verbose row set the width of every column. The table
+  is now `layout="fixed"` with declared widths, so a long value ellipsizes in
+  its own column instead of stealing a neighbour's; `Header`, `Type`,
+  `Location` and `By` were all unbounded too and got the same treatment. Tags
+  render as badges — first two plus a `+N` count — with the full list in the
+  title tooltip and the detail drawer. Verified at 1280px (the guarded
+  minimum) against a deliberately pathological row.
+  STILL TO DO: sortable columns; Admiralty as a designed component rather
+  than `join("")` (the capture path is fully wired, so this is presentation
+  work).
 - [~] **7. Shell & navigation.** Error + not-found screens DONE — shared
-      `Placeholder`, registered as router defaults so new routes inherit them, and
-      rendered inside the layout so the header nav stays as a way out. A 404 on the
-      dashboard route throws `notFound()` (a stale link to a deleted dashboard is
-      the likeliest failure there). Connection indicator landed in slice 2.
-      STILL TO DO: the too-narrow-screen guard is a dead end that says what is
-      wrong but not what to do; the header doesn't show which dashboard you are in.
+  `Placeholder`, registered as router defaults so new routes inherit them, and
+  rendered inside the layout so the header nav stays as a way out. A 404 on the
+  dashboard route throws `notFound()` (a stale link to a deleted dashboard is
+  the likeliest failure there). Connection indicator landed in slice 2.
+  STILL TO DO: the too-narrow-screen guard is a dead end that says what is
+  wrong but not what to do; the header doesn't show which dashboard you are in.
 - [~] **12. Dashboards landing page.** (Numbered by discovery, not priority — it
-      surfaced after the first eleven were written.) Three defects, two fixed.
-      (a) Templates were rendered as *peers* of dashboards: own `Title order={3}`
-      section, identical `Paper`, identical meta line — so a template named
-      "Soldier" sat directly below a dashboard named "Soldier" with nothing to
-      tell them apart. A template is a starting point, not a destination, so it
-      no longer appears in a list of places you can go: the `New` control is a
-      menu (Empty / From template / Import / Manage templates…), and template
-      housekeeping lives in a modal. FIXED.
-      (b) The page was ~60% dead space, and a situational-awareness product whose
-      landing page shows no situation is the wrong first screen. Now a ⅓ / ⅔
-      split: the list left, `Latest activity` right — the newest 40 events, live.
-      It reuses the feed widget's `FeedTable`, so a row arriving here washes with
-      the same animation it does inside a dashboard, and the SSE connection was
-      already held open on this route by the header indicator. FIXED.
-      (c) Rows carried two facts, a widget count and a timestamp, neither of
-      which helps you choose. Dashboards now have a `description` — new nullable
-      column, in create/patch/export/import and in seeded template files — edited
-      from the row menu (`Name & description…`), shown under the name in the list
-      and under each template in the New menu. FIXED.
-      NOT DONE (deliberate): a widget-type list per row (a count plus a
-      description says enough); relative "updated 4 min ago" (its own helper and
-      test, and the house timestamp dialect is a settled decision); making the
-      whole card clickable (it would nest a link inside a click target, which is
-      exactly the a11y defect slice 10 already records); any "N events today"
-      counter — there is no count endpoint, and a number derived from a
-      `limit`-capped page would be a lying stat.
-      Templates cannot be renamed from the list on purpose: the seeding upsert is
-      keyed on name, so a rename would let the next boot re-seed the original as
-      a second template.
-      TEMPLATE FLOW, second pass — the whole thing now runs through one dialog
-      that asks for a name, because both directions were producing
-      indistinguishable rows or dead ends:
-      - Using a template inherited its name verbatim, so a copy of "Soldier"
-        landed next to "Soldier". `From template…` opens a picker (radio cards
-        showing name, description, widget count) with an editable name below it.
-        Switching template re-suggests its name but never overwrites one you
-        typed. A single template pre-picks, so the common case stays one click.
-      - `Save as template…` reused the dashboard's name, which collided with the
-        seeded template of the same name — and that collision surfaced as HTTP
-        **500** plus "Save as template failed — try again", a retry that could
-        never work. `createDashboard` now maps the unique violation to a typed
-        `DuplicateTemplateNameError`, the route returns 409, and the dialog stays
-        open showing the server's message next to the field that fixes it.
-      - Saving a template carried the source board's `eventId`s, so every
-        dashboard made from it wrote into the *original's* notes, checklists and
-        tables rather than its own. `forkWidgets` (in `dashboard/transfer.ts`)
-        strips the pointer — `useEventDocument` mints a fresh chain when it is
-        absent. Applied on export too, where the import dialog's own copy
-        ("contents … don't travel with the file") was otherwise false for an
-        import back into the same deployment.
-      STILL OPEN: `Duplicate` has the same shared-document problem that
-      save-as-template did — the copy points at the original's chains. It almost
-      certainly wants `forkWidgets` too, but that is a behaviour change on a path
-      nobody asked about, so it is recorded rather than done.
-      SCALING THE LISTING, third pass. Measured first: the picker is 440px wide
-      with a 774px cap, and title + label + Name + Description + Create take
-      ~380px of that, leaving room for about **five** cards. So the naming step
-      fell below the fold at six templates, not the ten that prompted the
-      question. Fixed by bounding the card list at 220px with its own scrollbar
-      (the dialog no longer scrolls at 13 templates on a 720px-tall viewport, and
-      Create stays visible), plus a search box over name and description that
-      appears only past `SEARCH_FROM` = 6. Cards went to two lines: name, then
-      `N widgets · description` clamped to one.
-      `LayoutThumbnail` draws a dashboard's silhouette from the widgets' own
-      `x/y/w/h` against the shared 48×24 grid — the constants moved out of
-      `DashboardPage` into `dashboard/grid.ts`, since the canvas and the
-      thumbnail have to measure against the same grid. It is on template cards,
-      dashboard rows and the manage-templates rows: "8 widgets" does not identify
-      a board, its shape does. Monochrome on purpose — nine widget types would
-      need nine colours, and colour alone is not allowed to carry meaning here —
-      and `aria-hidden`, since the adjacent text already gives the count.
-      `layoutBlocks` clamps to the grid so a hand-edited import cannot paint
-      outside the frame; that arithmetic is what `grid.test.ts` covers.
-      NOT DONE (deliberate): template categories or tags (a schema change with no
-      evidence anyone needs them); sort controls (alphabetical is fine at this
-      scale); pagination (never right for tens of items); a two-pane picker with
-      a preview pane, or a `/templates` gallery route — the thumbnail delivered
-      what the preview pane was for, at a fraction of the cost.
+  surfaced after the first eleven were written.) Three defects, two fixed.
+  (a) Templates were rendered as _peers_ of dashboards: own `Title order={3}`
+  section, identical `Paper`, identical meta line — so a template named
+  "Soldier" sat directly below a dashboard named "Soldier" with nothing to
+  tell them apart. A template is a starting point, not a destination, so it
+  no longer appears in a list of places you can go: the `New` control is a
+  menu (Empty / From template / Import / Manage templates…), and template
+  housekeeping lives in a modal. FIXED.
+  (b) The page was ~60% dead space, and a situational-awareness product whose
+  landing page shows no situation is the wrong first screen. Now a ⅓ / ⅔
+  split: the list left, `Latest activity` right — the newest 40 events, live.
+  It reuses the feed widget's `FeedTable`, so a row arriving here washes with
+  the same animation it does inside a dashboard, and the SSE connection was
+  already held open on this route by the header indicator. FIXED.
+  (c) Rows carried two facts, a widget count and a timestamp, neither of
+  which helps you choose. Dashboards now have a `description` — new nullable
+  column, in create/patch/export/import and in seeded template files — edited
+  from the row menu (`Name & description…`), shown under the name in the list
+  and under each template in the New menu. FIXED.
+  NOT DONE (deliberate): a widget-type list per row (a count plus a
+  description says enough); relative "updated 4 min ago" (its own helper and
+  test, and the house timestamp dialect is a settled decision); making the
+  whole card clickable (it would nest a link inside a click target, which is
+  exactly the a11y defect slice 10 already records); any "N events today"
+  counter — there is no count endpoint, and a number derived from a
+  `limit`-capped page would be a lying stat.
+  Templates cannot be renamed from the list on purpose: the seeding upsert is
+  keyed on name, so a rename would let the next boot re-seed the original as
+  a second template.
+  TEMPLATE FLOW, second pass — the whole thing now runs through one dialog
+  that asks for a name, because both directions were producing
+  indistinguishable rows or dead ends: - Using a template inherited its name verbatim, so a copy of "Soldier"
+  landed next to "Soldier". `From template…` opens a picker (radio cards
+  showing name, description, widget count) with an editable name below it.
+  Switching template re-suggests its name but never overwrites one you
+  typed. A single template pre-picks, so the common case stays one click. - `Save as template…` reused the dashboard's name, which collided with the
+  seeded template of the same name — and that collision surfaced as HTTP
+  **500** plus "Save as template failed — try again", a retry that could
+  never work. `createDashboard` now maps the unique violation to a typed
+  `DuplicateTemplateNameError`, the route returns 409, and the dialog stays
+  open showing the server's message next to the field that fixes it. - Saving a template carried the source board's `eventId`s, so every
+  dashboard made from it wrote into the _original's_ notes, checklists and
+  tables rather than its own. `forkWidgets` (in `dashboard/transfer.ts`)
+  strips the pointer — `useEventDocument` mints a fresh chain when it is
+  absent. Applied on export too, where the import dialog's own copy
+  ("contents … don't travel with the file") was otherwise false for an
+  import back into the same deployment.
+  STILL OPEN: `Duplicate` has the same shared-document problem that
+  save-as-template did — the copy points at the original's chains. It almost
+  certainly wants `forkWidgets` too, but that is a behaviour change on a path
+  nobody asked about, so it is recorded rather than done.
+  SCALING THE LISTING, third pass. Measured first: the picker is 440px wide
+  with a 774px cap, and title + label + Name + Description + Create take
+  ~380px of that, leaving room for about **five** cards. So the naming step
+  fell below the fold at six templates, not the ten that prompted the
+  question. Fixed by bounding the card list at 220px with its own scrollbar
+  (the dialog no longer scrolls at 13 templates on a 720px-tall viewport, and
+  Create stays visible), plus a search box over name and description that
+  appears only past `SEARCH_FROM` = 6. Cards went to two lines: name, then
+  `N widgets · description` clamped to one.
+  `LayoutThumbnail` draws a dashboard's silhouette from the widgets' own
+  `x/y/w/h` against the shared 48×24 grid — the constants moved out of
+  `DashboardPage` into `dashboard/grid.ts`, since the canvas and the
+  thumbnail have to measure against the same grid. It is on template cards,
+  dashboard rows and the manage-templates rows: "8 widgets" does not identify
+  a board, its shape does. Monochrome on purpose — nine widget types would
+  need nine colours, and colour alone is not allowed to carry meaning here —
+  and `aria-hidden`, since the adjacent text already gives the count.
+  `layoutBlocks` clamps to the grid so a hand-edited import cannot paint
+  outside the frame; that arithmetic is what `grid.test.ts` covers.
+  NOT DONE (deliberate): template categories or tags (a schema change with no
+  evidence anyone needs them); sort controls (alphabetical is fine at this
+  scale); pagination (never right for tens of items); a two-pane picker with
+  a preview pane, or a `/templates` gallery route — the thumbnail delivered
+  what the preview pane was for, at a fraction of the cost.
 
 ## Finish
 
 - [ ] **8. Widget-by-widget pass.** Apply foundations per folder. `table/View.tsx`
       (441 lines) and `form/Config.tsx` (279) are worth splitting on the way through.
-- [~] **9. Motion.** Rule: motion marks a state *change*, never a state
-      *condition* — a badge that pulses forever is noise in a minute and harmful
-      on a wall display. Both animations live in `global.css`, run once, and
-      loop never.
-      DONE: (a) a widget added to the canvas fades and scales in at its slot,
-      150ms — `firstFreeSlot` picks the slot rather than the user, so "where did
-      it land?" is a question the UI created and has to answer. Driven by an
-      `enteringId` in `DashboardGrid` and an `entering` prop on `WidgetWrapper`;
-      never cleared, because a CSS animation is one-shot per mount. (b) a row
-      arriving on the live SSE stream washes accent-9 and decays, 800ms —
-      `useLiveEvents` now returns `arrived`, the row ids that came from the
-      stream rather than the initial fetch, pruned to the rows still listed by
-      `markArrived` so the set stays bounded by `limit`. Keyed on row id, so a
-      new *version* of a visible event counts as an arrival too.
-      Budget: 150ms for the widget, deliberately 800ms for the row wash — the
-      120–200ms budget governs motion that gates interaction, and nothing waits
-      on an arrival highlight, which has to survive a glance away.
-      `prefers-reduced-motion` swaps the widget animation for a fade-only
-      keyframe set (a colour or opacity fade is not a vestibular trigger, so
-      reduced-motion users keep the information and lose only the movement).
-      NOT DONE (deliberate): exit animation on widget removal — it needs a ghost
-      element outliving the state that removed it, and delete already has a
-      confirm. Undo/redo settle, and crossfading the save-state label: both are
-      real but small, and neither is a question the UI created. Skipped on
-      principle: page transitions (they make navigation feel slower, always),
-      hover motion, and staggered list entrances.
+- [~] **9. Motion.** Rule: motion marks a state _change_, never a state
+  _condition_ — a badge that pulses forever is noise in a minute and harmful
+  on a wall display. Both animations live in `global.css`, run once, and
+  loop never.
+  DONE: (a) a widget added to the canvas fades and scales in at its slot,
+  150ms — `firstFreeSlot` picks the slot rather than the user, so "where did
+  it land?" is a question the UI created and has to answer. Driven by an
+  `enteringId` in `DashboardGrid` and an `entering` prop on `WidgetWrapper`;
+  never cleared, because a CSS animation is one-shot per mount. (b) a row
+  arriving on the live SSE stream washes accent-9 and decays, 800ms —
+  `useLiveEvents` now returns `arrived`, the row ids that came from the
+  stream rather than the initial fetch, pruned to the rows still listed by
+  `markArrived` so the set stays bounded by `limit`. Keyed on row id, so a
+  new _version_ of a visible event counts as an arrival too.
+  Budget: 150ms for the widget, deliberately 800ms for the row wash — the
+  120–200ms budget governs motion that gates interaction, and nothing waits
+  on an arrival highlight, which has to survive a glance away.
+  `prefers-reduced-motion` swaps the widget animation for a fade-only
+  keyframe set (a colour or opacity fade is not a vestibular trigger, so
+  reduced-motion users keep the information and lose only the movement).
+  NOT DONE (deliberate): exit animation on widget removal — it needs a ghost
+  element outliving the state that removed it, and delete already has a
+  confirm. Undo/redo settle, and crossfading the save-state label: both are
+  real but small, and neither is a question the UI created. Skipped on
+  principle: page transitions (they make navigation feel slower, always),
+  hover motion, and staggered list entrances.
 - [!] **10. Accessibility. ACKNOWLEDGED, NOT PLANNED** — a deliberate call, recorded
-      so it isn't rediscovered as a surprise. Note this accepts a gap against design
-      principle 4 ("keyboard-first, full keyboard operability"), so the principle and
-      the product currently disagree; revisit if BattleLog is ever procured under a
-      public-sector accessibility regime (EN 301 549 / the EU Web Accessibility
-      Directive), which would make several of these mandatory rather than optional.
+  so it isn't rediscovered as a surprise. Note this accepts a gap against design
+  principle 4 ("keyboard-first, full keyboard operability"), so the principle and
+  the product currently disagree; revisit if BattleLog is ever procured under a
+  public-sector accessibility regime (EN 301 549 / the EU Web Accessibility
+  Directive), which would make several of these mandatory rather than optional.
 
       What is already good: `aria-label` on every icon-only control, `role="status"`
       on save/stream state, `autoContrast` in the theme, a real `<button>` inside
@@ -221,10 +218,11 @@ Not a spec. One slice at a time: issue → decision → fix.
       - `window.confirm` for destructive deletes (accessible, just crude).
 
       The last four are each small if they're ever wanted; only the grid is real work.
+
 - [~] **11. Character.** Tabular figures DONE — one inherited rule in `global.css`;
-      measured 34px of per-tick jitter before, 0 after, and the clock dropped
-      `ff="monospace"` so the type system has no exception left.
-      STILL TO DO: HCoE domains promoted from `join(", ")`; Admiralty as a designed
-      component (the capture path is fully wired end to end — DB enum, API, server
-      filter, form-widget field kinds — so this really is presentation work, and it
-      will light up as soon as a form uses those fields); microcopy in one voice.
+  measured 34px of per-tick jitter before, 0 after, and the clock dropped
+  `ff="monospace"` so the type system has no exception left.
+  STILL TO DO: HCoE domains promoted from `join(", ")`; Admiralty as a designed
+  component (the capture path is fully wired end to end — DB enum, API, server
+  filter, form-widget field kinds — so this really is presentation work, and it
+  will light up as soon as a form uses those fields); microcopy in one voice.

@@ -37,19 +37,19 @@ docker compose up --build       # app + db
 
 Root scripts fan out to both packages; run package-specific ones with `pnpm -C server <script>` / `pnpm -C web <script>`.
 
-| Command | Purpose |
-|---|---|
-| `pnpm dev` | Both watch-mode servers (Hono :3000, Vite :5173) |
-| `pnpm build` | Compile server to `server/dist`, bundle UI to `web/dist` |
-| `pnpm test` | Vitest (server) |
-| `pnpm check` / `pnpm check:fix` | Biome lint + format (whole repo) |
-| `pnpm typecheck` | `tsc --noEmit` in every package |
-| `pnpm -C server start` | Run the compiled server |
-| `pnpm -C server db:generate` | Generate migration from schema diff |
-| `pnpm -C server db:migrate` | Apply migrations (ensures `postgis` extension) |
-| `pnpm -C server db:seed` / `db:fake` | Seed / insert fake dev data |
-| `pnpm -C server db:studio` | Drizzle Studio |
-| `pnpm -C server perf` | Load-test suite (see `server/scripts/perf.ts`) |
+| Command                              | Purpose                                                  |
+| ------------------------------------ | -------------------------------------------------------- |
+| `pnpm dev`                           | Both watch-mode servers (Hono :3000, Vite :5173)         |
+| `pnpm build`                         | Compile server to `server/dist`, bundle UI to `web/dist` |
+| `pnpm test`                          | Vitest (server)                                          |
+| `pnpm check` / `pnpm check:fix`      | Biome lint + format (whole repo)                         |
+| `pnpm typecheck`                     | `tsc --noEmit` in every package                          |
+| `pnpm -C server start`               | Run the compiled server                                  |
+| `pnpm -C server db:generate`         | Generate migration from schema diff                      |
+| `pnpm -C server db:migrate`          | Apply migrations (ensures `postgis` extension)           |
+| `pnpm -C server db:seed` / `db:fake` | Seed / insert fake dev data                              |
+| `pnpm -C server db:studio`           | Drizzle Studio                                           |
+| `pnpm -C server perf`                | Load-test suite (see `server/scripts/perf.ts`)           |
 
 ## Configuration
 
@@ -67,7 +67,7 @@ Two optional ingesters feed events in from the rest of the deployment. Both are
 off unless their host is configured, so a deployment that passes no extra
 environment behaves exactly as before.
 
-*What* they ingest is chosen at runtime, not in the environment: an admin manages
+_What_ they ingest is chosen at runtime, not in the environment: an admin manages
 ingest setups at `/ingest` in the UI (`/api/v1/ingest/sources`), and changes take
 effect within seconds without a restart. Admin rights come from RM through the
 `/rmapi/api/v1/users/*` hooks, which is what the `users` table records.
@@ -126,7 +126,7 @@ TAK completes the TLS handshake and then closes with
   every client is refused. Fixed in `docker-atak-server` by importing
   `/ca_public/*.pem` into the JVM truststore at startup; if you are on an older
   image, `keytool -cacerts -storepass changeit -importcert -trustcacerts -alias
-  mw -file /ca_public/miniwerk_ca.pem` inside the TAK containers and restart
+mw -file /ca_public/miniwerk_ca.pem` inside the TAK containers and restart
   them.
 - `PEER_DID_NOT_RETURN_A_CERTIFICATE` means our certificate was never sent —
   look at `TAK_CLIENT_CERT_PATH` and `TAK_CLIENT_KEY_PATH`.
@@ -197,16 +197,16 @@ settings page offers it as a button when adding a Matrix source.
 There is no backfill: the first `/sync` keeps only its cursor. That cursor is
 persisted, so a restart resumes rather than replaying.
 
-| Environment variable | Default | Description |
-|---|---|---|
-| `TAK_STREAM_HOST` | *(empty)* | TAK Server's CoT streaming host. Setting it enables TAK ingest |
-| `TAK_STREAM_PORT` | `8089` | TAK's TLS CoT input port |
-| `TAK_TLS_SERVERNAME` | *(empty)* | SNI name, when it differs from the host |
-| `TAK_CLIENT_CERT_PATH` | `/data/persistent/public/mtlsclient.pem` | Our RM-issued client certificate |
-| `TAK_CLIENT_KEY_PATH` | `/data/persistent/private/mtlsclient.key` | Its private key |
-| `TAK_CA_PATH` | `/ca_public/ca_chain.pem` | CA bundle for verifying peers |
-| `MATRIX_HOMESERVER_URL` | *(empty)* | Internal Synapse URL. Setting it enables Matrix ingest |
-| `MATRIX_PRODUCT_NAME` | `matrix` | RM product name to request interop with |
+| Environment variable    | Default                                   | Description                                                    |
+| ----------------------- | ----------------------------------------- | -------------------------------------------------------------- |
+| `TAK_STREAM_HOST`       | _(empty)_                                 | TAK Server's CoT streaming host. Setting it enables TAK ingest |
+| `TAK_STREAM_PORT`       | `8089`                                    | TAK's TLS CoT input port                                       |
+| `TAK_TLS_SERVERNAME`    | _(empty)_                                 | SNI name, when it differs from the host                        |
+| `TAK_CLIENT_CERT_PATH`  | `/data/persistent/public/mtlsclient.pem`  | Our RM-issued client certificate                               |
+| `TAK_CLIENT_KEY_PATH`   | `/data/persistent/private/mtlsclient.key` | Its private key                                                |
+| `TAK_CA_PATH`           | `/ca_public/ca_chain.pem`                 | CA bundle for verifying peers                                  |
+| `MATRIX_HOMESERVER_URL` | _(empty)_                                 | Internal Synapse URL. Setting it enables Matrix ingest         |
+| `MATRIX_PRODUCT_NAME`   | `matrix`                                  | RM product name to request interop with                        |
 
 ## Alerts
 
@@ -221,7 +221,7 @@ A raised alert does three things:
    until it is clicked away — a permanently blinking tile stops being read as new;
 2. shows a notification anywhere in the app, from a single watcher in the root
    layout, so a rule shared by two boards does not toast twice;
-3. stays in the **Alerts** widget, which lists alerts raised by *every* board's
+3. stays in the **Alerts** widget, which lists alerts raised by _every_ board's
    rules and lets an operator acknowledge them.
 
 Acknowledging writes an `alert-dismissed` event carrying `alertId` and `eventId`,

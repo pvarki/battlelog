@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db/client.ts";
+import { isUniqueViolation } from "../../db/pg-error.ts";
 import type { DashboardInsert, DashboardRow } from "../../db/schema.ts";
 import { dashboards } from "../../db/schema.ts";
 
@@ -23,12 +24,6 @@ export class DuplicateTemplateNameError extends Error {
     this.name = "DuplicateTemplateNameError";
   }
 }
-
-const isUniqueViolation = (err: unknown, constraint: string): boolean =>
-  typeof err === "object" &&
-  err !== null &&
-  (err as { code?: unknown }).code === "23505" &&
-  (err as { constraint?: unknown }).constraint === constraint;
 
 /** Thrown when the caller's version is stale — the dashboard was edited elsewhere. */
 export class VersionConflictError extends Error {

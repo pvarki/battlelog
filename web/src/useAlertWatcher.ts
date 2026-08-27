@@ -28,6 +28,16 @@ const AUTO_CLOSE_MS: Record<Alert["severity"], number | false> = {
 const RULES_REFRESH_MS = 60_000;
 
 /**
+ * How many raised-alert keys to remember, so a reconnect's replay does not
+ * re-announce alerts already shown.
+ *
+ * Bounded because this tab may be a wall display left running for weeks: an
+ * unbounded set grows with every event for as long as the page is open. Far more
+ * than a replay window, and the keys are short strings.
+ */
+const SEEN_LIMIT = 5_000;
+
+/**
  * App-wide alert notifications.
  *
  * Mounted once in the root layout rather than in the feed widget, for two
@@ -62,6 +72,11 @@ export const useAlertWatcher = (): void => {
         const key = raisedKey(alert.id, row.id);
         if (seenRef.current.has(key)) continue;
         seenRef.current.add(key);
+        if (seenRef.current.size > SEEN_LIMIT) {
+          // Sets iterate in insertion order, so this drops the oldest keys.
+          const keep = [...seenRef.current].slice(-SEEN_LIMIT / 2);
+          seenRef.current = new Set(keep);
+        }
         notifications.show({
           id: key,
           title: `${SEVERITY_LABEL[alert.severity]}: ${alert.label}`,

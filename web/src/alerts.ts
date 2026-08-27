@@ -128,6 +128,9 @@ export const loadAlertRules = async (): Promise<{ alert: Alert; source: string }
   const dashboards = await res.json();
   const rules: { alert: Alert; source: string }[] = [];
   for (const dashboard of dashboards) {
+    // Templates are blueprints nobody is watching. Their rules would otherwise
+    // raise alerts for a board that may never be instantiated.
+    if (dashboard.isTemplate) continue;
     for (const widget of dashboard.widgets) {
       const raw = (widget.config as { alerts?: unknown } | null)?.alerts;
       if (!Array.isArray(raw)) continue;

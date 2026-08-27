@@ -22,6 +22,12 @@ const cache = new Map<string, RegExp | null>();
  * Compile once and remember. A pattern that does not compile yields null and is
  * treated as matching nothing — the API validates patterns on save, so this only
  * catches rows written before that validation existed.
+ *
+ * ponytail: a catastrophically backtracking pattern will stall the ingest loop,
+ * since these run on the event loop against remote-supplied text. Authoring a
+ * pattern is admin-only and an admin can stop the ingest outright, so the
+ * exposure is the same either way; if patterns ever become a non-admin setting,
+ * this needs a timeout — a worker thread or a linear-time engine like re2.
  */
 const compile = (pattern: string): RegExp | null => {
   const hit = cache.get(pattern);

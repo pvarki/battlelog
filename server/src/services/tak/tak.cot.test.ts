@@ -75,6 +75,25 @@ describe("parseCotEvent", () => {
     expect(cot?.parentCallsign).toBe("ALPHA-1");
   });
 
+  test("does not expand declared entities from a hostile stream", () => {
+    // The CoT stream is remote input, so an entity-expansion bomb is the obvious
+    // way to try to exhaust this process's memory. fast-xml-parser leaves
+    // DOCTYPE-declared entities as literal text — verified here rather than
+    // assumed, because the day it starts expanding them is the day a 200-byte
+    // event can allocate gigabytes.
+    const bomb = parseCotEvent(
+      `<!DOCTYPE e [
+<!ENTITY a "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">
+<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">
+<!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">
+<!ENTITY d "&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;">
+]>
+<event version="2.0" uid="bomb" type="a-f-G" time="2026-08-25T10:00:00Z" start="2026-08-25T10:00:00Z" stale="2026-08-25T10:10:00Z">
+<point lat="1" lon="1" hae="0"/><detail><remarks>&d;</remarks></detail></event>`,
+    );
+    expect(bomb?.remarks?.length).toBeLessThan(10);
+  });
+
   test("returns undefined instead of throwing on unusable input", () => {
     expect(parseCotEvent("<event>no uid or type</event>")).toBeUndefined();
     expect(parseCotEvent("not xml at all")).toBeUndefined();

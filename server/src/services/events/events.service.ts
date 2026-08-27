@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db/client.ts";
+import { isUniqueViolation } from "../../db/pg-error.ts";
 import type { EventInsert, EventRow } from "../../db/schema.ts";
 import { events } from "../../db/schema.ts";
 import { buildEventsWhere, type EventsFilter } from "./events.filter.ts";
@@ -23,12 +24,8 @@ export class ConcurrentUpdateError extends Error {
   }
 }
 
-const isUpdateForConflict = (err: unknown): boolean => {
-  // drizzle may throw the pg DatabaseError directly or wrapped as `cause`
-  const e = err as { code?: unknown; constraint?: unknown; cause?: unknown } | null;
-  const pg = (e?.code ? e : e?.cause) as { code?: unknown; constraint?: unknown } | undefined;
-  return pg?.code === "23505" && pg?.constraint === "events_update_for_unique";
-};
+const isUpdateForConflict = (err: unknown): boolean =>
+  isUniqueViolation(err, "events_update_for_unique");
 
 export const createEvent = async (input: CreateEventInput): Promise<EventRow> => {
   const id = uuidv7();
