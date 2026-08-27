@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api } from "../../api.ts";
+import { useIsMobile } from "../../dashboard/mobile.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import {
@@ -180,8 +181,10 @@ const FieldInput = ({
 };
 
 const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
-  // The form lives behind a button: on a dashboard the tile is small, and a
-  // half-visible form is worse than one that opens with room to fill in.
+  // On a desktop dashboard the tile is small, so the form lives behind a button
+  // and opens with room to fill in. On mobile the widget already has the whole
+  // screen to itself, so a modal over it would add a tap for nothing.
+  const isMobile = useIsMobile();
   const [opened, setOpened] = useState(false);
   const [values, setValues] = useState<FormValues>({});
   const [status, setStatus] = useState<Status>("idle");
@@ -240,13 +243,48 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     );
   }
 
+  const fields = (
+    <>
+      {visible.map((f) => (
+        <FieldInput
+          key={f.id}
+          field={f}
+          value={values[f.id]}
+          error={missingIds.includes(f.id) ? "Required" : undefined}
+          onChange={(v) => set(f.id, v)}
+        />
+      ))}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Stack h="100%" gap="xs" p="xs">
+        <Stack gap="xs" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+          {fields}
+        </Stack>
+        <Group justify="space-between" wrap="nowrap">
+          <Text
+            c={status === "error" ? "red.4" : "dimmed"}
+            fz="xs"
+            style={{ minWidth: 0 }}
+            role="status"
+          >
+            {status === "sent" ? "Sent ✓" : problem}
+          </Text>
+          <Button onClick={submit} loading={status === "sending"}>
+            {config.submitLabel?.trim() || "Submit"}
+          </Button>
+        </Group>
+      </Stack>
+    );
+  }
+
   return (
     <Stack h="100%" gap="xs" p="xs">
       <Center style={{ flex: 1, minHeight: 0 }}>
         <Button
           size="md"
-          fullWidth
-          h="100%"
           onClick={() => setOpened(true)}
           styles={{ label: { whiteSpace: "normal", lineHeight: 1.2 } }}
         >
@@ -272,15 +310,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
         scrollAreaComponent={undefined}
       >
         <Stack gap="xs">
-          {visible.map((f) => (
-            <FieldInput
-              key={f.id}
-              field={f}
-              value={values[f.id]}
-              error={missingIds.includes(f.id) ? "Required" : undefined}
-              onChange={(v) => set(f.id, v)}
-            />
-          ))}
+          {fields}
           <Group justify="space-between" wrap="nowrap" mt="sm">
             <Text c={status === "error" ? "red.4" : "dimmed"} fz="xs" style={{ minWidth: 0 }}>
               {problem}
