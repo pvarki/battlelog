@@ -14,6 +14,7 @@ import {
 import { useEffect, useRef } from "react";
 import { AlertsBell } from "./AlertsBell.tsx";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
+import { useIsMobile } from "./dashboard/mobile.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
 import { Placeholder } from "./Placeholder.tsx";
@@ -94,6 +95,9 @@ const ConnectionIndicator = () => {
 };
 
 const RootLayout = () => {
+  // On a phone the alerts entry lives in the dashboard's bottom bar, so the
+  // header control is desktop-only — mounting both would load the events twice.
+  const isMobile = useIsMobile();
   return (
     <AppShell header={{ height: 48 }} padding={0}>
       <AppShell.Header>
@@ -108,7 +112,7 @@ const RootLayout = () => {
           {/* Alerts live in the header, not on a board: it is the one thing on
               screen on every page, and it costs no tile from the board the alert
               is about. */}
-          <AlertsBell />
+          {!isMobile && <AlertsBell />}
         </Group>
       </AppShell.Header>
       <AppShell.Main>

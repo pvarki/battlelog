@@ -219,8 +219,11 @@ A raised alert does two things:
 
 1. outlines and pulses the widget that watches for it, then holds the outline
    until it is clicked away — a permanently blinking tile stops being read as new;
-2. unfolds the **alerts bell in the app header**, which lists alerts raised by
-   _every_ board's rules and is where an operator acknowledges them.
+2. unfolds the **alerts control**, which lists alerts raised by _every_ board's
+   rules and is where an operator acknowledges them. On desktop that is a bell in
+   the app header; on a phone it is an entry in the dashboard's bottom bar, whose
+   list opens as a full-width drawer — a header popover is wider than a phone
+   screen, and the acknowledge column ended up outside the viewport.
 
 Both happen where the operator is already looking. There is deliberately no
 corner toast: a notification to be dismissed somewhere else is one more thing to
@@ -230,7 +233,12 @@ alert is about.
 
 The list unfolds only for an alert arriving while someone is watching, never for
 the backlog it loads with — otherwise every page load would fling it open over
-alerts dealt with yesterday. Tapping the bell opens and closes it at will.
+alerts dealt with yesterday. Tapping the control opens and closes it at will.
+
+On a phone a new alert updates the count but does **not** open the drawer or
+switch the screen: one widget has the whole screen there, and taking it over
+would unmount whatever is in it — including a half-typed report in the entry
+form. The badge is the signal; the tap is the operator's.
 
 There is also an **Alerts widget** for boards, showing the same list. It is not
 in any template: it exists for a wall display where the list should be

@@ -12,7 +12,12 @@ import { AlertsFooter, AlertsList, useAlerts, useAutoUnfold } from "./alerts-pan
 const LOOKBACK = 200;
 
 /**
- * Alerts in the header.
+ * Alerts in the header, on desktop.
+ *
+ * Mobile carries them in the dashboard's bottom bar instead (AlertsBarButton): a
+ * popover on a phone is wider than the screen, which pushed the acknowledge
+ * column out of view. The caller decides which one mounts, so only one of them
+ * ever loads events.
  *
  * The header is the one thing on screen on every page and every board, so this is
  * where an alert can reach an operator without taking a tile from the board it is
@@ -64,7 +69,9 @@ export const AlertsBell = () => {
           </Group>
         </UnstyledButton>
       </Popover.Target>
-      <Popover.Dropdown p="xs">
+      {/* Capped, so a narrow window cannot push the acknowledge column
+          off the edge the way the phone did. */}
+      <Popover.Dropdown p="xs" maw="calc(100vw - 24px)">
         <Stack gap="xs" style={{ maxHeight: "60vh" }}>
           <Text fz="xs" fw={700}>
             Hälytykset

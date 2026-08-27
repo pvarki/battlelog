@@ -99,7 +99,7 @@ const AlertsView = ({ config }: WidgetViewProps<AlertsConfig>) => {
           </Group>
         </UnstyledButton>
       </Popover.Target>
-      <Popover.Dropdown p="xs">
+      <Popover.Dropdown p="xs" maw="calc(100vw - 24px)">
         <Stack gap="xs" style={{ maxHeight: "50vh" }}>
           <AlertsList state={state} />
           <AlertsFooter state={state} lookback={config.lookback} />
