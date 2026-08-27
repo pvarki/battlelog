@@ -13,6 +13,13 @@ import {
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import {
+  type Alert,
+  describeAlert,
+  isBlankAlert,
+  SEVERITIES,
+  SEVERITY_LABEL,
+} from "../../alerts.ts";
 import { ingestApi } from "../../api.ts";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -134,6 +141,11 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
   }, []);
 
   const views = config.views ?? [];
+  const alerts = config.alerts ?? [];
+  const setAlerts = (next: Alert[]) =>
+    onChange({ ...config, alerts: next.length ? next : undefined });
+  const setAlert = (id: string, patch: Partial<Alert>) =>
+    setAlerts(alerts.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const setColumns = (columns: FeedColumn[]) => onChange({ ...config, columns });
   const setViews = (next: FeedView[]) =>
     onChange({ ...config, views: next.length ? next : undefined });
@@ -298,6 +310,124 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
         }
       >
         Add view
+      </Button>
+
+      <Text fz="sm" fw={600} mt="sm">
+        Hälytykset
+      </Text>
+      <Text fz="xs" c="dimmed">
+        Hälytys on suodatin, joka ei rajaa listaa vaan nostaa kätensä: osuma välähtää tässä
+        widgetissä, näyttää ilmoituksen missä tahansa BattleLogissa, ja jää Hälytykset-widgetin
+        listaan kunnes se kuitataan. Hälytys laukeaa riippumatta siitä mikä näkymä on esillä.
+      </Text>
+
+      {alerts.map((alert) => (
+        <Paper key={alert.id} withBorder p="xs" bg="dark.6">
+          <Stack gap="xs">
+            <Group wrap="nowrap" align="flex-end">
+              <TextInput
+                label="Hälytyksen nimi"
+                size="xs"
+                style={{ flex: 1 }}
+                value={alert.label}
+                onChange={(e) => setAlert(alert.id, { label: e.currentTarget.value })}
+              />
+              <Select
+                label="Taso"
+                size="xs"
+                w={110}
+                allowDeselect={false}
+                data={SEVERITIES.map((s) => ({ value: s, label: SEVERITY_LABEL[s] }))}
+                value={alert.severity}
+                onChange={(v) => {
+                  if (v) setAlert(alert.id, { severity: v as Alert["severity"] });
+                }}
+              />
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={`Poista hälytys ${alert.label}`}
+                onClick={() => setAlerts(alerts.filter((a) => a.id !== alert.id))}
+              >
+                <IconX size={18} stroke={1.5} />
+              </ActionIcon>
+            </Group>
+            <TagsInput
+              label="Tyypit"
+              size="xs"
+              description="Vain nämä tapahtumatyypit; tyhjä = kaikki"
+              value={alert.types ?? []}
+              onChange={(v) => setAlert(alert.id, { types: v.length ? v : undefined })}
+            />
+            <TagsInput
+              label="Tagit"
+              size="xs"
+              description="Mikä tahansa näistä; tyhjä = kaikki"
+              value={alert.tags ?? []}
+              onChange={(v) => setAlert(alert.id, { tags: v.length ? v : undefined })}
+            />
+            <Group wrap="nowrap" align="flex-end">
+              <TextInput
+                label="Teksti"
+                size="xs"
+                style={{ flex: 1 }}
+                description="Otsikko sisältää"
+                value={alert.search}
+                onChange={(e) => setAlert(alert.id, { search: e.currentTarget.value })}
+              />
+              <TextInput
+                label="Lähettäjä"
+                size="xs"
+                style={{ flex: 1 }}
+                description="Tarkka osuma"
+                value={alert.createdBy}
+                onChange={(e) => setAlert(alert.id, { createdBy: e.currentTarget.value })}
+              />
+            </Group>
+            <Group wrap="nowrap" align="flex-end">
+              <TextInput
+                label="Kenttä"
+                size="xs"
+                style={{ flex: 1 }}
+                placeholder="esim. desk"
+                value={alert.dataKey}
+                onChange={(e) => setAlert(alert.id, { dataKey: e.currentTarget.value })}
+              />
+              <TextInput
+                label="Arvo"
+                size="xs"
+                style={{ flex: 1 }}
+                placeholder="esim. ARKI"
+                value={alert.dataValue}
+                onChange={(e) => setAlert(alert.id, { dataValue: e.currentTarget.value })}
+              />
+            </Group>
+            <Text fz="xs" c={isBlankAlert(alert) ? "yellow.4" : "dimmed"}>
+              {describeAlert(alert)}
+            </Text>
+          </Stack>
+        </Paper>
+      ))}
+
+      <Button
+        variant="light"
+        disabled={alerts.length >= 8}
+        onClick={() =>
+          setAlerts([
+            ...alerts,
+            {
+              id: crypto.randomUUID(),
+              label: `Hälytys ${alerts.length + 1}`,
+              severity: "warn",
+              search: "",
+              dataKey: "",
+              dataValue: "",
+              createdBy: "",
+            },
+          ])
+        }
+      >
+        Lisää hälytys
       </Button>
 
       {!views.length && (

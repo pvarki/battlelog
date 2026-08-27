@@ -208,6 +208,38 @@ persisted, so a restart resumes rather than replaying.
 | `MATRIX_HOMESERVER_URL` | *(empty)* | Internal Synapse URL. Setting it enables Matrix ingest |
 | `MATRIX_PRODUCT_NAME` | `matrix` | RM product name to request interop with |
 
+## Alerts
+
+An alert is a filter that raises its hand instead of narrowing a list. Rules are
+configured per event-feed widget, alongside that widget's views, and they fire
+independently of which view happens to be showing — an alert is about the
+deployment, not about what someone is looking at.
+
+A raised alert does three things:
+
+1. outlines and pulses the widget that watches for it, then holds the outline
+   until it is clicked away — a permanently blinking tile stops being read as new;
+2. shows a notification anywhere in the app, from a single watcher in the root
+   layout, so a rule shared by two boards does not toast twice;
+3. stays in the **Alerts** widget, which lists alerts raised by *every* board's
+   rules and lets an operator acknowledge them.
+
+Acknowledging writes an `alert-dismissed` event carrying `alertId` and `eventId`,
+so who cleared what is in the same log as everything else rather than in a
+private flag nobody can audit.
+
+Nothing about an alert is stored server-side and no alert row is ever written: an
+alert is the pairing of a rule with an event, derived on demand from the shared
+event stream. Two consequences worth knowing:
+
+- Editing a rule rewrites history — yesterday's alerts are whatever today's
+  rules match. That is the right trade while a rule is a dashboard setting; if an
+  alert has to become a matter of record ("this fired, at this time, under this
+  rule"), it needs a server-side evaluator writing its own event.
+- The Alerts widget checks the rules against the last N events (its `lookback`,
+  200 by default) rather than the whole log, because rules are a union and the
+  events API filters by AND. The widget's footer states the number.
+
 ## Tech stack
 
 Hono · `@hono/zod-openapi` · Drizzle · Postgres + PostGIS · Zod · pino · OpenTelemetry · varlock · Biome · Vitest · React · Vite · TanStack Router · Mantine

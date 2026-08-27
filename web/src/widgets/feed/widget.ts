@@ -2,6 +2,7 @@ import { IconActivity } from "@tabler/icons-react";
 import type { InferRequestType } from "hono/client";
 import { lazy } from "react";
 import { z } from "zod";
+import { type Alert, alertSchema, matchesAlert } from "../../alerts.ts";
 import type { api, EventResponse } from "../../api.ts";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
@@ -90,6 +91,12 @@ const configSchema = z
     views: z.array(viewSchema).max(12).optional(),
     /** Which view is showing. Persisted, so a board looks the same to everyone. */
     activeViewId: z.string().max(64).optional(),
+    /**
+     * Rules that raise an alert instead of narrowing the list. They are
+     * deliberately independent of the views: an alert has to fire whether or not
+     * the view that happens to be showing would have included the event.
+     */
+    alerts: z.array(alertSchema).max(8).optional(),
     types: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
     /** Ingest setups to show, by id. Empty/absent = every source, ingested or not. */
@@ -254,6 +261,15 @@ export const matchesFeed = (
   if (!inRange(row.createdAt, extras.createdAtFrom, extras.createdAtTo)) return false;
   return true;
 };
+
+/**
+ * Which of this widget's alert rules a row raises.
+ *
+ * Independent of the active view on purpose: an alert is about the deployment,
+ * not about what someone happens to be looking at.
+ */
+export const alertsFor = (row: EventResponse, config: FeedConfig): Alert[] =>
+  (config.alerts ?? []).filter((alert) => matchesAlert(row, alert));
 
 /**
  * The filters this widget is currently narrowing by, in words.

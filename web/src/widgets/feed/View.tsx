@@ -10,22 +10,27 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconMaximize } from "@tabler/icons-react";
+import { IconAlertTriangle, IconMaximize } from "@tabler/icons-react";
 import {
+  type CSSProperties,
   lazy,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   Suspense,
+  useEffect,
+  useRef,
   useState,
 } from "react";
+import { SEVERITIES, SEVERITY_COLOUR, SEVERITY_LABEL, type Severity } from "../../alerts.ts";
 import type { EventResponse } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { useLiveEvents } from "../../live-events.ts";
+import { subscribeToEvents, useLiveEvents } from "../../live-events.ts";
 import { StaleNotice } from "../../StaleNotice.tsx";
 import { formatShortDateTime } from "../../time.ts";
 import {
   activeFilters,
   activeView,
+  alertsFor,
   columnWidth,
   dataValue,
   effectiveColumns,
@@ -188,8 +193,37 @@ export const FeedTable = ({
 
 const FeedFullscreen = lazy(() => import("./Fullscreen.tsx"));
 
+/** How long a raised alert keeps the tile lit. */
+const FLASH_MS = 30_000;
+
 const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const [fullscreen, setFullscreen] = useState(false);
+  // The tile's own alarm. The app-wide toast comes from useAlertWatcher; this is
+  // what makes the board itself point at the widget that saw something, which is
+  // the thing a wall display can do that a toast cannot.
+  const [flash, setFlash] = useState<{ label: string; severity: Severity } | null>(null);
+  const configRef = useRef(config);
+  configRef.current = config;
+  useEffect(() => {
+    // Subscribed once, config read through the ref: resubscribing on every
+    // config identity change would drop the listener count to zero and close the
+    // shared EventSource.
+    const stop = subscribeToEvents((row) => {
+      const raised = alertsFor(row, configRef.current);
+      // Most severe wins: two rules on one event must not leave the tile showing
+      // the calmer of the two.
+      const worst = raised.sort(
+        (a, b) => SEVERITIES.indexOf(b.severity) - SEVERITIES.indexOf(a.severity),
+      )[0];
+      if (worst) setFlash({ label: worst.label, severity: worst.severity });
+    });
+    return stop;
+  }, []);
+  useEffect(() => {
+    if (!flash) return;
+    const timer = setTimeout(() => setFlash(null), FLASH_MS);
+    return () => clearTimeout(timer);
+  }, [flash]);
   // Mounted once and kept: unmounting on close would skip the exit transition.
   const [everOpened, setEverOpened] = useState(false);
   const query = queryFor(config);
@@ -295,8 +329,18 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
     );
   };
 
+  const flashColour = flash
+    ? `var(--mantine-color-${SEVERITY_COLOUR[flash.severity]}-6)`
+    : undefined;
+
   return (
-    <Box h="100%" style={{ position: "relative" }}>
+    <Box
+      h="100%"
+      // The outline and its pulse are in global.css, keyed on .alert-flash; all
+      // that varies per severity is the colour, so it comes in as a variable.
+      style={{ position: "relative", "--alert-colour": flashColour } as CSSProperties}
+      className={flash ? "alert-flash" : undefined}
+    >
       <ActionIcon
         variant="subtle"
         color="gray"
@@ -313,6 +357,25 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
       </ActionIcon>
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
         {failed && events !== null && events.length > 0 && <StaleNotice />}
+        {flash && (
+          <UnstyledButton onClick={() => setFlash(null)} w="100%" mb={4}>
+            <Group
+              gap={6}
+              wrap="nowrap"
+              px={6}
+              py={2}
+              style={{ background: flashColour, borderRadius: "var(--mantine-radius-sm)" }}
+            >
+              <IconAlertTriangle size={14} stroke={2} />
+              <Text fz="xs" fw={700} truncate>
+                {SEVERITY_LABEL[flash.severity]}: {flash.label}
+              </Text>
+              <Text fz="xs" ml="auto" style={{ flexShrink: 0 }}>
+                ✕
+              </Text>
+            </Group>
+          </UnstyledButton>
+        )}
         {switcher}
         {body()}
       </Box>

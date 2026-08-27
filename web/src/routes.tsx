@@ -20,6 +20,7 @@ import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
 import { IngestSettingsPage } from "./pages/IngestSettingsPage.tsx";
+import { useAlertWatcher } from "./useAlertWatcher.ts";
 
 // The current page renders full-strength; elsewhere links stay dimmed.
 const NavLink = ({ to, children }: { to: string; children: string }) => (
@@ -93,6 +94,9 @@ const ConnectionIndicator = () => {
 };
 
 const RootLayout = () => {
+  // Alerts follow the operator around the app, so the watcher lives here rather
+  // than in the widget that defines the rule.
+  useAlertWatcher();
   return (
     <AppShell header={{ height: 48 }} padding={0}>
       <AppShell.Header>
