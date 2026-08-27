@@ -5,7 +5,7 @@
       "id": "37f18a71-f563-4dd6-88fa-ed41407c36b4",
       "type": "table",
       "config": {
-        "title": "Tilanne taulukko",
+        "title": "Tilannetaulukko",
         "columns": [
           {
             "id": "A",

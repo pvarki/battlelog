@@ -1,8 +1,10 @@
 import {
   Button,
+  Center,
   Checkbox,
   Group,
   Input,
+  Modal,
   NumberInput,
   Select,
   Stack,
@@ -27,90 +29,6 @@ import {
 } from "./widget.ts";
 
 type Status = "idle" | "sending" | "sent" | "error";
-
-const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
-  const [values, setValues] = useState<FormValues>({});
-  const [status, setStatus] = useState<Status>("idle");
-  const [problem, setProblem] = useState("");
-  const [missingIds, setMissingIds] = useState<string[]>([]);
-
-  const set = (id: string, v: unknown) => {
-    setValues((prev) => ({ ...prev, [id]: v }));
-    // Typing into a flagged field clears its error immediately.
-    setMissingIds((ids) => ids.filter((x) => x !== id));
-  };
-
-  const submit = async () => {
-    const missing = missingRequired(config, values);
-    if (missing.length) {
-      setStatus("error");
-      setProblem(`Required: ${missing.map((m) => m.label).join(", ")}`);
-      setMissingIds(missing.map((m) => m.id));
-      return;
-    }
-    setStatus("sending");
-    setProblem("");
-    setMissingIds([]);
-    try {
-      const res = await api.events.$post({ json: buildEvent(config, values) });
-      if (res.status === 201) {
-        setValues({});
-        setStatus("sent");
-        setTimeout(() => setStatus("idle"), 2000);
-      } else {
-        setStatus("error");
-        setProblem("Send failed");
-      }
-    } catch {
-      setStatus("error");
-      setProblem("Send failed");
-    }
-  };
-
-  const visible = config.fields.filter((f): f is VisibleField => f.kind !== "fixed");
-
-  return (
-    <Stack h="100%" gap="xs" p="xs">
-      <Stack gap="xs" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {visible.length === 0 ? (
-          <Placeholder
-            title="No fields yet"
-            detail="A form needs at least one field before it can post an event."
-            action={{ label: "Add fields", onClick: onConfigure }}
-          />
-        ) : (
-          visible.map((f) => (
-            <FieldInput
-              key={f.id}
-              field={f}
-              value={values[f.id]}
-              error={missingIds.includes(f.id) ? "Required" : undefined}
-              onChange={(v) => set(f.id, v)}
-            />
-          ))
-        )}
-      </Stack>
-      <Group justify="space-between" wrap="nowrap">
-        <Text
-          c={status === "error" ? "red.4" : "dimmed"}
-          fz="xs"
-          style={{ minWidth: 0 }}
-          role="status"
-        >
-          {status === "sent" ? "Sent ✓" : problem}
-        </Text>
-        <Button
-          size="xs"
-          onClick={submit}
-          loading={status === "sending"}
-          disabled={visible.length === 0}
-        >
-          {config.submitLabel?.trim() || "Submit"}
-        </Button>
-      </Group>
-    </Stack>
-  );
-};
 
 const FieldInput = ({
   field,
@@ -259,6 +177,122 @@ const FieldInput = ({
       );
     }
   }
+};
+
+const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
+  // The form lives behind a button: on a dashboard the tile is small, and a
+  // half-visible form is worse than one that opens with room to fill in.
+  const [opened, setOpened] = useState(false);
+  const [values, setValues] = useState<FormValues>({});
+  const [status, setStatus] = useState<Status>("idle");
+  const [problem, setProblem] = useState("");
+  const [missingIds, setMissingIds] = useState<string[]>([]);
+
+  const set = (id: string, v: unknown) => {
+    setValues((prev) => ({ ...prev, [id]: v }));
+    // Typing into a flagged field clears its error immediately.
+    setMissingIds((ids) => ids.filter((x) => x !== id));
+  };
+
+  const submit = async () => {
+    const missing = missingRequired(config, values);
+    if (missing.length) {
+      setStatus("error");
+      setProblem(`Required: ${missing.map((m) => m.label).join(", ")}`);
+      setMissingIds(missing.map((m) => m.id));
+      return;
+    }
+    setStatus("sending");
+    setProblem("");
+    setMissingIds([]);
+    try {
+      const res = await api.events.$post({ json: buildEvent(config, values) });
+      if (res.status === 201) {
+        setValues({});
+        setStatus("sent");
+        // Close on success: the entry is filed, and the confirmation belongs on
+        // the tile where it stays visible.
+        setOpened(false);
+        setTimeout(() => setStatus("idle"), 2000);
+      } else {
+        setStatus("error");
+        setProblem("Send failed");
+      }
+    } catch {
+      setStatus("error");
+      setProblem("Send failed");
+    }
+  };
+
+  const visible = config.fields.filter((f): f is VisibleField => f.kind !== "fixed");
+
+  const openLabel = config.title?.trim() || config.submitLabel?.trim() || "Add entry";
+
+  if (visible.length === 0) {
+    return (
+      <Stack h="100%" gap="xs" p="xs">
+        <Placeholder
+          title="No fields yet"
+          detail="A form needs at least one field before it can post an event."
+          action={{ label: "Add fields", onClick: onConfigure }}
+        />
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack h="100%" gap="xs" p="xs">
+      <Center style={{ flex: 1, minHeight: 0 }}>
+        <Button
+          size="md"
+          fullWidth
+          h="100%"
+          onClick={() => setOpened(true)}
+          styles={{ label: { whiteSpace: "normal", lineHeight: 1.2 } }}
+        >
+          {openLabel}
+        </Button>
+      </Center>
+      <Text
+        c={status === "error" ? "red.4" : "dimmed"}
+        fz="xs"
+        ta="center"
+        mih="1.2em"
+        role="status"
+      >
+        {status === "sent" ? "Sent ✓" : problem}
+      </Text>
+
+      <Modal
+        opened={opened}
+        onClose={() => setOpened(false)}
+        title={openLabel}
+        size="lg"
+        // Long forms scroll inside the modal rather than pushing it off screen.
+        scrollAreaComponent={undefined}
+      >
+        <Stack gap="xs">
+          {visible.map((f) => (
+            <FieldInput
+              key={f.id}
+              field={f}
+              value={values[f.id]}
+              error={missingIds.includes(f.id) ? "Required" : undefined}
+              onChange={(v) => set(f.id, v)}
+            />
+          ))}
+          <Group justify="space-between" wrap="nowrap" mt="sm">
+            <Text c={status === "error" ? "red.4" : "dimmed"} fz="xs" style={{ minWidth: 0 }}>
+              {problem}
+            </Text>
+            <Button onClick={submit} loading={status === "sending"}>
+              {config.submitLabel?.trim() || "Submit"}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Stack>
+  );
 };
 
 export default FormView;
