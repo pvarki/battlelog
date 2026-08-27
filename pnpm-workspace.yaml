@@ -9,3 +9,12 @@ allowBuilds:
   "@matrix-org/matrix-sdk-crypto-nodejs": true
   esbuild: true
   protobufjs: true
+
+overrides:
+  # Snyk rates SNYK-JS-OPENTELEMETRYCORE (unbounded allocation in W3C Baggage
+  # propagation) HIGH, and it reaches us only as a transitive dependency of
+  # pino-opentelemetry-transport, whose exporter pins 2.1.0. Nothing in this
+  # app is exposed to it — instrumentation.ts starts the OTel SDK only when
+  # OTEL_EXPORTER_OTLP_ENDPOINT is set, and no deployment sets it — but an
+  # unpatched HIGH in the lockfile is not worth carrying to say so.
+  "@opentelemetry/core": ">=2.8.0"
