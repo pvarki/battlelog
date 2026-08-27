@@ -2,7 +2,6 @@ import "varlock/auto-load";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { cors } from "hono/cors";
 import { pinoLogger } from "hono-pino";
 import { ENV } from "varlock/env";
 import pkg from "../package.json" with { type: "json" };
@@ -26,14 +25,6 @@ export const createApp = () => {
   });
 
   app.use("*", pinoLogger({ pino: logger }));
-  app.use(
-    "*",
-    cors({
-      origin: "*",
-      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["*"],
-    }),
-  );
 
   // serveStatic root is cwd-relative. Container WORKDIR is /usr/src/app, so './uploads' resolves to /usr/src/app/uploads.
   app.use(
@@ -41,6 +32,14 @@ export const createApp = () => {
     serveStatic({ root: "./uploads", rewriteRequestPath: (p) => p.replace(/^\/uploads\//, "/") }),
   );
 
+  // No CORS middleware, deliberately. The SPA is served by this same app, and
+  // `vite dev` proxies /api to it, so every legitimate caller is same-origin and
+  // needs no header. A permissive policy here is not neutral: client
+  // certificates are presented at the TLS layer and ignore CORS credentials
+  // mode, so `origin: "*"` let any page an operator visited read this event log
+  // — and with allowHeaders "*" the preflight for a forged identity header
+  // passed too. If a genuine cross-origin consumer ever appears, allow that one
+  // origin and no methods it does not need.
   app.get("/healthz", (c) => c.json({ ok: true }));
 
   for (const versioned of ["/api", "/api/v1"]) {

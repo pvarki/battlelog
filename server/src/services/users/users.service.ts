@@ -1,5 +1,5 @@
 import { X509Certificate } from "node:crypto";
-import { asc, eq, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db/client.ts";
 import { type UserRow, users } from "../../db/schema.ts";
 import { parseDistinguishedName } from "../../lib/client-cert.ts";
@@ -82,7 +82,11 @@ export const findUserByCn = async (cn: string): Promise<UserRow | undefined> => 
   const [row] = await db
     .select()
     .from(users)
-    .where(or(eq(users.certCn, cn), eq(users.callsign, cn)))
+    // The cert CN wins. Falling back to the callsign is only safe for rows that
+    // have no CN recorded yet: matching it unconditionally meant a caller whose
+    // CN happened to equal an admin's callsign resolved to that admin's row,
+    // privileges included.
+    .where(or(eq(users.certCn, cn), and(isNull(users.certCn), eq(users.callsign, cn))))
     .orderBy(sql`${users.revokedAt} IS NOT NULL`, asc(users.createdAt));
   return row;
 };

@@ -158,13 +158,28 @@ export const createMatrixRoomRequestSchema = z
 
 export const errorResponseSchema = z.object({ error: z.string() }).openapi("ErrorResponse");
 
-/** Config still has to be re-checked here: rows predate any later schema change. */
+/**
+ * The stored config, re-validated on the way out.
+ *
+ * The comment here used to claim this and the body did not do it — the jsonb
+ * went straight through, so a row written before a schema change was served,
+ * and trusted downstream, whatever it happened to contain. Now an unparseable
+ * config is served as an empty object: the source shows up in the settings list
+ * with its status, which is what an operator needs in order to fix it, and no
+ * caller is handed a shape it cannot rely on.
+ */
+const readConfig = (row: IngestSourceRow): unknown => {
+  const schema = row.kind === "tak" ? takSourceConfigSchema : matrixSourceConfigSchema;
+  const parsed = schema.safeParse(row.config);
+  return parsed.success ? parsed.data : {};
+};
+
 export const toApiIngestSource = (row: IngestSourceRow) => ({
   id: row.id,
   kind: row.kind as IngestKind,
   name: row.name,
   enabled: row.enabled,
-  config: row.config,
+  config: readConfig(row),
   status: getStatus(row.id) satisfies IngestStatus,
   createdBy: row.createdBy,
   updatedBy: row.updatedBy,

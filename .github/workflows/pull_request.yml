@@ -105,7 +105,7 @@ jobs:
 
   publish:
     name: Publish Docker image
-    needs: [versiontag, pre_commit, snyk, docker_builds]
+    needs: [versiontag, pre_commit, snyk, docker_builds, tests]
     runs-on: arc-runner-set
     permissions:
       contents: read

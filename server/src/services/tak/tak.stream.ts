@@ -5,7 +5,7 @@ import { ENV } from "varlock/env";
 import { loadCaBundle } from "../../lib/ca-bundle.ts";
 import { logger } from "../../lib/logger.ts";
 import { rmInteropAdd } from "../../lib/mtls-client.ts";
-import { createEvent } from "../events/events.service.ts";
+import { createEventIfNew } from "../events/events.service.ts";
 import { enabledIngestSources } from "../ingest/ingest.service.ts";
 import { countEvent, setStatus, transportKey } from "../ingest/ingest.state.ts";
 import { type CotEvent, extractCotEvents, parseCotEvent } from "./tak.cot.ts";
@@ -35,13 +35,37 @@ const TAK = transportKey("tak");
 /** Log an unreadable message once per connection rather than per event. */
 const parseFailureLimit = 5;
 
+/**
+ * How many inserts may be in flight before CoT is dropped.
+ *
+ * The socket keeps reading while inserts are pending, so without a bound a
+ * burst — a real unit PLI-ing every few seconds — grows unbounded pending
+ * promises until the connection pool is exhausted and every insert starts
+ * failing. Dropping deliberately at a known limit is worth more than
+ * collapsing at an unknown one, and the drop is counted so the log does not
+ * quietly claim to be complete.
+ *
+ * ponytail: a plain in-flight cap, not a queue. Under sustained overload this
+ * sheds the newest events; a bounded queue that sheds the oldest, or batched
+ * inserts, is the next step if a real feed ever hits the limit.
+ */
+const maxInFlight = 64;
+let inFlight = 0;
+let dropped = 0;
+
+/** CoT discarded because too many inserts were already pending. */
+export const droppedCotCount = (): number => dropped;
+
 const ingest = async (cot: CotEvent): Promise<void> => {
   // Re-read per event (the service caches for a few seconds), so an admin
   // toggling a source in the UI takes effect without a restart.
   const sources = await enabledIngestSources("tak");
   const source = matchTakSource(cot, sources);
   if (!source) return;
-  await createEvent(cotToCreateInput(cot, source.id));
+  // Null means this uid and timestamp are already recorded: TAK repeats itself
+  // on a timer, and the log must not.
+  const row = await createEventIfNew(cotToCreateInput(cot, source.id));
+  if (!row) return;
   countEvent(source.id);
   countEvent(TAK);
 };
@@ -112,16 +136,44 @@ export const startTakIngest = (): (() => Promise<void>) => {
           if (!cot) {
             parseFailures += 1;
             if (parseFailures <= parseFailureLimit) {
-              logger.warn({ xml: xml.slice(0, 500) }, "tak ingest: unparseable CoT, skipped");
+              // The payload carries positions and chat bodies, so it is not
+              // logged by default — container logs go wherever the collector
+              // ships them. TAK_LOG_RAW_COT=true when actually debugging a
+              // producer.
+              logger.warn(
+                {
+                  bytes: xml.length,
+                  ...(ENV.TAK_LOG_RAW_COT ? { xml: xml.slice(0, 500) } : {}),
+                },
+                "tak ingest: unparseable CoT, skipped",
+              );
             }
             continue;
           }
+          if (inFlight >= maxInFlight) {
+            dropped += 1;
+            // Loud on the first drop and then every 100th: this is the state
+            // where the record is incomplete, so it must not scroll past.
+            if (dropped === 1 || dropped % 100 === 0) {
+              logger.error(
+                { dropped, maxInFlight },
+                "tak ingest: dropping CoT, insert backlog full",
+              );
+            }
+            setStatus(TAK, "connected", `dropped ${dropped} CoT: insert backlog full`);
+            continue;
+          }
           // Fire and forget: a slow insert must not stall the socket, and one
-          // failure must not cost us the rest of the batch.
-          void ingest(cot).catch((err) => {
-            logger.error({ err, uid: cot.uid }, "tak ingest: could not store event");
-            setStatus(TAK, "connected", String(err));
-          });
+          // failure must not cost us the rest of the batch. Bounded above.
+          inFlight += 1;
+          void ingest(cot)
+            .catch((err) => {
+              logger.error({ err, uid: cot.uid }, "tak ingest: could not store event");
+              setStatus(TAK, "connected", String(err));
+            })
+            .finally(() => {
+              inFlight -= 1;
+            });
         }
       });
 

@@ -2,7 +2,7 @@ import "varlock/auto-load";
 import { ENV } from "varlock/env";
 import { getManifestProductDns } from "../../lib/kraftwerk.ts";
 import { logger } from "../../lib/logger.ts";
-import { createEvent } from "../events/events.service.ts";
+import { createEventIfNew } from "../events/events.service.ts";
 import {
   enabledIngestSources,
   getIngestCursor,
@@ -152,6 +152,13 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
     }
     for (const raw of timeline.events ?? []) {
       let ev = raw;
+      // Plaintext rooms have nothing to verify; only decryption can leave a
+      // sender unproven.
+      let authenticity: {
+        senderVerified: boolean;
+        shieldMessage: string | null;
+        keyForwarded: boolean;
+      } | null = null;
       if (ev.type === "m.room.encrypted") {
         const decrypted = crypto ? await crypto.decrypt(ev, roomId) : null;
         if (!decrypted) {
@@ -169,10 +176,18 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
         }
         // The envelope carries who and when; the plaintext carries what.
         ev = {
-          ...(decrypted as { type?: string; content?: Record<string, unknown> }),
+          ...(decrypted.content as { type?: string; content?: Record<string, unknown> }),
           event_id: raw.event_id,
           sender: raw.sender,
           origin_server_ts: raw.origin_server_ts,
+        };
+        // Decrypting proves a key reached us, not that the claimed sender sent
+        // it. Record the difference on the row rather than presenting an
+        // unproven entry as authentic.
+        authenticity = {
+          senderVerified: decrypted.senderVerified,
+          shieldMessage: decrypted.shieldMessage,
+          keyForwarded: decrypted.forwarded,
         };
         setStatus(sourceId, "connected");
       }
@@ -183,7 +198,19 @@ export const startMatrixIngest = (): (() => Promise<void>) => {
         ingestSourceId: sourceId,
       });
       if (!input) continue;
-      await createEvent(input);
+      if (authenticity && !authenticity.senderVerified) {
+        // Tagged as well as recorded in data, so an operator can filter these
+        // out of a feed and a reviewer can see why the row is marked.
+        input.tags = [...(input.tags ?? []), "unverified-sender"];
+      }
+      // Null means this event id is already recorded: a crash between the
+      // insert and the cursor write replays the batch, and the log must not
+      // grow a second copy.
+      const row = await createEventIfNew({
+        ...input,
+        data: { ...(input.data as Record<string, unknown>), ...(authenticity ?? {}) },
+      });
+      if (!row) continue;
       countEvent(sourceId);
       countEvent(MATRIX);
     }

@@ -4,6 +4,7 @@ import {
   OlmMachine,
   RequestType,
   RoomId,
+  ShieldColor,
   UserId,
 } from "@matrix-org/matrix-sdk-crypto-nodejs";
 import { logger } from "../../lib/logger.ts";
@@ -59,6 +60,20 @@ const dispatchFor = (req: {
 };
 
 export type CryptoTransport = (d: Dispatch) => Promise<string>;
+
+/**
+ * A decrypted event plus what is actually known about its authenticity.
+ *
+ * `senderVerified` false does not mean forged — it means unproven, which for an
+ * evidentiary log is the distinction worth carrying to the row.
+ */
+export type DecryptedEvent = {
+  content: Record<string, unknown>;
+  senderVerified: boolean;
+  shieldMessage: string | null;
+  /** The key arrived via m.forwarded_room_key, so the sender chain is indirect. */
+  forwarded: boolean;
+};
 
 export class MatrixCrypto {
   private constructor(private readonly machine: OlmMachine) {}
@@ -136,14 +151,33 @@ export class MatrixCrypto {
   /**
    * Decrypt one m.room.encrypted event, or return null when we have no key for
    * it — which is ordinary for anything sent before this device joined.
+   *
+   * The shield state comes back with the plaintext and must not be dropped.
+   * That something decrypted says only that a megolm session reached this
+   * device; it does not say the claimed sender sent it. A forwarded or
+   * re-shared key, or a device this bot has never verified, decrypts just as
+   * cleanly — so throwing the shield away would turn every decryptable
+   * ciphertext into an entry attributed to a real callsign in a log whose whole
+   * value is who reported what.
    */
-  async decrypt(event: unknown, roomId: string): Promise<Record<string, unknown> | null> {
+  async decrypt(event: unknown, roomId: string): Promise<DecryptedEvent | null> {
     try {
       const decrypted = await this.machine.decryptRoomEvent(
         JSON.stringify(event),
         new RoomId(roomId),
       );
-      return JSON.parse(decrypted.event) as Record<string, unknown>;
+      // strict=false: the ordinary "sender's device is not cross-signed" case
+      // is Grey rather than Red, which is what we want to record rather than
+      // refuse in a deployment where nobody cross-signs.
+      const shield = decrypted.shieldState(false);
+      return {
+        content: JSON.parse(decrypted.event) as Record<string, unknown>,
+        // No shield at all is treated as unverified: absent evidence is not
+        // evidence of authenticity.
+        senderVerified: shield?.color === ShieldColor.None,
+        shieldMessage: shield?.message ?? null,
+        forwarded: decrypted.forwardingCurve25519KeyChain.length > 0,
+      };
     } catch (err) {
       logger.debug({ err, roomId }, "matrix crypto: no key for this event");
       return null;

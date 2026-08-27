@@ -143,6 +143,24 @@ export const events = pgTable(
     typeIdx: index("events_type_idx").on(t.type),
     ingestSourceIdx: index("events_ingest_source_idx").on(t.ingestSourceId),
     createdByIdx: index("events_created_by_idx").on(t.createdBy),
+    /**
+     * One original row per upstream message, so re-ingesting is a no-op.
+     *
+     * Both ingesters build a stable sourceUri, and both upstreams repeat
+     * themselves: TAK re-sends the same uid on a timer, and a crash between
+     * createEvent and the Matrix cursor write replays the batch. For a log
+     * meant to be an evidentiary record, duplicate entries are a correctness
+     * bug, not noise.
+     *
+     * Partial on `update_for IS NULL` and that is load-bearing: updateEvent
+     * inserts a new version as `{...head, ...patch}`, which copies sourceUri,
+     * so an unconditional unique index would make every ingested event
+     * uneditable. NULL sourceUri is excluded too — human entries have none and
+     * are not deduplicated.
+     */
+    sourceUriIdx: uniqueIndex("events_source_uri_original_uidx")
+      .on(t.sourceUri)
+      .where(sql`${t.updateFor} IS NULL AND ${t.sourceUri} IS NOT NULL`),
     locationPointIdx: index("events_location_point_gix").using("gist", t.locationPoint),
   }),
 );

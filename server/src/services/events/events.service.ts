@@ -38,6 +38,32 @@ export const createEvent = async (input: CreateEventInput): Promise<EventRow> =>
 };
 
 /**
+ * Create an event unless its `sourceUri` is already recorded, in which case
+ * return null.
+ *
+ * For ingest, not for human entry. Both upstreams repeat themselves — TAK
+ * re-sends the same uid on a timer, and a crash between the insert and the
+ * Matrix cursor write replays the batch — and in a log whose value is being an
+ * accurate record, a duplicate entry is a correctness bug. Human entries carry
+ * no sourceUri and are never deduplicated: two operators reporting the same
+ * thing is two reports.
+ */
+export const createEventIfNew = async (input: CreateEventInput): Promise<EventRow | null> => {
+  const id = uuidv7();
+  const [row] = await db
+    .insert(events)
+    .values({ ...input, id, eventId: id, updateFor: null })
+    // The predicate has to match the partial index exactly, or Postgres cannot
+    // find an arbiter and rejects the statement.
+    .onConflictDoNothing({
+      target: events.sourceUri,
+      where: sql`${events.updateFor} IS NULL AND ${events.sourceUri} IS NOT NULL`,
+    })
+    .returning();
+  return row ?? null;
+};
+
+/**
  * Insert a new version row for the given logical event. Reads the current
  * head, applies `patch`, and inserts a new row with `updateFor = head.id`.
  * Linear-history is enforced at the DB by the unique constraint on

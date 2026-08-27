@@ -208,6 +208,36 @@ persisted, so a restart resumes rather than replaying.
 | `MATRIX_HOMESERVER_URL` | _(empty)_                                 | Internal Synapse URL. Setting it enables Matrix ingest         |
 | `MATRIX_PRODUCT_NAME`   | `matrix`                                  | RM product name to request interop with                        |
 
+## Who can read what
+
+**Every authenticated user can read every event.** `GET /api/v1/events` has no
+per-room, per-source or per-user scoping, and that includes Matrix messages the
+ingest bot decrypted out of rooms the reader is not a member of, and the raw CoT
+`<detail>` of the whole deployment's tracks.
+
+This is a deliberate decision for a single-unit deployment, where everyone with
+a certificate is inside the same operational picture and the feed exists to be
+that shared picture. It is written down here because it is not obvious from the
+code, and because two consequences follow from it:
+
+- Adding a Matrix ingest source downgrades that room's end-to-end encryption
+  guarantee to "whatever this application's access control is". Synapse would
+  refuse a non-member; this will not. The room-creation flow sets a topic saying
+  so, but a room an admin points the bot at afterwards gets no such notice — the
+  members of that room should be told out of band.
+- The bot's crypto store (`/data/persistent/matrix-crypto`) holds every megolm
+  session ever shared with it. Anyone who obtains that volume — a backup, a
+  snapshot, a captured node — can decrypt the full history of every ingested
+  room offline, indefinitely. Before this feature, compromising one operator's
+  handset got that operator's keys; now compromising this container gets the
+  keys of every room it was pointed at. Protect and retain the volume
+  accordingly.
+
+ponytail: if a deployment ever needs per-room or per-unit read scoping, that is
+a data-model change (a scope on the event, resolved against the caller's
+identity on every read), and it is much cheaper before there is production data
+in `events` than after. Decide it before accreditation, not after.
+
 ## Alerts
 
 An alert is a filter that raises its hand instead of narrowing a list. Rules are

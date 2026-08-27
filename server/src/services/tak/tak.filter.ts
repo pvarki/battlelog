@@ -23,11 +23,13 @@ const cache = new Map<string, RegExp | null>();
  * treated as matching nothing — the API validates patterns on save, so this only
  * catches rows written before that validation existed.
  *
- * ponytail: a catastrophically backtracking pattern will stall the ingest loop,
- * since these run on the event loop against remote-supplied text. Authoring a
- * pattern is admin-only and an admin can stop the ingest outright, so the
- * exposure is the same either way; if patterns ever become a non-admin setting,
- * this needs a timeout — a worker thread or a linear-time engine like re2.
+ * ponytail: a catastrophically backtracking pattern can still stall the ingest
+ * loop. Authoring a pattern is admin-only, but the text it runs against is not:
+ * any client on the CoT stream supplies its own <detail>, so one compromised
+ * handheld plus one careless pattern is a denial of service against the whole
+ * deployment. MAX_CANDIDATE_CHARS bounds the per-event cost, which is a
+ * mitigation and not a fix — the fix is a linear-time engine (re2) or matching
+ * off the event loop with a timeout.
  */
 const compile = (pattern: string): RegExp | null => {
   const hit = cache.get(pattern);
@@ -45,11 +47,26 @@ const compile = (pattern: string): RegExp | null => {
 const patterns = (value: string[] | undefined): string[] =>
   (value ?? []).map((item) => item.trim()).filter(Boolean);
 
+/**
+ * Longest candidate a pattern is run against.
+ *
+ * Backtracking cost grows with the input, and the input here is remote: any
+ * client on the CoT stream chooses its own <detail>, which is unbounded in
+ * practice. Capping it turns "one crafted message stalls the event loop for
+ * everyone" into a bounded cost per event. Real detail is a couple of hundred
+ * bytes to a few KB, so this does not change what matches in practice — and a
+ * pattern that only matches past 16KB of one element is not a filter anyone
+ * wrote on purpose.
+ */
+const MAX_CANDIDATE_CHARS = 16_384;
+
 /** No patterns for a field means no constraint on it. */
 const matches = (candidate: string | undefined, list: string[]): boolean => {
   if (!list.length) return true;
   if (candidate === undefined) return false;
-  return list.some((pattern) => compile(pattern)?.test(candidate) ?? false);
+  const bounded =
+    candidate.length > MAX_CANDIDATE_CHARS ? candidate.slice(0, MAX_CANDIDATE_CHARS) : candidate;
+  return list.some((pattern) => compile(pattern)?.test(bounded) ?? false);
 };
 
 /** True when every constraint this config sets is satisfied. */
