@@ -1,6 +1,7 @@
 import type { CreateEventInput } from "../events/events.service.ts";
 import { EVENT_TYPE, INPUT_SOURCE } from "../ingest/ingest.types.ts";
 import type { CotEvent } from "./tak.cot.ts";
+import { describeCotType } from "./tak.symbol.ts";
 
 /** Headers are one line in a list; the untruncated text stays in `data`. */
 const HEADER_MAX_CHARS = 200;
@@ -18,6 +19,18 @@ const pointOf = (cot: CotEvent): [number, number] | null => {
   if (lat === 0 && lon === 0) return null;
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
   return [lon, lat];
+};
+
+/**
+ * A marker's one-line description: who, what it is, and what was written on it.
+ *
+ * The remarks are appended rather than replacing the symbol, because on a marker
+ * they are a note about a thing and lose their meaning without it.
+ */
+const takHeader = (cot: CotEvent, label: string, body?: string): string => {
+  const who = author(cot);
+  const what = who === label ? label : `${who} — ${label}`;
+  return truncate(body ? `${what}, Remarks: ${body}` : what);
 };
 
 /** Who sent it, as far as the CoT tells us. */
@@ -40,14 +53,21 @@ const tagsOf = (cot: CotEvent, isChat: boolean): string[] => {
  * client from claiming a BattleLog user's identity by picking their callsign.
  */
 export const cotToCreateInput = (cot: CotEvent, ingestSourceId?: string): CreateEventInput => {
-  const isChat = Boolean(cot.chatRoom || cot.remarks);
+  // A <__chat> element is what makes a message a message. Remarks alone do not:
+  // an operator's note on a unit marker is an annotation of that unit, and
+  // calling it chat would file the marker under the wrong type.
+  const isChat = cot.chatRoom !== undefined || cot.senderCallsign !== undefined;
   const body = cot.remarks?.trim();
+  const label = describeCotType(cot.type);
   return {
     createdBy: `tak:${author(cot)}`,
     updatedBy: null,
     // header is NOT NULL, and plenty of CoT carries no text at all (position
-    // reports, delivery receipts), so there has to be a real fallback.
-    header: body ? truncate(body) : `${author(cot)} — ${cot.type}`,
+    // reports, delivery receipts), so there has to be a real fallback. For a
+    // marker the fallback is the decoded symbol rather than the raw type code:
+    // "Hostile, Ground, Infantry" is what an operator can act on, a-h-G-U-C-I
+    // is not.
+    header: isChat && body ? truncate(body) : takHeader(cot, label, body),
     // Three clocks stay distinct: eventTime is when the sender says it happened,
     // createdAt (DB default) is when we ingested it.
     eventTime: cot.time ?? cot.start ?? null,
@@ -68,6 +88,8 @@ export const cotToCreateInput = (cot: CotEvent, ingestSourceId?: string): Create
     data: {
       uid: cot.uid,
       cotType: cot.type,
+      // The decoded symbol, so a feed column can show it without the raw code.
+      cotTypeLabel: label,
       how: cot.how ?? null,
       callsign: cot.callsign ?? null,
       chatRoom: cot.chatRoom ?? null,

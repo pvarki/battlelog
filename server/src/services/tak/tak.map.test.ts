@@ -38,15 +38,15 @@ describe("cotToCreateInput", () => {
     // The assertion that matters most: header is NOT NULL, and most CoT is not
     // chat, so a missing fallback would fail every insert on a live stream.
     const position = cotToCreateInput({ uid: "ANDROID-x", type: "a-f-G-U-C", callsign: "BRAVO-2" });
-    expect(position.header).toBe("BRAVO-2 — a-f-G-U-C");
+    expect(position.header).toBe("BRAVO-2 — Friendly, Ground");
     expect(position.type).toBe("tak-cot");
 
     const nameless = cotToCreateInput({ uid: "u-1", type: "a-u-G" });
-    expect(nameless.header).toBe("u-1 — a-u-G");
+    expect(nameless.header).toBe("u-1 — Unknown, Ground");
     expect(nameless.createdBy).toBe("tak:u-1");
 
     const blank = cotToCreateInput({ ...chat, remarks: "   " });
-    expect(blank.header).toBe("ALPHA-1 — b-t-f");
+    expect(blank.header).toBe("ALPHA-1 — Chat message");
   });
 
   test("truncates a long body but keeps it whole in data", () => {

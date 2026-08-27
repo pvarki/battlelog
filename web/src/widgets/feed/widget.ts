@@ -9,7 +9,15 @@ import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 type EventsQuery = InferRequestType<typeof api.events.$get>["query"];
 
 /** Built-in event fields a column can show, in canonical order. */
-export const FIELDS = ["time", "header", "type", "tags", "admiralty", "createdBy"] as const;
+export const FIELDS = [
+  "time",
+  "header",
+  "type",
+  "tags",
+  "admiralty",
+  "createdBy",
+  "location",
+] as const;
 export type Field = (typeof FIELDS)[number];
 
 export const FIELD_LABEL: Record<Field, string> = {
@@ -19,6 +27,7 @@ export const FIELD_LABEL: Record<Field, string> = {
   tags: "Tags",
   admiralty: "Adm.",
   createdBy: "By",
+  location: "Location",
 };
 
 const SOURCES = [...FIELDS, "data"] as const;

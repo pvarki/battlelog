@@ -35,7 +35,7 @@ test("schema applies defaults and rejects bad columns", () => {
     "type",
   ]);
   expect(descriptor.configSchema.safeParse({ columns: [] }).success).toBe(false);
-  expect(descriptor.configSchema.safeParse({ columns: ["location"] }).success).toBe(false);
+  expect(descriptor.configSchema.safeParse({ columns: ["nonesuch"] }).success).toBe(false);
 });
 
 test("schema accepts bounded column widths", () => {

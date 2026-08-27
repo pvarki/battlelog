@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Box,
   Center,
@@ -49,6 +50,22 @@ const CELL: Record<Field, (e: EventResponse) => ReactNode> = {
   tags: (e) => e.tags?.join(", "),
   admiralty: (e) => [e.admiraltyReliability, e.admiraltyAccuracy].filter(Boolean).join(""),
   createdBy: (e) => e.createdBy,
+  // Coordinates are unreadable as a number pair and useless without a map, so
+  // the cell is the link. OpenStreetMap needs no key and no account; zoom 15 is
+  // close enough to see terrain around a marker.
+  location: (e) =>
+    e.locationPoint ? (
+      <Anchor
+        href={`https://www.openstreetmap.org/?mlat=${e.locationPoint.lat}&mlon=${e.locationPoint.lng}#map=15/${e.locationPoint.lat}/${e.locationPoint.lng}`}
+        target="_blank"
+        rel="noreferrer"
+        fz="inherit"
+      >
+        {e.locationPoint.lat.toFixed(5)}, {e.locationPoint.lng.toFixed(5)}
+      </Anchor>
+    ) : (
+      e.location || null
+    ),
 };
 
 const cell = (col: FeedColumn, e: EventResponse): ReactNode =>

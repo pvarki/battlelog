@@ -111,18 +111,29 @@ TAK user, so `takrmapi` has to enrol us first (its
 completes the handshake and then drops the connection — which shows up as a
 reconnect loop with the reason on the source's status.
 
-**Known limitation, verified against a local `rmlocal` stack:** enrolment alone is
-not sufficient there. TAK accepts the TLS handshake and then sends a
-`tlsv1 alert internal error`, closing the socket immediately, so the ingester sits
-in a reconnect loop and no CoT arrives. This is not specific to this client — an
-`openssl s_client` using the same certificate is dropped identically, as is
-`takrmapi`'s own admin certificate. The deployment's `CoreConfig` has
-`<auth default="ldap" x509groups="true" x509addAnonymous="false">`, so a
-certificate user needs a group that only Keycloak → LDAP (`tak_*`) provides;
-`certmod` alone puts the user in `__ANON__`, which that config disables. Giving
-the enrolled user a real out-group with `certmod -og default` is necessary but
-still not enough. Resolving this needs a TAK-side change (an LDAP identity for the
-product, or a dedicated input), not a change here.
+**If the stream sits in a reconnect loop, check TAK's own log first.** A working
+certificate can still be refused, and the client cannot tell the two cases apart:
+TAK completes the TLS handshake and then closes with
+`tlsv1 alert internal error`. `takserver-messaging.log` distinguishes them.
+
+- `Certificate error: peer not verified` with `General OpenSslEngine problem`
+  and no OpenSSL error code means TAK's own trust manager threw. With
+  `enableOCSP="true"` in `CoreConfig` this is almost always the OCSP check:
+  TAK fetches the responder named in our certificate's AIA extension, RM serves
+  it over HTTPS, and that call uses the **JVM** truststore rather than
+  `takserver-truststore.jks`. On a local stack the responder is fronted by
+  miniwerk's private CA, which the JVM does not trust, so the check throws and
+  every client is refused. Fixed in `docker-atak-server` by importing
+  `/ca_public/*.pem` into the JVM truststore at startup; if you are on an older
+  image, `keytool -cacerts -storepass changeit -importcert -trustcacerts -alias
+  mw -file /ca_public/miniwerk_ca.pem` inside the TAK containers and restart
+  them.
+- `PEER_DID_NOT_RETURN_A_CERTIFICATE` means our certificate was never sent —
+  look at `TAK_CLIENT_CERT_PATH` and `TAK_CLIENT_KEY_PATH`.
+- No log line at all, connection dropped after the handshake: the CN is not an
+  enrolled TAK user, or it has no out-group. `takrmapi` gives it
+  `certmod -og default`; `x509addAnonymous="false"` in `CoreConfig` means the
+  `__ANON__` group `enable_user.sh` assigns on its own is not enough.
 
 A TAK setup narrows the stream by CoT type, GeoChat room, sender, recipient, and
 by the raw `<detail>` XML. Every field takes **unanchored regular expressions** —
