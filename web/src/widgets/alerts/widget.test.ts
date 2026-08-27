@@ -29,7 +29,7 @@ const rule = (over: Partial<Alert> = {}): Alert => ({
 
 test("schema defaults and rejects unknown keys", () => {
   const parsed = descriptor.configSchema.parse({});
-  expect(parsed).toMatchObject({ lookback: 200, showDismissed: false });
+  expect(parsed).toMatchObject({ lookback: 200 });
   expect(descriptor.configSchema.safeParse({ nonesuch: 1 }).success).toBe(false);
   // The settings drawer writes showOnMobile into any widget's config.
   expect(descriptor.configSchema.safeParse({ showOnMobile: false }).success).toBe(true);

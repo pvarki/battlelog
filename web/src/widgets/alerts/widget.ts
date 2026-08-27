@@ -17,8 +17,6 @@ const configSchema = z
     ...baseWidgetConfig,
     /** How many recent events the rules are checked against. */
     lookback: z.number().int().min(20).max(1000).default(200),
-    /** Keep dismissed alerts visible, struck through, instead of hiding them. */
-    showDismissed: z.boolean().default(false),
   })
   .strict();
 
@@ -52,7 +50,7 @@ const descriptor: WidgetDescriptor<AlertsConfig> = {
   name: "Alerts",
   description: "Alerts raised by any board's rules, with acknowledgement",
   configSchema,
-  defaultConfig: { lookback: 200, showDismissed: false },
+  defaultConfig: { lookback: 200 },
   defaultSize: { w: 12, h: 8 },
   minSize: { w: 6, h: 3 },
   View: lazy(() => import("./View.tsx")),

@@ -1,4 +1,4 @@
-import { Checkbox, NumberInput, Stack, Text } from "@mantine/core";
+import { NumberInput, Stack, Text } from "@mantine/core";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import type { AlertsConfig } from "./widget.ts";
@@ -8,7 +8,8 @@ const AlertsConfigForm = ({ config, onChange }: WidgetConfigProps<AlertsConfig>)
     <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
     <Text fz="xs" c="dimmed">
       Tämä widget näyttää kaikkien näkymien hälytyssäännöt yhdessä listassa. Säännöt itse
-      määritellään tapahtumasyöte-widgetin asetuksissa.
+      määritellään tapahtumasyöte-widgetin asetuksissa. Kuitatut hälytykset jäävät listaan harmaina
+      — kuittaus kertoo että joku on nähnyt sen, ei poista sitä.
     </Text>
     <NumberInput
       label="Tapahtumia tarkasteltavana"
@@ -20,12 +21,6 @@ const AlertsConfigForm = ({ config, onChange }: WidgetConfigProps<AlertsConfig>)
       onChange={(v) => {
         if (typeof v === "number") onChange({ ...config, lookback: v });
       }}
-    />
-    <Checkbox
-      label="Näytä kuitatut"
-      description="Kuitatut jäävät listaan yliviivattuina"
-      checked={config.showDismissed}
-      onChange={(e) => onChange({ ...config, showDismissed: e.currentTarget.checked })}
     />
   </Stack>
 );

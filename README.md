@@ -240,6 +240,10 @@ event stream. Two consequences worth knowing:
   200 by default) rather than the whole log, because rules are a union and the
   events API filters by AND. The widget's footer states the number.
 
+Acknowledged alerts stay on the list, greyed and struck through. Nothing can be
+tapped out of the view: acknowledging says someone has seen it, and a list you
+can empty cannot be read as "this is what happened".
+
 ## Tech stack
 
 Hono · `@hono/zod-openapi` · Drizzle · Postgres + PostGIS · Zod · pino · OpenTelemetry · varlock · Biome · Vitest · React · Vite · TanStack Router · Mantine

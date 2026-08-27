@@ -110,19 +110,21 @@ const AlertsView = ({ config }: WidgetViewProps<AlertsConfig>) => {
   const cleared = dismissedKeys(events);
   const raised = raisedAlerts(events, rules);
   const isDismissed = (key: string) => cleared.has(key) || justDismissed.has(key);
-  const shown = config.showDismissed ? raised : raised.filter((r) => !isDismissed(r.key));
+  // Acknowledged alerts stay on the list, greyed. Acknowledging is a statement
+  // that someone has seen it, not a way to make it go away — a list you can tap
+  // empty cannot be read as "this is what happened".
   const open = raised.filter((r) => !isDismissed(r.key)).length;
 
   return (
     <Stack h="100%" gap="xs" p="xs">
       <Stack gap={6} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {shown.length === 0 ? (
+        {raised.length === 0 ? (
           <Text fz="xs" c="dimmed">
             Ei hälytyksiä. {rules.length} sääntöä valvonnassa:{" "}
             {rules.map((r) => r.alert.label).join(", ")}.
           </Text>
         ) : (
-          shown.map((r) => (
+          raised.map((r) => (
             <AlertRow
               key={r.key}
               raised={r}
