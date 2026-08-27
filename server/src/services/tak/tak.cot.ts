@@ -32,6 +32,12 @@ export type CotEvent = {
   chatRoom?: string;
   /** <__chat senderCallsign="...">, which need not equal {@link callsign}. */
   senderCallsign?: string;
+  /**
+   * <link parent_callsign="..."> — the operator who placed this, which on a
+   * marker is a different person from {@link callsign}: that one names the thing
+   * the marker is about ("VIHOLLINEN-1"), not who reported it.
+   */
+  parentCallsign?: string;
   /** <__chat><chatgrp to="..."> or the chat id — who it was addressed to. */
   destCallsign?: string;
   /** <remarks> text, which is the actual chat message body. */
@@ -140,6 +146,11 @@ export const parseCotEvent = (xml: string): CotEvent | undefined => {
   const contact = asRecord(first(detail?.contact));
   const chat = asRecord(first(detail?.__chat));
   const chatgrp = asRecord(first(chat?.chatgrp));
+  // A detail can carry several <link>s (a route is all links), and only the
+  // producer link names its author, so pick by the attribute rather than by
+  // position.
+  const links = [detail?.link ?? []].flat();
+  const producer = links.map(asRecord).find((link) => link?.["@parent_callsign"] !== undefined);
 
   return {
     uid,
@@ -155,6 +166,7 @@ export const parseCotEvent = (xml: string): CotEvent | undefined => {
     callsign: str(contact?.["@callsign"]),
     chatRoom: str(chat?.["@chatroom"]),
     senderCallsign: str(chat?.["@senderCallsign"]),
+    parentCallsign: str(producer?.["@parent_callsign"]),
     destCallsign: str(chatgrp?.["@to"]) ?? str(chat?.["@id"]),
     remarks: elementText(detail?.remarks),
   };

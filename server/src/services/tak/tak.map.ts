@@ -28,13 +28,26 @@ const pointOf = (cot: CotEvent): [number, number] | null => {
  * they are a note about a thing and lose their meaning without it.
  */
 const takHeader = (cot: CotEvent, label: string, body?: string): string => {
-  const who = author(cot);
+  const who = subject(cot);
   const what = who === label ? label : `${who} — ${label}`;
   return truncate(body ? `${what}, Remarks: ${body}` : what);
 };
 
-/** Who sent it, as far as the CoT tells us. */
-const author = (cot: CotEvent): string => cot.senderCallsign ?? cot.callsign ?? cot.uid;
+/**
+ * Who reported it.
+ *
+ * On a marker this is NOT <contact callsign>: that names the thing the marker is
+ * about — an enemy platoon, a hazard — and attributing the entry to it would
+ * credit the sighting to whatever was sighted. ATAK names the operator who
+ * placed the marker in <link parent_callsign>, so that wins. A position report
+ * has no such link and is its own author, which is where the contact callsign
+ * still applies.
+ */
+const author = (cot: CotEvent): string =>
+  cot.senderCallsign ?? cot.parentCallsign ?? cot.callsign ?? cot.uid;
+
+/** What the entry is about: the marker's own label, or a client reporting itself. */
+const subject = (cot: CotEvent): string => cot.senderCallsign ?? cot.callsign ?? cot.uid;
 
 const tagsOf = (cot: CotEvent, isChat: boolean): string[] => {
   const tags = ["tak", cot.type];
@@ -94,6 +107,7 @@ export const cotToCreateInput = (cot: CotEvent, ingestSourceId?: string): Create
       callsign: cot.callsign ?? null,
       chatRoom: cot.chatRoom ?? null,
       senderCallsign: cot.senderCallsign ?? null,
+      parentCallsign: cot.parentCallsign ?? null,
       destCallsign: cot.destCallsign ?? null,
       remarks: body ?? null,
       hae: cot.hae ?? null,

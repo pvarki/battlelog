@@ -34,6 +34,30 @@ describe("cotToCreateInput", () => {
     expect(input.admiraltyReliability).toBeNull();
   });
 
+  test("credits a marker to the operator who placed it, not to what it shows", () => {
+    // The distinction that matters: <contact callsign> is the enemy platoon the
+    // marker is about, <link parent_callsign> is the scout who reported it.
+    const marker = cotToCreateInput({
+      uid: "TEST-HOSTILE-1",
+      type: "a-h-G-U-C-I",
+      callsign: "VIHOLLINEN-1",
+      parentCallsign: "ALPHA-1",
+      remarks: "Dug in at the treeline",
+      lat: 60.2055,
+      lon: 24.6559,
+    });
+    expect(marker.createdBy).toBe("tak:ALPHA-1");
+    // ...and the marker's own label still names the entry.
+    expect(marker.header).toBe(
+      "VIHOLLINEN-1 — Hostile, Ground, Infantry, Remarks: Dug in at the treeline",
+    );
+    expect(marker.data).toMatchObject({ callsign: "VIHOLLINEN-1", parentCallsign: "ALPHA-1" });
+
+    // A position report has no producer link and is its own author.
+    const position = cotToCreateInput({ uid: "ANDROID-x", type: "a-f-G-U-C", callsign: "BRAVO-2" });
+    expect(position.createdBy).toBe("tak:BRAVO-2");
+  });
+
   test("header is never empty, whatever the CoT carries", () => {
     // The assertion that matters most: header is NOT NULL, and most CoT is not
     // chat, so a missing fallback would fail every insert on a live stream.

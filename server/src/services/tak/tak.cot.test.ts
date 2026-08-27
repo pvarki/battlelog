@@ -60,6 +60,21 @@ describe("parseCotEvent", () => {
     expect(cot?.detail?.endsWith("</detail>")).toBe(true);
   });
 
+  test("lifts the placing operator out of the producer link", () => {
+    // A route's <link>s carry no author, so the one that does has to be found by
+    // its attribute rather than by being first.
+    const cot = parseCotEvent(
+      `<event version="2.0" uid="a1b2" type="a-h-G-U-C-I" time="2026-08-25T10:00:00Z" start="2026-08-25T10:00:00Z" stale="2026-08-25T10:10:00Z" how="h-e">
+<point lat="60.2055" lon="24.6559" hae="12.0" ce="9.5" le="9999999.0"/>
+<detail><contact callsign="VIHOLLINEN-1"/>
+<link uid="waypoint-1" type="b-m-p-w" relation="c"/>
+<link uid="ANDROID-9f" production_time="2026-08-25T09:58:00Z" type="a-f-G-U-C" parent_callsign="ALPHA-1" relation="p-p"/>
+<remarks>Dug in at the treeline</remarks></detail></event>`,
+    );
+    expect(cot?.callsign).toBe("VIHOLLINEN-1");
+    expect(cot?.parentCallsign).toBe("ALPHA-1");
+  });
+
   test("returns undefined instead of throwing on unusable input", () => {
     expect(parseCotEvent("<event>no uid or type</event>")).toBeUndefined();
     expect(parseCotEvent("not xml at all")).toBeUndefined();
