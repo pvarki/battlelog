@@ -94,4 +94,49 @@ describe("cotToCreateInput", () => {
     expect(input.eventTime).toEqual(new Date("2026-08-25T09:59:00.000Z"));
     expect(cotToCreateInput({ uid: "u", type: "t" }).eventTime).toBeNull();
   });
+
+  test("a re-sent report keys the same, a changed one does not", () => {
+    // TAK rewrites the event's `time` on every relay, so the key must not
+    // contain it: keyed on time, the same position report arriving twice on
+    // TAK's re-send timer produced two rows.
+    const marker = {
+      uid: "TRACK-1",
+      type: "a-h-G-U-C-I",
+      callsign: "VIHOLLINEN-1",
+      lat: 60.2,
+      lon: 24.6,
+      detail: '<detail><contact callsign="VIHOLLINEN-1"/></detail>',
+    };
+    const first = cotToCreateInput({ ...marker, time: new Date("2026-08-27T12:00:00Z") });
+    const relayed = cotToCreateInput({ ...marker, time: new Date("2026-08-27T12:00:30Z") });
+    expect(relayed.sourceUri).toBe(first.sourceUri);
+
+    // A unit that has actually moved is a new entry, not a duplicate.
+    const moved = cotToCreateInput({ ...marker, lat: 60.9 });
+    expect(moved.sourceUri).not.toBe(first.sourceUri);
+  });
+
+  test("GeoChat keys on its own messageId when TAK relays one", () => {
+    const msg = {
+      uid: "GeoChat.x.RECON.1",
+      type: "b-t-f",
+      chatRoom: "RECON",
+      senderCallsign: "ALPHA-1",
+      remarks: "Partio asemissa",
+      messageId: "d7a1f0c2",
+    };
+    const a = cotToCreateInput({ ...msg, time: new Date("2026-08-27T12:00:00Z") });
+    const b = cotToCreateInput({ ...msg, time: new Date("2026-08-27T12:00:40Z") });
+    expect(a.sourceUri).toBe("tak://chat/d7a1f0c2");
+    expect(b.sourceUri).toBe(a.sourceUri);
+  });
+
+  test("GeoChat with no messageId keeps the time, so it is not deduplicated", () => {
+    // Collapsing two identical chat messages sent a minute apart would lose a
+    // real report; a possible duplicate is the safer failure.
+    const msg = { uid: "GeoChat.x.RECON.2", type: "b-t-f", chatRoom: "RECON", remarks: "Selvä" };
+    const a = cotToCreateInput({ ...msg, time: new Date("2026-08-27T12:00:00Z") });
+    const b = cotToCreateInput({ ...msg, time: new Date("2026-08-27T12:00:40Z") });
+    expect(a.sourceUri).not.toBe(b.sourceUri);
+  });
 });

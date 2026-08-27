@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { CreateEventInput } from "../events/events.service.ts";
 import { EVENT_TYPE, INPUT_SOURCE } from "../ingest/ingest.types.ts";
 import type { CotEvent } from "./tak.cot.ts";
@@ -31,6 +32,38 @@ const takHeader = (cot: CotEvent, label: string, body?: string): string => {
   const who = subject(cot);
   const what = who === label ? label : `${who} — ${label}`;
   return truncate(body ? `${what}, Remarks: ${body}` : what);
+};
+
+/**
+ * The key that decides whether we have seen this message before.
+ *
+ * It cannot include the event's `time`: TAK rewrites that attribute when it
+ * relays, so the same message arriving twice on its re-send timer carried two
+ * different times and produced two rows. Verified against TAK 5.8 — a replayed
+ * event kept the `production_time` and `stale` we sent, but `time` had been
+ * replaced with the relay clock.
+ *
+ * GeoChat gets `__chat messageId`, the one per-message id TAK relays unchanged.
+ * Without one the time stays in the key and the message is not deduplicated:
+ * better a possible duplicate than silently collapsing two identical reports
+ * sent a minute apart.
+ *
+ * Everything else is keyed on uid plus a digest of what the report says (type,
+ * position, detail). An unchanged re-send collapses; a unit that has moved, or
+ * a marker someone edited, is a new row — which is what a log of a moving
+ * picture has to do.
+ */
+const sourceUriOf = (cot: CotEvent, isChat: boolean): string => {
+  if (isChat) {
+    return cot.messageId
+      ? `tak://chat/${cot.messageId}`
+      : `tak://${cot.uid}${cot.time ? `/${cot.time.toISOString()}` : ""}`;
+  }
+  const digest = createHash("sha256")
+    .update(`${cot.type}\n${cot.lat ?? ""},${cot.lon ?? ""},${cot.hae ?? ""}\n${cot.detail ?? ""}`)
+    .digest("hex")
+    .slice(0, 16);
+  return `tak://${cot.uid}/${digest}`;
 };
 
 /**
@@ -96,7 +129,7 @@ export const cotToCreateInput = (cot: CotEvent, ingestSourceId?: string): Create
     ingestSourceId: ingestSourceId ?? null,
     // Synthetic and not dereferenceable, but stable and unique: it is the key
     // back to the upstream message when someone asks where an entry came from.
-    sourceUri: `tak://${cot.uid}${cot.time ? `/${cot.time.toISOString()}` : ""}`,
+    sourceUri: sourceUriOf(cot, isChat),
     type: isChat ? EVENT_TYPE.takChat : EVENT_TYPE.takCot,
     data: {
       uid: cot.uid,

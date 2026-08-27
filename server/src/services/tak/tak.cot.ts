@@ -33,6 +33,13 @@ export type CotEvent = {
   /** <__chat senderCallsign="...">, which need not equal {@link callsign}. */
   senderCallsign?: string;
   /**
+   * <__chat messageId="..."> — GeoChat's own per-message id.
+   *
+   * The one identifier TAK relays unchanged. The event's `time` attribute is
+   * rewritten on every relay, so it cannot identify a message.
+   */
+  messageId?: string;
+  /**
    * <link parent_callsign="..."> — the operator who placed this, which on a
    * marker is a different person from {@link callsign}: that one names the thing
    * the marker is about ("VIHOLLINEN-1"), not who reported it.
@@ -166,6 +173,7 @@ export const parseCotEvent = (xml: string): CotEvent | undefined => {
     callsign: str(contact?.["@callsign"]),
     chatRoom: str(chat?.["@chatroom"]),
     senderCallsign: str(chat?.["@senderCallsign"]),
+    messageId: str(chat?.["@messageId"]),
     parentCallsign: str(producer?.["@parent_callsign"]),
     destCallsign: str(chatgrp?.["@to"]) ?? str(chat?.["@id"]),
     remarks: elementText(detail?.remarks),
