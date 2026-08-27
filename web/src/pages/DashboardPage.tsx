@@ -22,7 +22,7 @@ import { Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
-import { GRID_COLS, GRID_MARGIN, GRID_ROWS } from "../dashboard/grid.ts";
+import { GRID_COLS, GRID_MARGIN, GRID_ROWS, MIN_ROW_HEIGHT } from "../dashboard/grid.ts";
 import {
   canRedo as historyCanRedo,
   canUndo as historyCanUndo,
@@ -386,7 +386,10 @@ const DashboardGrid = ({
   const configuring = widgets.find((w) => w.id === configuringId) ?? null;
   const configuringDescriptor = configuring ? getWidget(configuring.type) : undefined;
 
-  const rowHeight = Math.max(8, (height - (GRID_ROWS - 1) * GRID_MARGIN) / GRID_ROWS);
+  // Fit the whole board on screen, unless that makes the rows unreadable: then
+  // keep them legible and let the container scroll.
+  const fittedRowHeight = (height - (GRID_ROWS - 1) * GRID_MARGIN) / GRID_ROWS;
+  const rowHeight = Math.max(MIN_ROW_HEIGHT, fittedRowHeight);
 
   return (
     <Box
@@ -513,7 +516,10 @@ const DashboardGrid = ({
         </Group>
       </Group>
 
-      <Box ref={gridRef} flex={1} mih={0} style={{ overflow: "hidden" }}>
+      {/* auto, not hidden: the board only overflows once rows hit their floor,
+          and losing widgets off the bottom of the screen is worse than a
+          scrollbar. */}
+      <Box ref={gridRef} flex={1} mih={0} style={{ overflowY: "auto", overflowX: "hidden" }}>
         {width > 0 && height > 0 && (
           <GridLayout
             width={width}

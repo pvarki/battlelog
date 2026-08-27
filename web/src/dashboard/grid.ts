@@ -7,6 +7,15 @@ import type { Widget } from "../api.ts";
 export const GRID_COLS = 48;
 export const GRID_ROWS = 24;
 export const GRID_MARGIN = 8;
+/**
+ * Shortest a grid row may get before the board stops shrinking to fit.
+ *
+ * The board is one screen by design, so rows are sized to make GRID_ROWS of them
+ * fill the viewport. On a short window that arithmetic produces rows too small
+ * to read, and a widget three rows tall becomes unusable — past this floor the
+ * board keeps its legibility and scrolls instead.
+ */
+export const MIN_ROW_HEIGHT = 26;
 
 /** A widget's slot as percentages of the canvas, ready for absolute positioning. */
 export type Block = {
