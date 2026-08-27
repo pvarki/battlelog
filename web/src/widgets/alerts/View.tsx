@@ -25,7 +25,7 @@ import { useIsMobile } from "../../dashboard/mobile.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { useLiveEvents } from "../../live-events.ts";
 import { formatShortDateTime } from "../../time.ts";
-import { type AlertsConfig, raisedAlerts } from "./widget.ts";
+import { type AlertsConfig, freshAlertKeys, raisedAlerts } from "./widget.ts";
 
 /**
  * The row is a grid, not a flex line.
@@ -161,12 +161,8 @@ const AlertsView = ({ config }: WidgetViewProps<AlertsConfig>) => {
     // make every existing alert look new and unfold the card on every page load.
     if (!ready) return;
     const keys = openKeys ? openKeys.split(",") : [];
-    if (announced.current === null) {
-      announced.current = new Set(keys);
-      return;
-    }
-    const fresh = keys.filter((k) => !announced.current?.has(k));
-    for (const k of keys) announced.current.add(k);
+    const fresh = freshAlertKeys(keys, announced.current);
+    announced.current = new Set([...(announced.current ?? []), ...keys]);
     if (fresh.length) setOpened(true);
   }, [ready, openKeys]);
 
@@ -270,6 +266,8 @@ const AlertsView = ({ config }: WidgetViewProps<AlertsConfig>) => {
           onClick={() => setOpened((o) => !o)}
           h="100%"
           w="100%"
+          // The bar must stay clickable however short the tile is made.
+          mih={32}
           px="xs"
           aria-expanded={opened}
           aria-label={`Hälytykset: ${open.length} avoinna`}

@@ -44,6 +44,25 @@ export const raisedAlerts = (
   return raised.sort((a, b) => b.event.createdAt.localeCompare(a.event.createdAt));
 };
 
+/**
+ * Which open alerts have not been announced yet, given what already has been.
+ *
+ * Pulled out of the view so the behaviour that matters — the card unfolds for
+ * something that happened while you were watching, and not for the backlog it
+ * loaded with — is testable without a DOM.
+ *
+ * `announced` of null means nothing has been counted yet: that first call
+ * records the backlog and reports nothing fresh, which is what stops a board
+ * from unfolding on every page load.
+ */
+export const freshAlertKeys = (
+  openKeys: readonly string[],
+  announced: Set<string> | null,
+): string[] => {
+  if (announced === null) return [];
+  return openKeys.filter((k) => !announced.has(k));
+};
+
 const descriptor: WidgetDescriptor<AlertsConfig> = {
   type: "alerts",
   Icon: IconBellRinging,
@@ -51,10 +70,12 @@ const descriptor: WidgetDescriptor<AlertsConfig> = {
   description: "Alerts raised by any board's rules, with acknowledgement",
   configSchema,
   defaultConfig: { lookback: 200 },
-  // Folded it is one line tall; the unfolded list is a portalled
-  // popover, so it needs no room on the board.
-  defaultSize: { w: 16, h: 2 },
-  minSize: { w: 6, h: 2 },
+  // Folded it is one line, but the tile also carries the wrapper's header (type
+  // caption + title), which is ~45px on its own. At h=2 the body collapsed to a
+  // sliver and the bar was neither readable nor clickable — hence h=4, and the
+  // bar has its own minimum height so a hand-resize cannot squash it again.
+  defaultSize: { w: 16, h: 4 },
+  minSize: { w: 6, h: 3 },
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

@@ -215,14 +215,20 @@ configured per event-feed widget, alongside that widget's views, and they fire
 independently of which view happens to be showing — an alert is about the
 deployment, not about what someone is looking at.
 
-A raised alert does three things:
+A raised alert does two things:
 
 1. outlines and pulses the widget that watches for it, then holds the outline
    until it is clicked away — a permanently blinking tile stops being read as new;
-2. shows a notification anywhere in the app, from a single watcher in the root
-   layout, so a rule shared by two boards does not toast twice;
-3. stays in the **Alerts** widget, which lists alerts raised by _every_ board's
-   rules and lets an operator acknowledge them.
+2. unfolds the **Alerts** widget, a folded one-line card listing alerts raised by
+   _every_ board's rules, which an operator acknowledges from there.
+
+Both happen on the board itself. There is deliberately no corner toast: the board
+is what an operator is looking at, and a notification to be dismissed somewhere
+else is one more thing to miss.
+
+The card unfolds only for an alert arriving while someone is watching, never for
+the backlog it loads with — otherwise every page load would fling it open over
+alerts dealt with yesterday.
 
 Acknowledging writes an `alert-dismissed` event carrying `alertId` and `eventId`,
 so who cleared what is in the same log as everything else rather than in a

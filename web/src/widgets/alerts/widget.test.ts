@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { type Alert, DISMISS_EVENT_TYPE, dismissedKeys, matchesAlert } from "../../alerts.ts";
 import type { EventResponse } from "../../api.ts";
-import descriptor, { raisedAlerts } from "./widget.ts";
+import descriptor, { freshAlertKeys, raisedAlerts } from "./widget.ts";
 
 const event = (over: Partial<EventResponse> = {}): EventResponse =>
   ({
@@ -82,4 +82,19 @@ test("dismissals are read back by alert and event, not by alert alone", () => {
   expect(cleared.has("a1:e1")).toBe(true);
   // The same rule firing on a different event is still open.
   expect(cleared.has("a1:e9")).toBe(false);
+});
+
+test("the card unfolds for a new alert, not for the backlog it loaded with", () => {
+  // First pass records what was already there and reports nothing: a board that
+  // popped open on every page load would be noise, not an alarm.
+  expect(freshAlertKeys(["a1:e1", "a1:e2"], null)).toEqual([]);
+
+  const announced = new Set(["a1:e1", "a1:e2"]);
+  // Nothing new: stays folded.
+  expect(freshAlertKeys(["a1:e1", "a1:e2"], announced)).toEqual([]);
+  // One new alert: unfolds.
+  expect(freshAlertKeys(["a1:e3", "a1:e1", "a1:e2"], announced)).toEqual(["a1:e3"]);
+  // Acknowledging removes a key from the open list; it must not read as fresh
+  // when it later reappears, or clearing an alert would reopen the card.
+  expect(freshAlertKeys(["a1:e1"], announced)).toEqual([]);
 });
