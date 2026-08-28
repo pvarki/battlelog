@@ -267,3 +267,31 @@ describe("views", () => {
     expect(matchesFeed(row({ type: "form-report" }), c)).toBe(false);
   });
 });
+
+test("the active view's filters go to the server, not just the client", () => {
+  // The server applies the row limit. A view filter that only ran client-side
+  // fetched the last N events of every kind and then discarded most of them, so
+  // a view showed empty whenever a burst of some other type filled the top of
+  // the log — however many matching events existed.
+  const config = descriptor.configSchema.parse({
+    rows: 10,
+    columns: [{ id: "t", source: "time" }],
+    views: [
+      {
+        id: "v1",
+        label: "Viestit",
+        types: ["matrix.message", "tak-chat"],
+        columns: [{ id: "t", source: "time" }],
+      },
+    ],
+  });
+  expect(queryFor(config).types).toBe("matrix.message,tak-chat");
+});
+
+test("a multi-value filter is described as any-of, because that is what it is", () => {
+  const config = descriptor.configSchema.parse({
+    types: ["a", "b"],
+    columns: [{ id: "t", source: "time" }],
+  });
+  expect(activeFilters(config)).toEqual(["type: any of a, b"]);
+});

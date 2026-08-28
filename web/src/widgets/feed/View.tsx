@@ -287,8 +287,12 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
               Nothing matches {view ? `the ${view.label} view` : "this widget's filters"}.
               <br />
               {filters.join(" · ")}
-              <br />
-              All of them have to match.
+              {filters.length > 1 && (
+                <>
+                  <br />
+                  Every line has to hold at once.
+                </>
+              )}
             </>
           ) : (
             "No events yet."

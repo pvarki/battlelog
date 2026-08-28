@@ -195,10 +195,17 @@ export const columnWidth = (col: FeedColumn): number => col.width ?? widthForLab
 // Cast like the explorer's buildQuery: dates travel as datetime-local strings.
 export const queryFor = (config: FeedConfig, extras?: FeedExtras): EventsQuery => {
   const view = activeView(config);
+  // The ACTIVE VIEW's filters, not the widget's own. The server applies the row
+  // limit, so a filter that only runs client-side gets the last N events of
+  // every kind and then throws most of them away — a view whose events are not
+  // among the newest N shows as empty however many matching events exist. That
+  // is what happened to a Viestit view once a burst of another event type
+  // filled the top of the log.
+  const active = effectiveConfig(config);
   return {
-    ...(config.types?.length ? { types: config.types.join(",") } : {}),
-    ...(config.tags?.length ? { tags: config.tags.join(",") } : {}),
-    ...(config.ingestSources?.length ? { ingestSources: config.ingestSources.join(",") } : {}),
+    ...(active.types?.length ? { types: active.types.join(",") } : {}),
+    ...(active.tags?.length ? { tags: active.tags.join(",") } : {}),
+    ...(active.ingestSources?.length ? { ingestSources: active.ingestSources.join(",") } : {}),
     ...(view?.dataKey ? { dataKey: view.dataKey, dataValue: view.dataValue } : {}),
     ...(config.search || extras?.search ? { search: config.search || extras?.search } : {}),
     ...(config.createdBy || extras?.createdBy
@@ -281,8 +288,14 @@ export const alertsFor = (row: EventResponse, config: FeedConfig): Alert[] =>
  */
 export const activeFilters = (config: FeedConfig): string[] => {
   const parts: string[] = [];
-  if (config.types?.length) parts.push(`type: ${config.types.join(", ")}`);
-  if (config.tags?.length) parts.push(`tag: ${config.tags.join(", ")}`);
+  // A list is an OR, so say so — calling several types "all of them have to
+  // match" told an operator their filter was impossible when it was merely
+  // matching nothing yet. Only when there is actually a choice: "any of" in
+  // front of a single value is noise.
+  const anyOf = (values: string[]): string =>
+    values.length > 1 ? `any of ${values.join(", ")}` : values.join("");
+  if (config.types?.length) parts.push(`type: ${anyOf(config.types)}`);
+  if (config.tags?.length) parts.push(`tag: ${anyOf(config.tags)}`);
   if (config.ingestSources?.length) {
     parts.push(
       config.ingestSources.length === 1
