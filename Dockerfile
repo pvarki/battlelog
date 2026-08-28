@@ -10,7 +10,16 @@ RUN pnpm -C server exec varlock typegen
 RUN pnpm -r build
 
 FROM node:24-slim AS production
-RUN apt-get update && apt-get install -y --no-install-recommends curl tini \
+# ca-certificates is not optional here even though nothing in the app fetches a
+# public URL. kw_product_init enrols us by POSTing the CSR to RASENMAEHER's
+# PUBLIC endpoint — it has no client certificate yet, so that call cannot use
+# mTLS — and it verifies against x509.SystemCertPool() plus whatever is in
+# /ca_public. node:24-slim ships no CA bundle at all, so in a deployment whose
+# public endpoint has a Let's Encrypt certificate the pool contained nothing
+# that could vouch for it and enrolment died with "certificate signed by
+# unknown authority". It passed locally only because the local public endpoint
+# is signed by miniwerk's CA, which /ca_public does carry.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Enrols us with RASENMAEHER on first run: turns the CSR JWT in the kraftwerk
