@@ -2,7 +2,7 @@ import "varlock/auto-load";
 import { readFileSync } from "node:fs";
 import { Agent, request } from "node:https";
 import { ENV } from "varlock/env";
-import { loadCaBundle } from "./ca-bundle.ts";
+import { trustBundle } from "./ca-bundle.ts";
 import {
   getManifestProductDns,
   getManifestProductUri,
@@ -32,7 +32,7 @@ const mtlsAgent = (): Agent => {
     agent = new Agent({
       cert: readFileSync(ENV.TAK_CLIENT_CERT_PATH),
       key: readFileSync(ENV.TAK_CLIENT_KEY_PATH),
-      ca: loadCaBundle(ENV.CA_PATH),
+      ca: trustBundle(ENV.CA_PATH),
       keepAlive: true,
     });
   }

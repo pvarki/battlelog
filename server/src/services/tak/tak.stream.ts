@@ -2,7 +2,7 @@ import "varlock/auto-load";
 import { readFileSync } from "node:fs";
 import { connect, type TLSSocket } from "node:tls";
 import { ENV } from "varlock/env";
-import { loadCaBundle } from "../../lib/ca-bundle.ts";
+import { trustBundle } from "../../lib/ca-bundle.ts";
 import { logger } from "../../lib/logger.ts";
 import { rmInteropAdd } from "../../lib/mtls-client.ts";
 import { createEventIfNew } from "../events/events.service.ts";
@@ -117,7 +117,7 @@ export const startTakIngest = (): (() => Promise<void>) => {
         servername: ENV.TAK_TLS_SERVERNAME || host,
         cert: readFileSync(ENV.TAK_CLIENT_CERT_PATH),
         key: readFileSync(ENV.TAK_CLIENT_KEY_PATH),
-        ca: loadCaBundle(ENV.CA_PATH),
+        ca: trustBundle(ENV.CA_PATH),
       });
       socket = sock;
       sock.setEncoding("utf8");
