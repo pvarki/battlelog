@@ -207,7 +207,7 @@ a log wants and exactly what the automatic position reports drown out.
 - **A catch-all stream filter should exclude `^t-x-m-`.** TAK broadcasts feed
   lifecycle notices (created, deleted, keyword, metadata — `t-x-m-n`, `t-x-m-d`,
   `t-x-m-c-k`, `t-x-m-c-m`) to every client in the group, and mints a fresh uid
-  for each one, so they never deduplicate. Feed *contents* are never broadcast:
+  for each one, so they never deduplicate. Feed _contents_ are never broadcast:
   `submitAnnounceMissionChangeCot` resolves subscribers by the client uid TAK
   learned from that client's own transmissions, and BattleLog transmits nothing.
 - **A password-protected or invite-only feed cannot be read at all.**
