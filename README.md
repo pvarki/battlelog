@@ -90,10 +90,15 @@ The HTTP server comes up first and never waits for either ingester:
 2. `startTakIngest()` opens a TLS connection to `TAK_STREAM_HOST:TAK_STREAM_PORT`
    presenting the RM-issued client certificate, and reconnects every 5s for as
    long as that fails.
-3. `startMatrixIngest()` asks RM for interop with the Matrix product, fetches the
+3. `startTakMissionIngest()` starts polling TAK's Marti API every 30s for
+   changes to the Data Sync feeds a setup names. Separate from the stream: TAK
+   pushes mission changes only to clients it has a uid for, and it learns a uid
+   from that client's own position reports, which BattleLog deliberately never
+   sends.
+4. `startMatrixIngest()` asks RM for interop with the Matrix product, fetches the
    ingest bot's access token from it, and long-polls `/sync`.
-4. Both report live state through `/api/v1/ingest/status` and per source in the
-   settings page. Neither ever throws out to the process: TAK or Synapse being
+5. All three report live state through `/api/v1/ingest/status` and per source in
+   the settings page. None ever throws out to the process: TAK or Synapse being
    down must not stop BattleLog serving its own feed.
 
 Events are inserted with the ordinary `createEvent`, so they reach browsers
@@ -178,6 +183,31 @@ event's detail to find what to match.
 A setup with no filters set takes **every** CoT event on the stream, and the
 settings page says so.
 
+#### Data Sync feeds (missions)
+
+A TAK setup that names one or more **Data Sync feeds** is a feed reader rather
+than a stream filter: it polls `GET /Marti/api/missions/{name}/changes` every 30s
+and turns every marker or file added to (or removed from) those feeds into an
+entry. Its pattern fields do not apply — two transports, two kinds of setup.
+
+This is the curated picture rather than the broadcast one. A marker only reaches
+RECON because someone verified it and put it there, which is exactly the traffic
+a log wants and exactly what the automatic position reports drown out.
+
+- **Feed chat is not polled.** TAK relays it as ordinary GeoChat with the feed's
+  chat room name, so an ordinary stream filter with `chatRooms: ["^RECON"]` takes
+  it.
+- **Reading a feed needs a role.** `/Marti/api/missions/**` is open to any
+  authenticated TAK client, but each mission then resolves the caller's role from
+  its `defaultRole` (or a subscription). A feed whose `defaultRole` grants
+  nothing answers 403; the settings page shows the message, which names the knob.
+- Polls overlap by 90s and dedupe on `source_uri`, so clock skew between TAK and
+  BattleLog costs nothing. A poll after downtime reaches back to where the last
+  one got to, capped at 24h so a week-old feed does not arrive all at once.
+- Authors are named by device uid in the change log. BattleLog trades that for
+  the callsign it has seen the uid use on the stream, and falls back to the uid
+  rather than guessing.
+
 ### Matrix
 
 Reads messages from selected rooms in the deployment's Matrix Space as the
@@ -229,6 +259,7 @@ persisted, so a restart resumes rather than replaying.
 | ----------------------- | ----------------------------------------- | -------------------------------------------------------------- |
 | `TAK_STREAM_HOST`       | _(empty)_                                 | TAK Server's CoT streaming host. Setting it enables TAK ingest |
 | `TAK_STREAM_PORT`       | `8089`                                    | TAK's TLS CoT input port                                       |
+| `TAK_API_PORT`          | `8443`                                    | TAK's Marti REST port, used to read Data Sync feeds            |
 | `TAK_TLS_SERVERNAME`    | _(empty)_                                 | SNI name, when it differs from the host                        |
 | `TAK_CLIENT_CERT_PATH`  | `/data/persistent/public/mtlsclient.pem`  | Our RM-issued client certificate                               |
 | `TAK_CLIENT_KEY_PATH`   | `/data/persistent/private/mtlsclient.key` | Its private key                                                |

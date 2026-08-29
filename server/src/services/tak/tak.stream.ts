@@ -8,6 +8,7 @@ import { rmInteropAdd } from "../../lib/mtls-client.ts";
 import { createEventIfNew } from "../events/events.service.ts";
 import { enabledIngestSources } from "../ingest/ingest.service.ts";
 import { countEvent, setStatus, transportKey } from "../ingest/ingest.state.ts";
+import { rememberCallsign } from "./tak.callsigns.ts";
 import { type CotEvent, extractCotEvents, parseCotEvent } from "./tak.cot.ts";
 import { matchTakSource } from "./tak.filter.ts";
 import { cotToCreateInput } from "./tak.map.ts";
@@ -150,6 +151,9 @@ export const startTakIngest = (): (() => Promise<void>) => {
             }
             continue;
           }
+          // Before the filter, so the mission poller can name an author even
+          // when nothing on the stream is being ingested at all.
+          rememberCallsign(cot.uid, cot.callsign);
           if (inFlight >= maxInFlight) {
             dropped += 1;
             // Loud on the first drop and then every 100th: this is the state

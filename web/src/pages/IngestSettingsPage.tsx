@@ -7,6 +7,7 @@ import {
   Group,
   Loader,
   Modal,
+  MultiSelect,
   Select,
   Stack,
   Switch,
@@ -47,7 +48,26 @@ type IngestSource = {
   };
 };
 
+const listOf = (config: Record<string, unknown>, key: string): string[] => {
+  const value = config[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+};
+
 type MatrixRoom = { roomId: string; name?: string; alias?: string };
+
+/** A TAK Data Sync feed, as the picker needs it. */
+type TakMission = { name: string; description?: string; chatRoom?: string };
+
+/**
+ * Two kinds of TAK setup share one row type, told apart by whether they name a
+ * feed. A feed setup is polled over TAK's Marti API; a filter setup sifts the
+ * CoT stream. Mixing them in one row would mean the pattern fields applied to
+ * one half of a setup and not the other.
+ */
+const isMissionSource = (source: IngestSource): boolean =>
+  source.kind === "tak" && listOf(source.config, "missions").length > 0;
 
 const STATUS_LOOK: Record<IngestSource["status"]["status"], { c: string; label: string }> = {
   connected: { c: "teal", label: "Live" },
@@ -115,19 +135,14 @@ const StatusBadge = ({ status }: { status: IngestSource["status"] }) => {
   );
 };
 
-const listOf = (config: Record<string, unknown>, key: string): string[] => {
-  const value = config[key];
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-};
-
 export const IngestSettingsPage = () => {
   const [sources, setSources] = useState<IngestSource[]>([]);
   const [rooms, setRooms] = useState<MatrixRoom[]>([]);
+  const [missions, setMissions] = useState<TakMission[]>([]);
+  const [missionsError, setMissionsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
-  const [adding, setAdding] = useState<"tak" | "matrix" | null>(null);
+  const [adding, setAdding] = useState<AddKind>(null);
   const [opened, setOpened] = useState<string[]>([]);
   const [botUserId, setBotUserId] = useState<string | null>(null);
 
@@ -158,6 +173,15 @@ export const IngestSettingsPage = () => {
     // purpose: this is a settings screen, not a monitor.
     const timer = setInterval(() => void reload().catch(() => {}), 10_000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Once, not on the status poll: this call goes out to TAK.
+  useEffect(() => {
+    void (async () => {
+      const res = await ingestApi.ingest.tak.missions.$get();
+      if (res.ok) setMissions((await res.json()) as TakMission[]);
+      else setMissionsError(((await res.json()) as { error: string }).error);
+    })();
   }, []);
 
   // Only fetched when the Matrix form opens: it hits the homeserver.
@@ -237,6 +261,13 @@ export const IngestSettingsPage = () => {
           <Button
             leftSection={<IconPlus size={16} />}
             variant="light"
+            onClick={() => setAdding("takfeed")}
+          >
+            TAK feed
+          </Button>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            variant="light"
             onClick={() => setAdding("matrix")}
           >
             Matrix room
@@ -246,8 +277,8 @@ export const IngestSettingsPage = () => {
 
       {sources.length === 0 && (
         <Alert color="gray" title="Nothing is being ingested">
-          Add a TAK filter or a Matrix room. Until then the feed only contains what people and the
-          API put in it directly.
+          Add a TAK Data Sync feed, a TAK stream filter or a Matrix room. Until then the feed only
+          contains what people and the API put in it directly.
         </Alert>
       )}
 
@@ -314,7 +345,35 @@ export const IngestSettingsPage = () => {
                 </Alert>
               )}
 
-              {source.kind === "tak" && (
+              {isMissionSource(source) && (
+                <Stack gap="sm">
+                  <MultiSelect
+                    label="Data Sync feeds"
+                    description="Everything added to, or removed from, these feeds becomes an entry."
+                    data={missions.map((mission) => ({
+                      value: mission.name,
+                      label: mission.description
+                        ? `${mission.name} — ${mission.description}`
+                        : mission.name,
+                    }))}
+                    value={listOf(source.config, "missions")}
+                    onChange={(value) => void patch(source, { config: { missions: value } })}
+                    searchable
+                    nothingFoundMessage={missionsError ?? "No feeds visible to this deployment"}
+                  />
+                  {missionsError && (
+                    <Alert color="yellow" variant="light">
+                      {missionsError}
+                    </Alert>
+                  )}
+                  <Text fz="xs" c="dimmed">
+                    Feed <strong>chat</strong> does not arrive here: TAK relays it as ordinary
+                    GeoChat, so a TAK stream filter with the feed's chat room takes it.
+                  </Text>
+                </Stack>
+              )}
+
+              {source.kind === "tak" && !isMissionSource(source) && (
                 <Stack gap="sm">
                   {TAK_FIELDS.every((field) => listOf(source.config, field.key).length === 0) && (
                     <Alert color="yellow" variant="light">
@@ -356,10 +415,11 @@ export const IngestSettingsPage = () => {
         key={adding ?? "none"}
         kind={adding}
         rooms={rooms}
+        missions={missions}
         onClose={() => setAdding(null)}
         onAdded={(id) => {
           setAdding(null);
-          // Open it: a TAK setup is added empty and the next thing to do is
+          // Open it: a TAK filter is added empty and the next thing to do is
           // fill in its search.
           setOpened((prev) => [...prev, id]);
           void reload();
@@ -369,19 +429,24 @@ export const IngestSettingsPage = () => {
   );
 };
 
+type AddKind = "tak" | "takfeed" | "matrix" | null;
+
 const AddSourceModal = ({
   kind,
   rooms,
+  missions,
   onClose,
   onAdded,
 }: {
-  kind: "tak" | "matrix" | null;
+  kind: AddKind;
   rooms: MatrixRoom[];
+  missions: TakMission[];
   onClose: () => void;
   onAdded: (id: string) => void;
 }) => {
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const [madeRooms, setMadeRooms] = useState<MatrixRoom[]>([]);
@@ -417,16 +482,21 @@ const AddSourceModal = ({
     // discriminated union, and a ternary widens it into something neither arm
     // accepts.
     const res =
-      kind === "tak"
+      kind === "matrix"
         ? await ingestApi.ingest.sources.$post({
-            json: { kind: "tak", name: name.trim(), enabled: true, config: {} },
-          })
-        : await ingestApi.ingest.sources.$post({
             json: {
               kind: "matrix",
               name: name.trim(),
               enabled: true,
               config: { roomId, roomName: room?.name ?? room?.alias },
+            },
+          })
+        : await ingestApi.ingest.sources.$post({
+            json: {
+              kind: "tak",
+              name: name.trim(),
+              enabled: true,
+              config: kind === "takfeed" ? { missions: picked } : {},
             },
           });
     setSaving(false);
@@ -441,7 +511,13 @@ const AddSourceModal = ({
     <Modal
       opened={kind !== null}
       onClose={onClose}
-      title={kind === "matrix" ? "Ingest a Matrix room" : "Add a TAK filter"}
+      title={
+        kind === "matrix"
+          ? "Ingest a Matrix room"
+          : kind === "takfeed"
+            ? "Ingest a TAK Data Sync feed"
+            : "Add a TAK stream filter"
+      }
     >
       <Stack>
         <TextInput
@@ -483,6 +559,28 @@ const AddSourceModal = ({
             </Alert>
           </>
         )}
+        {kind === "takfeed" && (
+          <>
+            <MultiSelect
+              label="Data Sync feeds"
+              description="Missions this deployment's TAK user can see."
+              data={missions.map((mission) => ({
+                value: mission.name,
+                label: mission.description
+                  ? `${mission.name} — ${mission.description}`
+                  : mission.name,
+              }))}
+              value={picked}
+              onChange={setPicked}
+              searchable
+              nothingFoundMessage="No feeds visible to this deployment"
+            />
+            <Text fz="sm" c="dimmed">
+              Markers and files added to a feed become entries. This is the curated picture, not the
+              stream — the automatic position reports are not in it at all.
+            </Text>
+          </>
+        )}
         {kind === "tak" && (
           <Text fz="sm" c="dimmed">
             Add it first, then set the filters. A filter with nothing set takes every CoT event on
@@ -492,7 +590,11 @@ const AddSourceModal = ({
         <Button
           onClick={() => void submit()}
           loading={saving}
-          disabled={!name.trim() || (kind === "matrix" && !roomId)}
+          disabled={
+            !name.trim() ||
+            (kind === "matrix" && !roomId) ||
+            (kind === "takfeed" && picked.length === 0)
+          }
         >
           Add
         </Button>

@@ -20,6 +20,8 @@ export const INPUT_SOURCE: Record<IngestKind, string> = {
 export const EVENT_TYPE = {
   takChat: "tak-chat",
   takCot: "tak-cot",
+  /** A change to a Data Sync feed: read over the Marti API, not off the stream. */
+  takMission: "tak-mission",
   matrixMessage: "matrix.message",
 } as const;
 
@@ -31,6 +33,16 @@ export const EVENT_TYPE = {
  * every CoT event on the stream. All the constraints that are set must hold.
  */
 export type TakSourceConfig = {
+  /**
+   * Data Sync feeds (TAK missions) to read, by exact name.
+   *
+   * Setting this makes the setup a feed reader: it polls those missions over the
+   * Marti API and takes no part in the CoT stream, so the pattern fields below
+   * do not apply to it. Two transports, two kinds of setup — a stream filter
+   * that also polled a feed would silently apply its patterns to one and not the
+   * other.
+   */
+  missions?: string[];
   /** CoT `type`, e.g. "^a-f-" for friendly tracks or "^b-t-f" for chat. */
   cotTypes?: string[];
   /** GeoChat room, e.g. "^RECON$" for exactly that room. */

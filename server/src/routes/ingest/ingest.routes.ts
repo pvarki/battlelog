@@ -8,6 +8,7 @@ import {
   ingestSourceNameSchema,
   ingestSourceResponseSchema,
   matrixRoomResponseSchema,
+  takMissionResponseSchema,
   transportStatusResponseSchema,
   updateIngestSourceRequestSchema,
 } from "./ingest.apiSchema.ts";
@@ -17,6 +18,7 @@ import {
   listIngestSourceNamesHandler,
   listIngestSourcesHandler,
   listMatrixRoomsHandler,
+  listTakMissionsHandler,
   patchIngestSourceHandler,
   postIngestSourceHandler,
   transportStatusHandler,
@@ -131,6 +133,20 @@ export const createMatrixRoomRoute = createRoute({
   },
 });
 
+export const listTakMissionsRoute = createRoute({
+  method: "get",
+  path: "/ingest/tak/missions",
+  middleware: [userIdentity({ required: true }), requireAdmin()] as const,
+  responses: {
+    200: jsonContent(
+      z.array(takMissionResponseSchema),
+      "Data Sync feeds visible to this deployment",
+    ),
+    503: jsonContent(errorResponseSchema, "TAK is not configured or refused the request"),
+    ...adminErrors,
+  },
+});
+
 export const listMatrixRoomsRoute = createRoute({
   method: "get",
   path: "/ingest/matrix/rooms",
@@ -153,6 +169,7 @@ export const ingestRoutes = new OpenAPIHono({
   .openapi(postIngestSourceRoute, postIngestSourceHandler)
   .openapi(transportStatusRoute, transportStatusHandler)
   .openapi(listMatrixRoomsRoute, listMatrixRoomsHandler)
+  .openapi(listTakMissionsRoute, listTakMissionsHandler)
   .openapi(createMatrixRoomRoute, createMatrixRoomHandler)
   .openapi(patchIngestSourceRoute, patchIngestSourceHandler)
   .openapi(deleteIngestSourceRoute, deleteIngestSourceHandler);

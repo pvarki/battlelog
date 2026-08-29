@@ -12,6 +12,7 @@ import {
   updateIngestSource,
 } from "../../services/ingest/ingest.service.ts";
 import { MatrixClient } from "../../services/matrix/matrix.client.ts";
+import { availableMissions } from "../../services/tak/tak.mission.ts";
 import { toApiIngestSource, toApiIngestSourceName, transportStatuses } from "./ingest.apiSchema.ts";
 import type {
   createMatrixRoomRoute,
@@ -19,6 +20,7 @@ import type {
   listIngestSourceNamesRoute,
   listIngestSourcesRoute,
   listMatrixRoomsRoute,
+  listTakMissionsRoute,
   patchIngestSourceRoute,
   postIngestSourceRoute,
   transportStatusRoute,
@@ -152,5 +154,17 @@ export const listMatrixRoomsHandler: RouteHandler<typeof listMatrixRoomsRoute> =
   } catch (err) {
     logger.error({ err }, "could not list Matrix rooms");
     return c.json({ error: "Could not reach the homeserver" }, 503);
+  }
+};
+
+export const listTakMissionsHandler: RouteHandler<typeof listTakMissionsRoute> = async (c) => {
+  if (!ENV.TAK_STREAM_HOST) return c.json({ error: "TAK ingest is not configured" }, 503);
+  try {
+    return c.json(await availableMissions(), 200);
+  } catch (err) {
+    logger.error({ err }, "could not list TAK Data Sync feeds");
+    // The message names the fix when TAK refused us, so pass it through rather
+    // than flattening every failure to "could not reach".
+    return c.json({ error: err instanceof Error ? err.message : "Could not reach TAK" }, 503);
   }
 };

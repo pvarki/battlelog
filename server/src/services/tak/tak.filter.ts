@@ -80,6 +80,14 @@ const excludes = (candidate: string | undefined, list: string[]): boolean => {
   return list.some((pattern) => compile(pattern)?.test(candidate) ?? false);
 };
 
+/**
+ * A setup that names Data Sync feeds reads those over the Marti API instead
+ * (see tak.mission.ts). It must be kept off the stream entirely: its pattern
+ * fields are typically empty, and an empty filter matches every CoT there is.
+ */
+export const isMissionSource = (config: TakSourceConfig): boolean =>
+  Boolean(config.missions?.length);
+
 export const matchesTakConfig = (cot: CotEvent, config: TakSourceConfig): boolean =>
   // Exclusions first: they overrule everything, which is what makes "this whole
   // feed except the position reports" expressible at all.
@@ -104,4 +112,7 @@ export const matchTakSource = (
   cot: CotEvent,
   sources: IngestSourceRow[],
 ): IngestSourceRow | undefined =>
-  sources.find((source) => matchesTakConfig(cot, source.config as TakSourceConfig));
+  sources.find((source) => {
+    const config = source.config as TakSourceConfig;
+    return !isMissionSource(config) && matchesTakConfig(cot, config);
+  });

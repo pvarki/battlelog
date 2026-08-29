@@ -1,7 +1,12 @@
 import { z } from "@hono/zod-openapi";
 import type { IngestSourceRow } from "../../db/schema.ts";
 import { getMatrixBotUserId, getStatus, transportKey } from "../../services/ingest/ingest.state.ts";
-import type { IngestKind, IngestStatus } from "../../services/ingest/ingest.types.ts";
+import type {
+  IngestKind,
+  IngestStatus,
+  TakSourceConfig,
+} from "../../services/ingest/ingest.types.ts";
+import { isMissionSource } from "../../services/tak/tak.filter.ts";
 
 /**
  * A list of regular expressions. Validated here so an unparseable pattern is a
@@ -37,6 +42,12 @@ const patternList = z
  */
 export const takSourceConfigSchema = z
   .object({
+    /**
+     * Data Sync feeds to read, by exact name — the picker fills these from TAK.
+     * Setting any makes this a feed reader rather than a stream filter, and the
+     * pattern fields below stop applying to it.
+     */
+    missions: z.array(z.string().min(1).max(255)).max(20).optional(),
     /** CoT `type`, e.g. "^a-f-" for friendly tracks. */
     cotTypes: patternList.optional(),
     /** GeoChat room, e.g. "^RECON$". This is "a feed of our choosing". */
@@ -137,11 +148,22 @@ export const updateIngestSourceRequestSchema = z
 export const transportStatusResponseSchema = z
   .object({
     tak: ingestStatusSchema,
+    /** The Data Sync feed poller, which is a separate transport from the stream. */
+    takMissions: ingestStatusSchema,
     matrix: ingestStatusSchema,
     /** The ingest bot's MXID — who to invite to an invite-only room. */
     matrixBotUserId: z.string().nullable(),
   })
   .openapi("IngestTransportStatus");
+
+export const takMissionResponseSchema = z
+  .object({
+    name: z.string(),
+    description: z.string().optional(),
+    /** The feed's GeoChat room. Its traffic arrives on the stream, not the poller. */
+    chatRoom: z.string().optional(),
+  })
+  .openapi("TakMission");
 
 export const matrixRoomResponseSchema = z
   .object({
@@ -204,7 +226,9 @@ const readConfig = (row: IngestSourceRow): unknown => {
  */
 const sourceStatus = (row: IngestSourceRow): IngestStatus => {
   const own = getStatus(row.id);
-  if (row.kind !== "tak") return own;
+  // A feed reader polls per source and records its own outcome, so unlike a
+  // stream filter it has a status of its own worth showing.
+  if (row.kind !== "tak" || isMissionSource(row.config as TakSourceConfig)) return own;
   const transport = getStatus(transportKey("tak"));
   return {
     ...transport,
@@ -234,6 +258,7 @@ export const toApiIngestSourceName = (row: IngestSourceRow) => ({
 
 export const transportStatuses = () => ({
   tak: getStatus(transportKey("tak")),
+  takMissions: getStatus(transportKey("tak-missions")),
   matrix: getStatus(transportKey("matrix")),
   matrixBotUserId: getMatrixBotUserId() ?? null,
 });
