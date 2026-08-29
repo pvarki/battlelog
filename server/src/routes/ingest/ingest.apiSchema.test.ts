@@ -31,6 +31,13 @@ describe("toApiIngestSource status", () => {
     expect(errored.lastError).toBe("TAK refused the certificate");
   });
 
+  test("a switched-off source says so, however healthy the transport is", () => {
+    // It read "Live" while ingesting nothing, which is the worst thing this
+    // screen can say — and a newly added stream filter starts switched off.
+    setStatus(transportKey("tak"), "connected");
+    expect(toApiIngestSource(row({ enabled: false })).status.status).toBe("disabled");
+  });
+
   test("but keeps its own counters, which are genuinely per-source", () => {
     const r = row({ id: "01920000-0000-7000-8000-0000000000bb" });
     setStatus(transportKey("tak"), "connected");

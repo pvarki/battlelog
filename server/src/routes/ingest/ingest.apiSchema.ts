@@ -226,6 +226,11 @@ const readConfig = (row: IngestSourceRow): unknown => {
  */
 const sourceStatus = (row: IngestSourceRow): IngestStatus => {
   const own = getStatus(row.id);
+  // Switched off ingests nothing, whatever the transport is doing. Reporting
+  // the transport here made a disabled TAK source read "Live" while producing
+  // no events — the single most misleading thing this screen could say, and
+  // exactly the state a newly added stream filter starts in.
+  if (!row.enabled) return { ...own, status: "disabled" };
   // A feed reader polls per source and records its own outcome, so unlike a
   // stream filter it has a status of its own worth showing.
   if (row.kind !== "tak" || isMissionSource(row.config as TakSourceConfig)) return own;
