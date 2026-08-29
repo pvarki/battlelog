@@ -204,6 +204,19 @@ a log wants and exactly what the automatic position reports drown out.
 - Polls overlap by 90s and dedupe on `source_uri`, so clock skew between TAK and
   BattleLog costs nothing. A poll after downtime reaches back to where the last
   one got to, capped at 24h so a week-old feed does not arrive all at once.
+- **A catch-all stream filter should exclude `^t-x-m-`.** TAK broadcasts feed
+  lifecycle notices (created, deleted, keyword, metadata — `t-x-m-n`, `t-x-m-d`,
+  `t-x-m-c-k`, `t-x-m-c-m`) to every client in the group, and mints a fresh uid
+  for each one, so they never deduplicate. Feed *contents* are never broadcast:
+  `submitAnnounceMissionChangeCot` resolves subscribers by the client uid TAK
+  learned from that client's own transmissions, and BattleLog transmits nothing.
+- **A password-protected or invite-only feed cannot be read at all.**
+  `getRoleForRequest` returns null on either before it ever looks at
+  `defaultRole`, so the poller gets a 403 no role can fix.
+- **`details` can be missing.** TAK looks the marker up in the CoT store when the
+  change is read rather than storing it with the change, so after retention has
+  pruned it an entry keeps its feed, author and verb but loses the callsign,
+  symbol and position.
 - Authors are named by device uid in the change log. BattleLog trades that for
   the callsign it has seen the uid use on the stream, and falls back to the uid
   rather than guessing.

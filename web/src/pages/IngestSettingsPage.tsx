@@ -109,7 +109,7 @@ const TAK_FIELDS = [
   {
     key: "excludeCotTypes",
     label: "Except CoT type",
-    help: 'Dropped even when everything above matches, e.g. "^a-f-G-U-C$" to keep a feed without the friendly position reports flooding it. This is the only field that narrows.',
+    help: 'Dropped even when everything above matches, e.g. "^a-f-G-U-C$" to keep a feed without the friendly position reports flooding it. On a catch-all filter add "^t-x-m-" too: TAK broadcasts feed created/deleted/renamed notices with a fresh id every time, so they never collapse into one entry — and feed contents belong to a TAK feed setup anyway. This is the only field that narrows.',
   },
 ] as const;
 

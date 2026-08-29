@@ -84,9 +84,14 @@ const martiGet = async <T>(path: string): Promise<T[]> => {
     // The single most likely failure in a real deployment, and the least
     // self-explanatory: TAK accepted the certificate but our TAK user is not
     // allowed to read this. Say what fixes it rather than just the number.
+    // getRoleForRequest returns null — and so 403s — for a password-protected
+    // or invite-only mission before defaultRole is ever consulted, so those two
+    // come first. The same status also covers a feed outside our groups and a
+    // misspelled name; nothing distinguishes them at this layer.
     throw new TakApiError(
-      `TAK refused ${path} with ${status}. BattleLog's TAK user needs read access: ` +
-        "check the feed's group and defaultRole in Mission Manager.",
+      `TAK refused ${path} with ${status}. In Mission Manager, check that the feed is ` +
+        "neither password-protected nor invite-only (both deny read outright), then that " +
+        "its group and defaultRole reach BattleLog's TAK user.",
       status,
     );
   }
@@ -147,7 +152,13 @@ export type TakMissionChange = {
   timestamp?: string;
   creatorUid?: string;
   contentUid?: string;
-  contentHash?: string;
+  /**
+   * Deliberately no `contentHash`. The Java model has the field, but its getter
+   * carries @JsonIgnore and @XmlTransient, so it never reaches the wire — a file
+   * change identifies itself by `contentResource.hash` instead. Declaring it
+   * would be a type that lies, and it is what invited a dead fallback here once
+   * already.
+   */
   details?: TakUidDetails;
   contentResource?: TakMissionResource;
 };

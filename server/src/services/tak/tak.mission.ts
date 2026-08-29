@@ -39,9 +39,11 @@ const POLL_INTERVAL_MS = 30_000;
 /**
  * Re-read a little further back than the last poll reached.
  *
- * `secago` is resolved against TAK's clock, not ours, and the two drift. The
- * overlap makes a small skew harmless; the source_uri unique index makes the
- * resulting repeats free.
+ * NOT for clock skew: TAK windows /changes on its own `servertime` column, and
+ * `secago` is a duration we compute from two of our own timestamps, so the two
+ * clocks never meet. What the overlap covers is jitter — a slow poll, a missed
+ * tick, a restart between the request and the cursor write. The source_uri
+ * unique index makes the resulting repeats free.
  */
 const OVERLAP_S = 90;
 
@@ -86,7 +88,15 @@ const pointOf = (change: TakMissionChange): [number, number] | null => {
   return [lon, lat];
 };
 
-/** What the change is about: a map item's label, or a file's name. */
+/**
+ * What the change is about: a map item's label, or a file's name.
+ *
+ * All of `details` can be missing. TAK does not store it with the change —
+ * findUidDetails looks the marker up in the CoT store when the change is read —
+ * so once retention has pruned that marker, the callsign, symbol and position
+ * are simply gone. Everything downstream of here treats them as optional for
+ * that reason, and the header still names the feed, the author and the verb.
+ */
 const subjectOf = (change: TakMissionChange): string | undefined =>
   change.details?.callsign ??
   change.details?.title ??
@@ -116,13 +126,16 @@ const truncate = (text: string): string =>
  * The change's stable identity.
  *
  * Timestamp is part of it: the same marker can be removed from a feed and put
- * back, and both are things that happened. contentUid identifies a map item,
- * contentHash a file; a mission-level change such as CREATE_MISSION has
+ * back, and both are things that happened. contentUid identifies a map item and
+ * contentResource.hash a file — NOT the change's own contentHash, which its
+ * getter marks @JsonIgnore and which therefore never arrives. Reading that one
+ * left every file change with an empty tail, so two files attached in the same
+ * millisecond collided. A mission-level change such as CREATE_MISSION has
  * neither, and its timestamp alone is unique enough.
  */
 const sourceUriOf = (change: TakMissionChange, mission: string): string =>
   `tak://mission/${encodeURIComponent(mission)}/${change.timestamp ?? ""}/${change.type ?? "CHANGE"}/${
-    change.contentUid ?? change.contentHash ?? ""
+    change.contentUid ?? change.contentResource?.hash ?? ""
   }`;
 
 /** One mission change as a feed entry. */

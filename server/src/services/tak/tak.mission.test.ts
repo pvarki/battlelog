@@ -52,14 +52,25 @@ describe("missionChangeToCreateInput", () => {
         type: "ADD_CONTENT",
         timestamp: "2026-08-29T09:20:00.000Z",
         creatorUid: "ANDROID-9f3c1a",
-        contentHash: "abc123",
-        contentResource: { filename: "kohde.jpg", name: "kohde.jpg", size: 4096 },
+        contentResource: {
+          filename: "kohde.jpg",
+          name: "kohde.jpg",
+          size: 4096,
+          hash: "sha-of-kohde",
+        },
       },
       "RECON",
     );
     expect(event.header).toContain("kohde.jpg");
     expect(event.locationPoint).toBeNull();
     expect(event.data).toMatchObject({ filename: "kohde.jpg", fileSize: 4096 });
+    // A file change has no contentUid, so the hash is what makes it unique.
+    // It comes from contentResource, not from the change's own contentHash:
+    // that getter is @JsonIgnore and never arrives, and reading it left every
+    // file change sharing one key per millisecond.
+    expect(event.sourceUri).toBe(
+      "tak://mission/RECON/2026-08-29T09:20:00.000Z/ADD_CONTENT/sha-of-kohde",
+    );
   });
 
   it("never produces an empty header, whatever TAK sends", () => {
