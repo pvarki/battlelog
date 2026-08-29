@@ -34,3 +34,25 @@ export const getManifestProductUri = () =>
 
 export const getManifestRmCertCn = () =>
   manifestString((m) => (m.rasenmaeher as Record<string, unknown> | undefined)?.certcn);
+
+/** Base URI of RM's mTLS-terminated API, e.g. "https://mtls.deployment.tld:4626/". */
+export const getManifestRmMtlsBaseUri = () =>
+  manifestString(
+    (m) =>
+      (
+        (m.rasenmaeher as Record<string, unknown> | undefined)?.mtls as
+          | Record<string, unknown>
+          | undefined
+      )?.base_uri,
+  );
+
+/** Our own product DNS name, e.g. "bl.deployment.tld". This is our client cert's CN. */
+export const getManifestProductDns = () =>
+  manifestString((m) => (m.product as Record<string, unknown> | undefined)?.dns);
+
+/**
+ * Deployment name — the first label of the deployment domain. Matrix aliases are
+ * built from it (`#<deployment>-space:<domain>`), so it is how we find the Space
+ * without matrixrmapi having to tell us.
+ */
+export const getManifestDeployment = () => manifestString((m) => m.deployment);

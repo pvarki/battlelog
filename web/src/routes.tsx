@@ -12,13 +12,16 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { AlertsBell } from "./AlertsBell.tsx";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
+import { useIsMobile } from "./dashboard/mobile.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
 import { Placeholder } from "./Placeholder.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
+import { IngestSettingsPage } from "./pages/IngestSettingsPage.tsx";
 
 // The current page renders full-strength; elsewhere links stay dimmed.
 const NavLink = ({ to, children }: { to: string; children: string }) => (
@@ -92,6 +95,9 @@ const ConnectionIndicator = () => {
 };
 
 const RootLayout = () => {
+  // On a phone the alerts entry lives in the dashboard's bottom bar, so the
+  // header control is desktop-only — mounting both would load the events twice.
+  const isMobile = useIsMobile();
   return (
     <AppShell header={{ height: 48 }} padding={0}>
       <AppShell.Header>
@@ -101,7 +107,12 @@ const RootLayout = () => {
           </Text>
           <NavLink to="/">Dashboards</NavLink>
           <NavLink to="/events">Event Explorer</NavLink>
+          <NavLink to="/ingest">Ingest</NavLink>
           <ConnectionIndicator />
+          {/* Alerts live in the header, not on a board: it is the one thing on
+              screen on every page, and it costs no tile from the board the alert
+              is about. */}
+          {!isMobile && <AlertsBell />}
         </Group>
       </AppShell.Header>
       <AppShell.Main>
@@ -242,8 +253,15 @@ export const eventExplorerRoute = createRoute({
   component: EventExplorerPage,
 });
 
+export const ingestSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/ingest",
+  component: IngestSettingsPage,
+});
+
 export const routeTree = rootRoute.addChildren([
   dashboardsRoute,
   dashboardRoute,
   eventExplorerRoute,
+  ingestSettingsRoute,
 ]);

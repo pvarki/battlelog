@@ -28,6 +28,48 @@ jobs:
         run: pnpm -C server exec varlock typegen
       - uses: j178/prek-action@v2
 
+  tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+    services:
+      # The server suites are integration tests against a real PostGIS. Without
+      # this they were not skipped in CI, they were not run at all — see
+      # server/src/db/test-helpers.ts, which was already written to fail rather
+      # than skip when CI has no database.
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres # pragma: allowlist secret
+          POSTGRES_DB: battlelog
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d battlelog"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway credentials for the service container above; it exists only
+      # for the length of this job and is not reachable from anywhere else.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/battlelog # pragma: allowlist secret
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: pvarki/config-ci-library/.github/actions/setup-typescript@main
+        with:
+          node-version: "24"
+          # Empty so pnpm/action-setup defers to packageManager in package.json;
+          # passing "11" conflicts with the pinned pnpm@11.3.0 and hard-errors.
+          pnpm-version: ""
+      - name: Generate env types
+        run: pnpm -C server exec varlock typegen
+      - name: Apply migrations
+        run: pnpm -C server db:migrate
+      - name: Run tests
+        run: pnpm test
+
   snyk:
     name: Run Snyk test
     runs-on: ubuntu-latest
@@ -47,7 +89,7 @@ jobs:
           snyk test \
             --all-projects \
             --show-vulnerable-paths=all \
-            --severity-threshold=critical
+            --severity-threshold=high
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -63,7 +105,7 @@ jobs:
 
   publish:
     name: Publish Docker image
-    needs: [versiontag, pre_commit, snyk, docker_builds]
+    needs: [versiontag, pre_commit, snyk, docker_builds, tests]
     runs-on: arc-runner-set
     permissions:
       contents: read

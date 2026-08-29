@@ -1,3 +1,8 @@
+# Local development only. Every published port binds to 127.0.0.1 and the app
+# runs with mTLS user enforcement off, so this file must never be used on a host
+# with a routable address: it would be an open read/write event log next to an
+# open database. The deployment composition (docker-rasenmaeher-integration)
+# puts the app behind RASENMAEHER's nginx with enforcement on.
 services:
   db:
     image: postgis/postgis:16-3.4
@@ -8,7 +13,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: battlelog
     ports:
-      - "5432:5432"
+      # Loopback only: postgres/postgres on 0.0.0.0 exposes the user roster
+      # (RM uuid, callsign, cert CN, admin flag) and every event row.
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d battlelog"]
       interval: 5s
@@ -28,8 +35,14 @@ services:
       # Keep local compose usable by default; set RM_MTLS_USER_ENFORCE=true to test proxied/RM auth.
       RM_MTLS_USER_ENFORCE: ${RM_MTLS_USER_ENFORCE:-false}
       USE_SWAGGER: ${USE_SWAGGER:-true}
+      # The image sets NODE_ENV=production for the build. Say out loud that this
+      # stack is not production, so `false` above reads as a local convenience
+      # rather than a shipped default.
+      NODE_ENV: development
     ports:
-      - "3000:3000"
+      # Loopback only: with enforcement off, anything reaching this port can
+      # read and write the event log without presenting a certificate.
+      - "127.0.0.1:3000:3000"
     depends_on:
       db:
         condition: service_healthy

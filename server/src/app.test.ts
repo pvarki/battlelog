@@ -17,13 +17,22 @@ test("createApp returns a Hono app that responds 200 on /healthz", async () => {
   expect(body.ok).toBe(true);
 });
 
-test("createApp sets permissive CORS headers", async () => {
+test("createApp grants no cross-origin access", async () => {
+  // This app used to answer any origin with `*` and allow every method and
+  // header. Client certificates are presented at the TLS layer and ignore CORS
+  // credentials mode, so that let any page an operator visited read this event
+  // log and write to it. The SPA is served from this same app and `vite dev`
+  // proxies /api to it, so nothing legitimate needs a CORS header — if this
+  // assertion ever fails, someone has re-added a policy that buys nothing and
+  // costs the whole log.
   const app = createApp();
   const res = await app.request("/healthz", {
     method: "OPTIONS",
-    headers: { Origin: "http://x", "Access-Control-Request-Method": "GET" },
+    headers: { Origin: "http://evil.example", "Access-Control-Request-Method": "POST" },
   });
-  expect(res.headers.get("access-control-allow-origin")).toBe("*");
+  expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  expect(res.headers.get("access-control-allow-methods")).toBeNull();
+  expect(res.headers.get("access-control-allow-headers")).toBeNull();
 });
 
 test("event routes are registered in the OpenAPI spec", () => {

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db/client.ts";
+import { isUniqueViolation } from "../../db/pg-error.ts";
 import type { EventInsert, EventRow } from "../../db/schema.ts";
 import { events } from "../../db/schema.ts";
 import { buildEventsWhere, type EventsFilter } from "./events.filter.ts";
@@ -23,12 +24,8 @@ export class ConcurrentUpdateError extends Error {
   }
 }
 
-const isUpdateForConflict = (err: unknown): boolean => {
-  // drizzle may throw the pg DatabaseError directly or wrapped as `cause`
-  const e = err as { code?: unknown; constraint?: unknown; cause?: unknown } | null;
-  const pg = (e?.code ? e : e?.cause) as { code?: unknown; constraint?: unknown } | undefined;
-  return pg?.code === "23505" && pg?.constraint === "events_update_for_unique";
-};
+const isUpdateForConflict = (err: unknown): boolean =>
+  isUniqueViolation(err, "events_update_for_unique");
 
 export const createEvent = async (input: CreateEventInput): Promise<EventRow> => {
   const id = uuidv7();
@@ -38,6 +35,32 @@ export const createEvent = async (input: CreateEventInput): Promise<EventRow> =>
     .returning();
   if (!row) throw new Error("createEvent: insert returned no row");
   return row;
+};
+
+/**
+ * Create an event unless its `sourceUri` is already recorded, in which case
+ * return null.
+ *
+ * For ingest, not for human entry. Both upstreams repeat themselves — TAK
+ * re-sends the same uid on a timer, and a crash between the insert and the
+ * Matrix cursor write replays the batch — and in a log whose value is being an
+ * accurate record, a duplicate entry is a correctness bug. Human entries carry
+ * no sourceUri and are never deduplicated: two operators reporting the same
+ * thing is two reports.
+ */
+export const createEventIfNew = async (input: CreateEventInput): Promise<EventRow | null> => {
+  const id = uuidv7();
+  const [row] = await db
+    .insert(events)
+    .values({ ...input, id, eventId: id, updateFor: null })
+    // The predicate has to match the partial index exactly, or Postgres cannot
+    // find an arbiter and rejects the statement.
+    .onConflictDoNothing({
+      target: events.sourceUri,
+      where: sql`${events.updateFor} IS NULL AND ${events.sourceUri} IS NOT NULL`,
+    })
+    .returning();
+  return row ?? null;
 };
 
 /**

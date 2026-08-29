@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "events_source_uri_original_uidx" ON "events" USING btree ("source_uri") WHERE "events"."update_for" IS NULL AND "events"."source_uri" IS NOT NULL;

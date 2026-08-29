@@ -6,11 +6,21 @@ import { runMigrations } from "./db/migrate.ts";
 import { seedTemplates } from "./db/seed-templates.ts";
 import { logger } from "./lib/logger.ts";
 import { startEventsListener } from "./services/events/events.listener.ts";
+import { startMatrixIngest } from "./services/matrix/matrix.ingest.ts";
+import { startTakMissionIngest } from "./services/tak/tak.mission.ts";
+import { startTakIngest } from "./services/tak/tak.stream.ts";
 
 const main = async () => {
   await runMigrations();
   await seedTemplates();
   const stopListener = startEventsListener();
+  // Both ingesters report their own state and never throw out here: TAK or
+  // Synapse being down must not stop BattleLog from serving its own feed.
+  const stopTakIngest = startTakIngest();
+  // Data Sync feeds are polled over the Marti API rather than pushed down the
+  // stream, so they are a second transport with its own loop.
+  const stopTakMissionIngest = startTakMissionIngest();
+  const stopMatrixIngest = startMatrixIngest();
 
   const app = createApp();
   const server = serve({ fetch: app.fetch, port: ENV.PORT }, ({ port }) => {
@@ -23,6 +33,9 @@ const main = async () => {
     logger.info({ signal }, "Shutting down");
     server.close();
     await stopListener();
+    await stopTakIngest();
+    await stopTakMissionIngest();
+    await stopMatrixIngest();
     process.exit(0);
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));

@@ -1,8 +1,26 @@
 import "varlock/auto-load";
 import { Hono } from "hono";
-import { expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { userIdentity } from "../../middleware/user-identity.ts";
+import { revokeUser, setUserAdmin, upsertUser } from "../../services/users/users.service.ts";
 import { requireRmCaller, rmRoutes } from "./rmapi.routes.ts";
+
+// DB-free: the user hooks only touch the DB through these three.
+vi.mock("../../services/users/users.service.ts", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../../services/users/users.service.ts")>();
+  return { ...orig, upsertUser: vi.fn(), revokeUser: vi.fn(), setUserAdmin: vi.fn() };
+});
+
+beforeEach(() => vi.clearAllMocks());
+
+const rmUser = { uuid: "u-1", callsign: "NORPPA11", x509cert: "" };
+
+const postUser = (path: string, body: unknown = rmUser, method = "POST") =>
+  rmRoutes.request(path, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
 test("healthcheck responds without auth", async () => {
   const res = await rmRoutes.request("/api/v1/healthcheck");
@@ -46,10 +64,45 @@ test("unknown language falls back to en", async () => {
   expect((await res.json()).language).toBe("en");
 });
 
-test("user lifecycle webhooks acknowledge", async () => {
-  const res = await rmRoutes.request("/api/v1/users/created", { method: "POST" });
+test("created records the user", async () => {
+  const res = await postUser("/api/v1/users/created");
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ success: true });
+  expect(upsertUser).toHaveBeenCalledWith(rmUser);
+});
+
+test("promoted upserts first, so it works for a user we never saw created", async () => {
+  const res = await postUser("/api/v1/users/promoted");
+  expect(res.status).toBe(200);
+  expect(upsertUser).toHaveBeenCalledWith(rmUser);
+  expect(setUserAdmin).toHaveBeenCalledWith("u-1", true);
+});
+
+test("demoted clears admin, revoked marks the cert gone", async () => {
+  expect((await postUser("/api/v1/users/demoted")).status).toBe(200);
+  expect(setUserAdmin).toHaveBeenCalledWith("u-1", false);
+  expect((await postUser("/api/v1/users/revoked")).status).toBe(200);
+  expect(revokeUser).toHaveBeenCalledWith("u-1");
+});
+
+test("updated is a PUT and re-records the user", async () => {
+  expect((await postUser("/api/v1/users/updated", rmUser, "PUT")).status).toBe(200);
+  expect(upsertUser).toHaveBeenCalledWith(rmUser);
+});
+
+test("an unusable body is refused rather than silently ignored", async () => {
+  const res = await postUser("/api/v1/users/created", { callsign: "NORPPA11" });
+  expect(res.status).toBe(400);
+  expect(upsertUser).not.toHaveBeenCalled();
+});
+
+// RM treats a failure as a provisioning error, so a transient DB problem has to
+// answer honestly rather than pretending the hook was applied.
+test("a failed write answers 500, not success", async () => {
+  vi.mocked(upsertUser).mockRejectedValueOnce(new Error("db down"));
+  const res = await postUser("/api/v1/users/created");
+  expect(res.status).toBe(500);
+  expect(await res.json()).toMatchObject({ success: false });
 });
 
 const enforced = requireRmCaller({

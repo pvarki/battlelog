@@ -5,19 +5,40 @@
       "id": "37f18a71-f563-4dd6-88fa-ed41407c36b4",
       "type": "table",
       "config": {
-        "title": "Tilanne taulukko",
+        "title": "Tilannetaulukko",
         "columns": [
-          { "id": "A", "kind": "text", "label": "A" },
-          { "id": "B", "kind": "text", "label": "B" },
-          { "id": "C", "kind": "text", "label": "C" },
-          { "id": "D", "kind": "text", "label": "D" }
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          }
         ],
         "rowCount": 10,
         "columnCount": 4,
         "hideRowNumbers": true,
         "hideColumnHeaders": true
       },
-      "layout": { "h": 11, "w": 20, "x": 28, "y": 0 }
+      "layout": {
+        "h": 11,
+        "w": 20,
+        "x": 28,
+        "y": 0
+      }
     },
     {
       "id": "604331f7-5e34-4128-9f72-23ebbf36a2a0",
@@ -25,13 +46,23 @@
       "config": {
         "title": "Taistelurytmi"
       },
-      "layout": { "h": 12, "w": 15, "x": 0, "y": 11 }
+      "layout": {
+        "h": 12,
+        "w": 15,
+        "x": 0,
+        "y": 11
+      }
     },
     {
       "id": "2337c23b-3b10-4c78-8ec4-25ca4bc05f90",
       "type": "note",
       "config": {},
-      "layout": { "h": 12, "w": 13, "x": 15, "y": 11 }
+      "layout": {
+        "h": 12,
+        "w": 13,
+        "x": 15,
+        "y": 11
+      }
     },
     {
       "id": "14819722-0dad-4a01-888e-3f59b524f4fc",
@@ -106,7 +137,12 @@
         ],
         "reportType": "report"
       },
-      "layout": { "h": 11, "w": 8, "x": 20, "y": 0 }
+      "layout": {
+        "h": 11,
+        "w": 8,
+        "x": 20,
+        "y": 0
+      }
     },
     {
       "id": "65564a32-b9ad-449f-818b-fd05265b8a97",
@@ -114,65 +150,194 @@
       "config": {
         "rows": 20,
         "title": "Päiväkirja",
-        "types": ["form-report"],
         "columns": [
           {
             "id": "time",
-            "label": "Tapahtuma-ajankohta",
+            "label": "Aika",
             "source": "time",
             "dataPath": ""
           },
           {
             "id": "header",
+            "label": "Tapahtuma",
+            "source": "header",
+            "dataPath": ""
+          }
+        ],
+        "views": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
             "label": "Sotapäiväkirja",
-            "source": "data",
-            "dataPath": "sotap-iv-kirja"
+            "dataKey": "sotap-iv-kirja",
+            "dataValue": "true",
+            "columns": [
+              {
+                "id": "time",
+                "label": "Aika",
+                "source": "time",
+                "dataPath": ""
+              },
+              {
+                "id": "viesti",
+                "label": "Viesti",
+                "source": "data",
+                "dataPath": "viesti"
+              },
+              {
+                "id": "lahettaja",
+                "label": "Lähettäjä",
+                "source": "data",
+                "dataPath": "l-hett-j"
+              },
+              {
+                "id": "vastaanottaja",
+                "label": "Vastaanottaja",
+                "source": "data",
+                "dataPath": "vastaanottaja"
+              },
+              {
+                "id": "verkko",
+                "label": "Verkko",
+                "source": "data",
+                "dataPath": "verkko"
+              },
+              {
+                "id": "desk",
+                "label": "Desk",
+                "source": "data",
+                "dataPath": "desk"
+              }
+            ]
           },
           {
-            "id": "type",
-            "label": "Desk",
-            "source": "data",
-            "dataPath": "desk"
+            "id": "33333333-3333-4333-8333-333333333333",
+            "label": "Desk ARKI",
+            "dataKey": "desk",
+            "dataValue": "ARKI",
+            "columns": [
+              {
+                "id": "time",
+                "label": "Aika",
+                "source": "time",
+                "dataPath": ""
+              },
+              {
+                "id": "viesti",
+                "label": "Viesti",
+                "source": "data",
+                "dataPath": "viesti"
+              },
+              {
+                "id": "lahettaja",
+                "label": "Lähettäjä",
+                "source": "data",
+                "dataPath": "l-hett-j"
+              },
+              {
+                "id": "vastaanottaja",
+                "label": "Vastaanottaja",
+                "source": "data",
+                "dataPath": "vastaanottaja"
+              },
+              {
+                "id": "verkko",
+                "label": "Verkko",
+                "source": "data",
+                "dataPath": "verkko"
+              },
+              {
+                "id": "desk",
+                "label": "Desk",
+                "source": "data",
+                "dataPath": "desk"
+              }
+            ]
           },
           {
-            "id": "fccfdc5c-1337-4d8e-836b-9996beabc4d7",
-            "label": "Verkko",
-            "source": "data",
-            "dataPath": "verkko"
+            "id": "44444444-4444-4444-8444-444444444444",
+            "label": "Desk MATI",
+            "dataKey": "desk",
+            "dataValue": "MATI",
+            "columns": [
+              {
+                "id": "time",
+                "label": "Aika",
+                "source": "time",
+                "dataPath": ""
+              },
+              {
+                "id": "viesti",
+                "label": "Viesti",
+                "source": "data",
+                "dataPath": "viesti"
+              },
+              {
+                "id": "lahettaja",
+                "label": "Lähettäjä",
+                "source": "data",
+                "dataPath": "l-hett-j"
+              },
+              {
+                "id": "vastaanottaja",
+                "label": "Vastaanottaja",
+                "source": "data",
+                "dataPath": "vastaanottaja"
+              },
+              {
+                "id": "verkko",
+                "label": "Verkko",
+                "source": "data",
+                "dataPath": "verkko"
+              },
+              {
+                "id": "desk",
+                "label": "Desk",
+                "source": "data",
+                "dataPath": "desk"
+              }
+            ]
           },
           {
-            "id": "33863000-42eb-4af5-9883-15dd3dd1425d",
-            "label": "Vastaanottaja",
-            "source": "data",
-            "dataPath": "vastaanottaja"
-          },
-          {
-            "id": "60740c58-fc2f-4f5b-9b32-71ec098e53d4",
-            "label": "Lähettäjä",
-            "source": "data",
-            "dataPath": "l-hett-j"
-          },
-          {
-            "id": "cf35d56d-d82f-4540-8d19-96d6a28e127c",
-            "label": "Viesti",
-            "source": "data",
-            "dataPath": "viesti"
-          },
-          {
-            "id": "9c741bb5-6186-4d83-a7fd-629fb1c3b707",
-            "label": "Viestiväline",
-            "source": "data",
-            "dataPath": "viestiv-line"
-          },
-          {
-            "id": "d45259dc-2f77-411c-9a38-bff358e66362",
-            "label": "Muuta",
-            "source": "data",
-            "dataPath": "muuta"
+            "id": "22222222-2222-4222-8222-222222222222",
+            "label": "Viestit",
+            "dataKey": "",
+            "dataValue": "",
+            "types": ["matrix.message", "tak-chat", "tak-cot"],
+            "columns": [
+              {
+                "id": "time",
+                "label": "Aika",
+                "source": "time",
+                "dataPath": ""
+              },
+              {
+                "id": "header",
+                "label": "Viesti",
+                "source": "header",
+                "dataPath": ""
+              },
+              {
+                "id": "createdBy",
+                "label": "Lähettäjä",
+                "source": "createdBy",
+                "dataPath": ""
+              },
+              {
+                "id": "tags",
+                "label": "Sijainti",
+                "source": "location",
+                "dataPath": ""
+              }
+            ]
           }
         ]
       },
-      "layout": { "h": 11, "w": 20, "x": 0, "y": 0 }
+      "layout": {
+        "h": 11,
+        "w": 20,
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "id": "e7b9e2c8-9782-430f-bdad-197a80f3fa94",
@@ -180,19 +345,48 @@
       "config": {
         "title": "Huolto",
         "columns": [
-          { "id": "A", "kind": "text", "label": "A" },
-          { "id": "B", "kind": "text", "label": "B" },
-          { "id": "C", "kind": "text", "label": "C" },
-          { "id": "D", "kind": "text", "label": "D" },
-          { "id": "E", "kind": "text", "label": "E" },
-          { "id": "F", "kind": "text", "label": "F" }
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          },
+          {
+            "id": "E",
+            "kind": "text",
+            "label": "E"
+          },
+          {
+            "id": "F",
+            "kind": "text",
+            "label": "F"
+          }
         ],
         "rowCount": 10,
         "columnCount": 6,
         "hideRowNumbers": true,
         "hideColumnHeaders": true
       },
-      "layout": { "h": 12, "w": 20, "x": 28, "y": 11 }
+      "layout": {
+        "h": 12,
+        "w": 20,
+        "x": 28,
+        "y": 11
+      }
     }
   ]
 }

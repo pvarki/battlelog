@@ -56,6 +56,10 @@ const seedInputs = [
   },
 ] as const;
 
+/** Stand-in ingest setup ids. No rows needed: events.ingest_source_id is not a FK. */
+const SETUP_A = "01920000-0000-7000-8000-0000000000aa";
+const SETUP_B = "01920000-0000-7000-8000-0000000000bb";
+
 let seeded: EventRow[] = [];
 
 const filter = (f: Record<string, unknown>): EventsFilter =>
@@ -74,9 +78,19 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
     seeded = await db
       .insert(events)
       .values(
-        seedInputs.map((s) => {
+        seedInputs.map((s, i) => {
           const id = uuidv7();
-          return { ...s, id, eventId: id, updateFor: null, createdBy: runId };
+          // First row from setup A, second from setup B, the rest from none.
+          const ingestSourceId = i === 0 ? SETUP_A : i === 1 ? SETUP_B : null;
+          // Two shapes, as a real feed has: a form entry with a select field and
+          // a boolean, and an ingested message.
+          const data =
+            i === 0
+              ? { desk: "ARKI", journal: true, count: 2 }
+              : i === 1
+                ? { desk: "MATI", journal: true }
+                : { body: "ingested" };
+          return { ...s, id, eventId: id, updateFor: null, createdBy: runId, ingestSourceId, data };
         }),
       )
       .returning();
@@ -102,6 +116,17 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
     ["createdAt in the future matches nothing", { createdAtFrom: "2100-01-01T00:00:00Z" }],
     ["geo radius 5km around Helsinki", { lat: 60.17, lng: 24.94, radiusMeters: 5000 }],
     ["combined tags + types", { tags: ["alpha"], types: ["patrol"] }],
+    ["one ingest setup", { ingestSources: [SETUP_A] }],
+    ["several ingest setups", { ingestSources: [SETUP_A, SETUP_B] }],
+    ["an ingest setup nothing came from", { ingestSources: [uuidv7()] }],
+    ["ingest setup + tags", { ingestSources: [SETUP_A, SETUP_B], tags: ["alpha"] }],
+    ["a data field with a string value", { dataKey: "desk", dataValue: "ARKI" }],
+    ["the other value of the same field", { dataKey: "desk", dataValue: "MATI" }],
+    ["a data field holding true", { dataKey: "journal", dataValue: "true" }],
+    ["a numeric data value", { dataKey: "count", dataValue: "2" }],
+    ["a value nothing holds", { dataKey: "desk", dataValue: "NOPE" }],
+    ["a field nothing has", { dataKey: "absent", dataValue: "x" }],
+    ["data field + types", { dataKey: "desk", dataValue: "ARKI", types: ["contact"] }],
   ])("%s", async (_name, f) => {
     const parsed = filter(
       "lat" in f ? { ...f, location: { lat: f.lat, lng: f.lng, radiusMeters: f.radiusMeters } } : f,
@@ -117,5 +142,12 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
 
   test("sanity: seeded filters are not vacuously empty", async () => {
     expect((await sqlIds(filter({ tags: ["alpha"] }))).size).toBe(2);
+    expect((await sqlIds(filter({ ingestSources: [SETUP_A] }))).size).toBe(1);
+    expect((await sqlIds(filter({ ingestSources: [SETUP_A, SETUP_B] }))).size).toBe(2);
+    expect((await sqlIds(filter({ dataKey: "desk", dataValue: "ARKI" }))).size).toBe(1);
+    expect((await sqlIds(filter({ dataKey: "journal", dataValue: "true" }))).size).toBe(2);
+    // The string "true" must not match the boolean true, or a view would show
+    // rows it never asked for.
+    expect((await sqlIds(filter({ dataKey: "journal", dataValue: "yes" }))).size).toBe(0);
   });
 });

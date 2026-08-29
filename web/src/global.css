@@ -97,3 +97,33 @@
     font-size: min(calc(100vw / 120), 32px);
   }
 }
+
+/* A raised alert outlines the tile and pulses that outline a few times. Only the
+ * outline colour moves — the rows have to stay readable while the tile is
+ * shouting — and the colour comes in as --alert-colour, so one keyframe covers
+ * every severity. The pulse ends deliberately and the outline stays: a
+ * permanently blinking tile on a wall display stops being read as new, but the
+ * alert has not gone away.
+ */
+@keyframes alert-flash {
+  0%,
+  100% {
+    outline-color: var(--alert-colour);
+  }
+  50% {
+    outline-color: transparent;
+  }
+}
+
+.alert-flash {
+  outline: 2px solid var(--alert-colour);
+  outline-offset: -2px;
+  border-radius: var(--mantine-radius-sm);
+  animation: alert-flash 900ms ease-in-out 4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-flash {
+    animation: none;
+  }
+}

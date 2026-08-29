@@ -53,3 +53,4 @@ server/src/env.d.ts
 
 # Worktrees created by the Claude Code worktree plugin (full checkouts)
 .claude/worktrees/
+.prettier_cache

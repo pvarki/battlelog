@@ -1,5 +1,6 @@
 import type { DashboardsApi } from "@server/routes/dashboards/dashboards.routes.ts";
 import type { EventsApi } from "@server/routes/events/events.routes.ts";
+import type { IngestApi } from "@server/routes/ingest/ingest.routes.ts";
 import { hc } from "hono/client";
 
 export type {
@@ -10,3 +11,4 @@ export type { EventResponse } from "@server/routes/events/events.apiSchema.ts";
 
 export const api = hc<EventsApi>("/api/v1");
 export const dashboardsApi = hc<DashboardsApi>("/api/v1");
+export const ingestApi = hc<IngestApi>("/api/v1");

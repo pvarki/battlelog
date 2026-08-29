@@ -3,6 +3,8 @@ import { notifications } from "@mantine/notifications";
 import { IconMenu2 } from "@tabler/icons-react";
 import { useRouter } from "@tanstack/react-router";
 import { useRef, useState } from "react";
+import { AlertsBarButton } from "../AlertsBarButton.tsx";
+import { useAlerts } from "../alerts-panel.tsx";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { Placeholder } from "../Placeholder.tsx";
@@ -13,6 +15,8 @@ import { configTitle } from "./widget-base.ts";
 
 const BAR_HEIGHT = 64;
 const MAX_BAR_BUTTONS = 5;
+/** How many recent events the alert rules are checked against. */
+const ALERTS_LOOKBACK = 200;
 
 const lastViewedKey = (dashboardId: string) => `battlelog.mobile.active.${dashboardId}`;
 
@@ -38,6 +42,11 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
     }
   });
   const [menuOpen, setMenuOpen] = useState(false);
+  // Alerts are not a widget, but on a phone they need a place in the bar, so the
+  // state is held here: the bar has to know whether that slot is taken before it
+  // decides how many widget buttons fit.
+  const alerts = useAlerts(ALERTS_LOOKBACK);
+  const showAlerts = alerts.rules.length > 0;
 
   const widgetsRef = useRef(dashboard.widgets);
   const version = useRef(dashboard.version);
@@ -97,8 +106,10 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
     );
   }
 
-  const overflowing = widgets.length > MAX_BAR_BUTTONS;
-  const barWidgets = overflowing ? widgets.slice(0, MAX_BAR_BUTTONS - 1) : widgets;
+  // The alerts entry takes one of the bar's slots when it is showing.
+  const widgetSlots = MAX_BAR_BUTTONS - (showAlerts ? 1 : 0);
+  const overflowing = widgets.length > widgetSlots;
+  const barWidgets = overflowing ? widgets.slice(0, widgetSlots - 1) : widgets;
   // The active widget may live behind the More button — it still needs an
   // active indicator somewhere in the bar.
   const activeInOverflow = overflowing && !barWidgets.some((w) => w.id === active.id);
@@ -142,6 +153,7 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
             </Stack>
           </UnstyledButton>
         )}
+        {showAlerts && <AlertsBarButton state={alerts} lookback={ALERTS_LOOKBACK} />}
       </Group>
       <Drawer
         opened={menuOpen}

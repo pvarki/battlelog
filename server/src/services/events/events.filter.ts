@@ -4,6 +4,21 @@ import { z } from "zod";
 import type { EventRow } from "../../db/schema.ts";
 import { admiraltyCredibilityEnum, admiraltyReliabilityEnum, events } from "../../db/schema.ts";
 
+/**
+ * Read a data-field value out of its query-string form.
+ *
+ * `data` is jsonb, so "true" and true are different values and matching the
+ * wrong one silently finds nothing. Booleans and numbers are recognised;
+ * anything else stays a string. Shared by the SQL filter and its in-memory
+ * mirror so the two cannot disagree about what a value means.
+ */
+export const parseDataValue = (raw: string): string | number | boolean => {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  if (raw !== "" && Number.isFinite(Number(raw))) return Number(raw);
+  return raw;
+};
+
 export const eventsFilterSchema = z.object({
   /** Scope to one logical event — combine with includeHistory for its full version chain. */
   eventId: z.string().uuid().optional(),
@@ -11,6 +26,15 @@ export const eventsFilterSchema = z.object({
   tags: z.array(z.string()).optional(),
   hcoeDomains: z.array(z.string()).optional(),
   types: z.array(z.string()).optional(),
+  /** Ingest setups that produced the event. Empty/absent = no constraint. */
+  ingestSources: z.array(z.string().uuid()).optional(),
+  /**
+   * A field in the event's `data` that must hold a given value, e.g. desk=ARKI.
+   * This is what lets one feed be several logs: a saved view names the field and
+   * the value that define it.
+   */
+  dataKey: z.string().min(1).optional(),
+  dataValue: z.string().optional(),
   reliabilities: z.array(z.enum(admiraltyReliabilityEnum.enumValues)).optional(),
   credibilities: z.array(z.enum(admiraltyCredibilityEnum.enumValues)).optional(),
   createdBy: z.string().optional(),
@@ -56,6 +80,15 @@ export const buildEventsWhere = (filter: EventsFilter): SQL | undefined => {
   }
   if (filter.types?.length) {
     conditions.push(inArray(events.type, filter.types));
+  }
+  if (filter.ingestSources?.length) {
+    conditions.push(inArray(events.ingestSourceId, filter.ingestSources));
+  }
+  if (filter.dataKey) {
+    // Containment rather than ->> so the comparison keeps the value's JSON type
+    // and can use a GIN index on data if one is ever needed.
+    const wanted = JSON.stringify({ [filter.dataKey]: parseDataValue(filter.dataValue ?? "") });
+    conditions.push(sql`${events.data} @> ${wanted}::jsonb`);
   }
   if (filter.reliabilities?.length) {
     conditions.push(inArray(events.admiraltyReliability, filter.reliabilities));
@@ -121,6 +154,16 @@ export const matchesEventsFilter = (row: EventRow, filter: EventsFilter): boolea
   if (filter.tags?.length && !overlaps(row.tags, filter.tags)) return false;
   if (filter.hcoeDomains?.length && !overlaps(row.hcoeDomains, filter.hcoeDomains)) {
     return false;
+  }
+  if (
+    filter.ingestSources?.length &&
+    (!row.ingestSourceId || !filter.ingestSources.includes(row.ingestSourceId))
+  ) {
+    return false;
+  }
+  if (filter.dataKey) {
+    const data = row.data as Record<string, unknown> | null;
+    if (!data || data[filter.dataKey] !== parseDataValue(filter.dataValue ?? "")) return false;
   }
   if (filter.types?.length && (!row.type || !filter.types.includes(row.type))) {
     return false;

@@ -21,6 +21,9 @@ import { useLiveEvents } from "../../live-events.ts";
 import { StaleNotice } from "../../StaleNotice.tsx";
 import { FeedTable } from "./View.tsx";
 import {
+  activeView,
+  effectiveColumns,
+  effectiveConfig,
   type FeedColumn,
   type FeedConfig,
   type FeedExtras,
@@ -76,18 +79,25 @@ const FeedFullscreen = ({
   const [filters, setFilters] = useState(EMPTY);
   const set = (patch: Partial<typeof EMPTY>) => setFilters((f) => ({ ...f, ...patch }));
 
-  // Every built-in field plus the config's columns is toggleable; config
-  // columns start visible. All of this is view-state — nothing persists.
+  // The active view decides which columns and filters apply here too, or
+  // fullscreen would show the widget's base columns and quietly drop the view's
+  // condition — which is what it used to do.
+  const view = activeView(config);
+  const active = effectiveConfig(config);
+  const viewColumns = effectiveColumns(config);
+
+  // Every built-in field plus those columns is toggleable; they start visible.
+  // All of this is view-state — nothing persists.
   const candidates: FeedColumn[] = [
-    ...config.columns,
-    ...FIELDS.filter((f) => !config.columns.some((c) => c.source === f)).map((f) => ({
+    ...viewColumns,
+    ...FIELDS.filter((f) => !viewColumns.some((c) => c.source === f)).map((f) => ({
       id: `builtin-${f}`,
       label: "",
       source: f,
       dataPath: "",
     })),
   ];
-  const [visible, setVisible] = useState<string[]>(config.columns.map((c) => c.id));
+  const [visible, setVisible] = useState<string[]>(viewColumns.map((c) => c.id));
   const columns = candidates.filter((c) => visible.includes(c.id));
 
   const extras = toExtras(filters);
@@ -102,20 +112,22 @@ const FeedFullscreen = ({
       opened={opened && mounted}
       onClose={onClose}
       fullScreen
-      title={config.title || "Event feed"}
+      // Name the view: fullscreen shows one view's rows, and which one is not
+      // otherwise visible from in here.
+      title={[config.title || "Event feed", view?.label].filter(Boolean).join(" — ")}
       transitionProps={{ transition: "pop", duration: 180 }}
     >
       <Fieldset legend="Filters" mb="sm">
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           <TagsInput
             label="Types"
-            description={lockedNote(config.types) ?? "Narrow to these event types"}
+            description={lockedNote(active.types) ?? "Narrow to these event types"}
             value={filters.types}
             onChange={(types) => set({ types })}
           />
           <TagsInput
             label="Tags"
-            description={lockedNote(config.tags) ?? "Also require any of these tags"}
+            description={lockedNote(active.tags) ?? "Also require any of these tags"}
             value={filters.tags}
             onChange={(tags) => set({ tags })}
           />
