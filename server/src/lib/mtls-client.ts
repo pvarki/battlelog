@@ -102,6 +102,30 @@ export const rmInteropAdd = async (targetProduct: string): Promise<void> => {
       status,
     );
   }
+  // A 200 here does NOT mean we are registered. RM answers 200 with
+  // success:false when its own forward to the target product failed, so
+  // treating the status code as the answer logged "interop granted" and then
+  // asked the product for credentials it had never been told to issue — a 403
+  // two milliseconds later, and three unrelated-looking symptoms in the UI.
+  // Read what RM actually said.
+  let granted = false;
+  let detail = "";
+  try {
+    const body = JSON.parse(text) as { success?: unknown; error?: unknown; extra?: unknown };
+    granted = body.success === true;
+    detail = [body.error, body.extra].filter((v) => typeof v === "string").join(" ");
+  } catch {
+    throw new MtlsError(
+      `interop/${targetProduct} returned unparseable body: ${text.slice(0, 200)}`,
+    );
+  }
+  if (!granted) {
+    // RM's own words: usually that the forward to the product 404'd or timed
+    // out, which is a deployment fault rather than anything we can retry away.
+    throw new MtlsError(
+      `RM refused interop with ${targetProduct}: ${detail || text.slice(0, 200)}`,
+    );
+  }
   logger.info({ targetProduct, certcn }, "interop granted by RM");
 };
 
