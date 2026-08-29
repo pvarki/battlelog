@@ -44,6 +44,21 @@ export const takSourceConfigSchema = z
     destCallsigns: patternList.optional(),
     senderCallsigns: patternList.optional(),
     /**
+     * CoT `how`: "h-*" is human-entered, "m-*" machine-derived. `^h-` is the one
+     * filter that separates what someone chose to report from the automatic
+     * self-reports every client emits every few seconds.
+     */
+    hows: patternList.optional(),
+    /** <__group role="...">, e.g. "^HQ$" for traffic from that role. */
+    roles: patternList.optional(),
+    /**
+     * Rejected even when everything else matches. The only way to say "all of
+     * this feed EXCEPT the position spam": every other field can only widen, so
+     * without this the flood can only be dropped by writing a pattern that
+     * enumerates everything you do want.
+     */
+    excludeCotTypes: patternList.optional(),
+    /**
      * Matched against the raw CoT <detail> XML. How to select on things TAK has
      * no server-side concept of, an ATAK client's role being the motivating
      * case — read a real event's detail to find what to match.

@@ -70,8 +70,23 @@ const matches = (candidate: string | undefined, list: string[]): boolean => {
 };
 
 /** True when every constraint this config sets is satisfied. */
+/**
+ * True when any pattern matches — an exclusion, so an empty list excludes
+ * nothing. The mirror image of {@link matches}, where an empty list constrains
+ * nothing.
+ */
+const excludes = (candidate: string | undefined, list: string[]): boolean => {
+  if (!list.length || candidate === undefined) return false;
+  return list.some((pattern) => compile(pattern)?.test(candidate) ?? false);
+};
+
 export const matchesTakConfig = (cot: CotEvent, config: TakSourceConfig): boolean =>
+  // Exclusions first: they overrule everything, which is what makes "this whole
+  // feed except the position reports" expressible at all.
+  !excludes(cot.type, patterns(config.excludeCotTypes)) &&
   matches(cot.type, patterns(config.cotTypes)) &&
+  matches(cot.how, patterns(config.hows)) &&
+  matches(cot.role, patterns(config.roles)) &&
   matches(cot.chatRoom, patterns(config.chatRooms)) &&
   matches(cot.destCallsign, patterns(config.destCallsigns)) &&
   matches(cot.senderCallsign ?? cot.callsign, patterns(config.senderCallsigns)) &&

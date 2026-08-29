@@ -64,13 +64,32 @@ const TAK_FIELDS = [
     label: "CoT type",
     help: 'e.g. "^a-f-" for friendly tracks, "^b-t-f" for chat, "^a-[fh]-" for either.',
   },
-  { key: "chatRooms", label: "GeoChat room", help: 'e.g. "^RECON$" for exactly that room.' },
+  {
+    key: "chatRooms",
+    label: "GeoChat room (feed)",
+    help: 'Which feed to take, e.g. "^RECON$" for exactly that room. Leave empty for every room.',
+  },
+  {
+    key: "hows",
+    label: "Produced by",
+    help: '"^h-" takes only what a person entered, "^m-" only machine-derived positions. This is the field that silences the automatic self-reports every client sends every few seconds.',
+  },
+  {
+    key: "roles",
+    label: "Sender role",
+    help: 'From <__group role="...">, e.g. "^HQ$" for traffic from that role.',
+  },
   { key: "senderCallsigns", label: "Sender callsign", help: 'e.g. "^(ALPHA|BRAVO)-\\d+$".' },
   { key: "destCallsigns", label: "Recipient callsign", help: "For chat addressed to someone." },
   {
     key: "detailContains",
     label: "Detail matches",
     help: 'Matched against the raw CoT <detail> XML, e.g. role="HQ". The only way to select on things TAK has no server-side concept of — read a real event\'s detail to find what to match.',
+  },
+  {
+    key: "excludeCotTypes",
+    label: "Except CoT type",
+    help: 'Dropped even when everything above matches, e.g. "^a-f-G-U-C$" to keep a feed without the friendly position reports flooding it. This is the only field that narrows.',
   },
 ] as const;
 

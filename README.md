@@ -135,6 +135,34 @@ mw -file /ca_public/miniwerk_ca.pem` inside the TAK containers and restart
   `certmod -og default`; `x509addAnonymous="false"` in `CoreConfig` means the
   `__ANON__` group `enable_user.sh` assigns on its own is not enough.
 
+### Keeping a feed without the automatic flood
+
+Most of what a TAK net carries is machine-generated: every client re-sends its
+own position every few seconds. Two fields exist for that, and they are the
+first ones to reach for:
+
+- **Produced by** (`hows`) matches CoT's `how`. `^h-` takes only what a person
+  entered and drops every automatic self-report in one field; `^m-` does the
+  opposite. This is usually the whole answer.
+- **Except CoT type** (`excludeCotTypes`) rejects a match even when everything
+  else accepts it. It is the only field that narrows — every other one widens —
+  so "this whole feed except the position reports" cannot be said without it.
+  `^a-f-G-U-C$` is the friendly position report.
+
+Two worked examples:
+
+| want                               | fields                                                |
+| ---------------------------------- | ----------------------------------------------------- |
+| one feed, without the flood        | GeoChat room `^RECON$`, Except CoT type `^a-f-G-U-C$` |
+| anything a person reported from HQ | Produced by `^h-`, Sender role `^HQ$`                 |
+
+**Sender role** (`roles`) reads `<__group role="...">`, the one place TAK carries
+anything role-shaped — it has no server-side notion of a role, so this attribute
+is what selects HQ traffic without naming callsigns.
+
+Fields within one setup AND together. To ingest _either_ of two things, make two
+setups: an event is taken when any setup matches it.
+
 A TAK setup narrows the stream by CoT type, GeoChat room, sender, recipient, and
 by the raw `<detail>` XML. Every field takes **unanchored regular expressions** —
 one rule for all of them, rather than the prefix-here-exact-there mix this

@@ -40,6 +40,16 @@ export type TakSourceConfig = {
   /** Sender, falling back to the contact callsign when the event is not chat. */
   senderCallsigns?: string[];
   /**
+   * CoT `how`: "h-*" is human-entered, "m-*" machine-derived. `^h-` is what
+   * separates a deliberate report from the automatic self-reports every client
+   * emits every few seconds.
+   */
+  hows?: string[];
+  /** <__group role="...">, e.g. "^HQ$". */
+  roles?: string[];
+  /** Rejected even when everything else matches — the only way to say "except". */
+  excludeCotTypes?: string[];
+  /**
    * Matched against the raw CoT <detail> XML. This is how you select on things
    * TAK has no server-side concept of — an ATAK client's role, for instance,
    * appears only inside detail.

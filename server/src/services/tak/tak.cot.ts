@@ -33,6 +33,14 @@ export type CotEvent = {
   /** <__chat senderCallsign="...">, which need not equal {@link callsign}. */
   senderCallsign?: string;
   /**
+   * <__group role="..."> — the sender's role in their team, e.g. "HQ".
+   *
+   * The one place TAK carries anything role-shaped: it has no server-side
+   * notion of a role, so this attribute is what "traffic from HQ" is selected
+   * on.
+   */
+  role?: string;
+  /**
    * <__chat messageId="..."> — GeoChat's own per-message id.
    *
    * The one identifier TAK relays unchanged. The event's `time` attribute is
@@ -151,6 +159,7 @@ export const parseCotEvent = (xml: string): CotEvent | undefined => {
   const point = asRecord(first(event.point));
   const detail = asRecord(first(event.detail));
   const contact = asRecord(first(detail?.contact));
+  const group = asRecord(first(detail?.__group));
   const chat = asRecord(first(detail?.__chat));
   const chatgrp = asRecord(first(chat?.chatgrp));
   // A detail can carry several <link>s (a route is all links), and only the
@@ -174,6 +183,7 @@ export const parseCotEvent = (xml: string): CotEvent | undefined => {
     chatRoom: str(chat?.["@chatroom"]),
     senderCallsign: str(chat?.["@senderCallsign"]),
     messageId: str(chat?.["@messageId"]),
+    role: str(group?.["@role"]),
     parentCallsign: str(producer?.["@parent_callsign"]),
     destCallsign: str(chatgrp?.["@to"]) ?? str(chat?.["@id"]),
     remarks: elementText(detail?.remarks),

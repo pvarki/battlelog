@@ -106,3 +106,64 @@ describe("matchTakSource", () => {
     expect(matchTakSource(position, [])).toBeUndefined();
   });
 });
+
+describe("keeping a feed without the automatic flood", () => {
+  // The shapes a real net produces: a client's periodic self-report, and
+  // something a person actually did.
+  const pli = {
+    uid: "ANDROID-1",
+    type: "a-f-G-U-C",
+    how: "m-g",
+    callsign: "ALPHA-1",
+    detail:
+      '<detail><contact callsign="ALPHA-1"/><__group name="Cyan" role="Team Member"/></detail>',
+  };
+  const marker = {
+    uid: "MARK-1",
+    type: "a-h-G-U-C-I",
+    how: "h-e",
+    callsign: "VIHOLLINEN-1",
+    role: "HQ",
+    detail: '<detail><__group name="Cyan" role="HQ"/></detail>',
+  };
+  const chat = {
+    uid: "GeoChat.x.RECON.1",
+    type: "b-t-f",
+    how: "h-g-i-g-o",
+    chatRoom: "RECON",
+    senderCallsign: "ALPHA-1",
+    remarks: "Partio asemissa",
+  };
+
+  test('"produced by a person" drops the self-reports and keeps the rest', () => {
+    const config = { hows: ["^h-"] };
+    expect(matchesTakConfig(pli, config)).toBe(false);
+    expect(matchesTakConfig(marker, config)).toBe(true);
+    expect(matchesTakConfig(chat, config)).toBe(true);
+  });
+
+  test("an exclusion keeps a whole feed minus one type", () => {
+    // The case every other field cannot express: everything in RECON except the
+    // position reports.
+    const config = { chatRooms: ["^RECON$"], excludeCotTypes: ["^a-f-G-U-C$"] };
+    expect(matchesTakConfig(chat, config)).toBe(true);
+    expect(matchesTakConfig({ ...pli, chatRoom: "RECON" }, config)).toBe(false);
+  });
+
+  test("an exclusion overrules an otherwise matching include", () => {
+    expect(matchesTakConfig(pli, { cotTypes: ["^a-f-"], excludeCotTypes: ["^a-f-G-U-C$"] })).toBe(
+      false,
+    );
+  });
+
+  test("role selects traffic from HQ without naming callsigns", () => {
+    const config = { roles: ["^HQ$"] };
+    expect(matchesTakConfig(marker, config)).toBe(true);
+    expect(matchesTakConfig(pli, config)).toBe(false);
+  });
+
+  test("an empty exclusion list excludes nothing", () => {
+    // The mirror of an empty include list, which constrains nothing.
+    expect(matchesTakConfig(pli, { excludeCotTypes: [] })).toBe(true);
+  });
+});
