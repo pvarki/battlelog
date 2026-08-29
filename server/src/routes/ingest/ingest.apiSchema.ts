@@ -174,13 +174,37 @@ const readConfig = (row: IngestSourceRow): unknown => {
   return parsed.success ? parsed.data : {};
 };
 
+/**
+ * The status to show for one source row.
+ *
+ * TAK has a single socket shared by every TAK source, so a per-source
+ * connection status does not exist and nothing ever set one — which meant
+ * getStatus(row.id) fell through to its default and every TAK source displayed
+ * "Off" for ever, however healthy the stream was. What IS per-source is how
+ * much has matched, and countEvent(source.id) does record that.
+ *
+ * So: connection state from the transport, counters from the row. Matrix keeps
+ * its own per-source status, because there a source is a room and can
+ * genuinely be not-joined or waiting for keys while another is fine.
+ */
+const sourceStatus = (row: IngestSourceRow): IngestStatus => {
+  const own = getStatus(row.id);
+  if (row.kind !== "tak") return own;
+  const transport = getStatus(transportKey("tak"));
+  return {
+    ...transport,
+    eventCount: own.eventCount,
+    ...(own.lastEventAt ? { lastEventAt: own.lastEventAt } : {}),
+  };
+};
+
 export const toApiIngestSource = (row: IngestSourceRow) => ({
   id: row.id,
   kind: row.kind as IngestKind,
   name: row.name,
   enabled: row.enabled,
   config: readConfig(row),
-  status: getStatus(row.id) satisfies IngestStatus,
+  status: sourceStatus(row) satisfies IngestStatus,
   createdBy: row.createdBy,
   updatedBy: row.updatedBy,
   createdAt: row.createdAt.toISOString(),
