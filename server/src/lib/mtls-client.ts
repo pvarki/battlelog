@@ -72,6 +72,12 @@ const call = (
           text += chunk;
         });
         res.on("end", () => resolve({ status: res.statusCode ?? 0, text }));
+        // A response that fails after its headers emits here and nowhere the
+        // request can see. Without this the promise never settles, and since
+        // the TAK stream awaits rmInteropAdd before every reconnect, one such
+        // failure would stop the stream reconnecting for the life of the
+        // process — while its status still read "connecting".
+        res.on("error", reject);
       },
     );
     req.on("error", reject);

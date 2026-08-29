@@ -357,7 +357,19 @@ export const IngestSettingsPage = () => {
                         : mission.name,
                     }))}
                     value={listOf(source.config, "missions")}
-                    onChange={(value) => void patch(source, { config: { missions: value } })}
+                    onChange={(value) =>
+                      void patch(source, {
+                        // Spread, like the pattern fields below. A bare
+                        // { missions } replaces the whole config server-side.
+                        config: { ...source.config, missions: value },
+                        // Clearing the last feed would otherwise turn this into
+                        // a TAK setup with no feeds and no patterns — which is
+                        // the "matches every CoT on the stream" case, i.e. the
+                        // position-report flood, arrived at by removing
+                        // something. Stop instead.
+                        ...(value.length === 0 ? { enabled: false } : {}),
+                      })
+                    }
                     searchable
                     nothingFoundMessage={missionsError ?? "No feeds visible to this deployment"}
                   />
@@ -495,7 +507,13 @@ const AddSourceModal = ({
             json: {
               kind: "tak",
               name: name.trim(),
-              enabled: true,
+              // A feed reader is complete on creation — the feeds are picked in
+              // this form. A stream filter is not: it is created with no
+              // patterns, and a TAK setup with no patterns takes every CoT
+              // there is. Enabling that before anyone has typed a filter means
+              // the position-report flood, so it starts off and the operator
+              // turns it on when it says what they meant.
+              enabled: kind === "takfeed",
               config: kind === "takfeed" ? { missions: picked } : {},
             },
           });
@@ -583,8 +601,8 @@ const AddSourceModal = ({
         )}
         {kind === "tak" && (
           <Text fz="sm" c="dimmed">
-            Add it first, then set the filters. A filter with nothing set takes every CoT event on
-            the stream.
+            Added switched <strong>off</strong>, because a filter with nothing set takes every CoT
+            event on the stream. Set the filters, then enable it.
           </Text>
         )}
         <Button

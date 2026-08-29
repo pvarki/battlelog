@@ -23,7 +23,32 @@ import { trustBundle } from "../../lib/ca-bundle.ts";
 
 const TIMEOUT_MS = 20_000;
 
+/**
+ * Largest response we will hold.
+ *
+ * A change log is a few hundred KB even for a busy feed; anything past this is
+ * a feed we should not be catching up on in one request, and buffering it whole
+ * would take the CoT stream and the HTTP API down with an OOM rather than
+ * failing one poll.
+ */
+const MAX_BODY_BYTES = 32 * 1024 * 1024;
+
 let agent: Agent | undefined;
+
+/**
+ * Forget the pooled agent so the next call rebuilds it.
+ *
+ * The agent holds the client certificate that was on disk when it was built,
+ * and keepAlive means it can hold it for the life of the process — but
+ * kw_product_init rewrites mtlsclient.pem when RM re-issues, which it does well
+ * inside a long uptime. The stream re-reads its certificate per connection and
+ * so heals itself; this had no equivalent, and would have failed every poll
+ * from the re-issue onwards while the stream sat there reporting Live.
+ */
+const resetAgent = (): void => {
+  agent?.destroy();
+  agent = undefined;
+};
 
 const takAgent = (): Agent => {
   if (!agent) {
@@ -52,6 +77,12 @@ type ApiResponse<T> = { version?: string; type?: string; data?: T; messages?: st
 
 const get = (path: string): Promise<{ status: number; text: string }> =>
   new Promise((resolve, reject) => {
+    // Any failure drops the pooled agent: the likeliest lasting cause is a
+    // certificate this agent no longer has. Rebuilding costs one file read.
+    const fail = (err: Error): void => {
+      resetAgent();
+      reject(err);
+    };
     const host = ENV.TAK_STREAM_HOST;
     const req = request(
       `https://${host}:${ENV.TAK_API_PORT}${path}`,
@@ -69,11 +100,20 @@ const get = (path: string): Promise<{ status: number; text: string }> =>
         res.setEncoding("utf8");
         res.on("data", (chunk: string) => {
           text += chunk;
+          if (text.length > MAX_BODY_BYTES) {
+            res.destroy();
+            fail(new TakApiError(`GET ${path} exceeded ${MAX_BODY_BYTES} bytes`));
+          }
         });
         res.on("end", () => resolve({ status: res.statusCode ?? 0, text }));
+        // Without this a response that dies after its headers settles nothing:
+        // the promise stays pending, the poll loop awaits it forever, and every
+        // feed stops while the status page still says the poller is connected.
+        // Silent and permanent, which is the worst pair.
+        res.on("error", fail);
       },
     );
-    req.on("error", reject);
+    req.on("error", fail);
     req.on("timeout", () => req.destroy(new TakApiError(`GET ${path} timed out`)));
     req.end();
   });
