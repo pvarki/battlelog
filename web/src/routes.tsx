@@ -12,6 +12,7 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { z } from "zod";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
@@ -200,9 +201,14 @@ export const dashboardsRoute = createRoute({
   component: DashboardsPage,
 });
 
+// `event`: the event a widget selected (a feed row click) for others to act on,
+// e.g. a form loading it for editing. Malformed values degrade to none.
+const dashboardSearchSchema = z.object({ event: z.string().uuid().optional().catch(undefined) });
+
 export const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/d/$dashboardId",
+  validateSearch: (search: unknown) => dashboardSearchSchema.parse(search),
   loader: async ({ params }) => {
     try {
       const [one, all] = await Promise.all([

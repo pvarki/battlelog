@@ -1,5 +1,6 @@
 import { ActionIcon, Badge, Box, Center, Loader, Table, Text } from "@mantine/core";
 import { IconMaximize } from "@tabler/icons-react";
+import { getRouteApi } from "@tanstack/react-router";
 import {
   lazy,
   type ReactNode,
@@ -156,6 +157,8 @@ export const FeedTable = ({
 
 const FeedFullscreen = lazy(() => import("./Fullscreen.tsx"));
 
+const dashboardRoute = getRouteApi("/d/$dashboardId");
+
 const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const [fullscreen, setFullscreen] = useState(false);
   // Mounted once and kept: unmounting on close would skip the exit transition.
@@ -163,6 +166,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const query = queryFor(config);
   const match = (row: EventResponse) => matchesFeed(row, config);
   const { events, failed, arrived } = useLiveEvents({ limit: config.rows, query, match });
+  const navigate = dashboardRoute.useNavigate();
 
   if (!events) {
     return (
@@ -205,6 +209,9 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
           columns={config.columns}
           events={events}
           arrived={arrived}
+          onRowClick={(e) =>
+            navigate({ search: (prev) => ({ ...prev, event: e.eventId }), replace: true })
+          }
           onColumnWidthChange={(columnId, width) =>
             updateConfig({
               ...config,
