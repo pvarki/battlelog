@@ -22,21 +22,24 @@ export type WidgetEventPointer = {
 
 export const TEMPLATE_TAG = "template";
 
+const forkConfig = (config: unknown): unknown => {
+  if (!config || typeof config !== "object") return config;
+  const { eventId: _, ...rest } = config as Record<string, unknown>;
+  if (Array.isArray(rest.tabs)) {
+    rest.tabs = rest.tabs.map((tab) => ({ ...tab, config: forkConfig(tab?.config) }));
+  }
+  return rest;
+};
+
 /**
  * Widgets with their content pointer dropped. `eventId` is the one uniform
  * handle on a widget's event chain (note, todo, table, status, schedule all use
  * it), and `useEventDocument` mints a fresh one on first edit when it is absent
  * — so clearing it is what makes a copy its own document instead of a second
- * window onto the original's.
+ * window onto the original's. Tabs carry child widgets, whose pointers go too.
  */
 export const forkWidgets = (widgets: DashboardResponse["widgets"]): DashboardResponse["widgets"] =>
-  widgets.map((w) => {
-    if (!w.config || typeof w.config !== "object") return w;
-    const config = { ...(w.config as Record<string, unknown>) };
-    if (!("eventId" in config)) return w;
-    delete config.eventId;
-    return { ...w, config };
-  });
+  widgets.map((w) => ({ ...w, config: forkConfig(w.config) }));
 
 export const widgetEventPointers = (widgets: DashboardResponse["widgets"]): WidgetEventPointer[] =>
   widgets.flatMap((widget) => {
