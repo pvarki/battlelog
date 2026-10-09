@@ -1,11 +1,13 @@
 import { Input, SegmentedControl, Select, Stack } from "@mantine/core";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
+import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import type { ClockConfig } from "./widget.ts";
 
 const timeZones = Intl.supportedValuesOf("timeZone");
 
 const ClockConfigForm = ({ config, onChange }: WidgetConfigProps<ClockConfig>) => (
   <Stack>
+    <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
     <Select
       label="Timezone"
       placeholder="System default"
