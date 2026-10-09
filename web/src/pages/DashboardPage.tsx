@@ -5,10 +5,7 @@ import {
   Button,
   Drawer,
   Group,
-  Loader,
   Menu,
-  Stack,
-  Switch,
   Text,
   TextInput,
   Title,
@@ -18,7 +15,7 @@ import { useElementSize } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconArrowBackUp, IconArrowForwardUp, IconChevronDown } from "@tabler/icons-react";
 import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
-import { Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { api, dashboardsApi } from "../api.ts";
@@ -34,14 +31,10 @@ import {
 import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import { firstFreeSlot } from "../dashboard/placement.ts";
-import {
-  getWidget,
-  registry,
-  validateWidgetConfig,
-  type WidgetDescriptor,
-} from "../dashboard/registry.ts";
+import { getWidget, registry } from "../dashboard/registry.ts";
 import { TEMPLATE_TAG, templateEventFor, widgetEventPointers } from "../dashboard/transfer.ts";
 import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
+import { WidgetConfigPanel } from "../dashboard/WidgetConfigPanel.tsx";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 import { Placeholder } from "../Placeholder.tsx";
 import { useWakeLock } from "../use-wake-lock.ts";
@@ -633,46 +626,5 @@ const DashboardGrid = ({
         )}
       </Drawer>
     </Box>
-  );
-};
-
-const WidgetConfigPanel = ({
-  widget,
-  descriptor,
-  onChange,
-}: {
-  widget: Widget;
-  descriptor: WidgetDescriptor;
-  onChange: (next: unknown) => void;
-}) => {
-  const ConfigForm = descriptor.ConfigForm;
-  const validation = validateWidgetConfig(widget.type, widget.config);
-  const formConfig = validation.ok
-    ? validation.value
-    : {
-        ...(descriptor.defaultConfig as Record<string, unknown>),
-        ...(widget.config as Record<string, unknown>),
-      };
-  return (
-    <Stack>
-      {descriptor.showOnMobile !== false && (
-        <Switch
-          label="Show on mobile"
-          description="Include this widget in the phone view of the dashboard"
-          checked={(formConfig as { showOnMobile?: boolean }).showOnMobile !== false}
-          onChange={(e) =>
-            onChange({
-              ...(formConfig as Record<string, unknown>),
-              showOnMobile: e.currentTarget.checked,
-            })
-          }
-        />
-      )}
-      {ConfigForm && (
-        <Suspense fallback={<Loader size="sm" />}>
-          <ConfigForm config={formConfig} onChange={onChange} />
-        </Suspense>
-      )}
-    </Stack>
   );
 };
