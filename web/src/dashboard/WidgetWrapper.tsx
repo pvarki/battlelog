@@ -66,10 +66,6 @@ export const WidgetWrapper = ({
   entering,
 }: Props) => {
   const descriptor = getWidget(instance.type);
-  const validation = useMemo(
-    () => validateWidgetConfig(instance.type, instance.config),
-    [instance.type, instance.config],
-  );
 
   // Convention: a `title` string in any widget's config renders bold in the
   // header under the type caption (per the design mock).
@@ -133,39 +129,81 @@ export const WidgetWrapper = ({
         )}
       </Group>
       <Box flex={1} mih={0}>
-        {!descriptor ? (
-          <Placeholder
-            title="Unknown widget"
-            detail={`No widget of type "${instance.type}" is registered`}
-            action={editMode ? { label: "Remove", onClick: onRemove } : undefined}
-          />
-        ) : !validation.ok ? (
-          <Placeholder
-            title="Invalid configuration"
-            detail={validation.details ?? "Stored config does not match the widget's schema"}
-            action={editMode ? { label: "Reset to defaults", onClick: onResetConfig } : undefined}
-          />
-        ) : (
-          <WidgetErrorBoundary type={instance.type}>
-            <Suspense
-              fallback={
-                <Stack align="center" justify="center" h="100%">
-                  <Loader size="sm" />
-                </Stack>
-              }
-            >
-              <descriptor.View
-                config={validation.value}
-                instanceId={instance.id}
-                editMode={editMode}
-                dashboardIsTemplate={dashboardIsTemplate}
-                updateConfig={onUpdateConfig}
-                onConfigure={onConfigure}
-              />
-            </Suspense>
-          </WidgetErrorBoundary>
-        )}
+        <WidgetBody
+          instance={instance}
+          editMode={editMode}
+          dashboardIsTemplate={dashboardIsTemplate}
+          onConfigure={onConfigure}
+          onRemove={onRemove}
+          onResetConfig={onResetConfig}
+          onUpdateConfig={onUpdateConfig}
+        />
       </Box>
     </Paper>
+  );
+};
+
+type BodyProps = {
+  instance: Pick<Widget, "id" | "type" | "config">;
+  editMode: boolean;
+  dashboardIsTemplate?: boolean;
+  onConfigure: () => void;
+  onRemove: () => void;
+  onResetConfig: () => void;
+  onUpdateConfig: (config: unknown) => void;
+};
+
+/** A widget's content without chrome — for hosts, like tabs, that draw their own header. */
+export const WidgetBody = ({
+  instance,
+  editMode,
+  dashboardIsTemplate,
+  onConfigure,
+  onRemove,
+  onResetConfig,
+  onUpdateConfig,
+}: BodyProps) => {
+  const descriptor = getWidget(instance.type);
+  const validation = useMemo(
+    () => validateWidgetConfig(instance.type, instance.config),
+    [instance.type, instance.config],
+  );
+  if (!descriptor) {
+    return (
+      <Placeholder
+        title="Unknown widget"
+        detail={`No widget of type "${instance.type}" is registered`}
+        action={editMode ? { label: "Remove", onClick: onRemove } : undefined}
+      />
+    );
+  }
+  if (!validation.ok) {
+    return (
+      <Placeholder
+        title="Invalid configuration"
+        detail={validation.details ?? "Stored config does not match the widget's schema"}
+        action={editMode ? { label: "Reset to defaults", onClick: onResetConfig } : undefined}
+      />
+    );
+  }
+  return (
+    <WidgetErrorBoundary type={instance.type}>
+      <Suspense
+        fallback={
+          <Stack align="center" justify="center" h="100%">
+            <Loader size="sm" />
+          </Stack>
+        }
+      >
+        <descriptor.View
+          config={validation.value}
+          instanceId={instance.id}
+          editMode={editMode}
+          dashboardIsTemplate={dashboardIsTemplate}
+          updateConfig={onUpdateConfig}
+          onConfigure={onConfigure}
+        />
+      </Suspense>
+    </WidgetErrorBoundary>
   );
 };
