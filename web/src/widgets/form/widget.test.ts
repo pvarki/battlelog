@@ -1,7 +1,10 @@
 import { expect, test } from "vitest";
+import type { EventResponse } from "../../api.ts";
 import descriptor, {
   buildEvent,
+  buildPatch,
   datetimeLocalValue,
+  eventToValues,
   type FormConfig,
   missingRequired,
 } from "./widget.ts";
@@ -216,4 +219,79 @@ test("missingRequired reports empty required fields", () => {
     { id: "c", label: "Confirmed?" },
   ]);
   expect(missingRequired(strict, { h: "x", p: { lat: 1, lng: 2 }, c: true })).toEqual([]);
+});
+
+const stored = (overrides: Partial<EventResponse>): EventResponse => ({
+  id: "00000000-0000-7000-8000-000000000001",
+  eventId: "00000000-0000-7000-8000-000000000002",
+  createdBy: "alice",
+  updatedBy: null,
+  createdAt: "2026-08-22T14:31:00.000Z",
+  header: "Contact at bridge",
+  eventTime: null,
+  tags: null,
+  hcoeDomains: null,
+  admiraltyReliability: null,
+  admiraltyAccuracy: null,
+  location: null,
+  locationPoint: null,
+  inputSource: null,
+  sourceUri: null,
+  type: "form-spotrep",
+  data: null,
+  ...overrides,
+});
+
+test("eventToValues round-trips through buildEvent", () => {
+  const values = {
+    h: "Contact at bridge",
+    t: "2026-08-22T14:30",
+    g: ["urgent"],
+    p: { lat: 60.2, lng: 24.9 },
+    r: "B",
+    n: 12,
+    c: false,
+  };
+  expect(eventToValues(config, stored(buildEvent(config, values)))).toEqual(values);
+});
+
+test("eventToValues hides fixed tags from the tags input", () => {
+  const values = eventToValues(config, stored({ tags: ["recon", "urgent"] }));
+  expect(values.g).toEqual(["urgent"]);
+});
+
+test("buildPatch clears emptied inputs and keeps data the form doesn't own", () => {
+  const event = stored({
+    eventTime: "2026-08-22T14:30:00.000Z",
+    tags: ["recon", "urgent"],
+    admiraltyReliability: "B",
+    data: { "enemy-strength": 12, confirmed: true, team: "alpha", foreign: "keep" },
+  });
+  const patch = buildPatch(config, { h: "Contact at bridge", n: 20 }, event);
+  expect(patch.header).toBe("Contact at bridge");
+  expect(patch.eventTime).toBeNull();
+  expect(patch.locationPoint).toBeNull();
+  expect(patch.admiraltyReliability).toBeNull();
+  expect(patch.tags).toEqual(["recon"]);
+  expect(patch.data).toEqual({ "enemy-strength": 20, team: "alpha", foreign: "keep" });
+});
+
+test("buildPatch leaves columns the form has no input for untouched", () => {
+  const patch = buildPatch(
+    { reportType: "spotrep", fields: [{ id: "h", kind: "event", field: "header" }] },
+    { h: "x" },
+    stored({ tags: ["from-elsewhere"], location: "Bridge" }),
+  );
+  expect(patch).not.toHaveProperty("tags");
+  expect(patch).not.toHaveProperty("location");
+  expect(patch.data).toBeNull();
+});
+
+test("buildPatch keeps an untouched event time instead of rewriting it from the lossy input", () => {
+  const event = stored({ eventTime: "2026-10-25T01:30:42.000Z" });
+  const values = eventToValues(config, event);
+  expect(buildPatch(config, values, event)).not.toHaveProperty("eventTime");
+  expect(buildPatch(config, { ...values, t: "2026-10-26T12:00" }, event).eventTime).toBe(
+    new Date("2026-10-26T12:00").toISOString(),
+  );
 });
