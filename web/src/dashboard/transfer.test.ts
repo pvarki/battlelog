@@ -79,6 +79,19 @@ test("widgetEventPointers finds document-backed widgets", () => {
   ]);
 });
 
+test("forkWidgets clears eventIds of widgets inside tabs", () => {
+  const tabs = {
+    id: "t",
+    type: "tabs",
+    config: { eventId: "e0", tabs: [{ id: "n", type: "note", config: { eventId: "e1" } }] },
+    layout: L,
+  };
+  expect(forkWidgets([tabs])).toEqual([
+    { ...tabs, config: { tabs: [{ id: "n", type: "note", config: {} }] } },
+  ]);
+  expect(tabs.config.tabs[0]?.config).toEqual({ eventId: "e1" });
+});
+
 test("export round-trips through import", () => {
   const parsed = parseDashboardImport(toExportJson(dashboard));
   expect(parsed).toEqual({
