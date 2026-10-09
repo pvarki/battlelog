@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
 import { Placeholder } from "../Placeholder.tsx";
-import { mobileWidgets } from "./mobile.ts";
+import { mobileWidgets, withWidgetConfig } from "./mobile.ts";
 import { getWidget, type WidgetDescriptor } from "./registry.ts";
 import { WidgetWrapper } from "./WidgetWrapper.tsx";
 import { configTitle } from "./widget-base.ts";
@@ -64,7 +64,7 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
   };
 
   const updateConfig = (id: string, config: unknown) => {
-    widgetsRef.current = widgetsRef.current.map((w) => (w.id === id ? { ...w, config } : w));
+    widgetsRef.current = withWidgetConfig(widgetsRef.current, id, config);
     setAllWidgets(widgetsRef.current);
     queueSave();
   };
