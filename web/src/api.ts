@@ -7,6 +7,7 @@ export type {
   Widget,
 } from "@server/routes/dashboards/dashboards.apiSchema.ts";
 export type { EventResponse } from "@server/routes/events/events.apiSchema.ts";
+export type { TakFeature } from "@server/routes/tak/tak.apiSchema.ts";
 
 export const api = hc<EventsApi>("/api/v1");
 export const dashboardsApi = hc<DashboardsApi>("/api/v1");

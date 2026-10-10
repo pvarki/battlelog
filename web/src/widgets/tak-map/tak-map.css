@@ -1,0 +1,26 @@
+.tak-map {
+  background: #1a1b1e;
+}
+
+.tak-unit {
+  background: none;
+  border: none;
+}
+
+.tak-label {
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.tak-label::before {
+  display: none;
+}
+
+.tak-faded {
+  filter: grayscale(1);
+  opacity: 0.45;
+}

@@ -1,0 +1,104 @@
+import { useSyncExternalStore } from "react";
+import type { TakFeature } from "./api.ts";
+import type { ConnectionState } from "./live-events.ts";
+
+export type TakView = {
+  /** `null` until the first snapshot; `false` when the server has no TAK configured. */
+  enabled: boolean | null;
+  items: TakFeature[];
+  connection: ConnectionState;
+};
+
+// Same liveness rule as the events stream: the server pings every 15s.
+const PING_TIMEOUT_MS = 35_000;
+const REOPEN_DELAY_MS = 5_000;
+// Drone telemetry alone is several updates a second; render at most this often.
+const NOTIFY_DELAY_MS = 250;
+
+const items = new Map<string, TakFeature>();
+const listeners = new Set<() => void>();
+let view: TakView = { enabled: null, items: [], connection: "connecting" };
+let source: EventSource | undefined;
+let pingTimer: ReturnType<typeof setTimeout> | undefined;
+let reopenTimer: ReturnType<typeof setTimeout> | undefined;
+let notifyTimer: ReturnType<typeof setTimeout> | undefined;
+
+const publish = (patch: Partial<TakView>) => {
+  view = { ...view, ...patch };
+  for (const l of listeners) l();
+};
+
+const scheduleItems = () => {
+  notifyTimer ??= setTimeout(() => {
+    notifyTimer = undefined;
+    publish({ items: [...items.values()] });
+  }, NOTIFY_DELAY_MS);
+};
+
+const heardFromServer = () => {
+  if (view.connection !== "live") publish({ connection: "live" });
+  clearTimeout(pingTimer);
+  pingTimer = setTimeout(() => {
+    publish({ connection: "connecting" });
+    open();
+  }, PING_TIMEOUT_MS);
+};
+
+// One stream per tab, shared by every map widget. Each (re)connect starts with
+// a full snapshot, so there is no cursor to resume from.
+const open = () => {
+  clearTimeout(reopenTimer);
+  source?.close();
+  const es = new EventSource("/api/v1/tak/stream");
+  source = es;
+  es.addEventListener("ping", heardFromServer);
+  es.addEventListener("snapshot", (e) => {
+    heardFromServer();
+    const snapshot = JSON.parse(e.data) as { enabled: boolean; items: TakFeature[] };
+    items.clear();
+    for (const f of snapshot.items) items.set(f.id, f);
+    clearTimeout(notifyTimer);
+    notifyTimer = undefined;
+    publish({ enabled: snapshot.enabled, items: [...items.values()] });
+  });
+  es.addEventListener("upsert", (e) => {
+    heardFromServer();
+    const f = JSON.parse(e.data) as TakFeature;
+    items.set(f.id, f);
+    scheduleItems();
+  });
+  es.addEventListener("delete", (e) => {
+    heardFromServer();
+    items.delete((JSON.parse(e.data) as { id: string }).id);
+    scheduleItems();
+  });
+  es.addEventListener("error", () => {
+    clearTimeout(pingTimer);
+    if (es.readyState === EventSource.CLOSED) {
+      publish({ connection: "down" });
+      reopenTimer = setTimeout(open, REOPEN_DELAY_MS);
+    } else {
+      publish({ connection: "connecting" });
+    }
+  });
+};
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  if (!source) open();
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size > 0) return;
+    clearTimeout(pingTimer);
+    clearTimeout(reopenTimer);
+    clearTimeout(notifyTimer);
+    notifyTimer = undefined;
+    source?.close();
+    source = undefined;
+    items.clear();
+    view = { enabled: null, items: [], connection: "connecting" };
+  };
+};
+
+/** Live TAK map picture. Holds the shared stream open while mounted. */
+export const useTakState = (): TakView => useSyncExternalStore(subscribe, () => view);

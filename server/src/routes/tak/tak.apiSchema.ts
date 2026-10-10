@@ -31,6 +31,7 @@ export const takFeatureSchema = z
     }),
   })
   .openapi("TakFeature");
+export type TakFeature = z.infer<typeof takFeatureSchema>;
 
 export const takStateResponseSchema = z
   .object({

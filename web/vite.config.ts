@@ -36,7 +36,7 @@ export default defineConfig({
   server: {
     // Dev: vite serves the SPA, the Hono server owns /api (incl. SSE).
     proxy: {
-      "/api": "http://localhost:3000",
+      "/api": process.env.API_URL ?? "http://localhost:3000",
     },
   },
 });
