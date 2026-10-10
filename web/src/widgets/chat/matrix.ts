@@ -28,6 +28,8 @@ type Session = { baseUrl: string; userId: string; deviceId: string; accessToken:
 const SESSION_KEY = "battlelog.matrix.session";
 const LOCK_NAME = "battlelog.matrix.client";
 const LOGIN_TOKEN_PARAM = "loginToken";
+const SSO_STATE_PARAM = "battlelogSso";
+const SSO_STATE_KEY = "battlelog.matrix.ssoState";
 
 // ponytail: assumes PVARKI's naming (battlelog.<deployment> → synapse.<deployment>);
 // replace with a server-provided URL if a deployment ever breaks the pattern.
@@ -64,13 +66,32 @@ const readSession = (): Session | undefined => {
   }
 };
 
+/**
+ * The login token from an SSO round trip this tab started, else undefined.
+ * Without the state check, any link carrying an attacker's `loginToken` would
+ * silently sign the victim's chat into the attacker's account (login CSRF).
+ * Strips both params from `url`.
+ */
+export const ssoLoginToken = (url: URL, expectedState: string | null): string | undefined => {
+  const token = url.searchParams.get(LOGIN_TOKEN_PARAM);
+  const state = url.searchParams.get(SSO_STATE_PARAM);
+  url.searchParams.delete(LOGIN_TOKEN_PARAM);
+  url.searchParams.delete(SSO_STATE_PARAM);
+  return token && expectedState && state === expectedState ? token : undefined;
+};
+
 const takeLoginToken = (): string | undefined => {
   const url = new URL(window.location.href);
-  const token = url.searchParams.get(LOGIN_TOKEN_PARAM) ?? undefined;
-  if (token) {
-    url.searchParams.delete(LOGIN_TOKEN_PARAM);
-    history.replaceState(history.state, "", url);
+  if (!url.searchParams.has(LOGIN_TOKEN_PARAM) && !url.searchParams.has(SSO_STATE_PARAM)) {
+    return undefined;
   }
+  let expectedState: string | null = null;
+  try {
+    expectedState = sessionStorage.getItem(SSO_STATE_KEY);
+    sessionStorage.removeItem(SSO_STATE_KEY);
+  } catch {}
+  const token = ssoLoginToken(url, expectedState);
+  history.replaceState(history.state, "", url);
   return token;
 };
 
@@ -174,8 +195,13 @@ const holdAndStart = async () => {
 };
 
 export const signIn = () => {
-  const redirectUrl = window.location.href;
-  window.location.href = createClient({ baseUrl: homeserverUrl() }).getSsoLoginUrl(redirectUrl);
+  const state = crypto.randomUUID();
+  sessionStorage.setItem(SSO_STATE_KEY, state);
+  const redirectUrl = new URL(window.location.href);
+  redirectUrl.searchParams.set(SSO_STATE_PARAM, state);
+  window.location.href = createClient({ baseUrl: homeserverUrl() }).getSsoLoginUrl(
+    redirectUrl.toString(),
+  );
 };
 
 export const signOut = async () => {
