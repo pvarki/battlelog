@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from "react";
-import type { TakFeature } from "./api.ts";
+import type { TakFeature, TakMission } from "./api.ts";
 import type { ConnectionState } from "./live-events.ts";
 
 export type TakView = {
   /** `null` until the first snapshot; `false` when the server has no TAK configured. */
   enabled: boolean | null;
   items: TakFeature[];
+  /** TAK missions (Data Sync feeds) with their contents; refreshed by the server every 30 s. */
+  missions: TakMission[];
   connection: ConnectionState;
 };
 
@@ -17,7 +19,8 @@ const NOTIFY_DELAY_MS = 250;
 
 const items = new Map<string, TakFeature>();
 const listeners = new Set<() => void>();
-let view: TakView = { enabled: null, items: [], connection: "connecting" };
+const INITIAL: TakView = { enabled: null, items: [], missions: [], connection: "connecting" };
+let view = INITIAL;
 let source: EventSource | undefined;
 let pingTimer: ReturnType<typeof setTimeout> | undefined;
 let reopenTimer: ReturnType<typeof setTimeout> | undefined;
@@ -72,6 +75,10 @@ const open = () => {
     items.delete((JSON.parse(e.data) as { id: string }).id);
     scheduleItems();
   });
+  es.addEventListener("missions", (e) => {
+    heardFromServer();
+    publish({ missions: JSON.parse(e.data) as TakMission[] });
+  });
   es.addEventListener("error", () => {
     clearTimeout(pingTimer);
     if (es.readyState === EventSource.CLOSED) {
@@ -96,7 +103,7 @@ const subscribe = (listener: () => void) => {
     source?.close();
     source = undefined;
     items.clear();
-    view = { enabled: null, items: [], connection: "connecting" };
+    view = INITIAL;
   };
 };
 

@@ -12,17 +12,31 @@ import { CONNECTION_LABEL } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import { useTakState } from "../../tak-state.ts";
 import { Panel } from "./Panel.tsx";
-import { anchorOf, hasPosition, isFaded, layerOf, sidcFor, teamColor } from "./symbols.ts";
+import {
+  anchorOf,
+  hasPosition,
+  isFaded,
+  layerOf,
+  missionItems,
+  sidcFor,
+  teamColor,
+} from "./symbols.ts";
 import { BASEMAPS, LAYERS, type Layer, type TakMapConfig } from "./widget.ts";
 
 const FINLAND: L.LatLngTuple = [64.5, 26];
 const FADE_CHECK_MS = 30_000;
 const DEFAULT_MARKER_COLOR = "#ffd43b";
+// Below this zoom, permanent labels pile into an unreadable smear (ATAK hides them too).
+const LABEL_MIN_ZOOM = 9;
+const SELECT_MIN_ZOOM = 12;
 
 const latLng = ([lon, lat]: [number, number]): L.LatLngTuple => [lat, lon];
 
 const label = (layer: L.Layer, text: string | undefined, permanent: boolean) => {
-  if (text) layer.bindTooltip(text, { permanent, direction: "right", className: "tak-label" });
+  if (text) {
+    const className = permanent ? "tak-label tak-label-permanent" : "tak-label";
+    layer.bindTooltip(text, { permanent, direction: "right", className });
+  }
   return layer;
 };
 
@@ -135,8 +149,9 @@ const shapeOf = (f: TakFeature, faded: boolean): L.Layer => {
   ]);
 };
 
-const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
-  const { enabled, items, connection } = useTakState();
+const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => {
+  const { enabled, items, missions, connection } = useTakState();
+  const everything = [...items, ...missionItems(missions, config.hiddenMissions, items)];
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map>(null);
   const layersRef = useRef<Record<Layer, L.LayerGroup>>(null);
@@ -145,12 +160,15 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(!isMobile);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = items.find((f) => f.id === selectedId);
+  const selected = everything.find((f) => f.id === selectedId);
 
   const select = (id: string | null) => {
     setSelectedId(id);
-    const f = items.find((i) => i.id === id);
-    if (f && hasPosition(f)) mapRef.current?.panTo(latLng(anchorOf(f)));
+    const f = everything.find((i) => i.id === id);
+    const map = mapRef.current;
+    if (f && map && hasPosition(f)) {
+      map.setView(latLng(anchorOf(f)), Math.max(map.getZoom(), SELECT_MIN_ZOOM));
+    }
   };
 
   useEffect(() => {
@@ -166,6 +184,10 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
     layersRef.current = Object.fromEntries(
       LAYERS.map((layer) => [layer, L.layerGroup().addTo(map)]),
     ) as Record<Layer, L.LayerGroup>;
+    const toggleLabels = () =>
+      el.classList.toggle("tak-labels-hidden", map.getZoom() < LABEL_MIN_ZOOM);
+    map.on("zoomend", toggleLabels);
+    toggleLabels();
     const resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(el);
     return () => {
@@ -194,10 +216,13 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
     if (!map || !layers) return;
     for (const group of Object.values(layers)) group.clearLayers();
     const drawn: L.Layer[] = [];
-    for (const f of items) {
+    const shownMissionItems = missionItems(missions, config.hiddenMissions, items);
+    for (const f of [...items, ...shownMissionItems]) {
       const layer = layerOf(f);
       if (config.hiddenLayers.includes(layer) || !hasPosition(f)) continue;
-      const shape = shapeOf(f, isFaded(f, now)).on("click", () => {
+      // Mission contents persist past their stale time, so they are never greyed.
+      const faded = !shownMissionItems.includes(f) && isFaded(f, now);
+      const shape = shapeOf(f, faded).on("click", () => {
         setSelectedId(f.id);
         setPanelOpen(true);
       });
@@ -209,7 +234,15 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
       const bounds = L.featureGroup(drawn).getBounds();
       if (bounds.isValid()) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 13 });
     }
-  }, [items, config.hiddenLayers, now]);
+  }, [items, missions, config.hiddenMissions, config.hiddenLayers, now]);
+
+  const toggleMission = (name: string) =>
+    updateConfig({
+      ...config,
+      hiddenMissions: config.hiddenMissions.includes(name)
+        ? config.hiddenMissions.filter((m) => m !== name)
+        : [...config.hiddenMissions, name],
+    });
 
   return (
     <Box pos="relative" h="100%" style={{ display: "flex" }}>
@@ -253,7 +286,15 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
             borderLeft: "1px solid var(--mantine-color-dark-4)",
           }}
         >
-          <Panel items={items} selected={selected} now={now} onSelect={select} />
+          <Panel
+            items={items}
+            missions={missions}
+            hiddenMissions={config.hiddenMissions}
+            onToggleMission={toggleMission}
+            selected={selected}
+            now={now}
+            onSelect={select}
+          />
         </Box>
       )}
     </Box>

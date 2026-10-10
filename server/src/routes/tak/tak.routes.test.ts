@@ -50,6 +50,12 @@ describe("tak routes", () => {
     }
   });
 
+  test("GET /tak/missions lists missions", async () => {
+    takState.setMissions([{ name: "ROUTES-LIST", keywords: ["#x"], items: [] }]);
+    const res = await app.request("/api/v1/tak/missions");
+    expect(await res.json()).toEqual([{ name: "ROUTES-LIST", keywords: ["#x"], items: [] }]);
+  });
+
   test("stream sends the snapshot, then live upserts and deletes", async () => {
     takState.apply(marker("routes-before"));
     const res = await app.request("/api/v1/tak/stream");

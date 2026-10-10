@@ -24,3 +24,7 @@
   filter: grayscale(1);
   opacity: 0.45;
 }
+
+.tak-labels-hidden .tak-label-permanent {
+  display: none;
+}

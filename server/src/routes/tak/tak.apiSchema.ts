@@ -33,6 +33,18 @@ export const takFeatureSchema = z
   .openapi("TakFeature");
 export type TakFeature = z.infer<typeof takFeatureSchema>;
 
+export const takMissionSchema = z
+  .object({
+    name: z.string(),
+    description: z.string().optional(),
+    creatorUid: z.string().optional(),
+    createTime: z.string().optional(),
+    keywords: z.array(z.string()),
+    items: z.array(takFeatureSchema),
+  })
+  .openapi("TakMission");
+export type TakMission = z.infer<typeof takMissionSchema>;
+
 export const takStateResponseSchema = z
   .object({
     enabled: z.boolean().describe("False when the server has no TAK connection configured"),

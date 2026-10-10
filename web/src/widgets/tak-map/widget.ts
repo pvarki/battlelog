@@ -39,6 +39,8 @@ const configSchema = z
     basemap: z.enum(Object.keys(BASEMAPS) as [Basemap, ...Basemap[]]).default("osm"),
     /** Layers switched off in this instance; absent = shown. */
     hiddenLayers: z.array(z.enum(LAYERS)).default([]),
+    /** Missions (Data Sync feeds) switched off in this instance, by name; new missions show. */
+    hiddenMissions: z.array(z.string()).default([]),
   })
   .strict();
 
@@ -50,7 +52,7 @@ const descriptor: WidgetDescriptor<TakMapConfig> = {
   name: "TAK map",
   description: "Live TAK picture: users, units, markers, drawings and missions",
   configSchema,
-  defaultConfig: { basemap: "osm", hiddenLayers: [] },
+  defaultConfig: { basemap: "osm", hiddenLayers: [], hiddenMissions: [] },
   defaultSize: { w: 16, h: 12 },
   minSize: { w: 6, h: 6 },
   View: lazy(() => import("./View.tsx")),

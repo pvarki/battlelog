@@ -2,15 +2,18 @@ import {
   ActionIcon,
   Badge,
   Box,
+  Checkbox,
   Group,
   ScrollArea,
   Stack,
   Table,
+  Tabs,
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconX } from "@tabler/icons-react";
-import type { TakFeature } from "../../api.ts";
+import { IconChevronDown, IconChevronRight, IconX } from "@tabler/icons-react";
+import { useState } from "react";
+import type { TakFeature, TakMission } from "../../api.ts";
 import { formatDateTime } from "../../time.ts";
 import {
   anchorOf,
@@ -31,7 +34,7 @@ const ago = (iso: string, now: number): string => {
   if (s < 60) return `${s} s ago`;
   if (s < 3600) return `${Math.round(s / 60)} min ago`;
   if (s < 86_400) return `${Math.round(s / 3600)} h ago`;
-  return formatDateTime(iso);
+  return `${Math.round(s / 86_400)} d ago`;
 };
 
 const Details = ({ f, now, onClose }: { f: TakFeature; now: number; onClose: () => void }) => {
@@ -142,23 +145,124 @@ const Contacts = ({
   );
 };
 
-/** Side panel: TAK users, or details of the item picked on the map. */
+const Missions = ({
+  missions,
+  hiddenMissions,
+  onToggle,
+  onSelect,
+}: {
+  missions: TakMission[];
+  hiddenMissions: string[];
+  onToggle: (name: string) => void;
+  onSelect: (id: string) => void;
+}) => {
+  const [open, setOpen] = useState<string | null>(null);
+  if (missions.length === 0) {
+    return (
+      <Text fz="xs" c="dimmed">
+        No missions on this TAK Server.
+      </Text>
+    );
+  }
+  return (
+    <Stack gap="xs">
+      {missions.map((m) => {
+        const expanded = open === m.name;
+        return (
+          <Box key={m.name}>
+            <Group gap={6} wrap="nowrap" align="flex-start">
+              <Checkbox
+                size="xs"
+                mt={3}
+                checked={!hiddenMissions.includes(m.name)}
+                onChange={() => onToggle(m.name)}
+                aria-label={`Show ${m.name} on the map`}
+              />
+              <UnstyledButton
+                onClick={() => setOpen(expanded ? null : m.name)}
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                <Group gap={4} wrap="nowrap">
+                  {expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                  <Text fz="sm" fw={500} truncate>
+                    {m.name}
+                  </Text>
+                  <Badge size="xs" variant="light" ml="auto">
+                    {m.items.length}
+                  </Badge>
+                </Group>
+                {m.description && (
+                  <Text fz="xs" c="dimmed" lineClamp={2}>
+                    {m.description}
+                  </Text>
+                )}
+              </UnstyledButton>
+            </Group>
+            {expanded && (
+              <Stack gap={0} pl={28} mt={4}>
+                {m.items.map((f) => (
+                  <UnstyledButton key={f.id} onClick={() => onSelect(f.id)} py={1}>
+                    <Text fz="xs" truncate>
+                      {f.properties.callsign ?? f.id}{" "}
+                      <Text span c="dimmed" fz="xs">
+                        {LAYER_LABEL[layerOf(f)].toLowerCase()}
+                      </Text>
+                    </Text>
+                  </UnstyledButton>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        );
+      })}
+    </Stack>
+  );
+};
+
+/** Side panel: TAK users and missions, or details of the item picked on the map. */
 export const Panel = ({
   items,
+  missions,
+  hiddenMissions,
+  onToggleMission,
   selected,
   now,
   onSelect,
 }: {
   items: TakFeature[];
+  missions: TakMission[];
+  hiddenMissions: string[];
+  onToggleMission: (name: string) => void;
   selected: TakFeature | undefined;
   now: number;
   onSelect: (id: string | null) => void;
-}) => (
-  <ScrollArea h="100%" p="xs" type="auto">
-    {selected ? (
+}) =>
+  selected ? (
+    <ScrollArea h="100%" p="xs" type="auto">
       <Details f={selected} now={now} onClose={() => onSelect(null)} />
-    ) : (
-      <Contacts items={items} now={now} onSelect={onSelect} />
-    )}
-  </ScrollArea>
-);
+    </ScrollArea>
+  ) : (
+    <Tabs defaultValue="users" h="100%" style={{ display: "flex", flexDirection: "column" }}>
+      <Tabs.List grow>
+        <Tabs.Tab value="users" fz="xs">
+          Users
+        </Tabs.Tab>
+        <Tabs.Tab value="missions" fz="xs">
+          Missions ({missions.length})
+        </Tabs.Tab>
+      </Tabs.List>
+      <ScrollArea style={{ flex: 1 }} p="xs" type="auto">
+        <Tabs.Panel value="users">
+          <Contacts items={items} now={now} onSelect={onSelect} />
+        </Tabs.Panel>
+        <Tabs.Panel value="missions">
+          <Missions
+            missions={missions}
+            hiddenMissions={hiddenMissions}
+            onToggle={onToggleMission}
+            onSelect={onSelect}
+          />
+        </Tabs.Panel>
+      </ScrollArea>
+    </Tabs>
+  );

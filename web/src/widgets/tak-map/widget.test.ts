@@ -6,6 +6,7 @@ import {
   hasPosition,
   isFaded,
   layerOf,
+  missionItems,
   sidcFor,
   statusOf,
   teamColor,
@@ -21,7 +22,11 @@ const feature = (cotType: string, extra: Partial<TakFeature["properties"]> = {})
 
 test("defaultConfig validates; empty config gets defaults", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
-  expect(descriptor.configSchema.parse({})).toEqual({ basemap: "osm", hiddenLayers: [] });
+  expect(descriptor.configSchema.parse({})).toEqual({
+    basemap: "osm",
+    hiddenLayers: [],
+    hiddenMissions: [],
+  });
 });
 
 describe("layerOf", () => {
@@ -86,4 +91,16 @@ test("contactsOf lists online users first, then stale, then offline", () => {
   );
   expect(list.map((f) => f.id)).toEqual(["Abe", "Zed", "Old", "Off"]);
   expect(statusOf(list[2] as TakFeature, now)).toBe("stale");
+});
+
+test("missionItems shows visible missions once, without items already live", () => {
+  const a = { ...feature("a-u-G"), id: "a" };
+  const b = { ...feature("u-d-c-c"), id: "b" };
+  const c = { ...feature("b-m-r"), id: "c" };
+  const missions = [
+    { name: "RECON", keywords: [], items: [a, b] },
+    { name: "OTHER", keywords: [], items: [b, c] },
+    { name: "HIDDEN", keywords: [], items: [{ ...feature("a-h-G"), id: "h" }] },
+  ];
+  expect(missionItems(missions, ["HIDDEN"], [a]).map((f) => f.id)).toEqual(["b", "c"]);
 });

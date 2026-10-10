@@ -1,11 +1,11 @@
 import "varlock/auto-load";
-import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { ENV } from "varlock/env";
 import { logger } from "../../lib/logger.ts";
 import { type TakStateChange, takState } from "../../services/tak/tak.state.ts";
-import { takStateResponseSchema } from "./tak.apiSchema.ts";
+import { takMissionSchema, takStateResponseSchema } from "./tak.apiSchema.ts";
 
 export const getTakStateRoute = createRoute({
   method: "get",
@@ -21,6 +21,23 @@ export const getTakStateRoute = createRoute({
 // A client this far behind reconnects and gets a fresh snapshot instead.
 const MAX_UNSENT = 1000;
 
+export const getTakMissionsRoute = createRoute({
+  method: "get",
+  path: "/tak/missions",
+  responses: {
+    200: {
+      content: { "application/json": { schema: z.array(takMissionSchema) } },
+      description: "TAK missions (Data Sync feeds) with their current contents",
+    },
+  },
+});
+
+const toSSE = (change: TakStateChange) => {
+  if (change.kind === "upsert") return { event: "upsert", data: JSON.stringify(change.feature) };
+  if (change.kind === "delete") return { event: "delete", data: JSON.stringify({ id: change.id }) };
+  return { event: "missions", data: JSON.stringify(change.missions) };
+};
+
 /** SSE: one `snapshot` event, then `upsert` / `delete` changes as they happen. */
 const streamTakState = (c: Context) =>
   streamSSE(c, async (stream) => {
@@ -32,11 +49,7 @@ const streamTakState = (c: Context) =>
         return Promise.resolve();
       }
       return stream
-        .writeSSE(
-          change.kind === "upsert"
-            ? { event: "upsert", data: JSON.stringify(change.feature) }
-            : { event: "delete", data: JSON.stringify({ id: change.id }) },
-        )
+        .writeSSE(toSSE(change))
         .catch((err) => logger.error({ err }, "tak SSE write failed"))
         .finally(() => {
           unsent--;
@@ -58,6 +71,7 @@ const streamTakState = (c: Context) =>
       event: "snapshot",
       data: JSON.stringify({ enabled: ENV.TAK_ENABLED, items: takState.snapshot() }),
     });
+    await stream.writeSSE(toSSE({ kind: "missions", missions: takState.missions() }));
     for (const change of pending) await send(change);
     live = true;
 
@@ -74,6 +88,7 @@ export const takRoutes = new OpenAPIHono()
   .route("/", new OpenAPIHono().get("/tak/stream", streamTakState))
   .openapi(getTakStateRoute, (c) =>
     c.json({ enabled: ENV.TAK_ENABLED, items: takState.snapshot() }, 200),
-  );
+  )
+  .openapi(getTakMissionsRoute, (c) => c.json(takState.missions(), 200));
 
 export type TakApi = typeof takRoutes;

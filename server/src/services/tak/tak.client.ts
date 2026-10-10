@@ -5,10 +5,11 @@ import tls from "node:tls";
 import { ENV } from "varlock/env";
 import { logger } from "../../lib/logger.ts";
 import { parseCot, splitEvents } from "./cot.ts";
-import type { TakState } from "./tak.state.ts";
+import { parseMissionList, type TakMission, type TakState } from "./tak.state.ts";
 
 const RECONNECT_DELAY_MS = 5000;
 const SWEEP_INTERVAL_MS = 60_000;
+const MISSION_POLL_MS = 30_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_BUFFER_CHARS = 1_000_000;
 const MAX_ARCHIVE_CHARS = 100_000_000;
@@ -61,33 +62,53 @@ const applyAll = (state: TakState, xml: string) => {
   }
 };
 
-const getArchive = (cfg: TakClientConfig, start: Date, end: Date) =>
+/** GET from Marti REST; 404 (TAK's answer for "nothing in range") reads as empty. */
+const getText = (cfg: TakClientConfig, path: string) =>
   new Promise<string>((resolve, reject) => {
-    // Drawings and deletes are only returned with isFiltered=false.
-    const query = new URLSearchParams({
-      start: start.toISOString(),
-      end: end.toISOString(),
-      isFiltered: "false",
-    });
     const req = https.get(
-      { host: cfg.host, port: cfg.apiPort, path: `/Marti/api/cot/sa?${query}`, ...tlsOptions(cfg) },
+      { host: cfg.host, port: cfg.apiPort, path, ...tlsOptions(cfg) },
       (res) => {
         let body = "";
         res.setEncoding("utf8");
         res.on("data", (chunk) => {
           body += chunk;
-          if (body.length > MAX_ARCHIVE_CHARS) req.destroy(new Error("cot/sa response too large"));
+          if (body.length > MAX_ARCHIVE_CHARS)
+            req.destroy(new Error(`${path}: response too large`));
         });
         res.on("end", () => {
           if (res.statusCode === 404) resolve("");
           else if (res.statusCode === 200) resolve(body);
-          else reject(new Error(`cot/sa ${res.statusCode}: ${body.slice(0, 200)}`));
+          else reject(new Error(`${path}: ${res.statusCode} ${body.slice(0, 200)}`));
         });
       },
     );
     req.on("error", reject);
-    req.setTimeout(60_000, () => req.destroy(new Error("cot/sa timed out")));
+    req.setTimeout(60_000, () => req.destroy(new Error(`${path}: timed out`)));
   });
+
+const getArchive = (cfg: TakClientConfig, start: Date, end: Date) => {
+  // Drawings and deletes are only returned with isFiltered=false.
+  const query = new URLSearchParams({
+    start: start.toISOString(),
+    end: end.toISOString(),
+    isFiltered: "false",
+  });
+  return getText(cfg, `/Marti/api/cot/sa?${query}`);
+};
+
+const fetchMissions = async (cfg: TakClientConfig): Promise<TakMission[]> => {
+  const list = parseMissionList(await getText(cfg, "/Marti/api/missions"));
+  return Promise.all(
+    list.map(async (mission) => {
+      const xml = await getText(cfg, `/Marti/api/missions/${encodeURIComponent(mission.name)}/cot`);
+      const items = splitEvents(xml).events.flatMap((event) => {
+        const change = parseCot(event);
+        return change?.kind === "upsert" ? [change.feature] : [];
+      });
+      return { ...mission, items };
+    }),
+  );
+};
 
 /** TAK caps archive queries at 24 h, so long-lived items need one query per day. */
 const backfill = async (cfg: TakClientConfig, state: TakState, isCurrent: () => boolean) => {
@@ -112,6 +133,19 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
   let retry: ReturnType<typeof setTimeout> | undefined;
   let generation = 0;
   const sweeper = setInterval(() => state.sweep(), SWEEP_INTERVAL_MS);
+
+  // Mission (Data Sync) contents only change through REST, so poll them; a push
+  // subscription would mean subscribing to each mission, which is a write.
+  const pollMissions = async () => {
+    try {
+      const missions = await fetchMissions(cfg);
+      if (!stopped) state.setMissions(missions);
+    } catch (err) {
+      logger.warn({ err }, "tak mission poll failed");
+    }
+  };
+  void pollMissions();
+  const missionPoller = setInterval(() => void pollMissions(), MISSION_POLL_MS);
 
   const connect = () => {
     const current = ++generation;
@@ -149,6 +183,7 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
   return () => {
     stopped = true;
     clearInterval(sweeper);
+    clearInterval(missionPoller);
     clearTimeout(retry);
     socket?.destroy();
   };

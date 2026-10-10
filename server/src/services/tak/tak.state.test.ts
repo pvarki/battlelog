@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { CotChange, TakFeature } from "./cot.ts";
-import { createTakState, type TakStateChange } from "./tak.state.ts";
+import { createTakState, parseMissionList, type TakStateChange } from "./tak.state.ts";
 
 const at = (minute: number) => new Date(Date.UTC(2026, 9, 10, 12, minute)).toISOString();
 
@@ -87,5 +87,44 @@ describe("tak state", () => {
     ] as const)
       state.apply(item(id, m));
     expect(ids().sort()).toEqual(["b", "c", "d"]);
+  });
+});
+
+describe("missions", () => {
+  test("setMissions emits only when the list actually changes", () => {
+    const { state, changes } = record();
+    const recon = { name: "RECON", keywords: ["#RECON"], items: [] };
+    state.setMissions([recon]);
+    state.setMissions([{ ...recon }]);
+    expect(changes.filter((c) => c.kind === "missions")).toHaveLength(1);
+    expect(state.missions()).toEqual([recon]);
+  });
+
+  test("parseMissionList keeps named missions and their metadata", () => {
+    const json = JSON.stringify({
+      version: "3",
+      type: "Mission",
+      data: [
+        {
+          name: "RECON",
+          description: "Recon feed",
+          creatorUid: "",
+          createTime: "2026-09-16T15:45:33.021Z",
+          keywords: ["#RECON"],
+          uids: [],
+        },
+        { description: "nameless" },
+      ],
+    });
+    expect(parseMissionList(json)).toEqual([
+      {
+        name: "RECON",
+        description: "Recon feed",
+        creatorUid: undefined,
+        createTime: "2026-09-16T15:45:33.021Z",
+        keywords: ["#RECON"],
+      },
+    ]);
+    expect(parseMissionList("")).toEqual([]);
   });
 });

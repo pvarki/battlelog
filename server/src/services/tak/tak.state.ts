@@ -3,9 +3,42 @@ import { ENV } from "varlock/env";
 import { logger } from "../../lib/logger.ts";
 import type { CotChange, TakFeature } from "./cot.ts";
 
+export type TakMission = {
+  name: string;
+  description?: string;
+  creatorUid?: string;
+  createTime?: string;
+  keywords: string[];
+  items: TakFeature[];
+};
+
+/** Mission metadata from `GET /Marti/api/missions`; contents are fetched separately. */
+export const parseMissionList = (json: string): Omit<TakMission, "items">[] => {
+  if (!json) return [];
+  const data: unknown = JSON.parse(json)?.data;
+  if (!Array.isArray(data)) return [];
+  const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+  return data.flatMap((m) => {
+    const name = str(m?.name);
+    if (!name) return [];
+    return [
+      {
+        name,
+        description: str(m.description),
+        creatorUid: str(m.creatorUid),
+        createTime: str(m.createTime),
+        keywords: Array.isArray(m.keywords)
+          ? m.keywords.filter((k: unknown) => typeof k === "string")
+          : [],
+      },
+    ];
+  });
+};
+
 export type TakStateChange =
   | { kind: "upsert"; feature: TakFeature }
-  | { kind: "delete"; id: string };
+  | { kind: "delete"; id: string }
+  | { kind: "missions"; missions: TakMission[] };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -24,6 +57,7 @@ export const createTakState = ({
   const tombstones = new Map<string, number>();
   const disconnects = new Map<string, number>();
   const listeners = new Set<(change: TakStateChange) => void>();
+  let missions: TakMission[] = [];
 
   const emit = (change: TakStateChange) => {
     for (const listener of listeners) {
@@ -99,9 +133,18 @@ export const createTakState = ({
     }
   };
 
+  /** Replaces the mission list; subscribers hear only actual changes. */
+  const setMissions = (next: TakMission[]) => {
+    if (JSON.stringify(next) === JSON.stringify(missions)) return;
+    missions = next;
+    emit({ kind: "missions", missions });
+  };
+
   return {
     apply,
     sweep,
+    setMissions,
+    missions: () => missions,
     snapshot: () => [...items.values()],
     onChange: (listener: (change: TakStateChange) => void) => {
       listeners.add(listener);

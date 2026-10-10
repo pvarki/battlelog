@@ -1,5 +1,5 @@
 import { forward } from "mgrs";
-import type { TakFeature } from "../../api.ts";
+import type { TakFeature, TakMission } from "../../api.ts";
 import type { Layer } from "./widget.ts";
 
 /** Which toggleable layer a TAK item belongs to. */
@@ -95,3 +95,19 @@ export const contactsOf = (items: TakFeature[], now: number): TakFeature[] =>
         STATUS_ORDER[statusOf(a, now)] - STATUS_ORDER[statusOf(b, now)] ||
         (a.properties.callsign ?? a.id).localeCompare(b.properties.callsign ?? b.id),
     );
+
+/**
+ * Contents of the shown missions, minus items the live stream already has
+ * (a mission marker that is also live would otherwise be drawn twice).
+ */
+export const missionItems = (
+  missions: TakMission[],
+  hiddenMissions: string[],
+  live: TakFeature[],
+): TakFeature[] => {
+  const seen = new Set(live.map((f) => f.id));
+  return missions
+    .filter((m) => !hiddenMissions.includes(m.name))
+    .flatMap((m) => m.items)
+    .filter((f) => !seen.has(f.id) && seen.add(f.id));
+};
