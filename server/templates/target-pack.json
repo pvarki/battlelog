@@ -53,18 +53,27 @@
       "header": "Henkilölistaus",
       "type": "table",
       "data": {
-        "rows": [
-          {
-            "A": "Sukunimi",
-            "B": "Etunimi",
-            "C": "Sukupuoli",
-            "D": "Syntymä- päivä",
-            "E": "Pituus ",
-            "F": "Tuntomerkit",
-            "H": "Toiminta kohdatessa",
-            "__rowHeight": "42"
+        "version": "battlelog-univer/v1",
+        "snapshot": {
+          "sheetOrder": ["main"],
+          "sheets": {
+            "main": {
+              "id": "main",
+              "cellData": {
+                "0": {
+                  "0": { "v": "Sukunimi" },
+                  "1": { "v": "Etunimi" },
+                  "2": { "v": "Sukupuoli" },
+                  "3": { "v": "Syntymä- päivä" },
+                  "4": { "v": "Pituus " },
+                  "5": { "v": "Tuntomerkit" },
+                  "7": { "v": "Toiminta kohdatessa" }
+                }
+              },
+              "rowData": { "0": { "h": 42 } }
+            }
           }
-        ]
+        }
       }
     },
     {
@@ -72,19 +81,28 @@
       "header": "Ajoneuvolistaus",
       "type": "table",
       "data": {
-        "rows": [
-          {
-            "A": "Rekisteri- numero",
-            "B": "Merkki",
-            "C": "Malli",
-            "D": "Väri",
-            "E": "Omistaja",
-            "F": "Tuntomerkit",
-            "G": "Toiminta kohdatessa",
-            "H": "lisätiedot",
-            "__rowHeight": "44"
+        "version": "battlelog-univer/v1",
+        "snapshot": {
+          "sheetOrder": ["main"],
+          "sheets": {
+            "main": {
+              "id": "main",
+              "cellData": {
+                "0": {
+                  "0": { "v": "Rekisteri- numero" },
+                  "1": { "v": "Merkki" },
+                  "2": { "v": "Malli" },
+                  "3": { "v": "Väri" },
+                  "4": { "v": "Omistaja" },
+                  "5": { "v": "Tuntomerkit" },
+                  "6": { "v": "Toiminta kohdatessa" },
+                  "7": { "v": "lisätiedot" }
+                }
+              },
+              "rowData": { "0": { "h": 44 } }
+            }
           }
-        ]
+        }
       }
     }
   ]
