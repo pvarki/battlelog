@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deploymentForHost } from "./matrix.ts";
+import { deploymentForHost, ssoLoginToken } from "./matrix.ts";
 import descriptor, { chatDisplay } from "./widget.ts";
 
 describe("chat widget", () => {
@@ -12,6 +12,16 @@ describe("chat widget", () => {
     expect(deploymentForHost("mtls.battlelog.diverse-labrador.solution.dev.pvarki.fi")).toBe(
       "diverse-labrador.solution.dev.pvarki.fi",
     );
+  });
+
+  it("only accepts a login token from an SSO round trip this tab started", () => {
+    const back = () => new URL("https://b.example/d/1?battlelogSso=abc&loginToken=tok");
+    expect(ssoLoginToken(back(), "abc")).toBe("tok");
+    expect(ssoLoginToken(back(), "other")).toBeUndefined();
+    expect(ssoLoginToken(back(), null)).toBeUndefined();
+    const planted = new URL("https://b.example/d/1?loginToken=tok");
+    expect(ssoLoginToken(planted, "abc")).toBeUndefined();
+    expect(planted.search).toBe("");
   });
 
   it("accepts room ids and rejects aliases", () => {
