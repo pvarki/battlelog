@@ -1,0 +1,132 @@
+{
+  "name": "Air alerts",
+  "widgets": [
+    {
+      "id": "22f31406-4097-4a41-b578-36a794a5a59f",
+      "type": "feed",
+      "config": {
+        "rows": 10,
+        "types": ["form-ilmahalytys"],
+        "columns": [
+          {
+            "id": "91760028-ee77-4317-89ad-8fe2353f1024",
+            "label": "ID",
+            "width": 72,
+            "source": "header",
+            "dataPath": ""
+          },
+          {
+            "id": "a7b08bc9-29c6-47a8-a899-2f099e9a2a35",
+            "label": "Sijainti",
+            "width": 72,
+            "source": "data",
+            "dataPath": "sijainti"
+          },
+          {
+            "id": "e0ec2e11-b1a3-4aa2-aa42-27dc73a72326",
+            "label": "Suunta",
+            "source": "admiralty",
+            "dataPath": "suunta"
+          },
+          {
+            "id": "488065ff-cb7a-4523-9a76-f1e73af952bf",
+            "label": "Nopeus (km/h) ",
+            "width": 101,
+            "source": "data",
+            "dataPath": "nopeus"
+          },
+          {
+            "id": "ccbae127-e9c9-41bf-87ce-f5e4f89cf0fc",
+            "label": "Korkeus",
+            "source": "data",
+            "dataPath": "korkeus"
+          },
+          {
+            "id": "633b608a-18e8-42af-b6e4-0652fdc20d41",
+            "label": "Määrä",
+            "width": 72,
+            "source": "data",
+            "dataPath": "maara"
+          },
+          {
+            "id": "28af4478-6b7d-4ce5-a74e-77a7d123fea4",
+            "label": "Tyyppi",
+            "source": "data",
+            "dataPath": "tyyppi"
+          }
+        ]
+      },
+      "layout": { "h": 10, "w": 18, "x": 0, "y": 0 }
+    },
+    {
+      "id": "1bc83808-6939-4ea4-96be-5b4e6333b9cc",
+      "type": "form",
+      "config": {
+        "title": "Ilmahälytys",
+        "fields": [
+          {
+            "id": "32195bdd-d329-4359-afcc-f418f8cb7618",
+            "kind": "event",
+            "field": "header",
+            "label": "ID",
+            "required": true
+          },
+          {
+            "id": "1f01d6ad-3482-4f58-a781-9967c5df5535",
+            "kind": "data",
+            "input": "text",
+            "label": "Sijainti",
+            "options": []
+          },
+          {
+            "id": "9fc30219-2ae8-42c9-a2b6-d718cb9a9713",
+            "key": "",
+            "kind": "data",
+            "input": "text",
+            "label": "Suunta",
+            "options": []
+          },
+          {
+            "id": "40cd8b60-34ba-4d3f-af51-da00d46f7607",
+            "key": "nopeus",
+            "kind": "data",
+            "input": "number",
+            "label": "Nopeus (km/h)",
+            "options": []
+          },
+          {
+            "id": "723de224-6709-452e-94ef-9f7ce89cab78",
+            "kind": "data",
+            "input": "select",
+            "label": "Korkeus",
+            "options": ["SURFACE (<300m)", "LOW (300-3000m)", "HIGH (>3000m)"]
+          },
+          {
+            "id": "de78de82-ef3e-4c73-8505-53af36f93e3f",
+            "key": "maara",
+            "kind": "data",
+            "input": "number",
+            "label": "Määrä",
+            "options": []
+          },
+          {
+            "id": "d5e9311c-b3f3-4784-a20d-08b131abdf71",
+            "kind": "data",
+            "input": "select",
+            "label": "Tyyppi",
+            "options": [
+              "Hyökkäys lentokone",
+              "hävittäjä",
+              "pommittaja",
+              "tiedustelukone",
+              "kuljetuskone",
+              "helikopteri"
+            ]
+          }
+        ],
+        "reportType": "ilmahalytys"
+      },
+      "layout": { "h": 10, "w": 8, "x": 18, "y": 0 }
+    }
+  ]
+}

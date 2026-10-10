@@ -1,7 +1,9 @@
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "react-grid-layout/css/styles.css";
 import "@fontsource-variable/inter";
+import "dayjs/locale/fi";
 import "./global.css";
 import { registerSW } from "virtual:pwa-register";
 import { MantineProvider } from "@mantine/core";

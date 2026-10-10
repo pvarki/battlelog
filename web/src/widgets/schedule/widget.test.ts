@@ -1,5 +1,12 @@
 import { expect, test } from "vitest";
-import descriptor, { formatDelta, headerFor, parseTimers, type ScheduleTimer } from "./widget.ts";
+import descriptor, {
+  formatDelta,
+  headerFor,
+  nextTarget,
+  parseTimers,
+  type ScheduleTimer,
+  todayAtTime,
+} from "./widget.ts";
 
 test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
@@ -17,7 +24,12 @@ test("parseTimers tolerates foreign or malformed event data", () => {
   expect(parseTimers({ items: [] })).toEqual([]);
   expect(parseTimers({ timers: [{ id: "1", label: "x", target: "not-a-date" }] })).toEqual([]);
   const timers: ScheduleTimer[] = [
-    { id: "1", label: "SITREP", target: "2026-08-22T14:30:00.000Z" },
+    {
+      id: "1",
+      label: "SITREP",
+      description: "Provide an operational update.",
+      target: "2026-08-22T14:30:00.000Z",
+    },
   ];
   expect(parseTimers({ timers })).toEqual(timers);
 });
@@ -48,4 +60,20 @@ test("formatDelta prefixes days past 24h", () => {
 test("formatDelta truncates sub-second remainders and clamps negatives", () => {
   expect(formatDelta(999)).toBe("00:00:00");
   expect(formatDelta(-5_000)).toBe("00:00:00");
+});
+
+test("recurring timer advances to tomorrow after today's time has passed", () => {
+  const now = new Date(2026, 9, 10, 10, 0).getTime();
+  const timer: ScheduleTimer = {
+    id: "1",
+    label: "SITREP",
+    target: new Date(2026, 9, 1, 8, 30).toISOString(),
+    recurring: true,
+  };
+  expect(nextTarget(timer, now)).toEqual(new Date(2026, 9, 11, 8, 30));
+});
+
+test("todayAtTime parses a local time without a date", () => {
+  expect(todayAtTime("14:05", new Date(2026, 9, 10, 9, 0))).toEqual(new Date(2026, 9, 10, 14, 5));
+  expect(todayAtTime("24:00")).toBeUndefined();
 });
