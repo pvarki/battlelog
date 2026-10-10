@@ -29,7 +29,13 @@ const eventFieldsSchema = z.object({
 export const createEventRequestSchema = eventFieldsSchema.openapi("CreateEventRequest");
 export type CreateEventRequest = z.infer<typeof createEventRequestSchema>;
 
-export const updateEventRequestSchema = eventFieldsSchema.partial().openapi("UpdateEventRequest");
+export const updateEventRequestSchema = eventFieldsSchema
+  .partial()
+  .extend({
+    /** Row id of the version this edit started from; 409 if another version superseded it. */
+    baseId: z.string().uuid().optional(),
+  })
+  .openapi("UpdateEventRequest");
 export type UpdateEventRequest = z.infer<typeof updateEventRequestSchema>;
 
 export const eventResponseSchema = z
