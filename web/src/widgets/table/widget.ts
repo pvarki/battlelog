@@ -88,7 +88,10 @@ export const widgetDocument: WidgetDocumentDescriptor<TableConfig, TableDoc> = {
   empty: emptyTableDocument(),
   parse: parseTableDocument,
   headerFor: (config) => config.title?.trim() || "Table",
-  debounceMs: 6000,
+  // A table change normally settles shortly after the user leaves the cell.
+  // Keep the UI responsive and coalesce rapid edits without making users wait
+  // a full six seconds before the event is written.
+  debounceMs: 2000,
 };
 
 export const descriptor: WidgetDescriptor<TableConfig> = {

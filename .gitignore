@@ -36,6 +36,7 @@ node_modules/
 .npm
 .eslintcache
 .stylelintcache
+.playwright-mcp/
 
 # dotenv environment variable files
 .env

@@ -1,16 +1,17 @@
 import "@univerjs/preset-sheets-core/lib/index.css";
+import "./univer.css";
 
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
 import UniverPresetSheetsCoreEnUS from "@univerjs/preset-sheets-core/locales/en-US";
 import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
 
 // The core preset does not include pictures or charts. These entries remove
-// structural spreadsheet actions from the remaining contextual UI, while
-// keeping normal cut/copy/paste available.
+// structural spreadsheet actions from the remaining contextual UI. Clipboard
+// shortcuts and the context menu remain available.
 const TABLE_MENU = {
   // Keep the basic font controls, but omit Excel's number-format ribbon,
-  // layout/colour tools, and large formula catalogue. Formulas remain
-  // available by typing `=` into a cell or the formula bar.
+  // layout/colour tools, large formula catalogue, and collaboration tools.
+  // Formulas remain available by typing `=` into a cell or the formula bar.
   "sheet.operation.open.numfmt.panel": { hidden: true },
   "sheet.command.numfmt.set.percent": { hidden: true },
   "sheet.command.numfmt.set.currency": { hidden: true },
@@ -41,6 +42,13 @@ const TABLE_MENU = {
   "sheet.command.remove-worksheet-merge": { hidden: true },
   "sheet.command.toggle-gridlines": { hidden: true },
   "base-ui.operation.toggle-fullscreen": { hidden: true },
+  "sheet.menu.paste": { hidden: true },
+  // These occupy a separate top-right toolbar group. The table is local to a
+  // dashboard, so range protection and the shortcut reference panel add
+  // visual weight without a useful action here.
+  "sheet.command.add-range-protection-from-toolbar": { hidden: true },
+  "base-ui.operation.toggle-shortcut-panel": { hidden: true },
+  "ui.operation.open-feature-search": { hidden: true },
   "sheet.command.insert-row": { hidden: true },
   "sheet.command.insert-row-before": { hidden: true },
   "sheet.command.insert-row-after": { hidden: true },
@@ -110,6 +118,10 @@ const availableTableFonts = () => {
  * of the normal dashboard payload or its service-worker app shell.
  */
 export const createTableUniver = (container: HTMLElement, snapshot: unknown) => {
+  // Scope table-specific Univer adjustments so they cannot affect another
+  // spreadsheet instance added elsewhere in the application.
+  container.classList.add("table-univer");
+
   const { univer, univerAPI } = createUniver({
     locale: LocaleType.EN_US,
     locales: {
@@ -132,6 +144,11 @@ export const createTableUniver = (container: HTMLElement, snapshot: unknown) => 
       }),
     ],
   });
+
+  // The core preset installs its menu items while it boots. Apply the table
+  // overrides once more after that registration so these items are removed
+  // from the toolbar rather than merely inheriting a disabled state.
+  univerAPI.updateMenuConfig(TABLE_MENU);
 
   const workbook = univerAPI.createWorkbook(
     snapshot as Parameters<typeof univerAPI.createWorkbook>[0],
