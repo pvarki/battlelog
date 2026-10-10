@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
@@ -163,12 +164,15 @@ const ScheduleView = ({
               <NumberInput label="Minutes" min={0} value={minutes} onChange={setMinutes} />
             </Group>
           ) : (
-            <TextInput
+            <DateTimePicker
               label="Target time"
               description="Interpreted in this device's local time."
-              type="datetime-local"
-              value={at}
-              onChange={(e) => setAt(e.currentTarget.value)}
+              placeholder="Select date and time"
+              locale="fi"
+              value={at ? at.replace("T", " ") : null}
+              valueFormat="DD.MM.YYYY HH:mm"
+              timePickerProps={{ minutesStep: 5 }}
+              onChange={(next) => setAt(next?.replace(" ", "T") ?? "")}
             />
           )}
           <Text c="dimmed" fz="sm">
