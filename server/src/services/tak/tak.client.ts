@@ -5,12 +5,17 @@ import tls from "node:tls";
 import { ENV } from "varlock/env";
 import { logger } from "../../lib/logger.ts";
 import { parseCot, splitEvents } from "./cot.ts";
-import { parseMissionList, type TakMission, type TakState } from "./tak.state.ts";
+import { createTakState, DAY_MS, type TakState } from "./tak.state.ts";
+import { backfill, type GetText, pollMissions } from "./tak.sync.ts";
+
+/** Process-wide TAK picture, fed by the TAK client and read by the API. */
+export const takState = createTakState({
+  log: logger,
+  markRetentionMs: (ENV.TAK_BACKFILL_DAYS + 1) * DAY_MS,
+});
 
 const RECONNECT_DELAY_MS = 5000;
 const SWEEP_INTERVAL_MS = 60_000;
-const MISSION_POLL_MS = 30_000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_BUFFER_CHARS = 1_000_000;
 const MAX_ARCHIVE_CHARS = 100_000_000;
 
@@ -55,86 +60,31 @@ const tlsOptions = (cfg: TakClientConfig) => ({
   allowPartialTrustChain: true,
 });
 
-const applyAll = (state: TakState, xml: string) => {
-  for (const event of splitEvents(xml).events) {
-    const change = parseCot(event);
-    if (change) state.apply(change);
-  }
-};
-
 /** GET from Marti REST; 404 (TAK's answer for "nothing in range") reads as empty. */
-const getText = (cfg: TakClientConfig, path: string) =>
-  new Promise<string>((resolve, reject) => {
-    const req = https.get(
-      { host: cfg.host, port: cfg.apiPort, path, ...tlsOptions(cfg) },
-      (res) => {
-        let body = "";
-        res.setEncoding("utf8");
-        res.on("data", (chunk) => {
-          body += chunk;
-          if (body.length > MAX_ARCHIVE_CHARS)
-            req.destroy(new Error(`${path}: response too large`));
-        });
-        res.on("end", () => {
-          if (res.statusCode === 404) resolve("");
-          else if (res.statusCode === 200) resolve(body);
-          else reject(new Error(`${path}: ${res.statusCode} ${body.slice(0, 200)}`));
-        });
-      },
-    );
-    req.on("error", reject);
-    req.setTimeout(60_000, () => req.destroy(new Error(`${path}: timed out`)));
-  });
-
-const getArchive = (cfg: TakClientConfig, start: Date, end: Date) => {
-  // Drawings and deletes are only returned with isFiltered=false.
-  const query = new URLSearchParams({
-    start: start.toISOString(),
-    end: end.toISOString(),
-    isFiltered: "false",
-  });
-  return getText(cfg, `/Marti/api/cot/sa?${query}`);
-};
-
-const fetchMissions = async (cfg: TakClientConfig): Promise<TakMission[]> => {
-  const list = parseMissionList(await getText(cfg, "/Marti/api/missions"));
-  const missions = await Promise.all(
-    list.map(async (mission) => {
-      try {
-        const xml = await getText(
-          cfg,
-          `/Marti/api/missions/${encodeURIComponent(mission.name)}/cot`,
-        );
-        const items = splitEvents(xml).events.flatMap((event) => {
-          const change = parseCot(event);
-          return change?.kind === "upsert" ? [change.feature] : [];
-        });
-        return { ...mission, readable: true, items };
-      } catch (err) {
-        // A password-protected or restricted mission must not hide all the others.
-        logger.warn({ err, mission: mission.name }, "tak mission contents unavailable");
-        return { ...mission, readable: false, items: [] };
-      }
-    }),
-  );
-  return missions;
-};
-
-/** TAK caps archive queries at 24 h, so long-lived items need one query per day. */
-const backfill = async (cfg: TakClientConfig, state: TakState, isCurrent: () => boolean) => {
-  const now = Date.now();
-  for (let day = cfg.backfillDays; day > 0 && isCurrent(); day--) {
-    const start = new Date(now - day * DAY_MS);
-    const end = new Date(now - (day - 1) * DAY_MS);
-    try {
-      const xml = await getArchive(cfg, start, end);
-      if (isCurrent()) applyAll(state, xml);
-    } catch (err) {
-      logger.warn({ err, start }, "tak backfill window failed");
-    }
-  }
-  logger.info({ items: state.snapshot().length }, "tak backfill done");
-};
+const httpsGetText =
+  (cfg: TakClientConfig): GetText =>
+  (path) =>
+    new Promise<string>((resolve, reject) => {
+      const req = https.get(
+        { host: cfg.host, port: cfg.apiPort, path, ...tlsOptions(cfg) },
+        (res) => {
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            body += chunk;
+            if (body.length > MAX_ARCHIVE_CHARS)
+              req.destroy(new Error(`${path}: response too large`));
+          });
+          res.on("end", () => {
+            if (res.statusCode === 404) resolve("");
+            else if (res.statusCode === 200) resolve(body);
+            else reject(new Error(`${path}: ${res.statusCode} ${body.slice(0, 200)}`));
+          });
+        },
+      );
+      req.on("error", reject);
+      req.setTimeout(60_000, () => req.destroy(new Error(`${path}: timed out`)));
+    });
 
 /** Follows TAK's live CoT stream into `state`. Read-only: never writes CoT. */
 export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => void) => {
@@ -144,21 +94,8 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
   let generation = 0;
   const sweeper = setInterval(() => state.sweep(), SWEEP_INTERVAL_MS);
 
-  // Mission (Data Sync) contents only change through REST, so poll them; a push
-  // subscription would mean subscribing to each mission, which is a write.
-  // Each poll is scheduled only after the previous one settles, so a slow TAK
-  // can't stack requests or let an older answer overwrite a newer one.
-  let missionTimer: ReturnType<typeof setTimeout> | undefined;
-  const pollMissions = async () => {
-    try {
-      const missions = await fetchMissions(cfg);
-      if (!stopped) state.setMissions(missions);
-    } catch (err) {
-      logger.warn({ err }, "tak mission poll failed");
-    }
-    if (!stopped) missionTimer = setTimeout(() => void pollMissions(), MISSION_POLL_MS);
-  };
-  void pollMissions();
+  const getText = httpsGetText(cfg);
+  const stopMissions = pollMissions(getText, state, logger);
 
   const connect = () => {
     const current = ++generation;
@@ -166,7 +103,7 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
     let buffer = "";
     const s = tls.connect({ host: cfg.host, port: cfg.streamPort, ...tlsOptions(cfg) }, () => {
       logger.info({ host: cfg.host }, "tak stream connected");
-      void backfill(cfg, state, isCurrent);
+      void backfill({ getText, state, days: cfg.backfillDays, isCurrent, log: logger });
     });
     socket = s;
     s.setEncoding("utf8");
@@ -196,7 +133,7 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
   return () => {
     stopped = true;
     clearInterval(sweeper);
-    clearTimeout(missionTimer);
+    stopMissions();
     clearTimeout(retry);
     socket?.destroy();
   };

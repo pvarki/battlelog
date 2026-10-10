@@ -3,7 +3,7 @@ import { ENV } from "varlock/env";
 import { describe, expect, test } from "vitest";
 import { createApp } from "../../app.ts";
 import type { CotChange } from "../../services/tak/cot.ts";
-import { takState } from "../../services/tak/tak.state.ts";
+import { takState } from "../../services/tak/tak.client.ts";
 
 const app = createApp();
 

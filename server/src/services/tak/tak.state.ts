@@ -1,7 +1,19 @@
-import "varlock/auto-load";
-import { ENV } from "varlock/env";
-import { logger } from "../../lib/logger.ts";
 import type { CotChange, TakFeature } from "./cot.ts";
+
+// Runs in the browser too (direct-to-TAK mode): no Node or server imports here.
+
+/** pino's `(data, msg)` shape; the server passes its logger, the browser the console. */
+export type TakLog = {
+  info(data: object, msg: string): void;
+  warn(data: object, msg: string): void;
+  error(data: object, msg: string): void;
+};
+
+export const consoleLog: TakLog = {
+  info: (data, msg) => console.info(msg, data),
+  warn: (data, msg) => console.warn(msg, data),
+  error: (data, msg) => console.error(msg, data),
+};
 
 export type TakMission = {
   name: string;
@@ -42,7 +54,7 @@ export type TakStateChange =
   | { kind: "delete"; id: string }
   | { kind: "missions"; missions: TakMission[] };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Current TAK map picture, keyed by CoT uid. Live stream and archive backfill
@@ -54,6 +66,12 @@ export const createTakState = ({
   staleGraceMs = DAY_MS,
   /** Delete/offline marks must outlive the archive replay, or a reconnect resurrects deleted items. */
   markRetentionMs = 8 * DAY_MS,
+  log = consoleLog,
+}: {
+  maxItems?: number;
+  staleGraceMs?: number;
+  markRetentionMs?: number;
+  log?: TakLog;
 } = {}) => {
   const items = new Map<string, TakFeature>();
   const tombstones = new Map<string, number>();
@@ -67,7 +85,7 @@ export const createTakState = ({
       try {
         listener(change);
       } catch (err) {
-        logger.error({ err }, "tak state subscriber threw");
+        log.error({ err }, "tak state subscriber threw");
       }
     }
   };
@@ -83,7 +101,7 @@ export const createTakState = ({
       if (!oldest || Date.parse(f.properties.time) < Date.parse(oldest.properties.time)) oldest = f;
     }
     if (!oldest) return;
-    logger.warn({ id: oldest.id, maxItems }, "tak state full, evicting oldest item");
+    log.warn({ id: oldest.id, maxItems }, "tak state full, evicting oldest item");
     remove(oldest.id);
   };
 
@@ -162,6 +180,3 @@ export const createTakState = ({
 };
 
 export type TakState = ReturnType<typeof createTakState>;
-
-/** Process-wide TAK picture, fed by the TAK client and read by the API. */
-export const takState = createTakState({ markRetentionMs: (ENV.TAK_BACKFILL_DAYS + 1) * DAY_MS });

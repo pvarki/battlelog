@@ -4,7 +4,8 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import { ENV } from "varlock/env";
 import { logger } from "../../lib/logger.ts";
-import { type TakStateChange, takState } from "../../services/tak/tak.state.ts";
+import { takState } from "../../services/tak/tak.client.ts";
+import type { TakStateChange } from "../../services/tak/tak.state.ts";
 import { takMissionSchema, takStateResponseSchema } from "./tak.apiSchema.ts";
 
 export const getTakStateRoute = createRoute({

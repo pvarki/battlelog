@@ -6,8 +6,7 @@ import { runMigrations } from "./db/migrate.ts";
 import { seedTemplates } from "./db/seed-templates.ts";
 import { logger } from "./lib/logger.ts";
 import { startEventsListener } from "./services/events/events.listener.ts";
-import { startTakClient, takConfigFromEnv } from "./services/tak/tak.client.ts";
-import { takState } from "./services/tak/tak.state.ts";
+import { startTakClient, takConfigFromEnv, takState } from "./services/tak/tak.client.ts";
 
 const main = async () => {
   await runMigrations();
