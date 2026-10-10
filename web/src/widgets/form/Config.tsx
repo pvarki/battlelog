@@ -78,6 +78,12 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
           })
         }
       />
+      <Checkbox
+        label="Allow editing"
+        description="Clicking one of this form's events in a feed loads it here for editing"
+        checked={config.allowEdit ?? false}
+        onChange={(e) => onChange({ ...config, allowEdit: e.currentTarget.checked || undefined })}
+      />
 
       {config.fields.map((field, index) => (
         <Paper key={field.id} withBorder p="xs">

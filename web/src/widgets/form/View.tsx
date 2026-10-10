@@ -72,7 +72,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: startOver is new every render; only a new selection should refetch
   useEffect(() => {
     setOffered(null);
-    if (!selectedId || selectedId === editingId.current) return;
+    if (!config.allowEdit || !selectedId || selectedId === editingId.current) return;
     let alive = true;
     void (async () => {
       try {
@@ -91,7 +91,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     return () => {
       alive = false;
     };
-  }, [selectedId, eventType]);
+  }, [selectedId, eventType, config.allowEdit]);
 
   const set = (id: string, v: unknown) => {
     dirty.current = true;
