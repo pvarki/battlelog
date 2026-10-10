@@ -11,6 +11,7 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api } from "../../api.ts";
@@ -195,11 +196,14 @@ const FieldInput = ({
     case "eventTime":
       return (
         <Stack gap={4}>
-          <TextInput
+          <DateTimePicker
             {...common}
-            type="datetime-local"
-            value={(value as string) ?? ""}
-            onChange={(e) => onChange(e.currentTarget.value)}
+            placeholder="Select date and time"
+            locale="fi"
+            value={typeof value === "string" && value ? value.replace("T", " ") : null}
+            valueFormat="DD.MM.YYYY HH:mm"
+            timePickerProps={{ minutesStep: 5 }}
+            onChange={(next) => onChange(next?.replace(" ", "T") ?? undefined)}
           />
           <Button
             size="compact-xs"
