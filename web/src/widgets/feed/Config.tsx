@@ -7,6 +7,7 @@ import {
   Select,
   Stack,
   TagsInput,
+  Text,
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
@@ -16,6 +17,7 @@ import {
   columnWidth,
   type FeedColumn,
   type FeedConfig,
+  type FeedDataFilter,
   FIELD_LABEL,
   FIELDS,
   labelFor,
@@ -32,6 +34,11 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
   const setColumns = (columns: FeedColumn[]) => onChange({ ...config, columns });
   const setColumn = (id: string, patch: Partial<FeedColumn>) =>
     setColumns(config.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const dataFilters = config.dataFilters ?? [];
+  const setDataFilters = (next: FeedDataFilter[]) =>
+    onChange({ ...config, dataFilters: next.length ? next : undefined });
+  const setDataFilter = (id: string, patch: Partial<FeedDataFilter>) =>
+    setDataFilters(dataFilters.map((f) => (f.id === id ? { ...f, ...patch } : f)));
 
   return (
     <Stack>
@@ -42,6 +49,56 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
         value={config.types ?? []}
         onChange={(v) => onChange({ ...config, types: v.length ? v : undefined })}
       />
+      {config.types?.length ? (
+        <Stack gap="xs">
+          {dataFilters.map((f) => (
+            <Group key={f.id} wrap="nowrap" align="flex-end">
+              <TextInput
+                label="Data path"
+                size="xs"
+                style={{ flex: 1 }}
+                placeholder="e.g. status"
+                maxLength={200}
+                value={f.path}
+                onChange={(e) => setDataFilter(f.id, { path: e.currentTarget.value })}
+              />
+              <TextInput
+                label="Equals"
+                size="xs"
+                style={{ flex: 1 }}
+                placeholder="e.g. inside"
+                maxLength={200}
+                value={f.value}
+                onChange={(e) => setDataFilter(f.id, { value: e.currentTarget.value })}
+              />
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label="Remove data filter"
+                onClick={() => setDataFilters(dataFilters.filter((x) => x.id !== f.id))}
+              >
+                <IconX size={18} stroke={1.5} />
+              </ActionIcon>
+            </Group>
+          ))}
+          <Button
+            size="compact-xs"
+            variant="light"
+            disabled={dataFilters.length >= 10}
+            onClick={() =>
+              setDataFilters([...dataFilters, { id: crypto.randomUUID(), path: "", value: "" }])
+            }
+          >
+            + Data filter
+          </Button>
+        </Stack>
+      ) : (
+        dataFilters.length > 0 && (
+          <Text fz="xs" c="dimmed">
+            Data filters are paused until at least one type is set.
+          </Text>
+        )
+      )}
       <TagsInput
         label="Tags"
         description="Events carrying any of these tags; empty = all"
