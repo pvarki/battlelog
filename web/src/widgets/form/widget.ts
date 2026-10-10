@@ -30,6 +30,8 @@ const eventFieldSchema = z.object({
   label: z.string().max(60).optional(),
   description: z.string().max(200).optional(),
   required: z.boolean().optional(),
+  /** Hides the quick-fill button for an event-time field. */
+  hideNowButton: z.boolean().optional(),
 });
 
 // Empty strings are allowed in label/key/value/reportType: the config editor
