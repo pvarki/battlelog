@@ -14,3 +14,15 @@ export const formatShortDateTime = (iso: string): string => {
   const d = new Date(iso);
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}. ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+
+/** Clock time only: `14:35`. */
+export const formatClockTime = (iso: string): string => {
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** Date only: `22.08.2026`. */
+export const formatDate = (iso: string): string => {
+  const d = new Date(iso);
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+};
