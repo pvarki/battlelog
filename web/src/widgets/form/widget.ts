@@ -77,6 +77,8 @@ const configSchema = z
      */
     reportType: z.string().max(40).default("report"),
     submitLabel: z.string().max(40).optional(),
+    /** Load this form's events for editing when a feed row selects one. */
+    allowEdit: z.boolean().optional(),
     fields: z.array(fieldSchema).max(30).default([]),
   })
   .strict();

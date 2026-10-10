@@ -18,6 +18,7 @@ test("a full form config validates", () => {
     title: "Spot report",
     reportType: "spotrep",
     submitLabel: "Send",
+    allowEdit: true,
     fields: [
       { id: "f1", kind: "event", field: "header", required: true },
       { id: "f2", kind: "event", field: "eventTime" },
