@@ -45,11 +45,14 @@ export const createEvent = async (input: CreateEventInput): Promise<EventRow> =>
  * head, applies `patch`, and inserts a new row with `updateFor = head.id`.
  * Linear-history is enforced at the DB by the unique constraint on
  * `update_for` — concurrent updates throw {@link ConcurrentUpdateError}.
+ * `baseId` widens that to the whole edit session: the version the caller
+ * loaded must still be the head, or the update is rejected the same way.
  */
 export const updateEvent = async (
   eventId: string,
   patch: UpdateEventPatch,
   updatedBy: string,
+  baseId?: string,
 ): Promise<EventRow | null> => {
   try {
     return await db.transaction(async (tx) => {
@@ -58,6 +61,7 @@ export const updateEvent = async (
         .from(events)
         .where(and(eq(events.eventId, eventId), isHead));
       if (!head) return null;
+      if (baseId && head.id !== baseId) throw new ConcurrentUpdateError(eventId);
 
       const next: EventInsert = {
         ...head,
