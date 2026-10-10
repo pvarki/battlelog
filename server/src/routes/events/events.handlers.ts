@@ -16,6 +16,8 @@ import {
   updateEvent,
 } from "../../services/events/events.service.ts";
 import {
+  DATA_NEEDS_TYPES,
+  dataFilterWithoutTypes,
   eventsQuerySchema,
   queryToFilter,
   toApiEvent,
@@ -62,7 +64,9 @@ export const getEventHandler: RouteHandler<typeof getEventRoute> = async (c) => 
 };
 
 export const listEventsHandler: RouteHandler<typeof listEventsRoute> = async (c) => {
-  const filter = queryToFilter(c.req.valid("query"));
+  const query = c.req.valid("query");
+  if (dataFilterWithoutTypes(query)) return c.json({ error: DATA_NEEDS_TYPES }, 400);
+  const filter = queryToFilter(query);
   const rows = await listEvents(filter);
   return c.json(rows.map(toApiEvent), 200);
 };
@@ -70,6 +74,7 @@ export const listEventsHandler: RouteHandler<typeof listEventsRoute> = async (c)
 export const streamNewEvents = (c: Context) => {
   const parsed = eventsQuerySchema.safeParse(c.req.query());
   if (!parsed.success) return c.json({ error: "Invalid input format" }, 400);
+  if (dataFilterWithoutTypes(parsed.data)) return c.json({ error: DATA_NEEDS_TYPES }, 400);
   const filter = queryToFilter(parsed.data);
 
   // EventSource sends the last received SSE id on reconnect; replay what was

@@ -88,6 +88,24 @@ describe.runIf(dbUp)("events HTTP contract", () => {
     expect(page2.map((e: { id: string }) => e.id)).toEqual([ids[0]]);
   });
 
+  test("data filter: needs types, matches exact values", async () => {
+    const res = await app.request("/api/v1/events", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ header: "presence", type: runId, data: { status: "inside" } }),
+    });
+    expect(res.status).toBe(201);
+    const q = (data: unknown, types?: string) =>
+      app.request(
+        `/api/v1/events?${new URLSearchParams({ data: JSON.stringify(data), ...(types ? { types } : {}) })}`,
+      );
+
+    expect((await q({ status: "inside" })).status).toBe(400);
+    expect(await (await q({ status: "inside" }, runId)).json()).toHaveLength(1);
+    expect(await (await q({ status: "left" }, runId)).json()).toHaveLength(0);
+    expect((await app.request(`/api/v1/events?types=${runId}&data=nope`)).status).toBe(400);
+  });
+
   test("unknown eventId → 404", async () => {
     const res = await app.request(`/api/v1/events/${uuidv7()}`);
     expect(res.status).toBe(404);
