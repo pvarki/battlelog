@@ -1,0 +1,125 @@
+{
+  "name": "Ajoneuvo suunnittelu",
+  "widgets": [
+    {
+      "id": "fdedd9f6-688b-4029-b7b4-e211c4d0e0c0",
+      "type": "table",
+      "config": {
+        "title": "Ajoneuvot",
+        "columns": [
+          { "id": "A", "kind": "text", "label": "A" },
+          { "id": "B", "kind": "text", "label": "B" },
+          { "id": "C", "kind": "text", "label": "C" },
+          { "id": "D", "kind": "text", "label": "D" },
+          { "id": "E", "kind": "text", "label": "E" },
+          { "id": "F", "kind": "text", "label": "F" },
+          { "id": "G", "kind": "text", "label": "G" },
+          { "id": "H", "kind": "text", "label": "H" },
+          { "id": "I", "kind": "text", "label": "I" },
+          { "id": "J", "kind": "text", "label": "J" },
+          { "id": "K", "kind": "text", "label": "K" },
+          { "id": "L", "kind": "text", "label": "L" }
+        ],
+        "rowCount": 30,
+        "columnCount": 12,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": { "h": 24, "w": 26, "x": 22, "y": 0 }
+    },
+    {
+      "id": "789940fe-e7b0-4d12-89a5-b244b6e2253c",
+      "type": "form",
+      "config": {
+        "title": "Kirjaa ajokäsky",
+        "fields": [
+          {
+            "id": "e721d8f5-1a69-44e7-9744-3608e7c5256a",
+            "key": "Ajoneuvot_rekisterinumero",
+            "kind": "data",
+            "input": "text",
+            "label": "Rekisterinumero",
+            "options": [],
+            "required": true,
+            "description": ""
+          },
+          {
+            "id": "73a053e9-4d1d-487e-8167-dacd6a26c4d9",
+            "key": "Ajoneuvot_lasti",
+            "kind": "data",
+            "input": "text",
+            "label": "Lasti",
+            "options": []
+          },
+          {
+            "id": "c3229963-46ba-48ac-aec1-19f6b26ca3b3",
+            "kind": "event",
+            "field": "eventTime",
+            "label": "Aika"
+          },
+          {
+            "id": "c4cc7714-63e5-4beb-8db2-bfd619451917",
+            "key": "Ajoneuvot_kohde",
+            "kind": "data",
+            "input": "text",
+            "label": "Kohde",
+            "options": []
+          },
+          {
+            "id": "69036bef-3e0c-4d34-af3c-51cb0808fea4",
+            "key": "Ajoneuvot_toimija",
+            "kind": "data",
+            "input": "text",
+            "label": "Toimija",
+            "options": []
+          }
+        ],
+        "reportType": "Ajoneuvot"
+      },
+      "layout": { "h": 13, "w": 7, "x": 15, "y": 11 }
+    },
+    {
+      "id": "5f51d702-dc86-4301-97ad-ebe6103005ae",
+      "type": "feed",
+      "config": {
+        "rows": 10,
+        "title": "Ajokäskyt",
+        "types": ["form-Ajoneuvot"],
+        "columns": [
+          {
+            "id": "time",
+            "label": "Toimija",
+            "source": "data",
+            "dataPath": "Ajoneuvot_toimija"
+          },
+          {
+            "id": "header",
+            "label": "Kohde",
+            "source": "data",
+            "dataPath": "Ajoneuvot_kohde"
+          },
+          {
+            "id": "type",
+            "label": "Aika",
+            "source": "time",
+            "dataPath": ""
+          },
+          {
+            "id": "c0f5ba65-1906-410f-8359-cd31ca8b3ebd",
+            "label": "Lasti",
+            "source": "data",
+            "dataPath": "Ajoneuvot_lasti"
+          },
+          {
+            "id": "57c8bc87-a044-4e73-b974-590a6abbadfa",
+            "label": "Rekisterinumero",
+            "width": 117,
+            "source": "data",
+            "dataPath": "Ajoneuvot_rekisterinumero"
+          }
+        ]
+      },
+      "layout": { "h": 13, "w": 15, "x": 0, "y": 11 }
+    }
+  ]
+}
