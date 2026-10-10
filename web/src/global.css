@@ -97,3 +97,29 @@
     font-size: min(calc(100vw / 120), 32px);
   }
 }
+
+/* Chat message actions (react, reply) appear on hover or keyboard focus only,
+ * so a busy room doesn't render a toolbar on every line. */
+.chat-message {
+  position: relative;
+  border-radius: 4px;
+}
+
+.chat-message:hover {
+  background-color: var(--mantine-color-dark-6);
+}
+
+.chat-message .chat-actions {
+  opacity: 0;
+}
+
+.chat-message:hover .chat-actions,
+.chat-message .chat-actions:focus-within,
+.chat-message .chat-actions:has([data-open]) {
+  opacity: 1;
+}
+
+.chat-message[data-mentioned] {
+  background-color: color-mix(in srgb, var(--mantine-color-yellow-9) 25%, transparent);
+  box-shadow: inset 3px 0 var(--mantine-color-yellow-5);
+}

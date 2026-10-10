@@ -60,6 +60,8 @@ All runtime config flows through [varlock](https://varlock.dev/) and is declared
 - `RM_API_ENABLED` + `RM_MTLS_*` — opt-in Rasenmaeher (RM) integration with mTLS
 - `OTEL_EXPORTER_OTLP_ENDPOINT` — when set, boots the OTel SDK in prod
 
+The web app has one build-time knob, for local dev only: `VITE_PVARKI_DEPLOYMENT` in `web/.env.local` names the PVARKI deployment to talk to (e.g. `diverse-labrador.solution.dev.pvarki.fi`; the chat widget then uses `https://synapse.<deployment>`). Deployed, it's derived from BattleLog's own hostname. See `web/.env.example`.
+
 ## Tech stack
 
 Hono · `@hono/zod-openapi` · Drizzle · Postgres + PostGIS · Zod · pino · OpenTelemetry · varlock · Biome · Vitest · React · Vite · TanStack Router · Mantine
