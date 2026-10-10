@@ -98,16 +98,26 @@ const getArchive = (cfg: TakClientConfig, start: Date, end: Date) => {
 
 const fetchMissions = async (cfg: TakClientConfig): Promise<TakMission[]> => {
   const list = parseMissionList(await getText(cfg, "/Marti/api/missions"));
-  return Promise.all(
+  const missions = await Promise.all(
     list.map(async (mission) => {
-      const xml = await getText(cfg, `/Marti/api/missions/${encodeURIComponent(mission.name)}/cot`);
-      const items = splitEvents(xml).events.flatMap((event) => {
-        const change = parseCot(event);
-        return change?.kind === "upsert" ? [change.feature] : [];
-      });
-      return { ...mission, items };
+      try {
+        const xml = await getText(
+          cfg,
+          `/Marti/api/missions/${encodeURIComponent(mission.name)}/cot`,
+        );
+        const items = splitEvents(xml).events.flatMap((event) => {
+          const change = parseCot(event);
+          return change?.kind === "upsert" ? [change.feature] : [];
+        });
+        return [{ ...mission, items }];
+      } catch (err) {
+        // A password-protected or restricted mission must not hide all the others.
+        logger.warn({ err, mission: mission.name }, "tak mission contents unavailable");
+        return [];
+      }
     }),
   );
+  return missions.flat();
 };
 
 /** TAK caps archive queries at 24 h, so long-lived items need one query per day. */
