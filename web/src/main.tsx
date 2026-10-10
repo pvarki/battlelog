@@ -5,6 +5,7 @@ import "react-grid-layout/css/styles.css";
 import "@fontsource-variable/inter";
 import "dayjs/locale/fi";
 import "./global.css";
+import "./print.css";
 import { registerSW } from "virtual:pwa-register";
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";

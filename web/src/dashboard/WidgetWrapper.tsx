@@ -1,8 +1,10 @@
 import { ActionIcon, Box, Group, Loader, Menu, Paper, Stack, Text } from "@mantine/core";
 import { IconDots } from "@tabler/icons-react";
-import { Component, type ReactNode, Suspense, useMemo } from "react";
+import { Component, type ReactNode, Suspense, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { Widget } from "../api.ts";
 import { Placeholder } from "../Placeholder.tsx";
+import { formatDateTime } from "../time.ts";
 import { getWidget, validateWidgetConfig } from "./registry.ts";
 import { configTitle } from "./widget-base.ts";
 
@@ -71,8 +73,42 @@ export const WidgetWrapper = ({
   // header under the type caption (per the design mock).
   const title = configTitle(instance.config);
 
+  const typeName = descriptor?.name ?? instance.type;
+  const paperRef = useRef<HTMLDivElement>(null);
+  const [printHeader, setPrintHeader] = useState({ at: "", kicker: "", title: "" });
+  const [printScope, setPrintScope] = useState<PrintScope>({ activeChildId: null, pending: false });
+  const readPrintScope = (): PrintScope => {
+    const paper = paperRef.current;
+    const activeChild = paper?.querySelector("[data-active-child]");
+    return {
+      activeChildId: activeChild?.getAttribute("data-active-child") ?? null,
+      pending: !!(activeChild ?? paper)?.querySelector("[data-print-pending]"),
+    };
+  };
+  /** Prints this widget; with `child`, titled as that child (a container shows only it). */
+  const print = (child?: PrintableChild) => {
+    const paper = paperRef.current;
+    // Re-read: the tab on show or its loading state can change while the menu is open.
+    const scope = readPrintScope();
+    if (!paper || scope.pending || (child && child.id !== scope.activeChildId)) return;
+    // Synchronous so the header is in the DOM before the print snapshot.
+    flushSync(() =>
+      setPrintHeader({
+        at: formatDateTime(new Date().toISOString()),
+        kicker: child?.typeName ?? typeName,
+        title: child?.label ?? (title || typeName),
+      }),
+    );
+    paper.classList.add("print-target");
+    window.addEventListener("afterprint", () => paper.classList.remove("print-target"), {
+      once: true,
+    });
+    window.print();
+  };
+
   return (
     <Paper
+      ref={paperRef}
       withBorder
       h="100%"
       className={entering ? "widget-enter" : undefined}
@@ -87,8 +123,16 @@ export const WidgetWrapper = ({
         }),
       }}
     >
+      <div className="print-only print-doc-header">
+        <div className="print-doc-kicker">
+          <span>BattleLog</span>
+          <span>{printHeader.kicker}</span>
+        </div>
+        <div className="print-doc-title">{printHeader.title}</div>
+        <div className="print-doc-meta">Printed {printHeader.at}</div>
+      </div>
       <Group
-        className="widget-drag-handle"
+        className="widget-drag-handle screen-only"
         justify="space-between"
         px="xs"
         py={4}
@@ -99,7 +143,7 @@ export const WidgetWrapper = ({
       >
         <div>
           <Text fz="xs" c="dimmed">
-            {descriptor?.name ?? instance.type}
+            {typeName}
           </Text>
           {title && (
             <Text fw={600} fz="sm" lh={1.2}>
@@ -108,7 +152,7 @@ export const WidgetWrapper = ({
           )}
         </div>
         {editMode && (
-          <Menu position="bottom-end">
+          <Menu position="bottom-end" onOpen={() => setPrintScope(readPrintScope())}>
             <Menu.Target>
               <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
                 <IconDots size={16} stroke={1.5} />
@@ -117,6 +161,7 @@ export const WidgetWrapper = ({
             <Menu.Dropdown>
               {descriptor?.ConfigForm && <Menu.Item onClick={onConfigure}>Settings</Menu.Item>}
               <Menu.Item onClick={onDuplicate}>Duplicate</Menu.Item>
+              <PrintItems instance={instance} scope={printScope} onPrint={print} />
               <Menu.Item onClick={onResetSize} disabled={!descriptor}>
                 Reset size
               </Menu.Item>
@@ -140,6 +185,54 @@ export const WidgetWrapper = ({
         />
       </Box>
     </Paper>
+  );
+};
+
+type PrintableChild = { id: string; label: string; typeName: string };
+
+/**
+ * What the menu can print, read from the DOM when it opens: the child a
+ * container has on show, and whether a document-backed print layout
+ * (`data-print-pending`) is still loading — that would print empty.
+ */
+type PrintScope = { activeChildId: string | null; pending: boolean };
+
+const printableChild = (
+  instance: Pick<Widget, "type" | "config">,
+  activeChildId: string | null,
+): PrintableChild | undefined => {
+  const childWidgets = getWidget(instance.type)?.childWidgets;
+  if (!childWidgets || !activeChildId) return undefined;
+  const validation = validateWidgetConfig(instance.type, instance.config);
+  if (!validation.ok) return undefined;
+  const child = childWidgets(validation.value).find((c) => c.id === activeChildId);
+  const descriptor = child && getWidget(child.type);
+  if (!child || !descriptor?.printable) return undefined;
+  return {
+    id: child.id,
+    label: configTitle(child.config) ?? descriptor.name,
+    typeName: descriptor.name,
+  };
+};
+
+/** Rendered only while the menu is open, so the config validation stays off the render path. */
+const PrintItems = ({
+  instance,
+  scope,
+  onPrint,
+}: {
+  instance: Pick<Widget, "type" | "config">;
+  scope: PrintScope;
+  onPrint: (child?: PrintableChild) => void;
+}) => {
+  const printable = getWidget(instance.type)?.printable;
+  const child = printable ? undefined : printableChild(instance, scope.activeChildId);
+  if (!printable && !child) return null;
+  const label = child ? `Print “${child.label}”` : "Print";
+  return (
+    <Menu.Item disabled={scope.pending} onClick={() => onPrint(child)}>
+      {scope.pending ? `${label} — loading…` : label}
+    </Menu.Item>
   );
 };
 
@@ -190,7 +283,7 @@ export const WidgetBody = ({
     <WidgetErrorBoundary type={instance.type}>
       <Suspense
         fallback={
-          <Stack align="center" justify="center" h="100%">
+          <Stack align="center" justify="center" h="100%" data-print-pending>
             <Loader size="sm" />
           </Stack>
         }

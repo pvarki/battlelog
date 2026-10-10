@@ -105,6 +105,7 @@ export const descriptor: WidgetDescriptor<TableConfig> = {
   defaultSize: { w: 18, h: 10 },
   minSize: { w: 6, h: 4 },
   document: widgetDocument,
+  printable: true,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

@@ -58,6 +58,7 @@ const descriptor: WidgetDescriptor<TabsConfig> = {
   defaultConfig: { tabs: [] },
   defaultSize: { w: 16, h: 12 },
   minSize: { w: 8, h: 6 },
+  childWidgets: (config) => config.tabs,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };
