@@ -3,6 +3,12 @@ import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor, WidgetDocumentDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
+import {
+  emptyTableDocument,
+  type LegacyTableDoc,
+  parseTableDocument,
+  type TableDoc,
+} from "./workbook.ts";
 
 const columnSchema = z.object({
   id: z.string().min(1).max(64),
@@ -64,14 +70,11 @@ const configSchema = z
 
 export type TableConfig = z.infer<typeof configSchema>;
 
-/** One row: cell text per column id. Formula cells are computed, never stored. */
-export type TableDoc = { rows: Record<string, string>[] };
-
 const rowSchema = z.record(z.string());
 
 /** Tolerant read: entries a raw API write could sneak in (null, arrays,
  * non-string cells) are dropped instead of crashing the render. */
-export const parseRows = (data: unknown): TableDoc => {
+export const parseRows = (data: unknown): LegacyTableDoc => {
   const rows = (data as { rows?: unknown } | null)?.rows;
   return {
     rows: Array.isArray(rows)
@@ -82,8 +85,8 @@ export const parseRows = (data: unknown): TableDoc => {
 
 export const widgetDocument: WidgetDocumentDescriptor<TableConfig, TableDoc> = {
   eventType: "table",
-  empty: { rows: [] },
-  parse: parseRows,
+  empty: emptyTableDocument(),
+  parse: parseTableDocument,
   headerFor: (config) => config.title?.trim() || "Table",
   debounceMs: 6000,
 };

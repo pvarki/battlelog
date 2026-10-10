@@ -29,10 +29,26 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Univer is lazy-loaded by the Table widget and is substantially
+        // larger than Workbox's 2 MiB precache limit. Keeping it out of the
+        // app-shell cache preserves the normal dashboard's fast first load.
+        globIgnores: ["assets/univer-*.{js,css}"],
         navigateFallbackDenylist: [/^\/(api|uploads|rmapi|healthz|openapi\.json)/],
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep all Univer internals in the lazy table-editor chunk. Otherwise
+        // its optional locale modules are emitted as many small chunks and
+        // accidentally become part of the PWA app-shell precache.
+        manualChunks(id) {
+          return id.includes("/node_modules/@univerjs/") ? "univer" : undefined;
+        },
+      },
+    },
+  },
   server: {
     // Dev: vite serves the SPA, the Hono server owns /api (incl. SSE).
     proxy: {

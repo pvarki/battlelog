@@ -18,7 +18,7 @@ const TableConfigForm = ({ config, onChange }: WidgetConfigProps<TableConfig>) =
 
       <TextInput
         label="Event id"
-        description="The table follows this event's version chain. Paste another table widget's id to share its cells, or clear to start a fresh table on the next edit."
+        description="The table follows this event's version chain. Paste another table's Event id to share the same workbook, or clear it to start a fresh table on the next edit."
         placeholder="Created on first save"
         value={idDraft}
         error={idValid ? undefined : "Not a valid event id"}

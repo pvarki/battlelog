@@ -17,6 +17,8 @@
     "@mantine/notifications": "^9.5.1",
     "@tabler/icons-react": "^3.46.0",
     "@tanstack/react-router": "^1.170.31",
+    "@univerjs/preset-sheets-core": "1.0.4",
+    "@univerjs/presets": "1.0.4",
     "hls.js": "^1.7.1",
     "hono": "^4.13.3",
     "mathjs": "^15.2.0",
