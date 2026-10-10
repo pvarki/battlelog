@@ -16,6 +16,8 @@ import {
   updateEvent,
 } from "../../services/events/events.service.ts";
 import {
+  DATA_NEEDS_TYPES,
+  dataFilterWithoutTypes,
   eventsQuerySchema,
   queryToFilter,
   toApiEvent,
@@ -40,7 +42,8 @@ export const patchEvent: RouteHandler<typeof patchEventRoute> = async (c) => {
   const { eventId } = c.req.valid("param");
   const user = c.get("userCn") ?? "anonymous";
   try {
-    const row = await updateEvent(eventId, toUpdatePatch(c.req.valid("json")), user);
+    const body = c.req.valid("json");
+    const row = await updateEvent(eventId, toUpdatePatch(body), user, body.baseId);
     if (!row) return c.json({ error: "Event not found" }, 404);
     return c.json(toApiEvent(row), 200);
   } catch (err) {
@@ -62,7 +65,9 @@ export const getEventHandler: RouteHandler<typeof getEventRoute> = async (c) => 
 };
 
 export const listEventsHandler: RouteHandler<typeof listEventsRoute> = async (c) => {
-  const filter = queryToFilter(c.req.valid("query"));
+  const query = c.req.valid("query");
+  if (dataFilterWithoutTypes(query)) return c.json({ error: DATA_NEEDS_TYPES }, 400);
+  const filter = queryToFilter(query);
   const rows = await listEvents(filter);
   return c.json(rows.map(toApiEvent), 200);
 };
@@ -70,6 +75,7 @@ export const listEventsHandler: RouteHandler<typeof listEventsRoute> = async (c)
 export const streamNewEvents = (c: Context) => {
   const parsed = eventsQuerySchema.safeParse(c.req.query());
   if (!parsed.success) return c.json({ error: "Invalid input format" }, 400);
+  if (dataFilterWithoutTypes(parsed.data)) return c.json({ error: DATA_NEEDS_TYPES }, 400);
   const filter = queryToFilter(parsed.data);
 
   // EventSource sends the last received SSE id on reconnect; replay what was

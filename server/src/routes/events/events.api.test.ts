@@ -65,6 +65,27 @@ describe.runIf(dbUp)("events HTTP contract", () => {
     expect((await head.json()).id).toBe(updated.id);
   });
 
+  test("PATCH with a superseded baseId → 409, with the head → 200", async () => {
+    const post = await app.request("/api/v1/events", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ header: "presence", data: { status: "inside" } }),
+    });
+    const created = await post.json();
+    const patch = (body: object) =>
+      app.request(`/api/v1/events/${created.eventId}`, {
+        method: "PATCH",
+        headers: json,
+        body: JSON.stringify(body),
+      });
+
+    const first = await patch({ baseId: created.id, data: { status: "left" } });
+    expect(first.status).toBe(200);
+    const stale = await patch({ baseId: created.id, data: { status: "inside" } });
+    expect(stale.status).toBe(409);
+    expect((await patch({ baseId: (await first.json()).id, header: "x" })).status).toBe(200);
+  });
+
   test("keyset pagination: cursor pages newest-first without overlap", async () => {
     const who = `${runId}-page`;
     const headers = { "content-type": "application/json", [ENV.RM_MTLS_HEADER]: `CN=${who}` };
@@ -86,6 +107,24 @@ describe.runIf(dbUp)("events HTTP contract", () => {
 
     const page2 = await list(`limit=2&cursor=${page1[1].id}`);
     expect(page2.map((e: { id: string }) => e.id)).toEqual([ids[0]]);
+  });
+
+  test("data filter: needs types, matches exact values", async () => {
+    const res = await app.request("/api/v1/events", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ header: "presence", type: runId, data: { status: "inside" } }),
+    });
+    expect(res.status).toBe(201);
+    const q = (data: unknown, types?: string) =>
+      app.request(
+        `/api/v1/events?${new URLSearchParams({ data: JSON.stringify(data), ...(types ? { types } : {}) })}`,
+      );
+
+    expect((await q({ status: "inside" })).status).toBe(400);
+    expect(await (await q({ status: "inside" }, runId)).json()).toHaveLength(1);
+    expect(await (await q({ status: "left" }, runId)).json()).toHaveLength(0);
+    expect((await app.request(`/api/v1/events?types=${runId}&data=nope`)).status).toBe(400);
   });
 
   test("unknown eventId → 404", async () => {

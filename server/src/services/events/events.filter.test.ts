@@ -30,6 +30,7 @@ const seedInputs = [
     admiraltyAccuracy: "1",
     eventTime: t0,
     locationPoint: [24.94, 60.17],
+    data: { status: "inside", pax: 12, unit: { name: "alpha" } },
   },
   {
     header: "quiet patrol",
@@ -40,6 +41,7 @@ const seedInputs = [
     admiraltyAccuracy: "2",
     eventTime: new Date(t0.getTime() + hour),
     locationPoint: [23.76, 61.5],
+    data: { status: "left", confirmed: true },
   },
   {
     header: "PATROL report",
@@ -102,6 +104,11 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
     ["createdAt in the future matches nothing", { createdAtFrom: "2100-01-01T00:00:00Z" }],
     ["geo radius 5km around Helsinki", { lat: 60.17, lng: 24.94, radiusMeters: 5000 }],
     ["combined tags + types", { tags: ["alpha"], types: ["patrol"] }],
+    ["data exact value", { data: { status: "inside" } }],
+    ["data number and boolean compare as text", { data: { pax: "12", confirmed: "true" } }],
+    ["data nested dot path", { data: { "unit.name": "alpha" } }],
+    ["data object at path matches nothing", { data: { unit: "alpha" } }],
+    ["data conditions AND together", { data: { status: "inside", pax: "13" } }],
   ])("%s", async (_name, f) => {
     const parsed = filter(
       "lat" in f ? { ...f, location: { lat: f.lat, lng: f.lng, radiusMeters: f.radiusMeters } } : f,
@@ -117,5 +124,6 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
 
   test("sanity: seeded filters are not vacuously empty", async () => {
     expect((await sqlIds(filter({ tags: ["alpha"] }))).size).toBe(2);
+    expect((await sqlIds(filter({ data: { status: "inside" } }))).size).toBe(1);
   });
 });

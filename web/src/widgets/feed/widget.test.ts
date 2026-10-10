@@ -153,3 +153,21 @@ test("queryFor sends config filters plus extras' time ranges and gap-fillers", (
     createdAtTo: "2026-08-21T00:00",
   });
 });
+
+test("data filters apply only with a type and skip half-typed rows", () => {
+  const filters = [
+    { id: "a", path: "status", value: "inside" },
+    { id: "b", path: "pax", value: "" },
+  ];
+  const inside = row({ type: "form-presence", data: { status: "inside", pax: 3 } });
+  const left = row({ type: "form-presence", data: { status: "left" } });
+
+  const untyped = { ...base, dataFilters: filters };
+  expect(queryFor(untyped)).not.toHaveProperty("data");
+  expect(matchesFeed(left, untyped)).toBe(true);
+
+  const typed = { ...untyped, types: ["form-presence"] };
+  expect(JSON.parse(queryFor(typed).data as string)).toEqual({ status: "inside" });
+  expect(matchesFeed(inside, typed)).toBe(true);
+  expect(matchesFeed(left, typed)).toBe(false);
+});

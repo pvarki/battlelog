@@ -2,6 +2,7 @@ import { IconForms } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
 import type { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
+import type { EventResponse } from "../../api.ts";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 
@@ -76,6 +77,8 @@ const configSchema = z
      */
     reportType: z.string().max(40).default("report"),
     submitLabel: z.string().max(40).optional(),
+    /** Load this form's events for editing when a feed row selects one. */
+    allowEdit: z.boolean().optional(),
     fields: z.array(fieldSchema).max(30).default([]),
   })
   .strict();
@@ -97,6 +100,11 @@ export type FormEventPayload = {
   locationPoint?: { lat: number; lng: number };
   sourceUri?: string;
   data?: Record<string, unknown>;
+};
+
+/** PATCH body: absent keeps the stored value, null clears it. */
+export type FormEventPatch = { [K in keyof FormEventPayload]?: FormEventPayload[K] | null } & {
+  header: string;
 };
 
 /** A field the user fills in, as opposed to a hidden fixed value. */
@@ -133,10 +141,15 @@ const padDatePart = (value: number): string => value.toString().padStart(2, "0")
 export const datetimeLocalValue = (date = new Date()): string =>
   `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
 
+const reportTypeOf = (config: FormConfig): string => config.reportType.trim() || "report";
+
+/** Event type this form posts, and the only type it will load for editing. */
+export const formEventType = (config: FormConfig): string => `form-${reportTypeOf(config)}`;
+
 /** Assemble the event to POST from the configured fields and entered values. */
 export const buildEvent = (config: FormConfig, values: FormValues): FormEventPayload => {
-  const reportType = config.reportType.trim() || "report";
-  const payload: FormEventPayload = { header: "", type: `form-${reportType}` };
+  const reportType = reportTypeOf(config);
+  const payload: FormEventPayload = { header: "", type: formEventType(config) };
   const data: Record<string, unknown> = {};
   const tags: string[] = [];
   let fixedHeader = "";
@@ -196,6 +209,59 @@ export const buildEvent = (config: FormConfig, values: FormValues): FormEventPay
     reportType
   ).slice(0, 80);
   return payload;
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+const fixedTags = (config: FormConfig): string[] =>
+  config.fields.flatMap((f) => (f.kind === "fixed" && f.target === "tags" ? [f.value] : []));
+
+/** Inverse of buildEvent: the values that prefill the form when editing `event`. */
+export const eventToValues = (config: FormConfig, event: EventResponse): FormValues => {
+  const data = isRecord(event.data) ? event.data : {};
+  const values: FormValues = {};
+  for (const f of config.fields) {
+    if (f.kind === "fixed") continue;
+    const v =
+      f.kind === "data"
+        ? data[dataKey(f)]
+        : f.field === "eventTime"
+          ? event.eventTime && datetimeLocalValue(new Date(event.eventTime))
+          : f.field === "tags"
+            ? event.tags?.filter((t) => !fixedTags(config).includes(t))
+            : event[f.field];
+    if (v != null) values[f.id] = v;
+  }
+  return values;
+};
+
+/**
+ * The PATCH that turns `event` into what the form now shows. Emptied inputs
+ * clear their column (buildEvent omits them, and PATCH treats absent as keep),
+ * and data keys the form doesn't own survive the edit.
+ */
+export const buildPatch = (
+  config: FormConfig,
+  values: FormValues,
+  event: EventResponse,
+): FormEventPatch => {
+  const { data: formData, ...patch }: FormEventPatch = buildEvent(config, values);
+  const data = isRecord(event.data) ? { ...event.data } : {};
+  for (const f of config.fields) {
+    if (f.kind === "event" && f.field !== "header" && patch[f.field] === undefined) {
+      patch[f.field] = null;
+    }
+    if (f.kind === "data") delete data[dataKey(f)];
+  }
+  // datetime-local is lossy (no seconds, ambiguous in the repeated DST hour),
+  // so an untouched time input keeps the stored instant instead of rewriting it.
+  const timeField = config.fields.find((f) => f.kind === "event" && f.field === "eventTime");
+  if (timeField && values[timeField.id] === eventToValues(config, event)[timeField.id]) {
+    delete patch.eventTime;
+  }
+  Object.assign(data, formData);
+  return { ...patch, data: Object.keys(data).length ? data : null };
 };
 
 const isEmpty = (v: unknown): boolean =>
