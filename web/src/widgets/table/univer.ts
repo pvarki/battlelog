@@ -3,7 +3,103 @@ import "./univer.css";
 
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
 import UniverPresetSheetsCoreEnUS from "@univerjs/preset-sheets-core/locales/en-US";
-import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
+import { createUniver, darkBlueTheme, LocaleType, mergeLocales } from "@univerjs/presets";
+
+/**
+ * Univer otherwise starts with a bright office-sheet palette. Keep its color
+ * scale in the same order as its built-in dark theme, but use the BattleLog
+ * design tokens so the canvas, controls, selection and status colors belong
+ * to the dashboard rather than looking like an embedded third-party app.
+ */
+const TABLE_THEME = {
+  ...darkBlueTheme,
+  primary: {
+    50: "#eaf3ff",
+    100: "#d3e5ff",
+    200: "#b0d0ff",
+    300: "#9dc5ff",
+    400: "#8abbff",
+    500: "#6ea6f2",
+    600: "#5590dd",
+    700: "#437ac0",
+    800: "#3364a2",
+    900: "#244e84",
+  },
+  gray: {
+    0: "#111418",
+    50: "#1c2127",
+    100: "#252a31",
+    200: "#2f343c",
+    300: "#383e47",
+    400: "#6e7683",
+    500: "#a0a8b3",
+    600: "#c9cdd3",
+    700: "#f6f7f9",
+    800: "#f6f7f9",
+    900: "#f6f7f9",
+    1000: "#ffffff",
+  },
+  blue: {
+    50: "#244e84",
+    100: "#3364a2",
+    200: "#437ac0",
+    300: "#5590dd",
+    400: "#6ea6f2",
+    500: "#8abbff",
+    600: "#9dc5ff",
+    700: "#b0d0ff",
+    800: "#d3e5ff",
+    900: "#eaf3ff",
+  },
+  red: {
+    50: "#7d2f32",
+    100: "#a03c40",
+    200: "#c44a4e",
+    300: "#e35d61",
+    400: "#ef7a7f",
+    500: "#fa999c",
+    600: "#faadb0",
+    700: "#fac2c4",
+    800: "#fbd8d9",
+    900: "#fdecec",
+  },
+  orange: {
+    50: "#71461a",
+    100: "#945c22",
+    200: "#b8722a",
+    300: "#db8b32",
+    400: "#eb9f49",
+    500: "#fbb360",
+    600: "#fcc482",
+    700: "#fcd4a4",
+    800: "#fde4c6",
+    900: "#fef2e3",
+  },
+  yellow: {
+    50: "#71461a",
+    100: "#945c22",
+    200: "#b8722a",
+    300: "#db8b32",
+    400: "#eb9f49",
+    500: "#fbb360",
+    600: "#fcc482",
+    700: "#fcd4a4",
+    800: "#fde4c6",
+    900: "#fef2e3",
+  },
+  green: {
+    50: "#1f4e35",
+    100: "#2a6746",
+    200: "#368359",
+    300: "#43a377",
+    400: "#5ab789",
+    500: "#72ca9b",
+    600: "#91d5b2",
+    700: "#b0e1c8",
+    800: "#ccecdc",
+    900: "#e6f6ee",
+  },
+} as const;
 
 // The core preset does not include pictures or charts. These entries remove
 // structural spreadsheet actions from the remaining contextual UI. Clipboard
@@ -124,6 +220,7 @@ export const createTableUniver = (container: HTMLElement, snapshot: unknown) => 
 
   const { univer, univerAPI } = createUniver({
     locale: LocaleType.EN_US,
+    theme: TABLE_THEME,
     locales: {
       [LocaleType.EN_US]: mergeLocales(UniverPresetSheetsCoreEnUS),
     },

@@ -12,6 +12,7 @@
 export const TABLE_DOCUMENT_VERSION = "battlelog-univer/v1";
 export const TABLE_SHEET_ID = "main";
 export const TABLE_WORKBOOK_ID = "battlelog-table";
+const TABLE_DEFAULT_TEXT_COLOR = "#f6f7f9";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -228,6 +229,13 @@ export const hydrateWorkbookSnapshot = (
   sheet.columnCount = options.columnCount;
   sheet.rowHeader = { width: 46, hidden: options.hideRowNumbers ? 1 : 0 };
   sheet.columnHeader = { height: 24, hidden: options.hideColumnHeaders ? 1 : 0 };
+  // Univer otherwise gives a newly entered value its office-sheet black text
+  // color. A sheet default affects future cells without replacing an explicit
+  // color that an existing cell already carries.
+  sheet.defaultStyle = {
+    ...(isRecord(sheet.defaultStyle) ? sheet.defaultStyle : {}),
+    cl: { rgb: TABLE_DEFAULT_TEXT_COLOR },
+  };
 
   return {
     ...compacted,

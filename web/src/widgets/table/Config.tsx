@@ -69,6 +69,14 @@ const TableConfigForm = ({ config, onChange }: WidgetConfigProps<TableConfig>) =
           onChange({ ...config, hideColumnHeaders: !event.currentTarget.checked })
         }
       />
+      <Checkbox
+        label="Show widget header"
+        description="Shows the table name above the spreadsheet. The header remains visible while editing."
+        checked={!config.hideWidgetHeader}
+        onChange={(event) =>
+          onChange({ ...config, hideWidgetHeader: !event.currentTarget.checked })
+        }
+      />
     </Stack>
   );
 };

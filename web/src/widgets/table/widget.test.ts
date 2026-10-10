@@ -14,6 +14,12 @@ test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
 });
 
+test("table chrome settings default to visible", () => {
+  const result = descriptor.configSchema.parse({});
+  expect(result.hideWidgetHeader).toBe(false);
+  expect(result.hideColumnHeaders).toBe(false);
+});
+
 test("empty legacy config resolves to preset spreadsheet columns", () => {
   expect(tableColumns(DEFAULT_COLUMN_COUNT).map((column) => column.label)).toEqual(["A", "B", "C"]);
 });
