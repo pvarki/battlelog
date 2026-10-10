@@ -51,7 +51,10 @@ const TabsView = ({
       h="100%"
       style={{ display: "flex", flexDirection: "column" }}
     >
-      <Tabs.List style={{ flexWrap: "nowrap", overflowX: "auto", flexShrink: 0 }}>
+      <Tabs.List
+        className="screen-only"
+        style={{ flexWrap: "nowrap", overflowX: "auto", flexShrink: 0 }}
+      >
         {config.tabs.map((tab) => (
           <Tabs.Tab key={tab.id} value={tab.id}>
             {tabLabel(tab)}
@@ -59,7 +62,13 @@ const TabsView = ({
         ))}
       </Tabs.List>
       {config.tabs.map((tab) => (
-        <Tabs.Panel key={tab.id} value={tab.id} flex={1} mih={0}>
+        <Tabs.Panel
+          key={tab.id}
+          value={tab.id}
+          flex={1}
+          mih={0}
+          data-active-child={tab.id === active?.id ? tab.id : undefined}
+        >
           <WidgetBody
             instance={tab}
             editMode={editMode}

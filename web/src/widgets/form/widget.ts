@@ -226,6 +226,7 @@ const descriptor: WidgetDescriptor<FormConfig> = {
   defaultConfig: { reportType: "report", fields: [] },
   defaultSize: { w: 8, h: 10 },
   minSize: { w: 5, h: 4 },
+  printable: true,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

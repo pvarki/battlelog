@@ -79,7 +79,7 @@
  * Mantine renders in rem grows ~12%. Keep in sync with MOBILE_QUERY in
  * src/dashboard/mobile.ts.
  */
-@media (max-width: 1023px), (max-height: 479px) {
+@media screen and (max-width: 1023px), screen and (max-height: 479px) {
   :root {
     font-size: 18px;
   }

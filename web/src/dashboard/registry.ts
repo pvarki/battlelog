@@ -1,5 +1,6 @@
 import type { ComponentType, LazyExoticComponent } from "react";
 import type { z } from "zod";
+import type { Widget } from "../api.ts";
 
 export interface WidgetViewProps<TConfig> {
   config: TConfig;
@@ -62,6 +63,19 @@ export interface WidgetDescriptor<TConfig = unknown> {
    * contract that tells shared code how to load/save that document.
    */
   document?: WidgetDocumentDescriptor<TConfig, any>;
+  /**
+   * Offers "Print" in the widget menu. Off by default: a printable View must
+   * render a `.print-only` layout beside its `.screen-only` UI, marked
+   * `data-print-pending` while its content is still loading (see print.css).
+   */
+  printable?: boolean;
+  /**
+   * Child widgets a container renders. The one on show is marked
+   * `data-active-child={child.id}`; the menu offers to print it when its type is
+   * printable. Hidden children can't print: Mantine keeps them in a hidden
+   * <Activity>, unrendered and with their data unloaded.
+   */
+  childWidgets?: (config: TConfig) => Pick<Widget, "id" | "type" | "config">[];
   View: LazyExoticComponent<ComponentType<WidgetViewProps<TConfig>>>;
   ConfigForm?: LazyExoticComponent<ComponentType<WidgetConfigProps<TConfig>>>;
 }

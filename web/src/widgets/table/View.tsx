@@ -12,6 +12,7 @@ import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { evaluateFormula } from "./formula.ts";
 import {
+  type TableColumn,
   type TableConfig,
   tableColumnCount,
   tableColumns,
@@ -64,6 +65,9 @@ const rowHeight = (row: Record<string, string>): number => {
     ? Math.min(MAX_ROW_HEIGHT, Math.max(MIN_ROW_HEIGHT, height))
     : DEFAULT_ROW_HEIGHT;
 };
+
+const cellText = (col: TableColumn, row: Record<string, string>, columns: TableColumn[]) =>
+  col.kind === "formula" ? evaluateFormula(col.formula ?? "", row, columns) : (row[col.id] ?? "");
 
 const compactRows = (rows: Record<string, string>[]): Record<string, string>[] => {
   let lastContentIndex = -1;
@@ -236,58 +240,15 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
   }, [configuredRows, update, value.rows]);
 
   return (
-    <Box h="100%" style={{ display: "grid", gridTemplateRows: "1fr auto", minHeight: 0 }}>
-      <Box ref={scrollBoxRef} style={{ overflow: "auto", minHeight: 0 }}>
-        <table
-          style={{
-            borderCollapse: "separate",
-            borderSpacing: 0,
-            minWidth: fullTableWidth * HORIZONTAL_SCROLL_MIN_WIDTH_FACTOR,
-            width: "100%",
-            tableLayout: "fixed",
-          }}
-        >
+    <>
+      <div className="print-only" data-print-pending={disabled || undefined}>
+        <table className="print-table">
           {showColumnHeaders && (
             <thead>
               <tr>
-                {showRowNumbers && (
-                  <th
-                    scope="col"
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      left: 0,
-                      zIndex: 3,
-                      width: ROW_NUMBER_WIDTH,
-                      height: 28,
-                      background: "var(--mantine-color-dark-7)",
-                      borderRight: GRID_HEADER_BORDER,
-                      borderBottom: GRID_HEADER_BORDER,
-                    }}
-                  />
-                )}
-                {columns.map((col, columnIndex) => (
-                  <th
-                    key={col.id}
-                    scope="col"
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 2,
-                      width: COLUMN_WIDTH,
-                      height: 28,
-                      background: "var(--mantine-color-dark-7)",
-                      borderRight:
-                        columnIndex === columns.length - 1 ? undefined : GRID_HEADER_BORDER,
-                      borderBottom: GRID_HEADER_BORDER,
-                      color: "var(--mantine-color-dimmed)",
-                      fontSize: CELL_FONT_SIZE,
-                      fontWeight: 600,
-                      textAlign: "center",
-                    }}
-                  >
-                    {col.label}
-                  </th>
+                {showRowNumbers && <th className="print-row-number" />}
+                {columns.map((col) => (
+                  <th key={col.id}>{col.label}</th>
                 ))}
               </tr>
             </thead>
@@ -295,128 +256,22 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
           <tbody>
             {Array.from({ length: displayedRows }, (_, rowIndex) => {
               const row = value.rows[rowIndex] ?? {};
-              const height = draftRowHeights.get(rowIndex) ?? rowHeight(row);
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: spreadsheet rows are position-addressed
                 <tr key={rowIndex}>
                   {showRowNumbers && (
-                    <th
-                      scope="row"
-                      style={{
-                        position: "sticky",
-                        left: 0,
-                        zIndex: 1,
-                        width: ROW_NUMBER_WIDTH,
-                        height,
-                        background: "var(--mantine-color-dark-7)",
-                        borderRight: GRID_HEADER_BORDER,
-                        borderBottom: GRID_BORDER,
-                        color: "var(--mantine-color-dimmed)",
-                        fontSize: CELL_FONT_SIZE,
-                        fontWeight: 500,
-                        textAlign: "center",
-                      }}
-                    >
+                    <th scope="row" className="print-row-number">
                       {rowIndex + 1}
-                      <Box
-                        aria-hidden
-                        onPointerDown={(event) => startRowResize(rowIndex, height, event)}
-                        style={rowResizeHandleStyle}
-                      />
                     </th>
                   )}
-                  {columns.map((col, columnIndex) => {
-                    const rawCellValue =
-                      col.kind === "formula"
-                        ? evaluateFormula(col.formula ?? "", row, columns)
-                        : (row[col.id] ?? "");
-                    const paddingTop = CELL_TOP_PADDING;
-                    const paddingBottom = cellPaddingBottom(height, rawCellValue);
-
+                  {columns.map((col) => {
+                    const text = cellText(col, row, columns);
                     return (
                       <td
                         key={col.id}
-                        style={{
-                          height,
-                          padding: 0,
-                          borderRight: columnIndex === columns.length - 1 ? undefined : GRID_BORDER,
-                          borderBottom: GRID_BORDER,
-                          background: "var(--mantine-color-dark-8)",
-                          position: "relative",
-                        }}
+                        className={isNumericCellValue(text) ? "print-numeric" : undefined}
                       >
-                        {col.kind === "formula" ? (
-                          <Text
-                            px={6}
-                            c="dimmed"
-                            style={{
-                              boxSizing: "border-box",
-                              display: "block",
-                              fontSize: CELL_FONT_SIZE,
-                              height: height - 1,
-                              overflow: "hidden",
-                              lineHeight: `${CELL_LINE_HEIGHT}px`,
-                              paddingTop,
-                              paddingBottom,
-                              textAlign: isNumericCellValue(rawCellValue) ? "right" : "left",
-                              whiteSpace: "pre-wrap",
-                            }}
-                          >
-                            {rawCellValue}
-                          </Text>
-                        ) : (
-                          <Textarea
-                            ref={(element) => {
-                              const key = cellKey(rowIndex, columnIndex);
-                              if (element) {
-                                cellRefs.current.set(key, element);
-                              } else {
-                                cellRefs.current.delete(key);
-                              }
-                            }}
-                            size="xs"
-                            variant="unstyled"
-                            value={rawCellValue}
-                            onChange={(event) => {
-                              event.currentTarget.scrollTop = 0;
-                              setCell(rowIndex, col.id, event.currentTarget.value);
-                            }}
-                            onKeyDown={(event) => handleCellKeyDown(rowIndex, columnIndex, event)}
-                            onScroll={(event) => {
-                              event.currentTarget.scrollTop = 0;
-                            }}
-                            disabled={disabled}
-                            styles={{
-                              root: {
-                                height: height - 1,
-                              },
-                              wrapper: {
-                                height: "100%",
-                                overflow: "hidden",
-                              },
-                              input: {
-                                height: height - 1,
-                                minHeight: height - 1,
-                                boxSizing: "border-box",
-                                display: "block",
-                                overflow: "hidden",
-                                paddingInline: 6,
-                                paddingTop,
-                                paddingBottom,
-                                borderRadius: 0,
-                                fontSize: CELL_FONT_SIZE,
-                                lineHeight: `${CELL_LINE_HEIGHT}px`,
-                                resize: "none",
-                                textAlign: isNumericCellValue(rawCellValue) ? "right" : "left",
-                              },
-                            }}
-                          />
-                        )}
-                        <Box
-                          aria-hidden
-                          onPointerDown={(event) => startRowResize(rowIndex, height, event)}
-                          style={rowResizeHandleStyle}
-                        />
+                        {text}
                       </td>
                     );
                   })}
@@ -425,11 +280,204 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
             })}
           </tbody>
         </table>
+      </div>
+      <Box
+        h="100%"
+        className="screen-only"
+        style={{ display: "grid", gridTemplateRows: "1fr auto", minHeight: 0 }}
+      >
+        <Box ref={scrollBoxRef} style={{ overflow: "auto", minHeight: 0 }}>
+          <table
+            style={{
+              borderCollapse: "separate",
+              borderSpacing: 0,
+              minWidth: fullTableWidth * HORIZONTAL_SCROLL_MIN_WIDTH_FACTOR,
+              width: "100%",
+              tableLayout: "fixed",
+            }}
+          >
+            {showColumnHeaders && (
+              <thead>
+                <tr>
+                  {showRowNumbers && (
+                    <th
+                      scope="col"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        left: 0,
+                        zIndex: 3,
+                        width: ROW_NUMBER_WIDTH,
+                        height: 28,
+                        background: "var(--mantine-color-dark-7)",
+                        borderRight: GRID_HEADER_BORDER,
+                        borderBottom: GRID_HEADER_BORDER,
+                      }}
+                    />
+                  )}
+                  {columns.map((col, columnIndex) => (
+                    <th
+                      key={col.id}
+                      scope="col"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        width: COLUMN_WIDTH,
+                        height: 28,
+                        background: "var(--mantine-color-dark-7)",
+                        borderRight:
+                          columnIndex === columns.length - 1 ? undefined : GRID_HEADER_BORDER,
+                        borderBottom: GRID_HEADER_BORDER,
+                        color: "var(--mantine-color-dimmed)",
+                        fontSize: CELL_FONT_SIZE,
+                        fontWeight: 600,
+                        textAlign: "center",
+                      }}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {Array.from({ length: displayedRows }, (_, rowIndex) => {
+                const row = value.rows[rowIndex] ?? {};
+                const height = draftRowHeights.get(rowIndex) ?? rowHeight(row);
+                return (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: spreadsheet rows are position-addressed
+                  <tr key={rowIndex}>
+                    {showRowNumbers && (
+                      <th
+                        scope="row"
+                        style={{
+                          position: "sticky",
+                          left: 0,
+                          zIndex: 1,
+                          width: ROW_NUMBER_WIDTH,
+                          height,
+                          background: "var(--mantine-color-dark-7)",
+                          borderRight: GRID_HEADER_BORDER,
+                          borderBottom: GRID_BORDER,
+                          color: "var(--mantine-color-dimmed)",
+                          fontSize: CELL_FONT_SIZE,
+                          fontWeight: 500,
+                          textAlign: "center",
+                        }}
+                      >
+                        {rowIndex + 1}
+                        <Box
+                          aria-hidden
+                          onPointerDown={(event) => startRowResize(rowIndex, height, event)}
+                          style={rowResizeHandleStyle}
+                        />
+                      </th>
+                    )}
+                    {columns.map((col, columnIndex) => {
+                      const rawCellValue = cellText(col, row, columns);
+                      const paddingTop = CELL_TOP_PADDING;
+                      const paddingBottom = cellPaddingBottom(height, rawCellValue);
+
+                      return (
+                        <td
+                          key={col.id}
+                          style={{
+                            height,
+                            padding: 0,
+                            borderRight:
+                              columnIndex === columns.length - 1 ? undefined : GRID_BORDER,
+                            borderBottom: GRID_BORDER,
+                            background: "var(--mantine-color-dark-8)",
+                            position: "relative",
+                          }}
+                        >
+                          {col.kind === "formula" ? (
+                            <Text
+                              px={6}
+                              c="dimmed"
+                              style={{
+                                boxSizing: "border-box",
+                                display: "block",
+                                fontSize: CELL_FONT_SIZE,
+                                height: height - 1,
+                                overflow: "hidden",
+                                lineHeight: `${CELL_LINE_HEIGHT}px`,
+                                paddingTop,
+                                paddingBottom,
+                                textAlign: isNumericCellValue(rawCellValue) ? "right" : "left",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {rawCellValue}
+                            </Text>
+                          ) : (
+                            <Textarea
+                              ref={(element) => {
+                                const key = cellKey(rowIndex, columnIndex);
+                                if (element) {
+                                  cellRefs.current.set(key, element);
+                                } else {
+                                  cellRefs.current.delete(key);
+                                }
+                              }}
+                              size="xs"
+                              variant="unstyled"
+                              value={rawCellValue}
+                              onChange={(event) => {
+                                event.currentTarget.scrollTop = 0;
+                                setCell(rowIndex, col.id, event.currentTarget.value);
+                              }}
+                              onKeyDown={(event) => handleCellKeyDown(rowIndex, columnIndex, event)}
+                              onScroll={(event) => {
+                                event.currentTarget.scrollTop = 0;
+                              }}
+                              disabled={disabled}
+                              styles={{
+                                root: {
+                                  height: height - 1,
+                                },
+                                wrapper: {
+                                  height: "100%",
+                                  overflow: "hidden",
+                                },
+                                input: {
+                                  height: height - 1,
+                                  minHeight: height - 1,
+                                  boxSizing: "border-box",
+                                  display: "block",
+                                  overflow: "hidden",
+                                  paddingInline: 6,
+                                  paddingTop,
+                                  paddingBottom,
+                                  borderRadius: 0,
+                                  fontSize: CELL_FONT_SIZE,
+                                  lineHeight: `${CELL_LINE_HEIGHT}px`,
+                                  resize: "none",
+                                  textAlign: isNumericCellValue(rawCellValue) ? "right" : "left",
+                                },
+                              }}
+                            />
+                          )}
+                          <Box
+                            aria-hidden
+                            onPointerDown={(event) => startRowResize(rowIndex, height, event)}
+                            style={rowResizeHandleStyle}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Box>
+        <Text c="dimmed" fz="xs" ta="right" px="xs" py={3} mih="1.2em" role="status">
+          {DOC_STATUS_LABEL[status]}
+        </Text>
       </Box>
-      <Text c="dimmed" fz="xs" ta="right" px="xs" py={3} mih="1.2em" role="status">
-        {DOC_STATUS_LABEL[status]}
-      </Text>
-    </Box>
+    </>
   );
 };
 

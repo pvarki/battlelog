@@ -12,24 +12,32 @@ const NoteView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps
   });
 
   return (
-    <Stack h="100%" gap={0} p="xs">
-      <Textarea
-        value={value.text}
-        onChange={(e) => update({ text: e.currentTarget.value })}
-        onBlur={flush}
-        placeholder="Write a note…"
-        variant="unstyled"
-        disabled={status === "loading" || status === "unavailable"}
-        styles={{
-          root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
-          wrapper: { flex: 1, display: "flex", minHeight: 0 },
-          input: { flex: 1, height: "100%", resize: "none" },
-        }}
-      />
-      <Text c="dimmed" fz="xs" ta="right" mih="1.2em" role="status">
-        {DOC_STATUS_LABEL[status]}
-      </Text>
-    </Stack>
+    <>
+      <div
+        className="print-only print-prose"
+        data-print-pending={status === "loading" || status === "unavailable" || undefined}
+      >
+        {value.text}
+      </div>
+      <Stack h="100%" gap={0} p="xs" className="screen-only">
+        <Textarea
+          value={value.text}
+          onChange={(e) => update({ text: e.currentTarget.value })}
+          onBlur={flush}
+          placeholder="Write a note…"
+          variant="unstyled"
+          disabled={status === "loading" || status === "unavailable"}
+          styles={{
+            root: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 },
+            wrapper: { flex: 1, display: "flex", minHeight: 0 },
+            input: { flex: 1, height: "100%", resize: "none" },
+          }}
+        />
+        <Text c="dimmed" fz="xs" ta="right" mih="1.2em" role="status">
+          {DOC_STATUS_LABEL[status]}
+        </Text>
+      </Stack>
+    </>
   );
 };
 

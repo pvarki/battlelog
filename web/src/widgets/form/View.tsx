@@ -16,6 +16,7 @@ import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { Placeholder } from "../../Placeholder.tsx";
+import { FormPrint } from "./Print.tsx";
 import {
   buildEvent,
   datetimeLocalValue,
@@ -70,45 +71,48 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   const visible = config.fields.filter((f): f is VisibleField => f.kind !== "fixed");
 
   return (
-    <Stack h="100%" gap="xs" p="xs">
-      <Stack gap="xs" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {visible.length === 0 ? (
-          <Placeholder
-            title="No fields yet"
-            detail="A form needs at least one field before it can post an event."
-            action={{ label: "Add fields", onClick: onConfigure }}
-          />
-        ) : (
-          visible.map((f) => (
-            <FieldInput
-              key={f.id}
-              field={f}
-              value={values[f.id]}
-              error={missingIds.includes(f.id) ? "Required" : undefined}
-              onChange={(v) => set(f.id, v)}
+    <>
+      <FormPrint fields={config.fields} />
+      <Stack h="100%" gap="xs" p="xs" className="screen-only">
+        <Stack gap="xs" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+          {visible.length === 0 ? (
+            <Placeholder
+              title="No fields yet"
+              detail="A form needs at least one field before it can post an event."
+              action={{ label: "Add fields", onClick: onConfigure }}
             />
-          ))
-        )}
+          ) : (
+            visible.map((f) => (
+              <FieldInput
+                key={f.id}
+                field={f}
+                value={values[f.id]}
+                error={missingIds.includes(f.id) ? "Required" : undefined}
+                onChange={(v) => set(f.id, v)}
+              />
+            ))
+          )}
+        </Stack>
+        <Group justify="space-between" wrap="nowrap">
+          <Text
+            c={status === "error" ? "red.4" : "dimmed"}
+            fz="xs"
+            style={{ minWidth: 0 }}
+            role="status"
+          >
+            {status === "sent" ? "Sent ✓" : problem}
+          </Text>
+          <Button
+            size="xs"
+            onClick={submit}
+            loading={status === "sending"}
+            disabled={visible.length === 0}
+          >
+            {config.submitLabel?.trim() || "Submit"}
+          </Button>
+        </Group>
       </Stack>
-      <Group justify="space-between" wrap="nowrap">
-        <Text
-          c={status === "error" ? "red.4" : "dimmed"}
-          fz="xs"
-          style={{ minWidth: 0 }}
-          role="status"
-        >
-          {status === "sent" ? "Sent ✓" : problem}
-        </Text>
-        <Button
-          size="xs"
-          onClick={submit}
-          loading={status === "sending"}
-          disabled={visible.length === 0}
-        >
-          {config.submitLabel?.trim() || "Submit"}
-        </Button>
-      </Group>
-    </Stack>
+    </>
   );
 };
 

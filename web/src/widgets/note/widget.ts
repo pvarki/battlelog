@@ -44,6 +44,7 @@ export const descriptor: WidgetDescriptor<NoteConfig> = {
   defaultSize: { w: 10, h: 6 },
   minSize: { w: 5, h: 3 },
   document: widgetDocument,
+  printable: true,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

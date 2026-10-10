@@ -56,6 +56,7 @@ export const descriptor: WidgetDescriptor<TodoConfig> = {
   defaultSize: { w: 8, h: 8 },
   minSize: { w: 4, h: 3 },
   document: widgetDocument,
+  printable: true,
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };
