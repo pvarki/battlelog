@@ -343,7 +343,9 @@ const DesktopDashboards = () => {
       create({
         name,
         description,
-        widgets: template.widgets,
+        // Documents come only from the snapshots; a pointer left in the
+        // template's widgets would make the copy write into the template's.
+        widgets: forkWidgets(template.widgets),
         templateEvents: template.templateEvents,
       });
       return;
