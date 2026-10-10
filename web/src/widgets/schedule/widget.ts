@@ -22,6 +22,8 @@ export type ScheduleConfig = z.infer<typeof configSchema>;
 const timerSchema = z.object({
   id: z.string(),
   label: z.string(),
+  /** Optional context shown below the timer label. */
+  description: z.string().optional(),
   /** Absolute target instant (ISO 8601 UTC). Duration-created timers store now+duration. */
   target: z.string().datetime(),
   /** When set, target contributes its local clock time and repeats every day. */

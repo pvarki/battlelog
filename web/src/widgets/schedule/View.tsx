@@ -53,6 +53,11 @@ const TimerRow = ({
         <Text fz="sm" fw={500} truncate>
           {timer.label}
         </Text>
+        {timer.description ? (
+          <Text c="dimmed" fz="xs" lineClamp={2}>
+            {timer.description}
+          </Text>
+        ) : null}
         <Text c="dimmed" fz="xs">
           {timer.recurring ? `Joka päivä klo ${formatTime(target)}` : formatTarget(timer.target)}
         </Text>
@@ -100,6 +105,7 @@ const ScheduleView = ({
   const [opened, setOpened] = useState(false);
   const [mode, setMode] = useState<"duration" | "at">("duration");
   const [label, setLabel] = useState("");
+  const [description, setDescription] = useState("");
   const [hours, setHours] = useState<string | number>(0);
   const [minutes, setMinutes] = useState<string | number>(30);
   const [at, setAt] = useState("");
@@ -128,6 +134,7 @@ const ScheduleView = ({
         {
           id: crypto.randomUUID(),
           label: label.trim(),
+          ...(description.trim() ? { description: description.trim() } : {}),
           target: new Date(targetMs).toISOString(),
           ...(recurring ? { recurring: true } : {}),
         },
@@ -135,6 +142,7 @@ const ScheduleView = ({
     });
     setOpened(false);
     setLabel("");
+    setDescription("");
     setRecurring(false);
     setRecurringTime("");
   };
@@ -175,6 +183,11 @@ const ScheduleView = ({
             onKeyDown={(e) => {
               if (e.key === "Enter") add();
             }}
+          />
+          <TextInput
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.currentTarget.value)}
           />
           <SegmentedControl
             fullWidth
