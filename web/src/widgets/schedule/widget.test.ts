@@ -24,7 +24,12 @@ test("parseTimers tolerates foreign or malformed event data", () => {
   expect(parseTimers({ items: [] })).toEqual([]);
   expect(parseTimers({ timers: [{ id: "1", label: "x", target: "not-a-date" }] })).toEqual([]);
   const timers: ScheduleTimer[] = [
-    { id: "1", label: "SITREP", target: "2026-08-22T14:30:00.000Z" },
+    {
+      id: "1",
+      label: "SITREP",
+      description: "Provide an operational update.",
+      target: "2026-08-22T14:30:00.000Z",
+    },
   ];
   expect(parseTimers({ timers })).toEqual(timers);
 });
