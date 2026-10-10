@@ -17,11 +17,17 @@ import { VitePWA } from "vite-plugin-pwa";
  * any other site could otherwise open the WebSocket (no CORS on WebSockets) or
  * post forms to TAK's write endpoints through localhost. The feature only reads.
  */
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 const isOwnPageRead = (req: IncomingMessage) => {
   const { origin, host } = req.headers;
   const site = req.headers["sec-fetch-site"];
+  // Vite's own Host check skips proxied WebSocket upgrades, so a DNS-rebound
+  // page ("same-origin" on evil.example:5175) must be refused here.
+  const onLoopback =
+    URL.canParse(`http://${host}`) && LOOPBACK.has(new URL(`http://${host}`).hostname);
   const sameOrigin = origin ? URL.canParse(origin) && new URL(origin).host === host : true;
-  return req.method === "GET" && sameOrigin && (!site || site === "same-origin");
+  return req.method === "GET" && onLoopback && sameOrigin && (!site || site === "same-origin");
 };
 
 const takProxy = (tak: Record<string, string>): ProxyOptions => ({
