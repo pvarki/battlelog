@@ -24,6 +24,8 @@ const timerSchema = z.object({
   label: z.string(),
   /** Absolute target instant (ISO 8601 UTC). Duration-created timers store now+duration. */
   target: z.string().datetime(),
+  /** When set, target contributes its local clock time and repeats every day. */
+  recurring: z.boolean().optional(),
 });
 export type ScheduleTimer = z.infer<typeof timerSchema>;
 export type ScheduleDoc = { timers: ScheduleTimer[] };
@@ -46,6 +48,33 @@ export const formatDelta = (ms: number): string => {
   const days = Math.floor(total / 86400);
   const hms = `${pad(Math.floor((total % 86400) / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
   return days > 0 ? `${days}d ${hms}` : hms;
+};
+
+/** The next local daily occurrence, including tomorrow when today's time has passed. */
+export const nextTarget = (timer: ScheduleTimer, now: number): Date => {
+  const target = new Date(timer.target);
+  if (!timer.recurring) return target;
+  const next = new Date(now);
+  next.setHours(
+    target.getHours(),
+    target.getMinutes(),
+    target.getSeconds(),
+    target.getMilliseconds(),
+  );
+  if (next.getTime() <= now) next.setDate(next.getDate() + 1);
+  return next;
+};
+
+/** Applies an HH:mm clock time to today in the device's local timezone. */
+export const todayAtTime = (time: string, now = new Date()): Date | undefined => {
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return undefined;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return undefined;
+  const target = new Date(now);
+  target.setHours(hours, minutes, 0, 0);
+  return target;
 };
 
 export const widgetDocument: WidgetDocumentDescriptor<ScheduleConfig, ScheduleDoc> = {

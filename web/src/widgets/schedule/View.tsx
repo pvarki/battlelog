@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Button,
+  Checkbox,
   Group,
   Modal,
   NumberInput,
@@ -9,20 +10,31 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
+import { DateTimePicker, TimePicker } from "@mantine/dates";
 import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
-import { formatDelta, type ScheduleConfig, type ScheduleTimer, widgetDocument } from "./widget.ts";
+import {
+  formatDelta,
+  nextTarget,
+  type ScheduleConfig,
+  type ScheduleTimer,
+  todayAtTime,
+  widgetDocument,
+} from "./widget.ts";
 
 const formatTarget = (iso: string): string =>
-  new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
+  new Intl.DateTimeFormat("fi-FI", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(iso));
+
+const formatTime = (date: Date): string =>
+  new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" }).format(date);
 
 const TimerRow = ({
   timer,
@@ -33,8 +45,8 @@ const TimerRow = ({
   now: number;
   onRemove: () => void;
 }) => {
-  const remaining = new Date(timer.target).getTime() - now;
-  const passed = remaining < 0;
+  const target = nextTarget(timer, now);
+  const remaining = target.getTime() - now;
   return (
     <Group gap="xs" wrap="nowrap" justify="space-between">
       <Stack gap={0} style={{ minWidth: 0 }}>
@@ -42,12 +54,12 @@ const TimerRow = ({
           {timer.label}
         </Text>
         <Text c="dimmed" fz="xs">
-          {formatTarget(timer.target)}
+          {timer.recurring ? `Joka päivä klo ${formatTime(target)}` : formatTarget(timer.target)}
         </Text>
       </Stack>
       <Group gap="xs" wrap="nowrap">
-        <Text ff="monospace" fw={passed ? 700 : 600} c={passed ? "red" : undefined}>
-          {passed ? `PASSED +${formatDelta(-remaining)}` : formatDelta(remaining)}
+        <Text ff="monospace" fw={600}>
+          {formatDelta(remaining)}
         </Text>
         <ActionIcon
           variant="subtle"
@@ -80,7 +92,9 @@ const ScheduleView = ({
     dashboardIsTemplate,
     document: widgetDocument,
   });
-  const timers = [...value.timers].sort((a, b) => a.target.localeCompare(b.target));
+  const timers = [...value.timers].sort(
+    (a, b) => nextTarget(a, now).getTime() - nextTarget(b, now).getTime(),
+  );
 
   // Create-modal state.
   const [opened, setOpened] = useState(false);
@@ -89,12 +103,22 @@ const ScheduleView = ({
   const [hours, setHours] = useState<string | number>(0);
   const [minutes, setMinutes] = useState<string | number>(30);
   const [at, setAt] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [recurringTime, setRecurringTime] = useState("");
 
   const durationMs = (Number(hours) || 0) * 3_600_000 + (Number(minutes) || 0) * 60_000;
-  const targetMs = mode === "duration" ? now + durationMs : new Date(at).getTime();
+  const recurringTarget = todayAtTime(recurringTime);
+  const targetMs =
+    mode === "duration"
+      ? now + durationMs
+      : recurring
+        ? (recurringTarget?.getTime() ?? Number.NaN)
+        : new Date(at).getTime();
   const valid =
     label.trim() !== "" &&
-    (mode === "duration" ? durationMs > 0 : !Number.isNaN(targetMs) && targetMs > now);
+    (mode === "duration"
+      ? durationMs > 0
+      : !Number.isNaN(targetMs) && (recurring || targetMs > now));
 
   const add = () => {
     if (!valid) return;
@@ -105,11 +129,14 @@ const ScheduleView = ({
           id: crypto.randomUUID(),
           label: label.trim(),
           target: new Date(targetMs).toISOString(),
+          ...(recurring ? { recurring: true } : {}),
         },
       ],
     });
     setOpened(false);
     setLabel("");
+    setRecurring(false);
+    setRecurringTime("");
   };
   const remove = (id: string) => update({ timers: value.timers.filter((t) => t.id !== id) });
 
@@ -164,21 +191,38 @@ const ScheduleView = ({
               <NumberInput label="Minutes" min={0} value={minutes} onChange={setMinutes} />
             </Group>
           ) : (
-            <DateTimePicker
-              label="Target time"
-              description="Interpreted in this device's local time."
-              placeholder="Select date and time"
-              locale="fi"
-              value={at ? at.replace("T", " ") : null}
-              valueFormat="DD.MM.YYYY HH:mm"
-              timePickerProps={{ minutesStep: 5 }}
-              onChange={(next) => setAt(next?.replace(" ", "T") ?? "")}
-            />
+            <Stack gap="xs">
+              <Checkbox
+                label="Recurring"
+                checked={recurring}
+                onChange={(event) => setRecurring(event.currentTarget.checked)}
+              />
+              {recurring ? (
+                <TimePicker
+                  label="Time"
+                  description="Interpreted in this device's local time."
+                  minutesStep={5}
+                  value={recurringTime}
+                  onChange={setRecurringTime}
+                />
+              ) : (
+                <DateTimePicker
+                  label="Target time"
+                  description="Interpreted in this device's local time."
+                  placeholder="Select date and time"
+                  locale="fi"
+                  value={at ? at.replace("T", " ") : null}
+                  valueFormat="DD.MM.YYYY HH:mm"
+                  timePickerProps={{ minutesStep: 5 }}
+                  onChange={(next) => setAt(next?.replace(" ", "T") ?? "")}
+                />
+              )}
+            </Stack>
           )}
           <Text c="dimmed" fz="sm">
             {valid
               ? `→ ${formatTarget(new Date(targetMs).toISOString())}, in ${formatDelta(targetMs - now)}`
-              : mode === "at" && at !== "" && targetMs <= now
+              : mode === "at" && !recurring && at !== "" && targetMs <= now
                 ? "Target is in the past."
                 : " "}
           </Text>
