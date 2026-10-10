@@ -32,10 +32,13 @@ const SELECT_MIN_ZOOM = 12;
 
 const latLng = ([lon, lat]: [number, number]): L.LatLngTuple => [lat, lon];
 
+// Callsigns and names come from any TAK user: render them as text, never HTML.
 const label = (layer: L.Layer, text: string | undefined, permanent: boolean) => {
   if (text) {
+    const content = document.createElement("span");
+    content.textContent = text;
     const className = permanent ? "tak-label tak-label-permanent" : "tak-label";
-    layer.bindTooltip(text, { permanent, direction: "right", className });
+    layer.bindTooltip(content, { permanent, direction: "right", className });
   }
   return layer;
 };

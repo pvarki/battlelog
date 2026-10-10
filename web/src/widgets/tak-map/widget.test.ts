@@ -71,6 +71,7 @@ test("isFaded for stale or offline items", () => {
 test("formatMgrs groups zone, square, easting, northing", () => {
   expect(formatMgrs([24.9384, 60.1699])).toMatch(/^35V L\w \d{5} \d{5}$/);
   expect(formatMgrs([-74.0445, 40.6892])).toMatch(/^18T \w\w \d{5} \d{5}$/);
+  expect(formatMgrs([0, 85])).toBeUndefined();
 });
 
 test("contactsOf lists online users first, then stale, then offline", () => {

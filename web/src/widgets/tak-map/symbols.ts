@@ -71,10 +71,17 @@ export const anchorOf = (f: TakFeature): [lon: number, lat: number] => {
   return g.coordinates[0]?.[0] ?? [0, 0];
 };
 
-/** MGRS at 1 m, grouped like ATAK shows it: `35V LG 85650 72345`. */
-export const formatMgrs = ([lon, lat]: [number, number]): string => {
-  const m = forward([lon, lat], 5);
-  return `${m.slice(0, -12)} ${m.slice(-12, -10)} ${m.slice(-10, -5)} ${m.slice(-5)}`;
+/**
+ * MGRS at 1 m, grouped like ATAK shows it: `35V LG 85650 72345`. Undefined
+ * beyond 80°S–84°N, where MGRS hands over to UPS.
+ */
+export const formatMgrs = ([lon, lat]: [number, number]): string | undefined => {
+  try {
+    const m = forward([lon, lat], 5);
+    return `${m.slice(0, -12)} ${m.slice(-12, -10)} ${m.slice(-10, -5)} ${m.slice(-5)}`;
+  } catch {
+    return undefined;
+  }
 };
 
 export type Status = "online" | "offline" | "stale";

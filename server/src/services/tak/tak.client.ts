@@ -136,6 +136,9 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
 
   // Mission (Data Sync) contents only change through REST, so poll them; a push
   // subscription would mean subscribing to each mission, which is a write.
+  // Each poll is scheduled only after the previous one settles, so a slow TAK
+  // can't stack requests or let an older answer overwrite a newer one.
+  let missionTimer: ReturnType<typeof setTimeout> | undefined;
   const pollMissions = async () => {
     try {
       const missions = await fetchMissions(cfg);
@@ -143,9 +146,9 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
     } catch (err) {
       logger.warn({ err }, "tak mission poll failed");
     }
+    if (!stopped) missionTimer = setTimeout(() => void pollMissions(), MISSION_POLL_MS);
   };
   void pollMissions();
-  const missionPoller = setInterval(() => void pollMissions(), MISSION_POLL_MS);
 
   const connect = () => {
     const current = ++generation;
@@ -183,7 +186,7 @@ export const startTakClient = (state: TakState, cfg: TakClientConfig): (() => vo
   return () => {
     stopped = true;
     clearInterval(sweeper);
-    clearInterval(missionPoller);
+    clearTimeout(missionTimer);
     clearTimeout(retry);
     socket?.destroy();
   };

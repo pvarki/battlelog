@@ -38,13 +38,19 @@ const scheduleItems = () => {
   }, NOTIFY_DELAY_MS);
 };
 
-const heardFromServer = () => {
-  if (view.connection !== "live") publish({ connection: "live" });
+// Armed from the moment a connection starts, so one that opens but never
+// delivers anything is also torn down and reopened.
+const armWatchdog = () => {
   clearTimeout(pingTimer);
   pingTimer = setTimeout(() => {
     publish({ connection: "connecting" });
     open();
   }, PING_TIMEOUT_MS);
+};
+
+const heardFromServer = () => {
+  if (view.connection !== "live") publish({ connection: "live" });
+  armWatchdog();
 };
 
 // One stream per tab, shared by every map widget. Each (re)connect starts with
@@ -54,6 +60,8 @@ const open = () => {
   source?.close();
   const es = new EventSource("/api/v1/tak/stream");
   source = es;
+  armWatchdog();
+  es.addEventListener("open", armWatchdog);
   es.addEventListener("ping", heardFromServer);
   es.addEventListener("snapshot", (e) => {
     heardFromServer();
@@ -80,8 +88,8 @@ const open = () => {
     publish({ missions: JSON.parse(e.data) as TakMission[] });
   });
   es.addEventListener("error", () => {
-    clearTimeout(pingTimer);
     if (es.readyState === EventSource.CLOSED) {
+      clearTimeout(pingTimer);
       publish({ connection: "down" });
       reopenTimer = setTimeout(open, REOPEN_DELAY_MS);
     } else {
