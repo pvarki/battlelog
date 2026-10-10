@@ -6,11 +6,14 @@ import { runMigrations } from "./db/migrate.ts";
 import { seedTemplates } from "./db/seed-templates.ts";
 import { logger } from "./lib/logger.ts";
 import { startEventsListener } from "./services/events/events.listener.ts";
+import { startTakClient, takConfigFromEnv, takState } from "./services/tak/tak.client.ts";
 
 const main = async () => {
   await runMigrations();
   await seedTemplates();
   const stopListener = startEventsListener();
+  const takConfig = ENV.TAK_ENABLED ? takConfigFromEnv() : undefined;
+  const stopTak = takConfig ? startTakClient(takState, takConfig) : () => {};
 
   const app = createApp();
   const server = serve({ fetch: app.fetch, port: ENV.PORT }, ({ port }) => {
@@ -22,6 +25,7 @@ const main = async () => {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "Shutting down");
     server.close();
+    stopTak();
     await stopListener();
     process.exit(0);
   };
