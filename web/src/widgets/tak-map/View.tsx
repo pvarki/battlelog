@@ -13,7 +13,7 @@ import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { CONNECTION_LABEL } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import { useTakState } from "../../tak-state.ts";
-import { Panel } from "./Panel.tsx";
+import { Panel, type PanelTab } from "./Panel.tsx";
 import {
   anchorOf,
   CLUSTER_KINDS,
@@ -24,7 +24,9 @@ import {
   isFaded,
   layerOf,
   liveItems,
+  MISSION_PROBLEM_TEXT,
   missionItems,
+  missionProblems,
   sidcFor,
   teamColor,
   withAutoTitle,
@@ -225,9 +227,15 @@ const shapeOf = (f: TakFeature, faded: boolean): L.Layer => {
   ]);
 };
 
-const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapConfig>) => {
+const TakMapView = ({
+  config,
+  editMode,
+  updateConfig,
+  onConfigure,
+}: WidgetViewProps<TakMapConfig>) => {
   const tak = useTakState();
   const { enabled, missions, connection } = tak;
+  const problems = tak.missionsLoaded ? missionProblems(config, missions) : [];
   const [now, setNow] = useState(Date.now);
   const items = liveItems(tak.items, config, now);
   const everything = [...items, ...missionItems(missions, config, items)];
@@ -242,6 +250,7 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
   const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(!isMobile && config.panelOpen);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [panelTab, setPanelTab] = useState<PanelTab>(config.showLive ? "users" : "missions");
   const selected = everything.find((f) => f.id === selectedId);
 
   const select = (id: string | null) => {
@@ -409,6 +418,15 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
   const toggleFollow = (id: string) =>
     updateConfig({ ...config, followId: config.followId === id ? null : id });
 
+  const showMissionProblems = () => {
+    setSelectedId(null);
+    setPanelTab("missions");
+    setPanelOpen(true);
+  };
+  const [firstProblem] = problems;
+  // A missions-only widget with nothing it may show: say why instead of an empty map.
+  const blocked = !config.showLive && firstProblem && everything.length === 0;
+
   const pinned = config.view === "saved" && config.savedView !== null;
   const togglePin = () => {
     const map = mapRef.current;
@@ -430,7 +448,40 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
             />
           </Box>
         )}
+        {enabled !== false && blocked && (
+          <Box pos="absolute" inset={0} bg="dark.8" style={{ zIndex: 1000 }}>
+            <Placeholder
+              title={
+                problems.length === 1
+                  ? `${firstProblem.name} is not available`
+                  : `${problems.length} missions are not available`
+              }
+              detail={
+                problems.length === 1
+                  ? MISSION_PROBLEM_TEXT[firstProblem.reason].detail
+                  : problems
+                      .map((p) => `${p.name}: ${MISSION_PROBLEM_TEXT[p.reason].label}`)
+                      .join(" · ")
+              }
+              action={{ label: "Choose missions", onClick: onConfigure }}
+            />
+          </Box>
+        )}
         <Box pos="absolute" top={8} right={8} style={{ zIndex: 1002, display: "flex", gap: 8 }}>
+          {firstProblem && !blocked && (
+            <Badge
+              component="button"
+              color="warning"
+              variant="filled"
+              style={{ cursor: "pointer" }}
+              onClick={showMissionProblems}
+              title="Show which missions and why"
+            >
+              {problems.length === 1
+                ? `${firstProblem.name} not available`
+                : `${problems.length} missions not available`}
+            </Badge>
+          )}
           {connection !== "live" && (
             <Badge color="warning" variant="filled">
               {CONNECTION_LABEL[connection]}
@@ -479,6 +530,9 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
             items={items}
             missions={missions}
             config={config}
+            problems={problems}
+            tab={panelTab}
+            onTabChange={setPanelTab}
             onToggleMission={toggleMission}
             onToggleFollow={toggleFollow}
             selected={selected}

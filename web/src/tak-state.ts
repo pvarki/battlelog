@@ -8,6 +8,8 @@ export type TakView = {
   items: TakFeature[];
   /** TAK missions (Data Sync feeds) with their contents; refreshed by the server every 30 s. */
   missions: TakMission[];
+  /** False until the server has polled missions once; until then `missions` proves nothing. */
+  missionsLoaded: boolean;
   connection: ConnectionState;
 };
 
@@ -19,7 +21,13 @@ const NOTIFY_DELAY_MS = 250;
 
 const items = new Map<string, TakFeature>();
 const listeners = new Set<() => void>();
-const INITIAL: TakView = { enabled: null, items: [], missions: [], connection: "connecting" };
+const INITIAL: TakView = {
+  enabled: null,
+  items: [],
+  missions: [],
+  missionsLoaded: false,
+  connection: "connecting",
+};
 let view = INITIAL;
 let source: EventSource | undefined;
 let pingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -85,7 +93,7 @@ const open = () => {
   });
   es.addEventListener("missions", (e) => {
     heardFromServer();
-    publish({ missions: JSON.parse(e.data) as TakMission[] });
+    publish({ missions: JSON.parse(e.data) as TakMission[], missionsLoaded: true });
   });
   es.addEventListener("error", () => {
     if (es.readyState === EventSource.CLOSED) {

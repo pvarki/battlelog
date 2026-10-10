@@ -28,6 +28,8 @@ import {
   formatMgrs,
   hasPosition,
   layerOf,
+  MISSION_PROBLEM_TEXT,
+  type MissionProblem,
   missionShown,
   type Status,
   shortDevice,
@@ -185,19 +187,56 @@ const Contacts = ({
   );
 };
 
+const MissionProblemRow = ({
+  problem,
+  shown,
+  onToggle,
+}: {
+  problem: MissionProblem;
+  shown: boolean;
+  onToggle: () => void;
+}) => (
+  <Group gap={6} wrap="nowrap" align="flex-start">
+    <Checkbox
+      size="xs"
+      mt={3}
+      checked={shown}
+      onChange={onToggle}
+      aria-label={`Show ${problem.name} on the map`}
+    />
+    <Box style={{ flex: 1, minWidth: 0 }}>
+      <Group gap={4} wrap="nowrap">
+        <Text fz="sm" fw={500} truncate>
+          {problem.name}
+        </Text>
+        <Badge size="xs" color="warning" variant="light" ml="auto">
+          {MISSION_PROBLEM_TEXT[problem.reason].label}
+        </Badge>
+      </Group>
+      <Text fz="xs" c="dimmed">
+        {MISSION_PROBLEM_TEXT[problem.reason].detail}
+      </Text>
+    </Box>
+  </Group>
+);
+
 const Missions = ({
   missions,
   config,
+  problems,
   onToggle,
   onSelect,
 }: {
   missions: TakMission[];
   config: TakMapConfig;
+  problems: MissionProblem[];
   onToggle: (name: string) => void;
   onSelect: (id: string) => void;
 }) => {
   const [open, setOpen] = useState<string | null>(null);
-  if (missions.length === 0) {
+  const problemOf = (name: string) => problems.find((p) => p.name === name);
+  const notFound = problems.filter((p) => p.reason === "not-found");
+  if (missions.length === 0 && notFound.length === 0) {
     return (
       <Text fz="xs" c="dimmed">
         No missions on this TAK Server.
@@ -206,7 +245,26 @@ const Missions = ({
   }
   return (
     <Stack gap="xs">
+      {notFound.map((p) => (
+        <MissionProblemRow
+          key={p.name}
+          problem={p}
+          shown={missionShown(config, p.name)}
+          onToggle={() => onToggle(p.name)}
+        />
+      ))}
       {missions.map((m) => {
+        const problem = problemOf(m.name);
+        if (problem) {
+          return (
+            <MissionProblemRow
+              key={m.name}
+              problem={problem}
+              shown={missionShown(config, m.name)}
+              onToggle={() => onToggle(m.name)}
+            />
+          );
+        }
         const expanded = open === m.name;
         return (
           <Box key={m.name}>
@@ -259,11 +317,16 @@ const Missions = ({
   );
 };
 
+export type PanelTab = "users" | "missions";
+
 /** Side panel: TAK users and missions, or details of the item picked on the map. */
 export const Panel = ({
   items,
   missions,
   config,
+  problems,
+  tab,
+  onTabChange,
   onToggleMission,
   onToggleFollow,
   selected,
@@ -273,6 +336,9 @@ export const Panel = ({
   items: TakFeature[];
   missions: TakMission[];
   config: TakMapConfig;
+  problems: MissionProblem[];
+  tab: PanelTab;
+  onTabChange: (tab: PanelTab) => void;
   onToggleMission: (name: string) => void;
   onToggleFollow: (id: string) => void;
   selected: TakFeature | undefined;
@@ -291,7 +357,8 @@ export const Panel = ({
     </ScrollArea>
   ) : (
     <Tabs
-      defaultValue={config.showLive ? "users" : "missions"}
+      value={tab}
+      onChange={(value) => value && onTabChange(value as PanelTab)}
       h="100%"
       style={{ display: "flex", flexDirection: "column" }}
     >
@@ -299,7 +366,17 @@ export const Panel = ({
         <Tabs.Tab value="users" fz="xs">
           Users
         </Tabs.Tab>
-        <Tabs.Tab value="missions" fz="xs">
+        <Tabs.Tab
+          value="missions"
+          fz="xs"
+          rightSection={
+            problems.length > 0 && (
+              <Badge size="xs" color="warning" circle aria-label="Some missions not available">
+                !
+              </Badge>
+            )
+          }
+        >
           Missions ({missions.length})
         </Tabs.Tab>
       </Tabs.List>
@@ -311,6 +388,7 @@ export const Panel = ({
           <Missions
             missions={missions}
             config={config}
+            problems={problems}
             onToggle={onToggleMission}
             onSelect={onSelect}
           />

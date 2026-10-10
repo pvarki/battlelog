@@ -10,6 +10,7 @@ import {
   layerOf,
   liveItems,
   missionItems,
+  missionProblems,
   shortDevice,
   sidcFor,
   statusOf,
@@ -110,9 +111,9 @@ test("missionItems shows visible missions once, without items already live", () 
   const b = { ...feature("u-d-c-c"), id: "b" };
   const c = { ...feature("b-m-r"), id: "c" };
   const missions = [
-    { name: "RECON", keywords: [], items: [a, b] },
-    { name: "OTHER", keywords: [], items: [b, c] },
-    { name: "HIDDEN", keywords: [], items: [{ ...feature("a-h-G"), id: "h" }] },
+    { name: "RECON", keywords: [], readable: true, items: [a, b] },
+    { name: "OTHER", keywords: [], readable: true, items: [b, c] },
+    { name: "HIDDEN", keywords: [], readable: true, items: [{ ...feature("a-h-G"), id: "h" }] },
   ];
   const hidden = config({ missionNames: ["HIDDEN"] });
   expect(missionItems(missions, hidden, [a]).map((f) => f.id)).toEqual(["b", "c"]);
@@ -165,4 +166,18 @@ test("clusterKindOf keeps users, each affiliation and markers apart", () => {
   expect(clusterKindOf(feature("a-n-G"))).toBe("neutral");
   expect(clusterKindOf(feature("a-u-G"))).toBe("unknown");
   expect(clusterKindOf(feature("b-m-p-s-m"))).toBe("markers");
+});
+
+test("missionProblems reports unreadable shown missions and configured ones that are gone", () => {
+  const missions = [
+    { name: "OPEN", keywords: [], readable: true, items: [] },
+    { name: "LOCKED", keywords: [], readable: false, items: [] },
+  ];
+  expect(missionProblems(config(), missions)).toEqual([{ name: "LOCKED", reason: "no-access" }]);
+  expect(missionProblems(config({ missionNames: ["LOCKED"] }), missions)).toEqual([]);
+  const only = config({ missionFilter: "only", missionNames: ["OPEN", "LOCKED", "GONE"] });
+  expect(missionProblems(only, missions)).toEqual([
+    { name: "LOCKED", reason: "no-access" },
+    { name: "GONE", reason: "not-found" },
+  ]);
 });

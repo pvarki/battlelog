@@ -109,15 +109,15 @@ const fetchMissions = async (cfg: TakClientConfig): Promise<TakMission[]> => {
           const change = parseCot(event);
           return change?.kind === "upsert" ? [change.feature] : [];
         });
-        return [{ ...mission, items }];
+        return { ...mission, readable: true, items };
       } catch (err) {
         // A password-protected or restricted mission must not hide all the others.
         logger.warn({ err, mission: mission.name }, "tak mission contents unavailable");
-        return [];
+        return { ...mission, readable: false, items: [] };
       }
     }),
   );
-  return missions.flat();
+  return missions;
 };
 
 /** TAK caps archive queries at 24 h, so long-lived items need one query per day. */

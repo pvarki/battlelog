@@ -93,11 +93,19 @@ describe("tak state", () => {
 describe("missions", () => {
   test("setMissions emits only when the list actually changes", () => {
     const { state, changes } = record();
-    const recon = { name: "RECON", keywords: ["#RECON"], items: [] };
+    const recon = { name: "RECON", keywords: ["#RECON"], readable: true, items: [] };
     state.setMissions([recon]);
     state.setMissions([{ ...recon }]);
     expect(changes.filter((c) => c.kind === "missions")).toHaveLength(1);
     expect(state.missions()).toEqual([recon]);
+  });
+
+  test("the first poll counts as loaded even when the server has no missions", () => {
+    const { state, changes } = record();
+    expect(state.missionsLoaded()).toBe(false);
+    state.setMissions([]);
+    expect(state.missionsLoaded()).toBe(true);
+    expect(changes.filter((c) => c.kind === "missions")).toHaveLength(1);
   });
 
   test("parseMissionList keeps named missions and their metadata", () => {

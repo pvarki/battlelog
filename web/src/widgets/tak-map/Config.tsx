@@ -13,7 +13,13 @@ import {
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import { useTakState } from "../../tak-state.ts";
-import { TEAMS, teamColor, withAutoTitle } from "./symbols.ts";
+import {
+  MISSION_PROBLEM_TEXT,
+  missionProblems,
+  TEAMS,
+  teamColor,
+  withAutoTitle,
+} from "./symbols.ts";
 import { BASEMAPS, type Basemap, LAYER_LABEL, LAYERS, type TakMapConfig } from "./widget.ts";
 
 const VIEWS: { value: TakMapConfig["view"]; label: string }[] = [
@@ -35,7 +41,14 @@ const Section = ({ label }: { label: string }) => (
 );
 
 const TakMapConfigForm = ({ config, onChange }: WidgetConfigProps<TakMapConfig>) => {
-  const { missions } = useTakState();
+  const { missions, missionsLoaded } = useTakState();
+  const problems = missionsLoaded ? missionProblems(config, missions) : [];
+  const problemText = (name: string) => {
+    const problem = problems.find((p) => p.name === name);
+    if (!problem) return undefined;
+    const { label, detail } = MISSION_PROBLEM_TEXT[problem.reason];
+    return `${label}: ${detail}`;
+  };
   const set = (patch: Partial<TakMapConfig>) =>
     onChange(withAutoTitle(config, { ...config, ...patch }));
   const age = config.maxAgeMinutes === null ? "all" : String(config.maxAgeMinutes);
@@ -151,6 +164,7 @@ const TakMapConfigForm = ({ config, onChange }: WidgetConfigProps<TakMapConfig>)
           <Checkbox
             key={name}
             label={name}
+            description={problemText(name)}
             checked={config.missionNames.includes(name) === (config.missionFilter === "only")}
             onChange={() =>
               set({

@@ -228,3 +228,33 @@ export const clusterKindOf = (f: TakFeature): ClusterKind => {
   if (layer !== "units") return "markers";
   return AFFILIATION_KIND[f.properties.cotType.split("-")[1] ?? ""] ?? "unknown";
 };
+
+export type MissionProblem = { name: string; reason: "no-access" | "not-found" };
+
+export const MISSION_PROBLEM_TEXT: Record<
+  MissionProblem["reason"],
+  { label: string; detail: string }
+> = {
+  "no-access": {
+    label: "No access",
+    detail: "BattleLog's TAK account can't read this mission (password-protected or restricted).",
+  },
+  "not-found": {
+    label: "Not found",
+    detail:
+      "Not on the TAK Server, or BattleLog's TAK account isn't in its group. It may have been deleted or renamed.",
+  },
+};
+
+/** Missions this widget is set to show but can't: unreadable, or gone from the server. */
+export const missionProblems = (config: TakMapConfig, missions: TakMission[]): MissionProblem[] => {
+  const unreadable = missions
+    .filter((m) => !m.readable && missionShown(config, m.name))
+    .map((m) => ({ name: m.name, reason: "no-access" as const }));
+  if (config.missionFilter !== "only") return unreadable;
+  const listed = new Set(missions.map((m) => m.name));
+  const missing = config.missionNames
+    .filter((name) => !listed.has(name))
+    .map((name) => ({ name, reason: "not-found" as const }));
+  return [...unreadable, ...missing];
+};

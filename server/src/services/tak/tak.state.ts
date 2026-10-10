@@ -9,11 +9,13 @@ export type TakMission = {
   creatorUid?: string;
   createTime?: string;
   keywords: string[];
+  /** False when the mission is listed but its contents can't be fetched (password or restriction). */
+  readable: boolean;
   items: TakFeature[];
 };
 
 /** Mission metadata from `GET /Marti/api/missions`; contents are fetched separately. */
-export const parseMissionList = (json: string): Omit<TakMission, "items">[] => {
+export const parseMissionList = (json: string): Omit<TakMission, "items" | "readable">[] => {
   if (!json) return [];
   const data: unknown = JSON.parse(json)?.data;
   if (!Array.isArray(data)) return [];
@@ -58,6 +60,7 @@ export const createTakState = ({
   const disconnects = new Map<string, number>();
   const listeners = new Set<(change: TakStateChange) => void>();
   let missions: TakMission[] = [];
+  let missionsLoaded = false;
 
   const emit = (change: TakStateChange) => {
     for (const listener of listeners) {
@@ -135,7 +138,8 @@ export const createTakState = ({
 
   /** Replaces the mission list; subscribers hear only actual changes. */
   const setMissions = (next: TakMission[]) => {
-    if (JSON.stringify(next) === JSON.stringify(missions)) return;
+    if (missionsLoaded && JSON.stringify(next) === JSON.stringify(missions)) return;
+    missionsLoaded = true;
     missions = next;
     emit({ kind: "missions", missions });
   };
@@ -145,6 +149,8 @@ export const createTakState = ({
     sweep,
     setMissions,
     missions: () => missions,
+    /** False until the first mission poll; an empty list before then means "not known yet". */
+    missionsLoaded: () => missionsLoaded,
     snapshot: () => [...items.values()],
     onChange: (listener: (change: TakStateChange) => void) => {
       listeners.add(listener);

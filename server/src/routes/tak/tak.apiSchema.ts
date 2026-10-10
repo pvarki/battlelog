@@ -40,6 +40,11 @@ export const takMissionSchema = z
     creatorUid: z.string().optional(),
     createTime: z.string().optional(),
     keywords: z.array(z.string()),
+    readable: z
+      .boolean()
+      .describe(
+        "False when BattleLog's TAK identity can't read the contents (password-protected or restricted); items is then empty",
+      ),
     items: z.array(takFeatureSchema),
   })
   .openapi("TakMission");

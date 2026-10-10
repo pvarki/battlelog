@@ -71,7 +71,10 @@ const streamTakState = (c: Context) =>
       event: "snapshot",
       data: JSON.stringify({ enabled: ENV.TAK_ENABLED, items: takState.snapshot() }),
     });
-    await stream.writeSSE(toSSE({ kind: "missions", missions: takState.missions() }));
+    // Before the first poll, an empty list would read as "every mission is gone".
+    if (takState.missionsLoaded()) {
+      await stream.writeSSE(toSSE({ kind: "missions", missions: takState.missions() }));
+    }
     for (const change of pending) await send(change);
     live = true;
 
