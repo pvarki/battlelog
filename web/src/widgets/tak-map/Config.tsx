@@ -1,7 +1,9 @@
 import {
   Checkbox,
+  ColorSwatch,
+  Divider,
+  Group,
   MultiSelect,
-  NumberInput,
   SegmentedControl,
   Select,
   Stack,
@@ -11,7 +13,7 @@ import {
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import { useTakState } from "../../tak-state.ts";
-import { TEAMS } from "./symbols.ts";
+import { TEAMS, teamColor, withAutoTitle } from "./symbols.ts";
 import { BASEMAPS, type Basemap, LAYER_LABEL, LAYERS, type TakMapConfig } from "./widget.ts";
 
 const VIEWS: { value: TakMapConfig["view"]; label: string }[] = [
@@ -20,13 +22,28 @@ const VIEWS: { value: TakMapConfig["view"]; label: string }[] = [
   { value: "saved", label: "Saved view (pin it on the map)" },
 ];
 
+const MAX_AGES = [
+  { value: "all", label: "Show all" },
+  { value: "15", label: "Updated in the last 15 min" },
+  { value: "60", label: "Updated in the last hour" },
+  { value: "360", label: "Updated in the last 6 hours" },
+  { value: "1440", label: "Updated in the last 24 hours" },
+];
+
+const Section = ({ label }: { label: string }) => (
+  <Divider label={label} labelPosition="left" mt="sm" />
+);
+
 const TakMapConfigForm = ({ config, onChange }: WidgetConfigProps<TakMapConfig>) => {
   const { missions } = useTakState();
-  const set = (patch: Partial<TakMapConfig>) => onChange({ ...config, ...patch });
+  const set = (patch: Partial<TakMapConfig>) =>
+    onChange(withAutoTitle(config, { ...config, ...patch }));
+  const age = config.maxAgeMinutes === null ? "all" : String(config.maxAgeMinutes);
   const missionNames = [...new Set([...missions.map((m) => m.name), ...config.missionNames])];
   return (
     <Stack>
       <TitleInput value={config.title} onChange={(title) => set({ title })} />
+      <Section label="Map" />
       <Select
         label="Base map"
         data={Object.entries(BASEMAPS).map(([value, b]) => ({ value, label: b.label }))}
@@ -58,6 +75,7 @@ const TakMapConfigForm = ({ config, onChange }: WidgetConfigProps<TakMapConfig>)
         onChange={(e) => set({ panelOpen: e.currentTarget.checked })}
       />
 
+      <Section label="What to show" />
       <Switch
         label="Live TAK items"
         description="Off shows only the selected missions"
@@ -79,17 +97,28 @@ const TakMapConfigForm = ({ config, onChange }: WidgetConfigProps<TakMapConfig>)
         label="Teams"
         description="TAK users of these teams only; empty shows all"
         data={TEAMS}
+        renderOption={({ option }) => (
+          <Group gap="xs">
+            <ColorSwatch color={teamColor(option.value)} size={12} />
+            {option.value}
+          </Group>
+        )}
         value={config.teams}
         onChange={(teams) => set({ teams })}
         clearable
       />
-      <NumberInput
-        label="Hide items older than (minutes)"
-        description="Empty shows all"
-        min={1}
-        allowDecimal={false}
-        value={config.maxAgeMinutes ?? ""}
-        onChange={(v) => set({ maxAgeMinutes: typeof v === "number" && v > 0 ? v : null })}
+      <Select
+        label="Age"
+        data={
+          MAX_AGES.some((a) => a.value === age)
+            ? MAX_AGES
+            : [...MAX_AGES, { value: age, label: `Updated in the last ${age} min` }]
+        }
+        value={age}
+        allowDeselect={false}
+        onChange={(value) =>
+          value && set({ maxAgeMinutes: value === "all" ? null : Number(value) })
+        }
       />
       <Switch
         label="Show stale and offline items"
@@ -98,9 +127,7 @@ const TakMapConfigForm = ({ config, onChange }: WidgetConfigProps<TakMapConfig>)
       />
 
       <Stack gap="xs">
-        <Text fz="sm" fw={500}>
-          Missions
-        </Text>
+        <Section label="Missions" />
         <SegmentedControl
           data={[
             { value: "except", label: "All but unchecked" },

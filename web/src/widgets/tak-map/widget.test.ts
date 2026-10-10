@@ -2,15 +2,18 @@ import { describe, expect, test } from "vitest";
 import type { TakFeature } from "../../api.ts";
 import {
   contactsOf,
+  describeType,
   formatMgrs,
   hasPosition,
   isFaded,
   layerOf,
   liveItems,
   missionItems,
+  shortDevice,
   sidcFor,
   statusOf,
   teamColor,
+  withAutoTitle,
 } from "./symbols.ts";
 import descriptor, { type TakMapConfig } from "./widget.ts";
 
@@ -129,4 +132,27 @@ test("liveItems applies the live, team, age and stale filters", () => {
   expect(ids({ teams: ["Red"] })).toEqual(["red", "old", "stale"]);
   expect(ids({ maxAgeMinutes: 30 })).toEqual(["cyan", "red", "stale"]);
   expect(ids({ showStale: false })).toEqual(["cyan", "red", "old"]);
+});
+
+test("describeType names CoT types in plain language", () => {
+  expect(describeType(feature("a-h-G"))).toBe("Hostile ground unit");
+  expect(describeType(feature("a-f-A-M-H-Q"))).toBe("Friendly air unit");
+  expect(describeType(feature("a-f-G-U-C", { team: "Cyan" }))).toBe("TAK user");
+  expect(describeType(feature("b-m-p-s-m"))).toBe("Spot marker");
+  expect(describeType(feature("u-d-c-c"))).toBe("Circle");
+  expect(describeType(feature("x-y"))).toBe("Map item");
+  expect(shortDevice("ATAK-CIV 5.8.0.4 (174b425).1787255575-CIV")).toBe("ATAK-CIV 5.8.0.4");
+});
+
+test("withAutoTitle names missions-only widgets but keeps typed titles", () => {
+  const live = config();
+  const recon = config({ showLive: false, missionFilter: "only", missionNames: ["RECON"] });
+  expect(withAutoTitle(live, recon).title).toBe("RECON");
+  const both = { ...recon, title: "RECON", missionNames: ["RECON", "OPS"] };
+  expect(withAutoTitle({ ...recon, title: "RECON" }, both).title).toBe("RECON, OPS");
+  expect(
+    withAutoTitle({ ...recon, title: "RECON" }, { ...recon, title: "RECON", showLive: true }).title,
+  ).toBeUndefined();
+  const typed = { ...recon, title: "Drone ops" };
+  expect(withAutoTitle(typed, { ...typed, missionNames: ["OPS"] }).title).toBe("Drone ops");
 });

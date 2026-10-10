@@ -24,15 +24,17 @@ import { formatDateTime } from "../../time.ts";
 import {
   anchorOf,
   contactsOf,
+  describeType,
   formatMgrs,
   hasPosition,
   layerOf,
   missionShown,
   type Status,
+  shortDevice,
   statusOf,
   teamColor,
 } from "./symbols.ts";
-import { LAYER_LABEL, type TakMapConfig } from "./widget.ts";
+import type { TakMapConfig } from "./widget.ts";
 
 const STATUS_COLOR: Record<Status, string> = { online: "green", stale: "yellow", offline: "gray" };
 
@@ -62,13 +64,12 @@ const Details = ({
   const layer = layerOf(f);
   const at = anchorOf(f);
   const rows: [string, string | undefined][] = [
-    ["Type", `${LAYER_LABEL[layer]} · ${p.cotType}`],
     ["Team", [p.team, p.role].filter(Boolean).join(" · ") || undefined],
     ["Position", hasPosition(f) ? formatMgrs(at) : "No position (no GPS fix)"],
     ["Lat, lon", hasPosition(f) ? `${at[1].toFixed(5)}, ${at[0].toFixed(5)}` : undefined],
     ["Radius", p.radius ? `${Math.round(p.radius)} m` : undefined],
     ["Battery", p.battery !== undefined ? `${p.battery} %` : undefined],
-    ["Device", p.device],
+    ["Device", p.device && shortDevice(p.device)],
     ["Updated", `${formatDateTime(p.time)} (${ago(p.time, now)})`],
     ["Stale at", formatDateTime(p.stale)],
     ["Checkpoints", p.checkpoints?.map((c) => c.name).join(" → ")],
@@ -96,11 +97,14 @@ const Details = ({
           </ActionIcon>
         </Group>
       </Group>
-      {layer === "contacts" && (
-        <Badge color={STATUS_COLOR[statusOf(f, now)]} variant="light" w="fit-content">
-          {statusOf(f, now)}
-        </Badge>
-      )}
+      <Group gap={6}>
+        <Text fz="sm">{describeType(f)}</Text>
+        {layer === "contacts" && (
+          <Badge color={STATUS_COLOR[statusOf(f, now)]} variant="light">
+            {statusOf(f, now)}
+          </Badge>
+        )}
+      </Group>
       <Table fz="xs" verticalSpacing={2} withRowBorders={false}>
         <Table.Tbody>
           {rows
@@ -110,11 +114,14 @@ const Details = ({
                 <Table.Td c="dimmed" w={80} style={{ verticalAlign: "top" }}>
                   {k}
                 </Table.Td>
-                <Table.Td>{v}</Table.Td>
+                <Table.Td style={{ overflowWrap: "anywhere" }}>{v}</Table.Td>
               </Table.Tr>
             ))}
         </Table.Tbody>
       </Table>
+      <Text fz="xs" c="dimmed" ff="monospace">
+        CoT {p.cotType}
+      </Text>
       {p.remarks && (
         <Text fz="xs" style={{ whiteSpace: "pre-wrap" }}>
           {p.remarks}
@@ -238,7 +245,7 @@ const Missions = ({
                     <Text fz="xs" truncate>
                       {f.properties.callsign ?? f.id}{" "}
                       <Text span c="dimmed" fz="xs">
-                        {LAYER_LABEL[layerOf(f)].toLowerCase()}
+                        {describeType(f)}
                       </Text>
                     </Text>
                   </UnstyledButton>
@@ -273,7 +280,7 @@ export const Panel = ({
   onSelect: (id: string | null) => void;
 }) =>
   selected ? (
-    <ScrollArea h="100%" p="xs" type="auto">
+    <ScrollArea h="100%" p="xs" type="auto" scrollbars="y">
       <Details
         f={selected}
         now={now}
@@ -296,7 +303,7 @@ export const Panel = ({
           Missions ({missions.length})
         </Tabs.Tab>
       </Tabs.List>
-      <ScrollArea style={{ flex: 1 }} p="xs" type="auto">
+      <ScrollArea style={{ flex: 1 }} p="xs" type="auto" scrollbars="y">
         <Tabs.Panel value="users">
           <Contacts items={items} now={now} onSelect={onSelect} />
         </Tabs.Panel>

@@ -1,9 +1,11 @@
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
 import "./tak-map.css";
 import { ActionIcon, Badge, Box } from "@mantine/core";
-import { IconLayoutSidebarRight, IconPin, IconPinnedOff } from "@tabler/icons-react";
-import L from "leaflet";
+import { IconLayoutSidebarRight, IconPin, IconPinFilled } from "@tabler/icons-react";
 import ms from "milsymbol";
+import L from "./leaflet-global.ts";
+import "leaflet.markercluster";
 import { useEffect, useRef, useState } from "react";
 import type { TakFeature } from "../../api.ts";
 import { useIsMobile } from "../../dashboard/mobile.ts";
@@ -14,6 +16,7 @@ import { useTakState } from "../../tak-state.ts";
 import { Panel } from "./Panel.tsx";
 import {
   anchorOf,
+  formatMgrs,
   hasPosition,
   isFaded,
   layerOf,
@@ -21,8 +24,9 @@ import {
   missionItems,
   sidcFor,
   teamColor,
+  withAutoTitle,
 } from "./symbols.ts";
-import { BASEMAPS, LAYERS, type Layer, type TakMapConfig } from "./widget.ts";
+import { BASEMAPS, type TakMapConfig } from "./widget.ts";
 
 const FINLAND: L.LatLngTuple = [64.5, 26];
 const FADE_CHECK_MS = 30_000;
@@ -30,6 +34,71 @@ const DEFAULT_MARKER_COLOR = "#ffd43b";
 // Below this zoom, permanent labels pile into an unreadable smear (ATAK hides them too).
 const LABEL_MIN_ZOOM = 9;
 const SELECT_MIN_ZOOM = 12;
+const MAX_ZOOM = 19;
+const CLUSTER_RADIUS_PX = 40;
+// TAK markers sit metres apart (a checkpoint and its laavu), so keep grouping past street level.
+const UNCLUSTER_ZOOM = 16;
+
+type MapLayers = {
+  /** Point items, grouped into count bubbles when they would overlap. */
+  points: L.MarkerClusterGroup;
+  shapes: L.LayerGroup;
+  selection: L.LayerGroup;
+};
+
+const clusterIcon = (cluster: L.MarkerCluster) =>
+  L.divIcon({
+    html: `<span>${cluster.getChildCount()}</span>`,
+    className: "tak-cluster",
+    iconSize: [32, 32],
+  });
+
+/** Where the pointer is, in MGRS, or the map centre when it isn't over the map. */
+const coordinatesControl = (map: L.Map) => {
+  const el = L.DomUtil.create("div", "tak-coords");
+  const show = (at: L.LatLng) => {
+    el.textContent = formatMgrs([at.lng, at.lat]) ?? `${at.lat.toFixed(5)}, ${at.lng.toFixed(5)}`;
+  };
+  const showCentre = () => show(map.getCenter());
+  map.on("mousemove", (e) => show(e.latlng));
+  map.on("mouseout moveend", showCentre);
+  showCentre();
+  return new (L.Control.extend({ onAdd: () => el }))({ position: "bottomleft" });
+};
+
+const highlightOf = (f: TakFeature): L.Layer => {
+  const g = f.geometry;
+  if (g.type === "Point" && !f.properties.radius) {
+    // Black under white reads on both light and dark basemaps.
+    const ring = (color: string, weight: number) =>
+      L.circleMarker(latLng(g.coordinates), {
+        pane: "takSelectedPoint",
+        radius: 18,
+        color,
+        weight,
+        fill: false,
+        interactive: false,
+        className: "tak-selected",
+      });
+    return L.layerGroup([ring("#000", 7), ring("#fff", 3)]);
+  }
+  const halo: L.PathOptions = {
+    pane: "takSelectedShape",
+    color: "#fff",
+    opacity: 0.8,
+    weight: (f.properties.strokeWidth ?? 3) + 8,
+    fill: false,
+    interactive: false,
+  };
+  if (g.type === "Point")
+    return L.circle(latLng(g.coordinates), { ...halo, radius: f.properties.radius });
+  if (g.type === "Polygon")
+    return L.polygon(
+      g.coordinates.map((ring) => ring.map(latLng)),
+      halo,
+    );
+  return L.polyline(g.coordinates.map(latLng), halo);
+};
 
 const latLng = ([lon, lat]: [number, number]): L.LatLngTuple => [lat, lon];
 
@@ -153,7 +222,7 @@ const shapeOf = (f: TakFeature, faded: boolean): L.Layer => {
   ]);
 };
 
-const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => {
+const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapConfig>) => {
   const tak = useTakState();
   const { enabled, missions, connection } = tak;
   const [now, setNow] = useState(Date.now);
@@ -161,7 +230,8 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
   const everything = [...items, ...missionItems(missions, config, items)];
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map>(null);
-  const layersRef = useRef<Record<Layer, L.LayerGroup>>(null);
+  const layersRef = useRef<MapLayers>(null);
+  const pointsByIdRef = useRef(new Map<string, L.Layer>());
   const fittedRef = useRef(false);
   const followingRef = useRef(false);
   const savedView = config.view === "saved" ? config.savedView : null;
@@ -175,9 +245,13 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
     setSelectedId(id);
     const f = everything.find((i) => i.id === id);
     const map = mapRef.current;
-    if (f && map && hasPosition(f)) {
-      map.setView(latLng(anchorOf(f)), Math.max(map.getZoom(), SELECT_MIN_ZOOM));
-    }
+    if (!f || !map || !hasPosition(f)) return;
+    const zoom = Math.max(map.getZoom(), SELECT_MIN_ZOOM);
+    const marker = pointsByIdRef.current.get(f.id);
+    if (!marker || !layersRef.current) return map.setView(latLng(anchorOf(f)), zoom);
+    map.setView(latLng(anchorOf(f)), zoom, { animate: false });
+    // Still grouped at this zoom: zoom further or spread the group until the item shows.
+    layersRef.current.points.zoomToShowLayer(marker);
   };
 
   useEffect(() => {
@@ -188,11 +262,23 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const map = L.map(el, { center: FINLAND, zoom: 5, worldCopyJump: true });
+    const map = L.map(el, { center: FINLAND, zoom: 5, maxZoom: MAX_ZOOM, worldCopyJump: true });
     mapRef.current = map;
-    layersRef.current = Object.fromEntries(
-      LAYERS.map((layer) => [layer, L.layerGroup().addTo(map)]),
-    ) as Record<Layer, L.LayerGroup>;
+    // Halo under the shapes it outlines; ring over the markers it circles.
+    map.createPane("takSelectedShape").style.zIndex = "390";
+    map.createPane("takSelectedPoint").style.zIndex = "650";
+    layersRef.current = {
+      shapes: L.layerGroup().addTo(map),
+      points: L.markerClusterGroup({
+        maxClusterRadius: CLUSTER_RADIUS_PX,
+        disableClusteringAtZoom: UNCLUSTER_ZOOM,
+        showCoverageOnHover: false,
+        iconCreateFunction: clusterIcon,
+      }).addTo(map),
+      selection: L.layerGroup().addTo(map),
+    };
+    L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
+    coordinatesControl(map).addTo(map);
     const resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(el);
     return () => {
@@ -207,7 +293,7 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
     const map = mapRef.current;
     if (!map) return;
     const { url, attribution } = BASEMAPS[config.basemap];
-    const tiles = L.tileLayer(url, { attribution, maxZoom: 19 }).addTo(map);
+    const tiles = L.tileLayer(url, { attribution, maxZoom: MAX_ZOOM }).addTo(map);
     tiles.bringToBack();
     return () => {
       tiles.remove();
@@ -246,8 +332,11 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
     const map = mapRef.current;
     const layers = layersRef.current;
     if (!map || !layers) return;
-    for (const group of Object.values(layers)) group.clearLayers();
+    layers.points.clearLayers();
+    layers.shapes.clearLayers();
+    pointsByIdRef.current.clear();
     const drawn: L.Layer[] = [];
+    const points: L.Layer[] = [];
     const live = liveItems(tak.items, config, now);
     const fromMissions = missionItems(missions, config, live);
     for (const f of [...live, ...fromMissions]) {
@@ -259,9 +348,14 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
         setSelectedId(f.id);
         setPanelOpen(true);
       });
-      layers[layer].addLayer(shape);
+      const isPoint = f.geometry.type === "Point" && !f.properties.radius;
+      if (isPoint) {
+        points.push(shape);
+        pointsByIdRef.current.set(f.id, shape);
+      } else layers.shapes.addLayer(shape);
       drawn.push(shape);
     }
+    layers.points.addLayers(points);
     const followed = live.find(
       (f) =>
         f.id === config.followId && !config.hiddenLayers.includes(layerOf(f)) && hasPosition(f),
@@ -284,13 +378,24 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
     }
   }, [tak.items, missions, config, savedView, now]);
 
+  useEffect(() => {
+    const selection = layersRef.current?.selection;
+    if (!selection || !selected || !hasPosition(selected)) return;
+    const highlight = highlightOf(selected).addTo(selection);
+    return () => {
+      highlight.remove();
+    };
+  }, [selected]);
+
   const toggleMission = (name: string) =>
-    updateConfig({
-      ...config,
-      missionNames: config.missionNames.includes(name)
-        ? config.missionNames.filter((m) => m !== name)
-        : [...config.missionNames, name],
-    });
+    updateConfig(
+      withAutoTitle(config, {
+        ...config,
+        missionNames: config.missionNames.includes(name)
+          ? config.missionNames.filter((m) => m !== name)
+          : [...config.missionNames, name],
+      }),
+    );
 
   const toggleFollow = (id: string) =>
     updateConfig({ ...config, followId: config.followId === id ? null : id });
@@ -322,15 +427,21 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
               {CONNECTION_LABEL[connection]}
             </Badge>
           )}
-          <ActionIcon
-            variant="filled"
-            color="dark"
-            onClick={togglePin}
-            aria-label={pinned ? "Stop keeping this view" : "Always open the map at this view"}
-            title={pinned ? "Stop keeping this view" : "Always open the map at this view"}
-          >
-            {pinned ? <IconPinnedOff size={16} /> : <IconPin size={16} />}
-          </ActionIcon>
+          {/* The saved view is shared by everyone using the dashboard: an editing action. */}
+          {editMode && (
+            <ActionIcon
+              variant="filled"
+              color={pinned ? "accent" : "dark"}
+              onClick={togglePin}
+              aria-pressed={pinned}
+              aria-label={
+                pinned ? "Saved view in use: click to fit to items instead" : "Save this view"
+              }
+              title={pinned ? "Saved view in use: click to fit to items instead" : "Save this view"}
+            >
+              {pinned ? <IconPinFilled size={16} /> : <IconPin size={16} />}
+            </ActionIcon>
+          )}
           <ActionIcon
             variant="filled"
             color="dark"

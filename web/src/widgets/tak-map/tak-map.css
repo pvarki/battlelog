@@ -28,3 +28,39 @@
 .tak-labels-hidden .tak-label-permanent {
   display: none;
 }
+
+.tak-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgba(26, 27, 30, 0.85);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tak-coords {
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font: 11px/1.6 ui-monospace, monospace;
+  padding: 0 6px;
+  border-radius: 2px;
+}
+
+.tak-selected {
+  animation: tak-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tak-pulse {
+  50% {
+    stroke-opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tak-selected {
+    animation: none;
+  }
+}

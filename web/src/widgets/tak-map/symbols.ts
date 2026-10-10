@@ -135,3 +135,68 @@ export const missionItems = (
     .flatMap((m) => m.items)
     .filter((f) => !seen.has(f.id) && seen.add(f.id));
 };
+
+const AFFILIATION_NAME: Record<string, string> = {
+  f: "Friendly",
+  a: "Assumed friend",
+  h: "Hostile",
+  s: "Suspect",
+  j: "Joker",
+  k: "Faker",
+  n: "Neutral",
+  u: "Unknown",
+  p: "Pending",
+};
+
+const DIMENSION_NAME: Record<string, string> = {
+  G: "ground",
+  A: "air",
+  S: "sea",
+  U: "subsurface",
+  P: "space",
+  F: "SOF",
+};
+
+// Most specific prefix first.
+const OTHER_TYPE_NAME: [prefix: string, name: string][] = [
+  ["b-m-p-s-p-i", "Sensor point of interest"],
+  ["b-m-p-s-m", "Spot marker"],
+  ["b-m-p-w", "Waypoint"],
+  ["b-m-p-c", "Checkpoint"],
+  ["b-m-r", "Route"],
+  ["b-m-p", "Map point"],
+  ["u-d-c-c", "Circle"],
+  ["u-d-r", "Rectangle"],
+  ["u-d-f", "Line"],
+  ["u-d-p", "Point"],
+  ["u-d-", "Drawing"],
+];
+
+/** Plain-language name for a CoT type, e.g. `a-h-G` → "Hostile ground unit". */
+export const describeType = (f: TakFeature): string => {
+  const t = f.properties.cotType;
+  if (layerOf(f) === "contacts") return "TAK user";
+  if (t.startsWith("a-")) {
+    const [, aff = "", dim = ""] = t.split("-");
+    const where = DIMENSION_NAME[dim];
+    return `${AFFILIATION_NAME[aff] ?? "Unknown"} ${where ? `${where} ` : ""}unit`;
+  }
+  return OTHER_TYPE_NAME.find(([prefix]) => t.startsWith(prefix))?.[1] ?? "Map item";
+};
+
+/** `ATAK-CIV 5.8.0.4 (174b425).1787255575-CIV` → `ATAK-CIV 5.8.0.4`. */
+export const shortDevice = (device: string): string => device.replace(/\s*\(.*$/, "");
+
+const autoTitle = (c: TakMapConfig): string | undefined =>
+  !c.showLive && c.missionFilter === "only" && c.missionNames.length > 0
+    ? c.missionNames.join(", ")
+    : undefined;
+
+/**
+ * A missions-only widget is named after its missions, so two map widgets
+ * don't both read "TAK map". A title the user typed is never touched.
+ */
+export const withAutoTitle = (prev: TakMapConfig, next: TakMapConfig): TakMapConfig => {
+  const untouched = !prev.title?.trim() || prev.title === autoTitle(prev);
+  return untouched ? { ...next, title: autoTitle(next) } : next;
+};
