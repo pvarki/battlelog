@@ -81,6 +81,19 @@ export const eventsQuerySchema = z.object({
   reliabilities: csvParam(z.enum(admiraltyReliabilityEnum.enumValues)),
   credibilities: csvParam(z.enum(admiraltyCredibilityEnum.enumValues)),
   createdBy: z.string().optional(),
+  /** JSON object of dot path → exact value, e.g. {"status":"inside"}. Requires `types`. */
+  data: z
+    .string()
+    .transform((v, ctx) => {
+      try {
+        return JSON.parse(v) as unknown;
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "data must be a JSON object" });
+        return z.NEVER;
+      }
+    })
+    .pipe(z.record(z.string().min(1), z.string()))
+    .optional(),
   eventTimeFrom: z.coerce.date().optional(),
   eventTimeTo: z.coerce.date().optional(),
   createdAtFrom: z.coerce.date().optional(),
@@ -98,6 +111,11 @@ export const eventsQuerySchema = z.object({
     .transform((v) => v === "true"),
 });
 export type EventsQuery = z.infer<typeof eventsQuerySchema>;
+
+/** `data` is unindexed: only allowed when `types` narrows the scan to indexed rows. */
+export const dataFilterWithoutTypes = (q: EventsQuery): boolean => !!q.data && !q.types?.length;
+
+export const DATA_NEEDS_TYPES = "data filter requires types";
 
 /** Geo params only take effect when all three of lng/lat/radiusMeters are present. */
 export const queryToFilter = ({ lng, lat, radiusMeters, ...rest }: EventsQuery): EventsFilter => ({

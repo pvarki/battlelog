@@ -14,6 +14,11 @@ export const eventsFilterSchema = z.object({
   reliabilities: z.array(z.enum(admiraltyReliabilityEnum.enumValues)).optional(),
   credibilities: z.array(z.enum(admiraltyCredibilityEnum.enumValues)).optional(),
   createdBy: z.string().optional(),
+  /**
+   * Dot path into `data` → exact text of the scalar there ({"status":"inside"};
+   * 12 matches "12"). Unindexed, so the API only accepts it alongside `types`.
+   */
+  data: z.record(z.string().min(1), z.string()).optional(),
   eventTimeFrom: z.coerce.date().optional(),
   eventTimeTo: z.coerce.date().optional(),
   createdAtFrom: z.coerce.date().optional(),
@@ -66,6 +71,9 @@ export const buildEventsWhere = (filter: EventsFilter): SQL | undefined => {
   if (filter.createdBy) {
     conditions.push(eq(events.createdBy, filter.createdBy));
   }
+  for (const [path, value] of Object.entries(filter.data ?? {})) {
+    conditions.push(sql`${events.data} #>> string_to_array(${path}, '.') = ${value}`);
+  }
   if (filter.eventTimeFrom) {
     conditions.push(gte(events.eventTime, filter.eventTimeFrom));
   }
@@ -110,6 +118,16 @@ const haversineMeters = (a: [number, number], b: [number, number]): number => {
   return 2 * R * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
 };
 
+/** Text of the scalar at a dot path, as Postgres `#>>` renders it; undefined for objects/arrays/missing. */
+const dataText = (data: unknown, path: string): string | undefined => {
+  let v = data;
+  for (const key of path.split(".")) {
+    if (v === null || typeof v !== "object") return undefined;
+    v = (v as Record<string, unknown>)[key];
+  }
+  return v == null || typeof v === "object" ? undefined : String(v);
+};
+
 const overlaps = <T>(arr: T[] | null, want: T[]): boolean =>
   !!arr && want.some((w) => arr.includes(w));
 
@@ -138,6 +156,9 @@ export const matchesEventsFilter = (row: EventRow, filter: EventsFilter): boolea
     return false;
   }
   if (filter.createdBy && row.createdBy !== filter.createdBy) return false;
+  for (const [path, value] of Object.entries(filter.data ?? {})) {
+    if (dataText(row.data, path) !== value) return false;
+  }
   if (filter.eventTimeFrom && (!row.eventTime || row.eventTime < filter.eventTimeFrom)) {
     return false;
   }

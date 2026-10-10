@@ -45,6 +45,17 @@ const columnSchema = z.preprocess(
 
 export type FeedColumn = z.infer<typeof columnSchema>;
 
+const dataFilterSchema = z
+  .object({
+    id: z.string().min(1).max(64),
+    /** Dot path into `data`, like a data column's. */
+    path: z.string().max(200).default(""),
+    value: z.string().max(200).default(""),
+  })
+  .strict();
+
+export type FeedDataFilter = z.infer<typeof dataFilterSchema>;
+
 const configSchema = z
   .object({
     ...baseWidgetConfig,
@@ -53,6 +64,8 @@ const configSchema = z
     /** Header substring, case-insensitive. */
     search: z.string().optional(),
     createdBy: z.string().optional(),
+    /** Exact-value matches on `data`; only applied while `types` is set (the server requires it). */
+    dataFilters: z.array(dataFilterSchema).max(10).optional(),
     rows: z.number().int().min(1).max(100).default(10),
     columns: z
       .array(columnSchema)
@@ -100,6 +113,14 @@ const widthForLabel = (label: string): number =>
 
 export const columnWidth = (col: FeedColumn): number => col.width ?? widthForLabel(labelFor(col));
 
+/** Path → value of the data filters in effect: none without types, and half-typed rows skipped. */
+export const activeDataFilters = (config: FeedConfig): Record<string, string> | undefined => {
+  if (!config.types?.length) return undefined;
+  const complete = (config.dataFilters ?? []).filter((f) => f.path.trim() && f.value);
+  if (!complete.length) return undefined;
+  return Object.fromEntries(complete.map((f) => [f.path.trim(), f.value]));
+};
+
 /**
  * Server-side query for the initial batch (limit is added by the hook).
  * Config filters win where both could apply — extras only narrow, so the
@@ -107,8 +128,9 @@ export const columnWidth = (col: FeedColumn): number => col.width ?? widthForLab
  * Time ranges exist only in extras and pass straight through.
  */
 // Cast like the explorer's buildQuery: dates travel as datetime-local strings.
-export const queryFor = (config: FeedConfig, extras?: FeedExtras): EventsQuery =>
-  ({
+export const queryFor = (config: FeedConfig, extras?: FeedExtras): EventsQuery => {
+  const data = activeDataFilters(config);
+  return {
     ...(config.types?.length ? { types: config.types.join(",") } : {}),
     ...(config.tags?.length ? { tags: config.tags.join(",") } : {}),
     ...(config.search || extras?.search ? { search: config.search || extras?.search } : {}),
@@ -119,7 +141,9 @@ export const queryFor = (config: FeedConfig, extras?: FeedExtras): EventsQuery =
     ...(extras?.eventTimeTo ? { eventTimeTo: extras.eventTimeTo } : {}),
     ...(extras?.createdAtFrom ? { createdAtFrom: extras.createdAtFrom } : {}),
     ...(extras?.createdAtTo ? { createdAtTo: extras.createdAtTo } : {}),
-  }) as EventsQuery;
+    ...(data ? { data: JSON.stringify(data) } : {}),
+  } as EventsQuery;
+};
 
 const inRange = (value: string | null, from?: string, to?: string): boolean => {
   if (!from && !to) return true;
@@ -141,6 +165,9 @@ export const matchesFeed = (
   if (config.search && !row.header.toLowerCase().includes(config.search.toLowerCase()))
     return false;
   if (config.createdBy && row.createdBy !== config.createdBy) return false;
+  for (const [path, value] of Object.entries(activeDataFilters(config) ?? {})) {
+    if (dataValue(row.data, path) !== value) return false;
+  }
   if (!extras) return true;
   if (extras.types?.length && (row.type === null || !extras.types.includes(row.type))) return false;
   if (extras.tags?.length && !extras.tags.some((t) => row.tags?.includes(t))) return false;
