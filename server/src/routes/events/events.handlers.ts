@@ -42,7 +42,8 @@ export const patchEvent: RouteHandler<typeof patchEventRoute> = async (c) => {
   const { eventId } = c.req.valid("param");
   const user = c.get("userCn") ?? "anonymous";
   try {
-    const row = await updateEvent(eventId, toUpdatePatch(c.req.valid("json")), user);
+    const body = c.req.valid("json");
+    const row = await updateEvent(eventId, toUpdatePatch(body), user, body.baseId);
     if (!row) return c.json({ error: "Event not found" }, 404);
     return c.json(toApiEvent(row), 200);
   } catch (err) {

@@ -31,6 +31,7 @@ describe("toUpdatePatch", () => {
       "header",
       "eventTime",
       "locationPoint",
+      "baseId", // a precondition passed to updateEvent, not a column
       ...PASSTHROUGH_NULLABLE,
     ]);
     for (const key of Object.keys(updateEventRequestSchema.shape)) {

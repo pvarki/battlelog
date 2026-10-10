@@ -103,6 +103,20 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     clearSelection();
   };
 
+  /** Loads the current head over a stale edit, unless the user moved on since `started`. */
+  const reloadLatest = async (eventId: string, started: number): Promise<boolean> => {
+    try {
+      const res = await api.events[":eventId"].$get({ param: { eventId } });
+      if (res.status !== 200) return false;
+      const latest = await res.json();
+      if (generation.current !== started) return false;
+      startOver(latest);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const submit = async () => {
     const missing = missingRequired(config, values);
     if (missing.length) {
@@ -119,7 +133,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
       const res = editing
         ? await api.events[":eventId"].$patch({
             param: { eventId: editing.eventId },
-            json: buildPatch(config, values, editing),
+            json: { ...buildPatch(config, values, editing), baseId: editing.id },
           })
         : await api.events.$post({ json: buildEvent(config, values) });
       if (res.ok) {
@@ -130,15 +144,19 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
         }
         setStatus(editing ? "saved" : "sent");
         setTimeout(() => setStatus("idle"), 2000);
-      } else {
+      } else if (res.status === 409 && editing) {
+        if (generation.current !== started) return;
+        const reloaded = await reloadLatest(editing.eventId, started);
+        if (!reloaded && generation.current !== started) return;
         setStatus("error");
         setProblem(
-          res.status === 409
-            ? "Someone else changed this event meanwhile — select it again"
-            : editing
-              ? "Save failed"
-              : "Send failed",
+          reloaded
+            ? "Someone else changed this event — showing their version, re-apply your edit"
+            : "Someone else changed this event — select it again",
         );
+      } else {
+        setStatus("error");
+        setProblem(editing ? "Save failed" : "Send failed");
       }
     } catch {
       setStatus("error");

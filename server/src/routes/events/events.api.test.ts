@@ -65,6 +65,27 @@ describe.runIf(dbUp)("events HTTP contract", () => {
     expect((await head.json()).id).toBe(updated.id);
   });
 
+  test("PATCH with a superseded baseId → 409, with the head → 200", async () => {
+    const post = await app.request("/api/v1/events", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ header: "presence", data: { status: "inside" } }),
+    });
+    const created = await post.json();
+    const patch = (body: object) =>
+      app.request(`/api/v1/events/${created.eventId}`, {
+        method: "PATCH",
+        headers: json,
+        body: JSON.stringify(body),
+      });
+
+    const first = await patch({ baseId: created.id, data: { status: "left" } });
+    expect(first.status).toBe(200);
+    const stale = await patch({ baseId: created.id, data: { status: "inside" } });
+    expect(stale.status).toBe(409);
+    expect((await patch({ baseId: (await first.json()).id, header: "x" })).status).toBe(200);
+  });
+
   test("keyset pagination: cursor pages newest-first without overlap", async () => {
     const who = `${runId}-page`;
     const headers = { "content-type": "application/json", [ENV.RM_MTLS_HEADER]: `CN=${who}` };
