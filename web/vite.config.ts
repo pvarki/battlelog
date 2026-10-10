@@ -29,10 +29,15 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Chat needs the network anyway; don't make every install download the Matrix SDK.
+        globIgnores: ["**/matrix-*.js"],
         navigateFallbackDenylist: [/^\/(api|uploads|rmapi|healthz|openapi\.json)/],
       },
     }),
   ],
+  // Pre-bundling moves the package into .vite/deps and breaks its
+  // `new URL("./pkg/…wasm", import.meta.url)` lookup in dev.
+  optimizeDeps: { exclude: ["@matrix-org/matrix-sdk-crypto-wasm"] },
   server: {
     // Dev: vite serves the SPA, the Hono server owns /api (incl. SSE).
     proxy: {

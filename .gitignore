@@ -53,3 +53,7 @@ server/src/env.d.ts
 
 # Worktrees created by the Claude Code worktree plugin (full checkouts)
 .claude/worktrees/
+
+# Client certificates (PVARKI .pfx exports carry private keys)
+*.pfx
+*.p12
