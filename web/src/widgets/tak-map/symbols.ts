@@ -1,3 +1,4 @@
+import { forward } from "mgrs";
 import type { TakFeature } from "../../api.ts";
 import type { Layer } from "./widget.ts";
 
@@ -61,3 +62,36 @@ export const isFaded = (f: TakFeature, now: number): boolean =>
 /** ATAK reports 0,0 when a device has no GPS fix (e.g. WinTAK without location). */
 export const hasPosition = (f: TakFeature): boolean =>
   f.geometry.type !== "Point" || f.geometry.coordinates[0] !== 0 || f.geometry.coordinates[1] !== 0;
+
+/** A representative point: the item itself, or a shape's first vertex. */
+export const anchorOf = (f: TakFeature): [lon: number, lat: number] => {
+  const g = f.geometry;
+  if (g.type === "Point") return g.coordinates;
+  if (g.type === "LineString") return g.coordinates[0] ?? [0, 0];
+  return g.coordinates[0]?.[0] ?? [0, 0];
+};
+
+/** MGRS at 1 m, grouped like ATAK shows it: `35V LG 85650 72345`. */
+export const formatMgrs = ([lon, lat]: [number, number]): string => {
+  const m = forward([lon, lat], 5);
+  return `${m.slice(0, -12)} ${m.slice(-12, -10)} ${m.slice(-10, -5)} ${m.slice(-5)}`;
+};
+
+export type Status = "online" | "offline" | "stale";
+
+export const statusOf = (f: TakFeature, now: number): Status => {
+  if (f.properties.offline) return "offline";
+  return Date.parse(f.properties.stale) < now ? "stale" : "online";
+};
+
+const STATUS_ORDER: Record<Status, number> = { online: 0, stale: 1, offline: 2 };
+
+/** TAK users, connected first, then by callsign. */
+export const contactsOf = (items: TakFeature[], now: number): TakFeature[] =>
+  items
+    .filter((f) => layerOf(f) === "contacts")
+    .sort(
+      (a, b) =>
+        STATUS_ORDER[statusOf(a, now)] - STATUS_ORDER[statusOf(b, now)] ||
+        (a.properties.callsign ?? a.id).localeCompare(b.properties.callsign ?? b.id),
+    );

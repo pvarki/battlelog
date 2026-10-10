@@ -1,6 +1,15 @@
 import { describe, expect, test } from "vitest";
 import type { TakFeature } from "../../api.ts";
-import { hasPosition, isFaded, layerOf, sidcFor, teamColor } from "./symbols.ts";
+import {
+  contactsOf,
+  formatMgrs,
+  hasPosition,
+  isFaded,
+  layerOf,
+  sidcFor,
+  statusOf,
+  teamColor,
+} from "./symbols.ts";
 import descriptor from "./widget.ts";
 
 const feature = (cotType: string, extra: Partial<TakFeature["properties"]> = {}): TakFeature => ({
@@ -52,4 +61,29 @@ test("isFaded for stale or offline items", () => {
   expect(isFaded(feature("a-f-G"), now)).toBe(false);
   expect(isFaded(feature("a-f-G"), Date.parse("2026-10-10T12:06:00Z"))).toBe(true);
   expect(isFaded(feature("a-f-G", { offline: true }), now)).toBe(true);
+});
+
+test("formatMgrs groups zone, square, easting, northing", () => {
+  expect(formatMgrs([24.9384, 60.1699])).toMatch(/^35V L\w \d{5} \d{5}$/);
+  expect(formatMgrs([-74.0445, 40.6892])).toMatch(/^18T \w\w \d{5} \d{5}$/);
+});
+
+test("contactsOf lists online users first, then stale, then offline", () => {
+  const now = Date.parse("2026-10-10T12:01:00Z");
+  const c = (id: string, extra: Partial<TakFeature["properties"]>) => ({
+    ...feature("a-f-G-U-C", { team: "Cyan", callsign: id, ...extra }),
+    id,
+  });
+  const list = contactsOf(
+    [
+      c("Zed", {}),
+      c("Off", { offline: true }),
+      c("Old", { stale: "2026-10-10T12:00:30Z" }),
+      c("Abe", {}),
+      feature("a-h-G"),
+    ],
+    now,
+  );
+  expect(list.map((f) => f.id)).toEqual(["Abe", "Zed", "Old", "Off"]);
+  expect(statusOf(list[2] as TakFeature, now)).toBe("stale");
 });

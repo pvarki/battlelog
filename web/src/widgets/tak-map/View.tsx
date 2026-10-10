@@ -1,15 +1,18 @@
 import "leaflet/dist/leaflet.css";
 import "./tak-map.css";
-import { Badge, Box } from "@mantine/core";
+import { ActionIcon, Badge, Box } from "@mantine/core";
+import { IconLayoutSidebarRight } from "@tabler/icons-react";
 import L from "leaflet";
 import ms from "milsymbol";
 import { useEffect, useRef, useState } from "react";
 import type { TakFeature } from "../../api.ts";
+import { useIsMobile } from "../../dashboard/mobile.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { CONNECTION_LABEL } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import { useTakState } from "../../tak-state.ts";
-import { hasPosition, isFaded, layerOf, sidcFor, teamColor } from "./symbols.ts";
+import { Panel } from "./Panel.tsx";
+import { anchorOf, hasPosition, isFaded, layerOf, sidcFor, teamColor } from "./symbols.ts";
 import { BASEMAPS, LAYERS, type Layer, type TakMapConfig } from "./widget.ts";
 
 const FINLAND: L.LatLngTuple = [64.5, 26];
@@ -35,7 +38,7 @@ const unitIcon = (cotType: string) => {
   });
 };
 
-const toLeaflet = (f: TakFeature, faded: boolean): L.Layer => {
+const shapeOf = (f: TakFeature, faded: boolean): L.Layer => {
   const p = f.properties;
   const g = f.geometry;
   const fadedClass = faded ? "tak-faded" : "";
@@ -139,6 +142,16 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
   const layersRef = useRef<Record<Layer, L.LayerGroup>>(null);
   const fittedRef = useRef(false);
   const [now, setNow] = useState(Date.now);
+  const isMobile = useIsMobile();
+  const [panelOpen, setPanelOpen] = useState(!isMobile);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = items.find((f) => f.id === selectedId);
+
+  const select = (id: string | null) => {
+    setSelectedId(id);
+    const f = items.find((i) => i.id === id);
+    if (f && hasPosition(f)) mapRef.current?.panTo(latLng(anchorOf(f)));
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), FADE_CHECK_MS);
@@ -184,7 +197,10 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
     for (const f of items) {
       const layer = layerOf(f);
       if (config.hiddenLayers.includes(layer) || !hasPosition(f)) continue;
-      const shape = toLeaflet(f, isFaded(f, now));
+      const shape = shapeOf(f, isFaded(f, now)).on("click", () => {
+        setSelectedId(f.id);
+        setPanelOpen(true);
+      });
       layers[layer].addLayer(shape);
       drawn.push(shape);
     }
@@ -195,29 +211,50 @@ const TakMapView = ({ config }: WidgetViewProps<TakMapConfig>) => {
     }
   }, [items, config.hiddenLayers, now]);
 
-  if (enabled === false) {
-    return (
-      <Placeholder
-        title="TAK not connected"
-        detail="This BattleLog server has no TAK Server configured (TAK_ENABLED)."
-      />
-    );
-  }
-
   return (
-    <Box pos="relative" h="100%">
-      <Box ref={containerRef} h="100%" className="tak-map" />
-      {connection !== "live" && (
-        <Badge
-          pos="absolute"
-          top={8}
-          right={8}
-          color="warning"
-          variant="filled"
-          style={{ zIndex: 1000 }}
+    <Box pos="relative" h="100%" style={{ display: "flex" }}>
+      <Box pos="relative" h="100%" style={{ flex: 1, minWidth: 0 }}>
+        <Box ref={containerRef} h="100%" className="tak-map" />
+        {enabled === false && (
+          <Box pos="absolute" inset={0} bg="dark.8" style={{ zIndex: 1000 }}>
+            <Placeholder
+              title="TAK not connected"
+              detail="This BattleLog server has no TAK Server configured (TAK_ENABLED)."
+            />
+          </Box>
+        )}
+        <Box pos="absolute" top={8} right={8} style={{ zIndex: 1002, display: "flex", gap: 8 }}>
+          {connection !== "live" && (
+            <Badge color="warning" variant="filled">
+              {CONNECTION_LABEL[connection]}
+            </Badge>
+          )}
+          <ActionIcon
+            variant="filled"
+            color="dark"
+            onClick={() => setPanelOpen((open) => !open)}
+            aria-label={panelOpen ? "Hide side panel" : "Show side panel"}
+          >
+            <IconLayoutSidebarRight size={16} />
+          </ActionIcon>
+        </Box>
+      </Box>
+      {panelOpen && (
+        // On a phone the panel overlays the map instead of squeezing it.
+        <Box
+          w={isMobile ? "80%" : 240}
+          h="100%"
+          bg="dark.7"
+          pos={isMobile ? "absolute" : "relative"}
+          right={0}
+          style={{
+            flexShrink: 0,
+            zIndex: 1001,
+            borderLeft: "1px solid var(--mantine-color-dark-4)",
+          }}
         >
-          {CONNECTION_LABEL[connection]}
-        </Badge>
+          <Panel items={items} selected={selected} now={now} onSelect={select} />
+        </Box>
       )}
     </Box>
   );
