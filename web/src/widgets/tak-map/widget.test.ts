@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { TakFeature } from "../../api.ts";
 import {
+  clusterKindOf,
   contactsOf,
   describeType,
   formatMgrs,
@@ -155,4 +156,13 @@ test("withAutoTitle names missions-only widgets but keeps typed titles", () => {
   ).toBeUndefined();
   const typed = { ...recon, title: "Drone ops" };
   expect(withAutoTitle(typed, { ...typed, missionNames: ["OPS"] }).title).toBe("Drone ops");
+});
+
+test("clusterKindOf keeps users, each affiliation and markers apart", () => {
+  expect(clusterKindOf(feature("a-f-G-U-C", { team: "Cyan" }))).toBe("contacts");
+  expect(clusterKindOf(feature("a-f-A-M-H-Q"))).toBe("friendly");
+  expect(clusterKindOf(feature("a-s-G"))).toBe("hostile");
+  expect(clusterKindOf(feature("a-n-G"))).toBe("neutral");
+  expect(clusterKindOf(feature("a-u-G"))).toBe("unknown");
+  expect(clusterKindOf(feature("b-m-p-s-m"))).toBe("markers");
 });

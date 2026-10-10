@@ -200,3 +200,31 @@ export const withAutoTitle = (prev: TakMapConfig, next: TakMapConfig): TakMapCon
   const untouched = !prev.title?.trim() || prev.title === autoTitle(prev);
   return untouched ? { ...next, title: autoTitle(next) } : next;
 };
+
+export const CLUSTER_KINDS = [
+  "contacts",
+  "friendly",
+  "hostile",
+  "neutral",
+  "unknown",
+  "markers",
+] as const;
+export type ClusterKind = (typeof CLUSTER_KINDS)[number];
+
+const AFFILIATION_KIND: Record<string, ClusterKind> = {
+  f: "friendly",
+  a: "friendly",
+  h: "hostile",
+  s: "hostile",
+  j: "hostile",
+  k: "hostile",
+  n: "neutral",
+};
+
+/** Which group a point item clusters with: friendly units never merge into a hostile bubble. */
+export const clusterKindOf = (f: TakFeature): ClusterKind => {
+  const layer = layerOf(f);
+  if (layer === "contacts") return "contacts";
+  if (layer !== "units") return "markers";
+  return AFFILIATION_KIND[f.properties.cotType.split("-")[1] ?? ""] ?? "unknown";
+};

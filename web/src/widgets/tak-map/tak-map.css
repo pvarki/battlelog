@@ -33,12 +33,58 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Count bubbles echo the 2525 frame of what they hold: friendly rectangle,
+   hostile diamond, neutral square, unknown circle; standard fill colours. */
+.tak-cluster-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #000;
   border-radius: 50%;
-  border: 2px solid #fff;
+  color: #000;
+  font-size: 12px;
+}
+
+.tak-cluster-friendly {
+  width: 34px;
+  height: 24px;
+  border-radius: 3px;
+  background: #80e0ff;
+}
+
+.tak-cluster-hostile {
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+  transform: rotate(45deg);
+  background: #ff8080;
+}
+
+.tak-cluster-hostile b {
+  transform: rotate(-45deg);
+}
+
+.tak-cluster-neutral {
+  border-radius: 0;
+  background: #aaffaa;
+}
+
+.tak-cluster-unknown {
+  background: #ffff80;
+}
+
+.tak-cluster-markers {
+  background: #e9ecef;
+}
+
+.tak-cluster-contacts {
+  border-color: #00ffff;
   background: rgba(26, 27, 30, 0.85);
   color: #fff;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .tak-coords {

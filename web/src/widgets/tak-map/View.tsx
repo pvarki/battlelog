@@ -16,6 +16,9 @@ import { useTakState } from "../../tak-state.ts";
 import { Panel } from "./Panel.tsx";
 import {
   anchorOf,
+  CLUSTER_KINDS,
+  type ClusterKind,
+  clusterKindOf,
   formatMgrs,
   hasPosition,
   isFaded,
@@ -40,15 +43,15 @@ const CLUSTER_RADIUS_PX = 40;
 const UNCLUSTER_ZOOM = 16;
 
 type MapLayers = {
-  /** Point items, grouped into count bubbles when they would overlap. */
-  points: L.MarkerClusterGroup;
+  /** Point items, grouped per kind into count bubbles when they would overlap. */
+  points: Record<ClusterKind, L.MarkerClusterGroup>;
   shapes: L.LayerGroup;
   selection: L.LayerGroup;
 };
 
-const clusterIcon = (cluster: L.MarkerCluster) =>
+const clusterIcon = (kind: ClusterKind) => (cluster: L.MarkerCluster) =>
   L.divIcon({
-    html: `<span>${cluster.getChildCount()}</span>`,
+    html: `<span class="tak-cluster-badge tak-cluster-${kind}"><b>${cluster.getChildCount()}</b></span>`,
     className: "tak-cluster",
     iconSize: [32, 32],
   });
@@ -231,7 +234,7 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map>(null);
   const layersRef = useRef<MapLayers>(null);
-  const pointsByIdRef = useRef(new Map<string, L.Layer>());
+  const pointsByIdRef = useRef(new Map<string, { marker: L.Layer; kind: ClusterKind }>());
   const fittedRef = useRef(false);
   const followingRef = useRef(false);
   const savedView = config.view === "saved" ? config.savedView : null;
@@ -247,11 +250,11 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
     const map = mapRef.current;
     if (!f || !map || !hasPosition(f)) return;
     const zoom = Math.max(map.getZoom(), SELECT_MIN_ZOOM);
-    const marker = pointsByIdRef.current.get(f.id);
-    if (!marker || !layersRef.current) return map.setView(latLng(anchorOf(f)), zoom);
+    const point = pointsByIdRef.current.get(f.id);
+    if (!point || !layersRef.current) return map.setView(latLng(anchorOf(f)), zoom);
     map.setView(latLng(anchorOf(f)), zoom, { animate: false });
     // Still grouped at this zoom: zoom further or spread the group until the item shows.
-    layersRef.current.points.zoomToShowLayer(marker);
+    layersRef.current.points[point.kind].zoomToShowLayer(point.marker);
   };
 
   useEffect(() => {
@@ -269,12 +272,17 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
     map.createPane("takSelectedPoint").style.zIndex = "650";
     layersRef.current = {
       shapes: L.layerGroup().addTo(map),
-      points: L.markerClusterGroup({
-        maxClusterRadius: CLUSTER_RADIUS_PX,
-        disableClusteringAtZoom: UNCLUSTER_ZOOM,
-        showCoverageOnHover: false,
-        iconCreateFunction: clusterIcon,
-      }).addTo(map),
+      points: Object.fromEntries(
+        CLUSTER_KINDS.map((kind) => [
+          kind,
+          L.markerClusterGroup({
+            maxClusterRadius: CLUSTER_RADIUS_PX,
+            disableClusteringAtZoom: UNCLUSTER_ZOOM,
+            showCoverageOnHover: false,
+            iconCreateFunction: clusterIcon(kind),
+          }).addTo(map),
+        ]),
+      ) as Record<ClusterKind, L.MarkerClusterGroup>,
       selection: L.layerGroup().addTo(map),
     };
     L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
@@ -332,11 +340,11 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
     const map = mapRef.current;
     const layers = layersRef.current;
     if (!map || !layers) return;
-    layers.points.clearLayers();
+    for (const group of Object.values(layers.points)) group.clearLayers();
     layers.shapes.clearLayers();
     pointsByIdRef.current.clear();
     const drawn: L.Layer[] = [];
-    const points: L.Layer[] = [];
+    const points = Object.fromEntries(CLUSTER_KINDS.map((k) => [k, [] as L.Layer[]]));
     const live = liveItems(tak.items, config, now);
     const fromMissions = missionItems(missions, config, live);
     for (const f of [...live, ...fromMissions]) {
@@ -350,12 +358,13 @@ const TakMapView = ({ config, editMode, updateConfig }: WidgetViewProps<TakMapCo
       });
       const isPoint = f.geometry.type === "Point" && !f.properties.radius;
       if (isPoint) {
-        points.push(shape);
-        pointsByIdRef.current.set(f.id, shape);
+        const kind = clusterKindOf(f);
+        points[kind]?.push(shape);
+        pointsByIdRef.current.set(f.id, { marker: shape, kind });
       } else layers.shapes.addLayer(shape);
       drawn.push(shape);
     }
-    layers.points.addLayers(points);
+    for (const kind of CLUSTER_KINDS) layers.points[kind].addLayers(points[kind] ?? []);
     const followed = live.find(
       (f) =>
         f.id === config.followId && !config.hiddenLayers.includes(layerOf(f)) && hasPosition(f),
