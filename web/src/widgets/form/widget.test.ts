@@ -17,7 +17,7 @@ test("a full form config validates", () => {
     submitLabel: "Send",
     fields: [
       { id: "f1", kind: "event", field: "header", required: true },
-      { id: "f2", kind: "event", field: "eventTime" },
+      { id: "f2", kind: "event", field: "eventTime", hideNowButton: true },
       { id: "f3", kind: "event", field: "locationPoint" },
       { id: "f4", kind: "data", label: "Enemy strength", input: "number", options: [] },
       { id: "f5", kind: "data", label: "Activity", input: "select", options: ["moving", "static"] },
