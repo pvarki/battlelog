@@ -174,6 +174,41 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
     });
   });
 
+  test("templateEvents fork documents of widgets inside tabs", async () => {
+    const templateEventId = uuidv7();
+    const tabs = {
+      id: "tabs",
+      type: "tabs",
+      config: {
+        tabs: [
+          { id: "child-note", type: "note", config: { eventId: templateEventId, title: "Brief" } },
+          { id: "child-clock", type: "clock", config: {} },
+        ],
+      },
+      layout: { x: 0, y: 0, w: 16, h: 12 },
+    };
+    const post = await app.request("/api/v1/dashboards", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({
+        name: "Tabs from template",
+        widgets: [tabs],
+        templateEvents: [
+          { widgetId: "child-note", header: "Brief", type: "note", data: { text: "ready" } },
+        ],
+      }),
+    });
+    expect(post.status).toBe(201);
+    const [note, clock] = (await post.json()).widgets[0].config.tabs;
+    expect(note.config.title).toBe("Brief");
+    expect(note.config.eventId).toEqual(expect.any(String));
+    expect(note.config.eventId).not.toBe(templateEventId);
+    expect(clock).toEqual(tabs.config.tabs[1]);
+
+    const event = await app.request(`/api/v1/events/${note.config.eventId}`);
+    expect(await event.json()).toMatchObject({ header: "Brief", data: { text: "ready" } });
+  });
+
   test("malformed widget structure is rejected", async () => {
     const res = await app.request("/api/v1/dashboards", {
       method: "POST",

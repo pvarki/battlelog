@@ -79,6 +79,24 @@ test("widgetEventPointers finds document-backed widgets", () => {
   ]);
 });
 
+test("widgetEventPointers includes documents of widgets inside tabs", () => {
+  const tabs = {
+    id: "t",
+    type: "tabs",
+    config: {
+      tabs: [
+        { id: "n", type: "note", config: { eventId: "e1" } },
+        { id: "c", type: "clock", config: { eventId: "ignored" } },
+        null,
+      ],
+    },
+    layout: L,
+  };
+  expect(widgetEventPointers([tabs])).toEqual([
+    { widgetId: "n", widgetType: "note", eventId: "e1" },
+  ]);
+});
+
 test("forkWidgets clears eventIds of widgets inside tabs", () => {
   const tabs = {
     id: "t",

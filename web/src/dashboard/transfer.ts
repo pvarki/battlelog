@@ -1,4 +1,5 @@
 import type { DashboardResponse, EventResponse } from "../api.ts";
+import { TABS_TYPE } from "../widgets/tabs/widget.ts";
 import { getWidget } from "./registry.ts";
 
 /**
@@ -41,15 +42,28 @@ const forkConfig = (config: unknown): unknown => {
 export const forkWidgets = (widgets: DashboardResponse["widgets"]): DashboardResponse["widgets"] =>
   widgets.map((w) => ({ ...w, config: forkConfig(w.config) }));
 
+type DocumentHolder = Pick<DashboardResponse["widgets"][number], "id" | "type" | "config">;
+
+const tabChildren = (widget: DocumentHolder): DocumentHolder[] => {
+  const tabs = (widget.config as { tabs?: unknown } | null)?.tabs;
+  if (widget.type !== TABS_TYPE || !Array.isArray(tabs)) return [];
+  return tabs.filter(
+    (tab): tab is DocumentHolder => typeof tab?.id === "string" && typeof tab?.type === "string",
+  );
+};
+
+/** Every widget document, including those of widgets inside tabs (keyed by the child's id). */
 export const widgetEventPointers = (widgets: DashboardResponse["widgets"]): WidgetEventPointer[] =>
-  widgets.flatMap((widget) => {
-    if (!getWidget(widget.type)?.document) return [];
-    if (!widget.config || typeof widget.config !== "object") return [];
-    const { eventId } = widget.config as Record<string, unknown>;
-    return typeof eventId === "string"
-      ? [{ widgetId: widget.id, widgetType: widget.type, eventId }]
-      : [];
-  });
+  widgets
+    .flatMap((widget) => [widget, ...tabChildren(widget)])
+    .flatMap((widget) => {
+      if (!getWidget(widget.type)?.document) return [];
+      if (!widget.config || typeof widget.config !== "object") return [];
+      const { eventId } = widget.config as Record<string, unknown>;
+      return typeof eventId === "string"
+        ? [{ widgetId: widget.id, widgetType: widget.type, eventId }]
+        : [];
+    });
 
 export const templateEventFor = (
   pointer: WidgetEventPointer,
@@ -115,7 +129,7 @@ const validateWidgets = (widgets: unknown[]): string | null => {
 };
 
 const validateTemplateEvents = (events: unknown[]): string | null => {
-  if (events.length > 50) return "Too many template events — the maximum is 50";
+  if (events.length > 400) return "Too many template events — the maximum is 400";
   for (const [index, event] of events.entries()) {
     const label = `Template event ${index + 1}`;
     if (!isRecord(event)) return `${label} must be an object`;

@@ -57,6 +57,16 @@ export const getDashboard = async (id: string): Promise<DashboardRow | null> => 
   return row ?? null;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+/**
+ * The web app's tabs widget nests whole widgets in `config.tabs`; each child
+ * owns its own document, keyed in templateEvents by the child's id. Kept in
+ * sync with web/src/widgets/tabs/widget.ts.
+ */
+const TABS_WIDGET_TYPE = "tabs";
+
 const withForkedTemplateEvents = (
   widgets: DashboardWidget[],
   templateEvents: DashboardTemplateEvent[],
@@ -66,9 +76,10 @@ const withForkedTemplateEvents = (
 } => {
   const documents = new Map(templateEvents.map((doc) => [doc.widgetId, doc]));
   const eventRows: (typeof events.$inferInsert)[] = [];
-  const nextWidgets = widgets.map((widget) => {
-    const document = documents.get(widget.id);
-    if (!document) return widget;
+
+  const forkDocument = <T extends { id: string; config?: unknown }>(item: T): T => {
+    const document = documents.get(item.id);
+    if (!document) return item;
 
     const id = uuidv7();
     eventRows.push({
@@ -90,15 +101,24 @@ const withForkedTemplateEvents = (
       inputSource: null,
       sourceUri: null,
     });
+    return { ...item, config: { ...(isRecord(item.config) ? item.config : {}), eventId: id } };
+  };
+
+  const forkTabs = (widget: DashboardWidget): DashboardWidget => {
+    const config = isRecord(widget.config) ? widget.config : undefined;
+    if (widget.type !== TABS_WIDGET_TYPE || !Array.isArray(config?.tabs)) return widget;
     return {
       ...widget,
       config: {
-        ...(typeof widget.config === "object" && widget.config !== null ? widget.config : {}),
-        eventId: id,
+        ...config,
+        tabs: config.tabs.map((tab) =>
+          isRecord(tab) && typeof tab.id === "string" ? forkDocument({ ...tab, id: tab.id }) : tab,
+        ),
       },
     };
-  });
-  return { widgets: nextWidgets, eventRows };
+  };
+
+  return { widgets: widgets.map((w) => forkTabs(forkDocument(w))), eventRows };
 };
 
 export const createDashboard = async (input: CreateDashboardInput): Promise<DashboardRow> => {

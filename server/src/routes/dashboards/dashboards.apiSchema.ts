@@ -26,6 +26,9 @@ export const widgetSchema = z
   .openapi("DashboardWidget");
 export type Widget = z.infer<typeof widgetSchema>;
 
+/** One per document widget, tab children included: 50 widgets × 8 tabs. */
+const MAX_TEMPLATE_EVENTS = 400;
+
 const templateEventSchema = z
   .object({
     widgetId: z.string().min(1).max(64),
@@ -59,7 +62,7 @@ export const createDashboardRequestSchema = z
     description: z.string().max(280).nullish(),
     isTemplate: z.boolean().default(false),
     widgets: z.array(widgetSchema).max(50).default([]),
-    templateEvents: z.array(templateEventSchema).max(50).default([]),
+    templateEvents: z.array(templateEventSchema).max(MAX_TEMPLATE_EVENTS).default([]),
   })
   .openapi("CreateDashboardRequest");
 
@@ -71,7 +74,7 @@ export const updateDashboardRequestSchema = z
     /** `null` clears it — the list has to be able to go back to just a name. */
     description: z.string().max(280).nullish(),
     widgets: z.array(widgetSchema).max(50).optional(),
-    templateEvents: z.array(templateEventSchema).max(50).optional(),
+    templateEvents: z.array(templateEventSchema).max(MAX_TEMPLATE_EVENTS).optional(),
   })
   .openapi("UpdateDashboardRequest");
 

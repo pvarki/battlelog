@@ -38,6 +38,7 @@ import { WidgetConfigPanel } from "../dashboard/WidgetConfigPanel.tsx";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 import { Placeholder } from "../Placeholder.tsx";
 import { useWakeLock } from "../use-wake-lock.ts";
+import { TABS_TYPE, withFreshTabIds } from "../widgets/tabs/widget.ts";
 
 const route = getRouteApi("/d/$dashboardId");
 
@@ -391,7 +392,8 @@ const DashboardGrid = ({
     if (!slot) return;
     const id = crypto.randomUUID();
     setEnteringId(id);
-    persist([...widgets, { ...w, id, layout: { ...w.layout, ...slot } }]);
+    const config = w.type === TABS_TYPE ? withFreshTabIds(w.config) : w.config;
+    persist([...widgets, { ...w, id, config, layout: { ...w.layout, ...slot } }]);
   };
 
   const resetWidgetSize = (id: string) => {
