@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import type { IncomingMessage } from "node:http";
 import https from "node:https";
 import tls from "node:tls";
 import { fileURLToPath } from "node:url";
@@ -11,7 +12,21 @@ import { VitePWA } from "vite-plugin-pwa";
  * path of BattleLog's origin: `/tak/*` (REST and the `/takproto/1` WebSocket)
  * goes to TAK with the client cert from `server/.env`. Dev only, never built.
  */
+/**
+ * The proxy speaks as the tester's TAK cert, so only this dev page may use it:
+ * any other site could otherwise open the WebSocket (no CORS on WebSockets) or
+ * post forms to TAK's write endpoints through localhost. The feature only reads.
+ */
+const isOwnPageRead = (req: IncomingMessage) => {
+  const { origin, host } = req.headers;
+  const site = req.headers["sec-fetch-site"];
+  const sameOrigin = origin ? URL.canParse(origin) && new URL(origin).host === host : true;
+  return req.method === "GET" && sameOrigin && (!site || site === "same-origin");
+};
+
 const takProxy = (tak: Record<string, string>): ProxyOptions => ({
+  // false = 404, for plain requests and WebSocket upgrades alike.
+  bypass: (req) => (isOwnPageRead(req) ? undefined : false),
   target: `https://${tak.TAK_HOST}:${tak.TAK_API_PORT || 8443}`,
   changeOrigin: true,
   ws: true,
