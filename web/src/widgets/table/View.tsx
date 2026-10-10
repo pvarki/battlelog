@@ -18,10 +18,27 @@ import {
 type SpreadsheetProps = {
   document: TableDoc;
   config: TableConfig;
-  onDocumentChange: (document: TableDoc, flush?: boolean) => void;
+  /** `final` is only used while unmounting, when the debounce can no longer run. */
+  onDocumentChange: (document: TableDoc, final?: boolean) => void;
 };
 
-const documentSignature = (document: TableDoc): string => JSON.stringify(document);
+// Univer and JSON transport may enumerate otherwise identical object keys in
+// different orders. A canonical signature keeps our own SSE echo from looking
+// like a remote workbook revision (which would recreate the whole editor).
+const documentSignature = (document: TableDoc): string => {
+  const stringify = (value: unknown): string => {
+    if (Array.isArray(value)) return `[${value.map(stringify).join(",")}]`;
+    if (value && typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      return `{${Object.keys(record)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${stringify(record[key])}`)
+        .join(",")}}`;
+    }
+    return JSON.stringify(value);
+  };
+  return stringify(document);
+};
 
 /**
  * The interactive Univer instance deliberately lives behind the table widget's
@@ -80,7 +97,9 @@ const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) =
 
       let ready = false;
       let saveFrame: number | undefined;
-      let flushAfterSave = false;
+      let formulaBarTimer: ReturnType<typeof setTimeout> | undefined;
+      let formulaBarArmed = false;
+      let cellEditActive = false;
       let lastSaved = documentSignature(documentFromWorkbookSnapshot(workbook.save()));
       const readyFrame = requestAnimationFrame(() => {
         // Formula and layout plugins can issue setup commands just after mount.
@@ -90,38 +109,134 @@ const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) =
       });
       const persistWorkbook = (force = false) => {
         saveFrame = undefined;
-        const flush = flushAfterSave;
-        flushAfterSave = false;
         if ((disposed && !force) || !ready) return;
         const next = documentFromWorkbookSnapshot(workbook.save());
         const nextSignature = documentSignature(next);
         if (nextSignature === lastSaved) return;
         lastSaved = nextSignature;
-        changeRef.current(next, flush);
+        // Normal edits use the document hook's short debounce. The one
+        // exception is unmounting: no future timer is guaranteed to run.
+        changeRef.current(next, force);
       };
-      const queuePersistence = (flush = false) => {
+      const queuePersistence = () => {
         // Sheet commands are reported while Univer is applying them. Taking
         // the snapshot in the next frame avoids reading the pre-edit cell
         // state (which made a just-edited cell look empty after a reload).
-        flushAfterSave ||= flush;
         if (disposed || saveFrame !== undefined) return;
         saveFrame = requestAnimationFrame(() => persistWorkbook());
       };
+      const commitFormulaBar = () => {
+        formulaBarTimer = undefined;
+        formulaBarArmed = false;
+        // The formula bar holds an edit in Univer's editor buffer until Enter
+        // or the tick button is used. That means `workbook.save()` still sees
+        // the old cell even though the user has finished typing. Commit an
+        // idle formula-bar edit first; its normal value-change event then
+        // follows the same debounced persistence path as an in-cell edit.
+        void univerAPI
+          .executeCommand("sheet.operation.set-cell-edit-visible", {
+            visible: false,
+            unitId: workbook.getId(),
+          })
+          .then(queuePersistence);
+      };
+      const onFormulaBarInput = (_event: Event) => {
+        // Univer portals the editable formula field outside the workbook DOM
+        // tree. A document-level listener is therefore required. The flag is
+        // armed only by this workbook's visual formula bar, so a second table
+        // on the same dashboard cannot react to this editor's keystrokes.
+        if (!formulaBarArmed || !globalThis.document.activeElement?.id.endsWith("FORMULA_BAR")) {
+          return;
+        }
+        clearTimeout(formulaBarTimer);
+        formulaBarTimer = setTimeout(commitFormulaBar, 2000);
+      };
+      const trackFormulaBarFocus = (event: PointerEvent) => {
+        if (!(event.target instanceof Element)) return;
+        formulaBarArmed = Boolean(event.target.closest('[data-u-comp="formula-bar"]'));
+      };
+      const startAppendingToCell = (event: KeyboardEvent) => {
+        // A click only selects. The first printable key enters edit mode at
+        // the end of the selected cell, matching the direct-entry flow needed
+        // by the dashboard rather than replacing a cell on the first key.
+        if (
+          cellEditActive ||
+          event.defaultPrevented ||
+          event.isComposing ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.altKey ||
+          event.key.length !== 1
+        ) {
+          return;
+        }
+        // Univer handles its own first-key editor transition asynchronously.
+        // Consume this native event, then insert it after its F2 path has put
+        // the selection at the end; otherwise the first character lands at
+        // offset zero before that transition completes.
+        event.preventDefault();
+        event.stopPropagation();
+        cellEditActive = true;
+        void univerAPI
+          .executeCommand("sheet.operation.set-cell-edit-visible-f2", {
+            visible: true,
+            // Univer's DeviceInputEventType.Keyboard and KeyCode.F2. Asking
+            // it to enter through its F2 path preserves the current cell and
+            // puts the caret at its end before this key is inserted.
+            eventType: 4,
+            keycode: 113,
+            unitId: workbook.getId(),
+          })
+          .then((opened) => {
+            if (!opened) {
+              cellEditActive = false;
+              return;
+            }
+            globalThis.document.execCommand("insertText", false, event.key);
+          });
+      };
+      const refreshSelectionAfterExternalClick = (event: PointerEvent) => {
+        if (!(event.target instanceof Node) || container.contains(event.target)) return;
+        // Univer fades the selection when another dashboard control receives
+        // focus. Reapplying the existing active cell redraws its outline but
+        // deliberately leaves focus with the control the user clicked.
+        requestAnimationFrame(() => {
+          if (disposed) return;
+          const sheet = workbook.getActiveSheet();
+          const activeCell = sheet?.getActiveCell();
+          if (sheet && activeCell) sheet.setActiveSelection(activeCell);
+        });
+      };
+      container.addEventListener("pointerdown", trackFormulaBarFocus, true);
+      container.addEventListener("keydown", startAppendingToCell, true);
+      globalThis.document.addEventListener("pointerdown", refreshSelectionAfterExternalClick, true);
+      globalThis.document.addEventListener("input", onFormulaBarInput, true);
       // `SheetValueChanged` is the typed-sheet event. In particular it fires
       // for a number committed from the in-cell editor, which is not reliable
       // to infer from the generic command stream alone.
-      const valueChanges = univerAPI.addEvent(univerAPI.Event.SheetValueChanged, () =>
-        queuePersistence(),
-      );
-      const edits = univerAPI.addEvent(univerAPI.Event.SheetEditEnded, () =>
-        queuePersistence(true),
-      );
+      const valueChanges = univerAPI.addEvent(univerAPI.Event.SheetValueChanged, queuePersistence);
+      const edits = univerAPI.addEvent(univerAPI.Event.SheetEditEnded, (event) => {
+        cellEditActive = false;
+        // Ignore Esc/cancel: only a confirmed edit can have left spreadsheet
+        // data worth serializing. The value-change event captures the final
+        // value even when Univer emits this edit-ended event slightly earlier.
+        if (event.isConfirm) queuePersistence();
+      });
       const changes = workbook.onCommandExecuted(() => queuePersistence());
       disposeUniver = () => {
         changes.dispose();
         edits.dispose();
         valueChanges.dispose();
+        container.removeEventListener("pointerdown", trackFormulaBarFocus, true);
+        container.removeEventListener("keydown", startAppendingToCell, true);
+        globalThis.document.removeEventListener(
+          "pointerdown",
+          refreshSelectionAfterExternalClick,
+          true,
+        );
+        globalThis.document.removeEventListener("input", onFormulaBarInput, true);
         cancelAnimationFrame(readyFrame);
+        clearTimeout(formulaBarTimer);
         if (saveFrame !== undefined) {
           cancelAnimationFrame(saveFrame);
           persistWorkbook(true);
@@ -154,6 +269,9 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
   });
   const savedByThisView = useRef<string | undefined>(undefined);
   const renderedDocument = useRef(documentSignature(value));
+  // The first event fetch supplies the document used to mount Univer. It is
+  // not a remote edit and must not cause a second, destructive mount.
+  const initialDocumentPending = useRef(Boolean(config.eventId));
   const [remoteRevision, setRemoteRevision] = useState(0);
   const valueSignature = documentSignature(value);
 
@@ -163,15 +281,22 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
   useEffect(() => {
     if (valueSignature === renderedDocument.current) return;
     renderedDocument.current = valueSignature;
-    if (valueSignature === savedByThisView.current) return;
+    if (valueSignature === savedByThisView.current) {
+      initialDocumentPending.current = false;
+      return;
+    }
+    if (initialDocumentPending.current) {
+      initialDocumentPending.current = false;
+      return;
+    }
     setRemoteRevision((revision) => revision + 1);
   }, [valueSignature]);
 
-  const onDocumentChange = (next: TableDoc, saveImmediately = false) => {
+  const onDocumentChange = (next: TableDoc, final = false) => {
     savedByThisView.current = documentSignature(next);
     renderedDocument.current = savedByThisView.current;
     update(next);
-    if (saveImmediately) flush();
+    if (final) flush();
   };
 
   const blocked = status === "loading" || status === "unavailable";

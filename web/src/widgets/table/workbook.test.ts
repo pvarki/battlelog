@@ -90,6 +90,7 @@ describe("Univer table document", () => {
       columnCount: 8,
       rowHeader: { width: 46, hidden: 0 },
       columnHeader: { height: 24, hidden: 1 },
+      defaultStyle: { cl: { rgb: "#f6f7f9" } },
       cellData: {},
     });
   });

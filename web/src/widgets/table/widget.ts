@@ -63,6 +63,8 @@ const configSchema = z
     rowCount: z.number().int().min(1).max(500).default(DEFAULT_ROW_COUNT),
     hideRowNumbers: z.boolean().default(false),
     hideColumnHeaders: z.boolean().default(false),
+    /** Hides the dashboard card header (type, title and edit menu) outside edit mode. */
+    hideWidgetHeader: z.boolean().default(false),
     /** Row values live in the event log as a type:"table" event chain. */
     eventId: z.string().uuid().optional(),
   })
@@ -88,7 +90,10 @@ export const widgetDocument: WidgetDocumentDescriptor<TableConfig, TableDoc> = {
   empty: emptyTableDocument(),
   parse: parseTableDocument,
   headerFor: (config) => config.title?.trim() || "Table",
-  debounceMs: 6000,
+  // A table change normally settles shortly after the user leaves the cell.
+  // Keep the UI responsive and coalesce rapid edits without making users wait
+  // a full six seconds before the event is written.
+  debounceMs: 2000,
 };
 
 export const descriptor: WidgetDescriptor<TableConfig> = {
@@ -103,6 +108,7 @@ export const descriptor: WidgetDescriptor<TableConfig> = {
     columns: PRESET_TABLE_COLUMNS,
     hideColumnHeaders: false,
     hideRowNumbers: false,
+    hideWidgetHeader: false,
     rowCount: DEFAULT_ROW_COUNT,
   },
   defaultSize: { w: 18, h: 10 },

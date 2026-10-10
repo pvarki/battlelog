@@ -1,0 +1,8 @@
+/*
+ * The name box at the left of Univer's formula bar creates and navigates
+ * workbook-level defined names. Table widgets have one local sheet and do not
+ * expose that feature, while the rest of the formula bar remains useful.
+ */
+.table-univer [data-u-comp="formula-bar"] > div:has(> [data-u-comp="defined-name"]) {
+  display: none;
+}
