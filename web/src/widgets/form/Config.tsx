@@ -150,6 +150,18 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                   />
                 </Group>
                 <DescriptionInput field={field} setField={setField} />
+                {field.field === "eventTime" && (
+                  <Checkbox
+                    size="xs"
+                    label="Hide Now button"
+                    checked={field.hideNowButton ?? false}
+                    onChange={(e) =>
+                      setField(field.id, {
+                        hideNowButton: e.currentTarget.checked || undefined,
+                      })
+                    }
+                  />
+                )}
               </>
             )}
 

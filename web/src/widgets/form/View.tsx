@@ -205,14 +205,16 @@ const FieldInput = ({
             timePickerProps={{ minutesStep: 5 }}
             onChange={(next) => onChange(next?.replace(" ", "T") ?? undefined)}
           />
-          <Button
-            size="compact-xs"
-            variant="light"
-            style={{ alignSelf: "flex-start" }}
-            onClick={() => onChange(datetimeLocalValue())}
-          >
-            Nyt
-          </Button>
+          {!field.hideNowButton && (
+            <Button
+              size="compact-xs"
+              variant="light"
+              style={{ alignSelf: "flex-start" }}
+              onClick={() => onChange(datetimeLocalValue())}
+            >
+              Nyt
+            </Button>
+          )}
         </Stack>
       );
     case "tags":
