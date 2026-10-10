@@ -39,8 +39,29 @@ const configSchema = z
     basemap: z.enum(Object.keys(BASEMAPS) as [Basemap, ...Basemap[]]).default("osm"),
     /** Layers switched off in this instance; absent = shown. */
     hiddenLayers: z.array(z.enum(LAYERS)).default([]),
-    /** Missions (Data Sync feeds) switched off in this instance, by name; new missions show. */
-    hiddenMissions: z.array(z.string()).default([]),
+    /**
+     * Missions (Data Sync feeds) by name. `except` shows every mission but the
+     * listed ones, so new missions appear; `only` pins the widget to the listed ones.
+     */
+    missionFilter: z.enum(["except", "only"]).default("except"),
+    missionNames: z.array(z.string()).default([]),
+    /** Live TAK items; off turns the widget into a missions-only view. */
+    showLive: z.boolean().default(true),
+    /** Live items with a team (TAK users) are limited to these teams; empty = all. */
+    teams: z.array(z.string()).default([]),
+    /** Hide live items not updated within this many minutes; null = no limit. */
+    maxAgeMinutes: z.number().int().positive().nullable().default(null),
+    showStale: z.boolean().default(true),
+    /** `fit-always` keeps the map on all items, for unattended wall displays. */
+    view: z.enum(["fit-once", "fit-always", "saved"]).default("fit-once"),
+    savedView: z
+      .object({ lat: z.number(), lon: z.number(), zoom: z.number() })
+      .nullable()
+      .default(null),
+    /** Live item (CoT uid) the map stays centred on; overrides `view` while it exists. */
+    followId: z.string().nullable().default(null),
+    labels: z.enum(["auto", "always", "never"]).default("auto"),
+    panelOpen: z.boolean().default(true),
   })
   .strict();
 
@@ -52,7 +73,7 @@ const descriptor: WidgetDescriptor<TakMapConfig> = {
   name: "TAK map",
   description: "Live TAK picture: users, units, markers, drawings and missions",
   configSchema,
-  defaultConfig: { basemap: "osm", hiddenLayers: [], hiddenMissions: [] },
+  defaultConfig: configSchema.parse({}),
   defaultSize: { w: 16, h: 12 },
   minSize: { w: 6, h: 6 },
   View: lazy(() => import("./View.tsx")),

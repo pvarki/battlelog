@@ -1,6 +1,6 @@
 import { forward } from "mgrs";
 import type { TakFeature, TakMission } from "../../api.ts";
-import type { Layer } from "./widget.ts";
+import type { Layer, TakMapConfig } from "./widget.ts";
 
 /** Which toggleable layer a TAK item belongs to. */
 export const layerOf = (f: TakFeature): Layer => {
@@ -51,6 +51,8 @@ const TEAM_COLOR: Record<string, string> = {
   "Dark Green": "#006400",
   Brown: "#a52a2a",
 };
+
+export const TEAMS = Object.keys(TEAM_COLOR);
 
 export const teamColor = (team: string | undefined): string =>
   (team && TEAM_COLOR[team]) || "#00ffff";
@@ -103,18 +105,33 @@ export const contactsOf = (items: TakFeature[], now: number): TakFeature[] =>
         (a.properties.callsign ?? a.id).localeCompare(b.properties.callsign ?? b.id),
     );
 
+export const missionShown = (config: TakMapConfig, name: string): boolean =>
+  config.missionNames.includes(name) === (config.missionFilter === "only");
+
+/** Live items this widget's filters let through. */
+export const liveItems = (items: TakFeature[], config: TakMapConfig, now: number): TakFeature[] => {
+  if (!config.showLive) return [];
+  const minTime = config.maxAgeMinutes === null ? -Infinity : now - config.maxAgeMinutes * 60_000;
+  return items.filter((f) => {
+    const { team, time } = f.properties;
+    if (team && config.teams.length > 0 && !config.teams.includes(team)) return false;
+    if (Date.parse(time) < minTime) return false;
+    return config.showStale || !isFaded(f, now);
+  });
+};
+
 /**
- * Contents of the shown missions, minus items the live stream already has
- * (a mission marker that is also live would otherwise be drawn twice).
+ * Contents of the shown missions, minus items already shown live (a mission
+ * marker that is also live would otherwise be drawn twice).
  */
 export const missionItems = (
   missions: TakMission[],
-  hiddenMissions: string[],
+  config: TakMapConfig,
   live: TakFeature[],
 ): TakFeature[] => {
   const seen = new Set(live.map((f) => f.id));
   return missions
-    .filter((m) => !hiddenMissions.includes(m.name))
+    .filter((m) => missionShown(config, m.name))
     .flatMap((m) => m.items)
     .filter((f) => !seen.has(f.id) && seen.add(f.id));
 };

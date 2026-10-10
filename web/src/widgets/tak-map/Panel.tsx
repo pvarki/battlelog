@@ -11,7 +11,13 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconChevronDown, IconChevronRight, IconX } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconCurrentLocation,
+  IconCurrentLocationOff,
+  IconX,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import type { TakFeature, TakMission } from "../../api.ts";
 import { formatDateTime } from "../../time.ts";
@@ -21,11 +27,12 @@ import {
   formatMgrs,
   hasPosition,
   layerOf,
+  missionShown,
   type Status,
   statusOf,
   teamColor,
 } from "./symbols.ts";
-import { LAYER_LABEL } from "./widget.ts";
+import { LAYER_LABEL, type TakMapConfig } from "./widget.ts";
 
 const STATUS_COLOR: Record<Status, string> = { online: "green", stale: "yellow", offline: "gray" };
 
@@ -37,7 +44,20 @@ const ago = (iso: string, now: number): string => {
   return `${Math.round(s / 86_400)} d ago`;
 };
 
-const Details = ({ f, now, onClose }: { f: TakFeature; now: number; onClose: () => void }) => {
+const Details = ({
+  f,
+  now,
+  following,
+  onToggleFollow,
+  onClose,
+}: {
+  f: TakFeature;
+  now: number;
+  /** Undefined for items that can't be followed (mission contents). */
+  following: boolean | undefined;
+  onToggleFollow: () => void;
+  onClose: () => void;
+}) => {
   const p = f.properties;
   const layer = layerOf(f);
   const at = anchorOf(f);
@@ -59,9 +79,22 @@ const Details = ({ f, now, onClose }: { f: TakFeature; now: number; onClose: () 
         <Text fw={600} truncate>
           {p.callsign ?? f.id}
         </Text>
-        <ActionIcon variant="subtle" size="sm" onClick={onClose} aria-label="Close details">
-          <IconX size={14} />
-        </ActionIcon>
+        <Group gap={2} wrap="nowrap">
+          {following !== undefined && (
+            <ActionIcon
+              variant={following ? "filled" : "subtle"}
+              size="sm"
+              onClick={onToggleFollow}
+              aria-label={following ? "Stop following" : "Keep the map on this item"}
+              title={following ? "Stop following" : "Keep the map on this item"}
+            >
+              {following ? <IconCurrentLocationOff size={14} /> : <IconCurrentLocation size={14} />}
+            </ActionIcon>
+          )}
+          <ActionIcon variant="subtle" size="sm" onClick={onClose} aria-label="Close details">
+            <IconX size={14} />
+          </ActionIcon>
+        </Group>
       </Group>
       {layer === "contacts" && (
         <Badge color={STATUS_COLOR[statusOf(f, now)]} variant="light" w="fit-content">
@@ -147,12 +180,12 @@ const Contacts = ({
 
 const Missions = ({
   missions,
-  hiddenMissions,
+  config,
   onToggle,
   onSelect,
 }: {
   missions: TakMission[];
-  hiddenMissions: string[];
+  config: TakMapConfig;
   onToggle: (name: string) => void;
   onSelect: (id: string) => void;
 }) => {
@@ -174,7 +207,7 @@ const Missions = ({
               <Checkbox
                 size="xs"
                 mt={3}
-                checked={!hiddenMissions.includes(m.name)}
+                checked={missionShown(config, m.name)}
                 onChange={() => onToggle(m.name)}
                 aria-label={`Show ${m.name} on the map`}
               />
@@ -223,26 +256,38 @@ const Missions = ({
 export const Panel = ({
   items,
   missions,
-  hiddenMissions,
+  config,
   onToggleMission,
+  onToggleFollow,
   selected,
   now,
   onSelect,
 }: {
   items: TakFeature[];
   missions: TakMission[];
-  hiddenMissions: string[];
+  config: TakMapConfig;
   onToggleMission: (name: string) => void;
+  onToggleFollow: (id: string) => void;
   selected: TakFeature | undefined;
   now: number;
   onSelect: (id: string | null) => void;
 }) =>
   selected ? (
     <ScrollArea h="100%" p="xs" type="auto">
-      <Details f={selected} now={now} onClose={() => onSelect(null)} />
+      <Details
+        f={selected}
+        now={now}
+        following={items.includes(selected) ? config.followId === selected.id : undefined}
+        onToggleFollow={() => onToggleFollow(selected.id)}
+        onClose={() => onSelect(null)}
+      />
     </ScrollArea>
   ) : (
-    <Tabs defaultValue="users" h="100%" style={{ display: "flex", flexDirection: "column" }}>
+    <Tabs
+      defaultValue={config.showLive ? "users" : "missions"}
+      h="100%"
+      style={{ display: "flex", flexDirection: "column" }}
+    >
       <Tabs.List grow>
         <Tabs.Tab value="users" fz="xs">
           Users
@@ -258,7 +303,7 @@ export const Panel = ({
         <Tabs.Panel value="missions">
           <Missions
             missions={missions}
-            hiddenMissions={hiddenMissions}
+            config={config}
             onToggle={onToggleMission}
             onSelect={onSelect}
           />

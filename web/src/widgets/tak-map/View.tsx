@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import "./tak-map.css";
 import { ActionIcon, Badge, Box } from "@mantine/core";
-import { IconLayoutSidebarRight } from "@tabler/icons-react";
+import { IconLayoutSidebarRight, IconPin, IconPinnedOff } from "@tabler/icons-react";
 import L from "leaflet";
 import ms from "milsymbol";
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +17,7 @@ import {
   hasPosition,
   isFaded,
   layerOf,
+  liveItems,
   missionItems,
   sidcFor,
   teamColor,
@@ -153,15 +154,20 @@ const shapeOf = (f: TakFeature, faded: boolean): L.Layer => {
 };
 
 const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => {
-  const { enabled, items, missions, connection } = useTakState();
-  const everything = [...items, ...missionItems(missions, config.hiddenMissions, items)];
+  const tak = useTakState();
+  const { enabled, missions, connection } = tak;
+  const [now, setNow] = useState(Date.now);
+  const items = liveItems(tak.items, config, now);
+  const everything = [...items, ...missionItems(missions, config, items)];
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map>(null);
   const layersRef = useRef<Record<Layer, L.LayerGroup>>(null);
   const fittedRef = useRef(false);
-  const [now, setNow] = useState(Date.now);
+  const followingRef = useRef(false);
+  const savedView = config.view === "saved" ? config.savedView : null;
+  const { lat: savedLat, lon: savedLon, zoom: savedZoom } = savedView ?? {};
   const isMobile = useIsMobile();
-  const [panelOpen, setPanelOpen] = useState(!isMobile);
+  const [panelOpen, setPanelOpen] = useState(!isMobile && config.panelOpen);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = everything.find((f) => f.id === selectedId);
 
@@ -187,10 +193,6 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
     layersRef.current = Object.fromEntries(
       LAYERS.map((layer) => [layer, L.layerGroup().addTo(map)]),
     ) as Record<Layer, L.LayerGroup>;
-    const toggleLabels = () =>
-      el.classList.toggle("tak-labels-hidden", map.getZoom() < LABEL_MIN_ZOOM);
-    map.on("zoomend", toggleLabels);
-    toggleLabels();
     const resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(el);
     return () => {
@@ -212,6 +214,33 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
     };
   }, [config.basemap]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    const el = containerRef.current;
+    if (!map || !el) return;
+    const toggleLabels = () =>
+      el.classList.toggle(
+        "tak-labels-hidden",
+        config.labels === "never" || (config.labels === "auto" && map.getZoom() < LABEL_MIN_ZOOM),
+      );
+    map.on("zoomend", toggleLabels);
+    toggleLabels();
+    return () => {
+      map.off("zoomend", toggleLabels);
+    };
+  }, [config.labels]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (savedLat !== undefined && savedLon !== undefined && savedZoom !== undefined) {
+      map.setView([savedLat, savedLon], savedZoom);
+    } else {
+      fittedRef.current = false;
+    }
+    // The saved view's fields, not its identity: every config save rebuilds the object.
+  }, [savedLat, savedLon, savedZoom]);
+
   // ponytail: full redraw per update batch (≤4/s); diff by id if item counts reach thousands.
   useEffect(() => {
     const map = mapRef.current;
@@ -219,12 +248,13 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
     if (!map || !layers) return;
     for (const group of Object.values(layers)) group.clearLayers();
     const drawn: L.Layer[] = [];
-    const shownMissionItems = missionItems(missions, config.hiddenMissions, items);
-    for (const f of [...items, ...shownMissionItems]) {
+    const live = liveItems(tak.items, config, now);
+    const fromMissions = missionItems(missions, config, live);
+    for (const f of [...live, ...fromMissions]) {
       const layer = layerOf(f);
       if (config.hiddenLayers.includes(layer) || !hasPosition(f)) continue;
       // Mission contents persist past their stale time, so they are never greyed.
-      const faded = !shownMissionItems.includes(f) && isFaded(f, now);
+      const faded = !fromMissions.includes(f) && isFaded(f, now);
       const shape = shapeOf(f, faded).on("click", () => {
         setSelectedId(f.id);
         setPanelOpen(true);
@@ -232,20 +262,47 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
       layers[layer].addLayer(shape);
       drawn.push(shape);
     }
-    if (!fittedRef.current && drawn.length > 0) {
+    const followed = live.find(
+      (f) =>
+        f.id === config.followId && !config.hiddenLayers.includes(layerOf(f)) && hasPosition(f),
+    );
+    if (followed) {
+      followingRef.current = true;
+      map.panTo(latLng(anchorOf(followed)));
+      return;
+    }
+    if (followingRef.current) {
+      followingRef.current = false;
+      if (savedView) map.setView([savedView.lat, savedView.lon], savedView.zoom);
+      else fittedRef.current = false;
+    }
+    const fit = config.view === "fit-always" || (!fittedRef.current && !savedView);
+    if (fit && drawn.length > 0) {
       fittedRef.current = true;
       const bounds = L.featureGroup(drawn).getBounds();
       if (bounds.isValid()) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 13 });
     }
-  }, [items, missions, config.hiddenMissions, config.hiddenLayers, now]);
+  }, [tak.items, missions, config, savedView, now]);
 
   const toggleMission = (name: string) =>
     updateConfig({
       ...config,
-      hiddenMissions: config.hiddenMissions.includes(name)
-        ? config.hiddenMissions.filter((m) => m !== name)
-        : [...config.hiddenMissions, name],
+      missionNames: config.missionNames.includes(name)
+        ? config.missionNames.filter((m) => m !== name)
+        : [...config.missionNames, name],
     });
+
+  const toggleFollow = (id: string) =>
+    updateConfig({ ...config, followId: config.followId === id ? null : id });
+
+  const pinned = config.view === "saved" && config.savedView !== null;
+  const togglePin = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (pinned) return updateConfig({ ...config, view: "fit-once" });
+    const { lat, lng } = map.getCenter();
+    updateConfig({ ...config, view: "saved", savedView: { lat, lon: lng, zoom: map.getZoom() } });
+  };
 
   return (
     <Box pos="relative" h="100%" style={{ display: "flex" }}>
@@ -265,6 +322,15 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
               {CONNECTION_LABEL[connection]}
             </Badge>
           )}
+          <ActionIcon
+            variant="filled"
+            color="dark"
+            onClick={togglePin}
+            aria-label={pinned ? "Stop keeping this view" : "Always open the map at this view"}
+            title={pinned ? "Stop keeping this view" : "Always open the map at this view"}
+          >
+            {pinned ? <IconPinnedOff size={16} /> : <IconPin size={16} />}
+          </ActionIcon>
           <ActionIcon
             variant="filled"
             color="dark"
@@ -292,8 +358,9 @@ const TakMapView = ({ config, updateConfig }: WidgetViewProps<TakMapConfig>) => 
           <Panel
             items={items}
             missions={missions}
-            hiddenMissions={config.hiddenMissions}
+            config={config}
             onToggleMission={toggleMission}
+            onToggleFollow={toggleFollow}
             selected={selected}
             now={now}
             onSelect={select}

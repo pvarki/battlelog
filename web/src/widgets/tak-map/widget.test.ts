@@ -6,12 +6,13 @@ import {
   hasPosition,
   isFaded,
   layerOf,
+  liveItems,
   missionItems,
   sidcFor,
   statusOf,
   teamColor,
 } from "./symbols.ts";
-import descriptor from "./widget.ts";
+import descriptor, { type TakMapConfig } from "./widget.ts";
 
 const feature = (cotType: string, extra: Partial<TakFeature["properties"]> = {}): TakFeature => ({
   type: "Feature",
@@ -22,11 +23,17 @@ const feature = (cotType: string, extra: Partial<TakFeature["properties"]> = {})
 
 test("defaultConfig validates; empty config gets defaults", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
-  expect(descriptor.configSchema.parse({})).toEqual({
+  expect(descriptor.configSchema.parse({})).toMatchObject({
     basemap: "osm",
-    hiddenLayers: [],
-    hiddenMissions: [],
+    missionFilter: "except",
+    showLive: true,
+    view: "fit-once",
   });
+});
+
+const config = (patch: Partial<TakMapConfig> = {}) => ({
+  ...descriptor.configSchema.parse({}),
+  ...patch,
 });
 
 describe("layerOf", () => {
@@ -103,5 +110,23 @@ test("missionItems shows visible missions once, without items already live", () 
     { name: "OTHER", keywords: [], items: [b, c] },
     { name: "HIDDEN", keywords: [], items: [{ ...feature("a-h-G"), id: "h" }] },
   ];
-  expect(missionItems(missions, ["HIDDEN"], [a]).map((f) => f.id)).toEqual(["b", "c"]);
+  const hidden = config({ missionNames: ["HIDDEN"] });
+  expect(missionItems(missions, hidden, [a]).map((f) => f.id)).toEqual(["b", "c"]);
+  const only = config({ missionFilter: "only", missionNames: ["HIDDEN"] });
+  expect(missionItems(missions, only, []).map((f) => f.id)).toEqual(["h"]);
+});
+
+test("liveItems applies the live, team, age and stale filters", () => {
+  const now = Date.parse("2026-10-10T12:01:00Z");
+  const cyan = { ...feature("a-f-G-U-C", { team: "Cyan" }), id: "cyan" };
+  const red = { ...feature("a-f-G-U-C", { team: "Red" }), id: "red" };
+  const old = { ...feature("a-h-G", { time: "2026-10-10T10:00:00Z" }), id: "old" };
+  const stale = { ...feature("a-h-G", { stale: "2026-10-10T12:00:30Z" }), id: "stale" };
+  const all = [cyan, red, old, stale];
+  const ids = (patch: Partial<TakMapConfig>) => liveItems(all, config(patch), now).map((f) => f.id);
+  expect(ids({})).toEqual(["cyan", "red", "old", "stale"]);
+  expect(ids({ showLive: false })).toEqual([]);
+  expect(ids({ teams: ["Red"] })).toEqual(["red", "old", "stale"]);
+  expect(ids({ maxAgeMinutes: 30 })).toEqual(["cyan", "red", "stale"]);
+  expect(ids({ showStale: false })).toEqual(["cyan", "red", "old"]);
 });
