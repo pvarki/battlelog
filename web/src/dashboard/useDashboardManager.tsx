@@ -118,6 +118,12 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
   const shownTemplates = templates.filter((t) => matchesQuery(t, templateQuery));
   const searchable = templates.length > SEARCH_FROM;
 
+  // Navigation alone keeps the root loader's list: the side panel only refetches when invalidated.
+  const openCreated = async (dashboardId: string) => {
+    await router.invalidate();
+    await navigate({ to: "/d/$dashboardId", params: { dashboardId } });
+  };
+
   // Creating a dashboard leaves this page, so a failure has to keep the modal
   // open with the field the user can fix — a thrown error would hand a name
   // collision to the route error boundary, which is not a fixable screen.
@@ -145,10 +151,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
         await router.invalidate();
         return;
       }
-      await navigate({
-        to: "/d/$dashboardId",
-        params: { dashboardId: created.id },
-      });
+      await openCreated(created.id);
     });
 
   // All list mutations funnel through here: surface failures (a silent no-op
@@ -344,7 +347,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
       const created = await res.json();
       setImportOpen(false);
       setImportText("");
-      await navigate({ to: "/d/$dashboardId", params: { dashboardId: created.id } });
+      await openCreated(created.id);
     });
   };
 
