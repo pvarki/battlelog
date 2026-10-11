@@ -3,7 +3,7 @@ import {
   Button,
   Checkbox,
   Group,
-  Paper,
+  Menu,
   SegmentedControl,
   Select,
   Stack,
@@ -11,7 +11,8 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconArrowDown, IconArrowUp, IconX } from "@tabler/icons-react";
+import { IconX } from "@tabler/icons-react";
+import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import { FieldInput, QueryEditor, useFieldSuggestions } from "../../event-binding/editors.tsx";
@@ -23,6 +24,7 @@ import {
   type EventSelect,
   type FormConfig,
   type FormField,
+  fieldLabel,
   slugify,
   type VisibleField,
 } from "./widget.ts";
@@ -47,6 +49,15 @@ const DescriptionInput = ({
     onChange={(e) => setField(field.id, { description: e.currentTarget.value })}
   />
 );
+
+const FIELD_KIND_LABEL: Record<FormField["kind"], string> = {
+  event: "Event field",
+  data: "Custom field",
+  fixed: "Fixed value",
+};
+
+const fieldName = (field: FormField) =>
+  (field.kind !== "fixed" && fieldLabel(field)) || FIELD_KIND_LABEL[field.kind].toLowerCase();
 
 const INPUT_OPTIONS = [
   { value: "text", label: "text" },
@@ -156,13 +167,6 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
   const setFields = (fields: FormField[]) => onChange({ ...config, fields });
   const setField = (id: string, patch: Partial<FormField>) =>
     setFields(config.fields.map((f) => (f.id === id ? ({ ...f, ...patch } as FormField) : f)));
-  const move = (index: number, delta: number) => {
-    const next = [...config.fields];
-    const target = index + delta;
-    if (target < 0 || target >= next.length) return;
-    next.splice(target, 0, ...next.splice(index, 1));
-    setFields(next);
-  };
   const add = (field: FormField) => setFields([...config.fields, field]);
 
   return (
@@ -193,49 +197,18 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
       />
 
       {config.fields.map((field, index) => (
-        <Paper key={field.id} withBorder p="xs">
+        <ItemCard
+          key={field.id}
+          label={FIELD_KIND_LABEL[field.kind]}
+          name={fieldName(field)}
+          onRemove={() => setFields(config.fields.filter((f) => f.id !== field.id))}
+          move={{
+            index,
+            count: config.fields.length,
+            onMove: (by) => setFields(moveItem(config.fields, index, by)),
+          }}
+        >
           <Stack gap="xs">
-            <Group wrap="nowrap" justify="space-between">
-              <Text fz="xs" c="dimmed">
-                {field.kind === "event"
-                  ? "Event field"
-                  : field.kind === "data"
-                    ? "Custom field"
-                    : "Fixed value"}
-              </Text>
-              <Group gap={2} wrap="nowrap">
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  size="xs"
-                  aria-label="Move up"
-                  disabled={index === 0}
-                  onClick={() => move(index, -1)}
-                >
-                  <IconArrowUp size={14} stroke={1.5} />
-                </ActionIcon>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  size="xs"
-                  aria-label="Move down"
-                  disabled={index === config.fields.length - 1}
-                  onClick={() => move(index, 1)}
-                >
-                  <IconArrowDown size={14} stroke={1.5} />
-                </ActionIcon>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  size="xs"
-                  aria-label="Remove field"
-                  onClick={() => setFields(config.fields.filter((f) => f.id !== field.id))}
-                >
-                  <IconX size={14} stroke={1.5} />
-                </ActionIcon>
-              </Group>
-            </Group>
-
             {field.kind === "event" && (
               <>
                 <Group wrap="nowrap" align="flex-end">
@@ -371,7 +344,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
               </Group>
             )}
           </Stack>
-        </Paper>
+        </ItemCard>
       ))}
 
       {!config.fields.some((f) => f.kind === "event" && f.field === "header") && (
@@ -381,37 +354,38 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
         </Text>
       )}
 
-      <Group grow>
-        <Button
-          size="compact-xs"
-          variant="light"
-          onClick={() => add({ id: crypto.randomUUID(), kind: "event", field: "header" })}
-        >
-          + Event field
-        </Button>
-        <Button
-          size="compact-xs"
-          variant="light"
-          onClick={() =>
-            add({
-              id: crypto.randomUUID(),
-              kind: "data",
-              label: `Field ${config.fields.length + 1}`,
-              input: "text",
-              options: [],
-            })
-          }
-        >
-          + Custom field
-        </Button>
-        <Button
-          size="compact-xs"
-          variant="light"
-          onClick={() => add({ id: crypto.randomUUID(), kind: "fixed", target: "tags", value: "" })}
-        >
-          + Fixed value
-        </Button>
-      </Group>
+      <Menu position="bottom-start">
+        <Menu.Target>
+          <Button variant="light">Add field</Button>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item
+            onClick={() => add({ id: crypto.randomUUID(), kind: "event", field: "header" })}
+          >
+            {FIELD_KIND_LABEL.event}
+          </Menu.Item>
+          <Menu.Item
+            onClick={() =>
+              add({
+                id: crypto.randomUUID(),
+                kind: "data",
+                label: `Field ${config.fields.length + 1}`,
+                input: "text",
+                options: [],
+              })
+            }
+          >
+            {FIELD_KIND_LABEL.data}
+          </Menu.Item>
+          <Menu.Item
+            onClick={() =>
+              add({ id: crypto.randomUUID(), kind: "fixed", target: "tags", value: "" })
+            }
+          >
+            {FIELD_KIND_LABEL.fixed}
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
     </Stack>
   );
 };

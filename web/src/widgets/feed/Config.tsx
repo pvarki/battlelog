@@ -3,7 +3,6 @@ import {
   Button,
   Group,
   NumberInput,
-  Paper,
   Select,
   Stack,
   TagsInput,
@@ -11,6 +10,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import {
@@ -136,8 +136,18 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
         }}
       />
 
-      {config.columns.map((col) => (
-        <Paper key={col.id} withBorder p="xs">
+      {config.columns.map((col, index) => (
+        <ItemCard
+          key={col.id}
+          name={labelFor(col)}
+          removeDisabled={config.columns.length === 1}
+          onRemove={() => setColumns(config.columns.filter((c) => c.id !== col.id))}
+          move={{
+            index,
+            count: config.columns.length,
+            onMove: (by) => setColumns(moveItem(config.columns, index, by)),
+          }}
+        >
           <Stack gap="xs">
             <Group wrap="nowrap" align="flex-end">
               <TextInput
@@ -158,15 +168,6 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
                   if (source) setColumn(col.id, { source: source as FeedColumn["source"] });
                 }}
               />
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label={`Remove ${labelFor(col)}`}
-                disabled={config.columns.length === 1}
-                onClick={() => setColumns(config.columns.filter((c) => c.id !== col.id))}
-              >
-                <IconX size={18} stroke={1.5} />
-              </ActionIcon>
             </Group>
             {col.source === "data" && (
               <TextInput
@@ -189,7 +190,7 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
               }}
             />
           </Stack>
-        </Paper>
+        </ItemCard>
       ))}
 
       <Button
