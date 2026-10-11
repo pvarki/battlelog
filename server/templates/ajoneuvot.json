@@ -1,0 +1,627 @@
+{
+  "name": "Ajoneuvot",
+  "widgets": [
+    {
+      "id": "muistiinpanot",
+      "type": "note",
+      "config": {
+        "title": "Muistiinpanot"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 14,
+        "h": 10
+      }
+    },
+    {
+      "id": "lomakkeet",
+      "type": "tabs",
+      "config": {
+        "title": "Lomakkeet",
+        "tabs": [
+          {
+            "id": "ajojarjestelyt",
+            "type": "form",
+            "config": {
+              "title": "Ajojärjestelyt",
+              "reportType": "drive-task",
+              "submitLabel": "Tallenna",
+              "fields": [
+                {
+                  "id": "tehtava",
+                  "kind": "event",
+                  "field": "header",
+                  "label": "Tehtävä",
+                  "required": true
+                },
+                {
+                  "id": "tilaaja",
+                  "kind": "data",
+                  "key": "tilaaja",
+                  "label": "Tilaaja",
+                  "input": "text",
+                  "options": [],
+                  "required": true
+                },
+                {
+                  "id": "lahto",
+                  "kind": "data",
+                  "key": "lahto",
+                  "label": "Lähtöosoite",
+                  "input": "text",
+                  "options": [],
+                  "required": true
+                },
+                {
+                  "id": "kohde",
+                  "kind": "data",
+                  "key": "kohde",
+                  "label": "Kohdeosoite",
+                  "input": "text",
+                  "options": [],
+                  "required": true
+                },
+                {
+                  "id": "lasti",
+                  "kind": "data",
+                  "key": "lasti",
+                  "label": "Lasti",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "ajoneuvo",
+                  "kind": "data",
+                  "key": "ajoneuvo",
+                  "label": "Ajoneuvo",
+                  "input": "event",
+                  "options": [],
+                  "required": true,
+                  "eventSelect": {
+                    "types": "form-vehicle",
+                    "tags": "",
+                    "labelField": "",
+                    "writeBack": [
+                      {
+                        "id": "set-tila",
+                        "field": "tila",
+                        "set": "text",
+                        "value": "Varattu"
+                      },
+                      {
+                        "id": "set-tehtava",
+                        "field": "tehtava",
+                        "set": "reference",
+                        "value": ""
+                      }
+                    ],
+                    "dataFilters": [
+                      {
+                        "id": "tila",
+                        "path": "tila",
+                        "value": "Vapaa"
+                      }
+                    ],
+                    "emptyText": "Ei vapaita ajoneuvoja"
+                  }
+                },
+                {
+                  "id": "reitti",
+                  "kind": "data",
+                  "key": "reitti",
+                  "label": "Reitti",
+                  "input": "select",
+                  "options": [
+                    "Reitti A1",
+                    "Reitti A2",
+                    "Reitti A3",
+                    "Reitti B1",
+                    "Reitti B2",
+                    "Reitti B3"
+                  ]
+                },
+                {
+                  "id": "paluuaika",
+                  "kind": "data",
+                  "key": "paluuaika",
+                  "label": "Paluuaika",
+                  "input": "text",
+                  "options": [],
+                  "required": true,
+                  "description": "esim. 14:30"
+                },
+                {
+                  "id": "hyvaksyja",
+                  "kind": "data",
+                  "key": "hyvaksyja",
+                  "label": "Hyväksyjä",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "tagit",
+                  "kind": "event",
+                  "field": "tags"
+                },
+                {
+                  "id": "tila-default",
+                  "kind": "fixed",
+                  "target": "data",
+                  "key": "tila",
+                  "value": "Jonossa"
+                }
+              ]
+            }
+          },
+          {
+            "id": "lisaa-ajoneuvo",
+            "type": "form",
+            "config": {
+              "title": "Lisää ajoneuvo",
+              "reportType": "vehicle",
+              "submitLabel": "Lisää",
+              "fields": [
+                {
+                  "id": "rekisteri",
+                  "kind": "event",
+                  "field": "header",
+                  "label": "Rekisterinumero",
+                  "required": true
+                },
+                {
+                  "id": "malli",
+                  "kind": "data",
+                  "key": "malli",
+                  "label": "Merkki ja malli",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "ajoneuvotyyppi",
+                  "kind": "data",
+                  "key": "ajoneuvotyyppi",
+                  "label": "Tyyppi",
+                  "input": "select",
+                  "options": [
+                    "Henkilöauto",
+                    "Pakettiauto",
+                    "Kuorma-auto",
+                    "Maastoajoneuvo",
+                    "Moottoripyörä"
+                  ]
+                },
+                {
+                  "id": "tila-default",
+                  "kind": "fixed",
+                  "target": "data",
+                  "key": "tila",
+                  "value": "Vapaa"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 10,
+        "w": 14,
+        "h": 14
+      }
+    },
+    {
+      "id": "rekisteri",
+      "type": "eventtable",
+      "config": {
+        "title": "Ajoneuvorekisteri",
+        "types": "form-vehicle",
+        "tags": "",
+        "dataFilters": [],
+        "columns": [
+          {
+            "id": "rekisteri",
+            "label": "Rekisterinumero",
+            "source": "header",
+            "field": "",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "malli",
+            "label": "Merkki ja malli",
+            "source": "data",
+            "field": "malli",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "tyyppi",
+            "label": "Tyyppi",
+            "source": "data",
+            "field": "ajoneuvotyyppi",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "tehtava",
+            "label": "Tehtävä",
+            "source": "data",
+            "field": "tehtava.label",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "tila",
+            "label": "Tila",
+            "source": "data",
+            "field": "tila",
+            "kind": "choice",
+            "options": [
+              {
+                "value": "Vapaa",
+                "color": "green"
+              },
+              {
+                "value": "Varattu",
+                "color": "yellow"
+              },
+              {
+                "value": "Ajossa",
+                "color": "blue"
+              },
+              {
+                "value": "Huollossa",
+                "color": "orange"
+              },
+              {
+                "value": "Ei käytössä",
+                "color": "red"
+              }
+            ],
+            "editable": true
+          }
+        ],
+        "sortBy": "header",
+        "sortDir": "asc",
+        "rowLimit": 100,
+        "allowSorting": true,
+        "allowFiltering": true
+      },
+      "layout": {
+        "x": 14,
+        "y": 0,
+        "w": 34,
+        "h": 10
+      }
+    },
+    {
+      "id": "ajot",
+      "type": "tabs",
+      "config": {
+        "title": "Ajot",
+        "tabs": [
+          {
+            "id": "jonossa",
+            "type": "eventtable",
+            "config": {
+              "title": "Jonossa",
+              "types": "form-drive-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Jonossa"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tilaaja",
+                  "label": "Tilaaja",
+                  "source": "data",
+                  "field": "tilaaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lahto",
+                  "label": "Lähtö",
+                  "source": "data",
+                  "field": "lahto",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "kohde",
+                  "label": "Kohde",
+                  "source": "data",
+                  "field": "kohde",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "ajoneuvo",
+                  "label": "Ajoneuvo",
+                  "source": "data",
+                  "field": "ajoneuvo.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "paluuaika",
+                  "label": "Paluu",
+                  "source": "data",
+                  "field": "paluuaika",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Ajossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          },
+          {
+            "id": "ajossa",
+            "type": "eventtable",
+            "config": {
+              "title": "Ajossa",
+              "types": "form-drive-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Ajossa"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tilaaja",
+                  "label": "Tilaaja",
+                  "source": "data",
+                  "field": "tilaaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lahto",
+                  "label": "Lähtö",
+                  "source": "data",
+                  "field": "lahto",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "kohde",
+                  "label": "Kohde",
+                  "source": "data",
+                  "field": "kohde",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "ajoneuvo",
+                  "label": "Ajoneuvo",
+                  "source": "data",
+                  "field": "ajoneuvo.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "paluuaika",
+                  "label": "Paluu",
+                  "source": "data",
+                  "field": "paluuaika",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Ajossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          },
+          {
+            "id": "valmiit",
+            "type": "eventtable",
+            "config": {
+              "title": "Valmiit",
+              "types": "form-drive-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Valmis"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tilaaja",
+                  "label": "Tilaaja",
+                  "source": "data",
+                  "field": "tilaaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lahto",
+                  "label": "Lähtö",
+                  "source": "data",
+                  "field": "lahto",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "kohde",
+                  "label": "Kohde",
+                  "source": "data",
+                  "field": "kohde",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "ajoneuvo",
+                  "label": "Ajoneuvo",
+                  "source": "data",
+                  "field": "ajoneuvo.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "paluuaika",
+                  "label": "Paluu",
+                  "source": "data",
+                  "field": "paluuaika",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Ajossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 14,
+        "y": 10,
+        "w": 34,
+        "h": 14
+      }
+    }
+  ]
+}

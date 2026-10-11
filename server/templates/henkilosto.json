@@ -1,0 +1,481 @@
+{
+  "name": "Henkilöstö",
+  "widgets": [
+    {
+      "id": "rekisteri",
+      "type": "eventtable",
+      "config": {
+        "title": "Henkilöstörekisteri",
+        "types": "form-person",
+        "tags": "",
+        "dataFilters": [],
+        "columns": [
+          {
+            "id": "nimi",
+            "label": "Nimi",
+            "source": "header",
+            "field": "",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "arvo",
+            "label": "Sotilasarvo",
+            "source": "data",
+            "field": "arvo",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "tehtava",
+            "label": "Tehtävä",
+            "source": "data",
+            "field": "tehtava",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "yksikko",
+            "label": "Yksikkö",
+            "source": "data",
+            "field": "yksikko",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "puhelin",
+            "label": "Puhelin",
+            "source": "data",
+            "field": "puhelin",
+            "kind": "text",
+            "options": [],
+            "editable": false
+          },
+          {
+            "id": "tila",
+            "label": "Tila",
+            "source": "data",
+            "field": "tila",
+            "kind": "choice",
+            "options": [
+              {
+                "value": "Paikalla",
+                "color": "green"
+              },
+              {
+                "value": "Tehtävällä",
+                "color": "blue"
+              },
+              {
+                "value": "Lomalla",
+                "color": "gray"
+              },
+              {
+                "value": "Sairaana",
+                "color": "yellow"
+              },
+              {
+                "value": "Poissa",
+                "color": "red"
+              }
+            ],
+            "editable": true
+          }
+        ],
+        "sortBy": "header",
+        "sortDir": "asc",
+        "rowLimit": 100,
+        "allowSorting": true,
+        "allowFiltering": true
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 34,
+        "h": 12
+      }
+    },
+    {
+      "id": "vahvuus",
+      "type": "status",
+      "config": {
+        "title": "Vahvuus",
+        "statuses": [
+          {
+            "id": "upseerit",
+            "label": "Upseerit",
+            "kind": "count",
+            "options": []
+          },
+          {
+            "id": "aliupseerit",
+            "label": "Aliupseerit",
+            "kind": "count",
+            "options": []
+          },
+          {
+            "id": "miehisto",
+            "label": "Miehistö",
+            "kind": "count",
+            "options": []
+          }
+        ]
+      },
+      "layout": {
+        "x": 34,
+        "y": 0,
+        "w": 14,
+        "h": 6
+      }
+    },
+    {
+      "id": "lomakkeet",
+      "type": "tabs",
+      "config": {
+        "title": "Lomakkeet",
+        "tabs": [
+          {
+            "id": "lisaa-henkilo",
+            "type": "form",
+            "config": {
+              "title": "Lisää henkilö",
+              "reportType": "person",
+              "submitLabel": "Lisää",
+              "fields": [
+                {
+                  "id": "nimi",
+                  "kind": "event",
+                  "field": "header",
+                  "label": "Nimi",
+                  "required": true
+                },
+                {
+                  "id": "arvo",
+                  "kind": "data",
+                  "key": "arvo",
+                  "label": "Sotilasarvo",
+                  "input": "select",
+                  "options": [
+                    "Sotamies",
+                    "Korpraali",
+                    "Alikersantti",
+                    "Kersantti",
+                    "Ylikersantti",
+                    "Vääpeli",
+                    "Vänrikki",
+                    "Luutnantti",
+                    "Yliluutnantti",
+                    "Kapteeni",
+                    "Majuri"
+                  ]
+                },
+                {
+                  "id": "tehtava",
+                  "kind": "data",
+                  "key": "tehtava",
+                  "label": "Tehtävä",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "yksikko",
+                  "kind": "data",
+                  "key": "yksikko",
+                  "label": "Yksikkö",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "puhelin",
+                  "kind": "data",
+                  "key": "puhelin",
+                  "label": "Puhelin",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "tila-default",
+                  "kind": "fixed",
+                  "target": "data",
+                  "key": "tila",
+                  "value": "Paikalla"
+                }
+              ]
+            }
+          },
+          {
+            "id": "koulutus",
+            "type": "form",
+            "config": {
+              "title": "Koulutus",
+              "reportType": "training",
+              "submitLabel": "Tallenna",
+              "fields": [
+                {
+                  "id": "henkilo",
+                  "kind": "data",
+                  "key": "henkilo",
+                  "label": "Henkilö",
+                  "input": "event",
+                  "options": [],
+                  "required": true,
+                  "eventSelect": {
+                    "types": "form-person",
+                    "tags": "",
+                    "labelField": "",
+                    "writeBack": [],
+                    "dataFilters": [],
+                    "emptyText": ""
+                  }
+                },
+                {
+                  "id": "koulutus",
+                  "kind": "data",
+                  "key": "koulutus",
+                  "label": "Koulutus",
+                  "input": "text",
+                  "options": [],
+                  "required": true
+                },
+                {
+                  "id": "pvm",
+                  "kind": "event",
+                  "field": "eventTime",
+                  "label": "Päivämäärä",
+                  "required": true
+                },
+                {
+                  "id": "kouluttaja",
+                  "kind": "data",
+                  "key": "kouluttaja",
+                  "label": "Kouluttaja",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "tulos",
+                  "kind": "data",
+                  "key": "tulos",
+                  "label": "Tulos",
+                  "input": "select",
+                  "options": ["Hyväksytty", "Hylätty", "Kesken"]
+                }
+              ]
+            }
+          },
+          {
+            "id": "arviointi",
+            "type": "form",
+            "config": {
+              "title": "Arviointi",
+              "reportType": "evaluation",
+              "submitLabel": "Tallenna",
+              "fields": [
+                {
+                  "id": "henkilo",
+                  "kind": "data",
+                  "key": "henkilo",
+                  "label": "Henkilö",
+                  "input": "event",
+                  "options": [],
+                  "required": true,
+                  "eventSelect": {
+                    "types": "form-person",
+                    "tags": "",
+                    "labelField": "",
+                    "writeBack": [],
+                    "dataFilters": [],
+                    "emptyText": ""
+                  }
+                },
+                {
+                  "id": "osa-alue",
+                  "kind": "data",
+                  "key": "osa-alue",
+                  "label": "Arvioitava osa-alue",
+                  "input": "text",
+                  "options": [],
+                  "required": true
+                },
+                {
+                  "id": "arvosana",
+                  "kind": "data",
+                  "key": "arvosana",
+                  "label": "Arvosana",
+                  "input": "select",
+                  "options": ["1", "2", "3", "4", "5"],
+                  "required": true
+                },
+                {
+                  "id": "arvioija",
+                  "kind": "data",
+                  "key": "arvioija",
+                  "label": "Arvioija",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "huomiot",
+                  "kind": "data",
+                  "key": "huomiot",
+                  "label": "Huomiot",
+                  "input": "textarea",
+                  "options": []
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 34,
+        "y": 6,
+        "w": 14,
+        "h": 18
+      }
+    },
+    {
+      "id": "historia",
+      "type": "tabs",
+      "config": {
+        "title": "Koulutus ja arvioinnit",
+        "tabs": [
+          {
+            "id": "koulutukset",
+            "type": "eventtable",
+            "config": {
+              "title": "Koulutukset",
+              "types": "form-training",
+              "tags": "",
+              "dataFilters": [],
+              "columns": [
+                {
+                  "id": "henkilo",
+                  "label": "Henkilö",
+                  "source": "data",
+                  "field": "henkilo.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "koulutus",
+                  "label": "Koulutus",
+                  "source": "data",
+                  "field": "koulutus",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "pvm",
+                  "label": "Päivämäärä",
+                  "source": "time",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "kouluttaja",
+                  "label": "Kouluttaja",
+                  "source": "data",
+                  "field": "kouluttaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tulos",
+                  "label": "Tulos",
+                  "source": "data",
+                  "field": "tulos",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                }
+              ],
+              "sortBy": "pvm",
+              "sortDir": "desc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          },
+          {
+            "id": "arvioinnit",
+            "type": "eventtable",
+            "config": {
+              "title": "Arvioinnit",
+              "types": "form-evaluation",
+              "tags": "",
+              "dataFilters": [],
+              "columns": [
+                {
+                  "id": "henkilo",
+                  "label": "Henkilö",
+                  "source": "data",
+                  "field": "henkilo.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "osa-alue",
+                  "label": "Osa-alue",
+                  "source": "data",
+                  "field": "osa-alue",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "arvosana",
+                  "label": "Arvosana",
+                  "source": "data",
+                  "field": "arvosana",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "arvioija",
+                  "label": "Arvioija",
+                  "source": "data",
+                  "field": "arvioija",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "pvm",
+                  "label": "Päivämäärä",
+                  "source": "time",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                }
+              ],
+              "sortBy": "pvm",
+              "sortDir": "desc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 12,
+        "w": 34,
+        "h": 12
+      }
+    }
+  ]
+}
