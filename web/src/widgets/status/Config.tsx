@@ -1,15 +1,6 @@
-import {
-  ActionIcon,
-  Button,
-  Group,
-  Paper,
-  SegmentedControl,
-  Stack,
-  Switch,
-  TextInput,
-} from "@mantine/core";
-import { IconX } from "@tabler/icons-react";
+import { Button, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
 import { EventPicker } from "../../dashboard/EventPicker.tsx";
+import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import type { FieldSuggestion } from "../../event-binding/detect.ts";
@@ -63,7 +54,7 @@ const PropertyEditor = ({
   onChange: (patch: Partial<StatusProperty>) => void;
   onRemove: () => void;
 }) => (
-  <Paper withBorder p="xs">
+  <ItemCard name={property.label || "property"} onRemove={onRemove}>
     <Stack gap={4}>
       <Group wrap="nowrap" align="flex-end">
         <TextInput
@@ -80,9 +71,6 @@ const PropertyEditor = ({
           onChange={(field) => onChange({ field })}
           onPick={(s) => onChange(fromSuggestion(property, s))}
         />
-        <ActionIcon variant="subtle" color="gray" aria-label="Remove property" onClick={onRemove}>
-          <IconX size={18} stroke={1.5} />
-        </ActionIcon>
       </Group>
       <SegmentedControl
         size="xs"
@@ -100,7 +88,7 @@ const PropertyEditor = ({
         <OptionsEditor options={property.options} onChange={(options) => onChange({ options })} />
       )}
     </Stack>
-  </Paper>
+  </ItemCard>
 );
 
 const GroupEditor = ({
@@ -162,8 +150,7 @@ const GroupEditor = ({
             />
           ))}
           <Button
-            size="compact-xs"
-            variant="subtle"
+            variant="light"
             onClick={() =>
               onChange({
                 ...group,
@@ -203,8 +190,17 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
     <Stack>
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
 
-      {config.statuses.map((row) => (
-        <Paper key={row.id} withBorder p="xs">
+      {config.statuses.map((row, index) => (
+        <ItemCard
+          key={row.id}
+          name={row.label || "status"}
+          onRemove={() => setRows(config.statuses.filter((r) => r.id !== row.id))}
+          move={{
+            index,
+            count: config.statuses.length,
+            onMove: (by) => setRows(moveItem(config.statuses, index, by)),
+          }}
+        >
           <Stack gap="xs">
             <Group wrap="nowrap" align="flex-end">
               <TextInput
@@ -223,14 +219,6 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
                   onChange={(kind) => setRow(row.id, { kind: kind as StatusRow["kind"] })}
                 />
               )}
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label={`Remove ${row.label}`}
-                onClick={() => setRows(config.statuses.filter((r) => r.id !== row.id))}
-              >
-                <IconX size={18} stroke={1.5} />
-              </ActionIcon>
             </Group>
 
             <TextInput
@@ -296,7 +284,7 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
               />
             )}
           </Stack>
-        </Paper>
+        </ItemCard>
       ))}
 
       <Button

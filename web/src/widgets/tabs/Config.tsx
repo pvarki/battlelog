@@ -1,5 +1,5 @@
-import { Accordion, ActionIcon, Button, Group, Menu, Stack, Text } from "@mantine/core";
-import { IconArrowDown, IconArrowUp, IconX } from "@tabler/icons-react";
+import { Accordion, Button, Menu, Stack, Text } from "@mantine/core";
+import { ItemActions, moveItem } from "../../dashboard/ItemCard.tsx";
 import { getWidget, registry, type WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import { WidgetConfigPanel } from "../../dashboard/WidgetConfigPanel.tsx";
@@ -13,12 +13,6 @@ const TabsConfigForm = ({ config, onChange }: WidgetConfigProps<TabsConfig>) => 
   // say anything); show what can be edited instead of crashing the drawer.
   const tabs = Array.isArray(config.tabs) ? config.tabs.filter((t) => t?.id) : [];
   const setTabs = (next: Tab[]) => onChange({ ...config, tabs: next });
-  const move = (index: number, delta: number) => {
-    const next = [...tabs];
-    const [tab] = next.splice(index, 1);
-    if (tab) next.splice(index + delta, 0, tab);
-    setTabs(next);
-  };
   const addTab = (type: string) => {
     const descriptor = getWidget(type);
     if (!descriptor) return;
@@ -42,34 +36,15 @@ const TabsConfigForm = ({ config, onChange }: WidgetConfigProps<TabsConfig>) => 
               </Accordion.Control>
               <Accordion.Panel>
                 <Stack>
-                  <Group gap="xs" justify="flex-end">
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      aria-label="Move tab earlier"
-                      disabled={index === 0}
-                      onClick={() => move(index, -1)}
-                    >
-                      <IconArrowUp size={18} stroke={1.5} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      aria-label="Move tab later"
-                      disabled={index === tabs.length - 1}
-                      onClick={() => move(index, 1)}
-                    >
-                      <IconArrowDown size={18} stroke={1.5} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      aria-label={`Remove ${tabLabel(tab)}`}
-                      onClick={() => setTabs(tabs.filter((t) => t.id !== tab.id))}
-                    >
-                      <IconX size={18} stroke={1.5} />
-                    </ActionIcon>
-                  </Group>
+                  <ItemActions
+                    name={tabLabel(tab)}
+                    onRemove={() => setTabs(tabs.filter((t) => t.id !== tab.id))}
+                    move={{
+                      index,
+                      count: tabs.length,
+                      onMove: (by) => setTabs(moveItem(tabs, index, by)),
+                    }}
+                  />
                   {descriptor ? (
                     <WidgetConfigPanel
                       widget={tab}

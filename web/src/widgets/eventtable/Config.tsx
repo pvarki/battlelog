@@ -1,9 +1,7 @@
 import {
-  ActionIcon,
   Button,
   Group,
   NumberInput,
-  Paper,
   SegmentedControl,
   Select,
   Stack,
@@ -11,7 +9,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconArrowDown, IconArrowUp, IconX } from "@tabler/icons-react";
+import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import type { FieldSuggestion } from "../../event-binding/detect.ts";
@@ -59,12 +57,6 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
   const setColumns = (columns: TableColumn[]) => onChange({ ...config, columns });
   const setColumn = (id: string, patch: Partial<TableColumn>) =>
     setColumns(config.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  const move = (index: number, by: -1 | 1) => {
-    const next = [...config.columns];
-    const [col] = next.splice(index, 1);
-    if (col) next.splice(index + by, 0, col);
-    setColumns(next);
-  };
 
   return (
     <Stack>
@@ -127,7 +119,16 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
         Columns
       </Text>
       {config.columns.map((col, index) => (
-        <Paper key={col.id} withBorder p="xs">
+        <ItemCard
+          key={col.id}
+          name={columnLabel(col)}
+          onRemove={() => setColumns(config.columns.filter((c) => c.id !== col.id))}
+          move={{
+            index,
+            count: config.columns.length,
+            onMove: (by) => setColumns(moveItem(config.columns, index, by)),
+          }}
+        >
           <Stack gap={4}>
             <Group wrap="nowrap" align="flex-end">
               <Select
@@ -149,32 +150,6 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
                 value={col.label}
                 onChange={(e) => setColumn(col.id, { label: e.currentTarget.value })}
               />
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label="Move column earlier"
-                disabled={index === 0}
-                onClick={() => move(index, -1)}
-              >
-                <IconArrowUp size={16} stroke={1.5} />
-              </ActionIcon>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label="Move column later"
-                disabled={index === config.columns.length - 1}
-                onClick={() => move(index, 1)}
-              >
-                <IconArrowDown size={16} stroke={1.5} />
-              </ActionIcon>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label={`Remove ${columnLabel(col)}`}
-                onClick={() => setColumns(config.columns.filter((c) => c.id !== col.id))}
-              >
-                <IconX size={18} stroke={1.5} />
-              </ActionIcon>
             </Group>
             {col.source === "data" && (
               <>
@@ -222,7 +197,7 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
               />
             </Stack>
           </Stack>
-        </Paper>
+        </ItemCard>
       ))}
       <Button
         variant="light"
