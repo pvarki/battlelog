@@ -1,0 +1,791 @@
+{
+  "name": "Operaatiot – Drone – Komppania",
+  "widgets": [
+    {
+      "id": "tehtavat",
+      "type": "tabs",
+      "config": {
+        "title": "Tehtävät",
+        "tabs": [
+          {
+            "id": "jonossa",
+            "type": "eventtable",
+            "config": {
+              "title": "Jonossa",
+              "types": "form-flight-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Jonossa"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentotyyppi",
+                  "label": "Lentotyyppi",
+                  "source": "data",
+                  "field": "lentotyyppi",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "drone",
+                  "label": "Drone",
+                  "source": "data",
+                  "field": "drone.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentaja",
+                  "label": "Lentäjä",
+                  "source": "data",
+                  "field": "lentaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "aloitus",
+                  "label": "Aloitus",
+                  "source": "time",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Hyväksytty",
+                      "color": "yellow"
+                    },
+                    {
+                      "value": "Lennossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Raportoimatta",
+                      "color": "orange"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          },
+          {
+            "id": "hyvaksytty",
+            "type": "eventtable",
+            "config": {
+              "title": "Hyväksytty",
+              "types": "form-flight-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Hyväksytty"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentotyyppi",
+                  "label": "Lentotyyppi",
+                  "source": "data",
+                  "field": "lentotyyppi",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "drone",
+                  "label": "Drone",
+                  "source": "data",
+                  "field": "drone.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentaja",
+                  "label": "Lentäjä",
+                  "source": "data",
+                  "field": "lentaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "aloitus",
+                  "label": "Aloitus",
+                  "source": "time",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Hyväksytty",
+                      "color": "yellow"
+                    },
+                    {
+                      "value": "Lennossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Raportoimatta",
+                      "color": "orange"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          },
+          {
+            "id": "lennossa",
+            "type": "eventtable",
+            "config": {
+              "title": "Lennossa",
+              "types": "form-flight-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Lennossa"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentotyyppi",
+                  "label": "Lentotyyppi",
+                  "source": "data",
+                  "field": "lentotyyppi",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "drone",
+                  "label": "Drone",
+                  "source": "data",
+                  "field": "drone.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentaja",
+                  "label": "Lentäjä",
+                  "source": "data",
+                  "field": "lentaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "aloitus",
+                  "label": "Aloitus",
+                  "source": "time",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Hyväksytty",
+                      "color": "yellow"
+                    },
+                    {
+                      "value": "Lennossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Raportoimatta",
+                      "color": "orange"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          },
+          {
+            "id": "valmis",
+            "type": "eventtable",
+            "config": {
+              "title": "Valmis",
+              "types": "form-flight-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Valmis"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentotyyppi",
+                  "label": "Lentotyyppi",
+                  "source": "data",
+                  "field": "lentotyyppi",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "drone",
+                  "label": "Drone",
+                  "source": "data",
+                  "field": "drone.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentaja",
+                  "label": "Lentäjä",
+                  "source": "data",
+                  "field": "lentaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "aloitus",
+                  "label": "Aloitus",
+                  "source": "time",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Hyväksytty",
+                      "color": "yellow"
+                    },
+                    {
+                      "value": "Lennossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Raportoimatta",
+                      "color": "orange"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          },
+          {
+            "id": "peruttu",
+            "type": "eventtable",
+            "config": {
+              "title": "Peruttu",
+              "types": "form-flight-task",
+              "tags": "",
+              "dataFilters": [
+                {
+                  "id": "tila",
+                  "path": "tila",
+                  "value": "Peruttu"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "tehtava",
+                  "label": "Tehtävä",
+                  "source": "header",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentotyyppi",
+                  "label": "Lentotyyppi",
+                  "source": "data",
+                  "field": "lentotyyppi",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "drone",
+                  "label": "Drone",
+                  "source": "data",
+                  "field": "drone.label",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "lentaja",
+                  "label": "Lentäjä",
+                  "source": "data",
+                  "field": "lentaja",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "aloitus",
+                  "label": "Aloitus",
+                  "source": "time",
+                  "field": "",
+                  "kind": "text",
+                  "options": [],
+                  "editable": false
+                },
+                {
+                  "id": "tila",
+                  "label": "Tila",
+                  "source": "data",
+                  "field": "tila",
+                  "kind": "choice",
+                  "options": [
+                    {
+                      "value": "Jonossa",
+                      "color": "gray"
+                    },
+                    {
+                      "value": "Hyväksytty",
+                      "color": "yellow"
+                    },
+                    {
+                      "value": "Lennossa",
+                      "color": "blue"
+                    },
+                    {
+                      "value": "Raportoimatta",
+                      "color": "orange"
+                    },
+                    {
+                      "value": "Valmis",
+                      "color": "green"
+                    },
+                    {
+                      "value": "Peruttu",
+                      "color": "red"
+                    }
+                  ],
+                  "editable": true
+                }
+              ],
+              "sortBy": "created",
+              "sortDir": "asc",
+              "rowLimit": 100,
+              "allowSorting": true,
+              "allowFiltering": true
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 28,
+        "h": 14
+      }
+    },
+    {
+      "id": "lomakkeet",
+      "type": "tabs",
+      "config": {
+        "title": "Lomakkeet",
+        "tabs": [
+          {
+            "id": "lentotehtava",
+            "type": "form",
+            "config": {
+              "title": "Lentotehtävä",
+              "reportType": "flight-task",
+              "submitLabel": "Tallenna",
+              "fields": [
+                {
+                  "id": "tehtava",
+                  "kind": "event",
+                  "field": "header",
+                  "label": "Tehtävä",
+                  "required": true
+                },
+                {
+                  "id": "lentotyyppi",
+                  "kind": "data",
+                  "key": "lentotyyppi",
+                  "label": "Lentotyyppi",
+                  "input": "select",
+                  "options": ["Tiedustelu", "Isku", "Pommitus"]
+                },
+                {
+                  "id": "drone",
+                  "kind": "data",
+                  "key": "drone",
+                  "label": "Drone",
+                  "input": "event",
+                  "options": [],
+                  "required": true,
+                  "eventSelect": {
+                    "types": "form-drone",
+                    "tags": "",
+                    "labelField": "",
+                    "writeBack": [
+                      {
+                        "id": "set-tila",
+                        "field": "tila",
+                        "set": "text",
+                        "value": "Tehtävällä"
+                      },
+                      {
+                        "id": "set-tehtava",
+                        "field": "tehtava",
+                        "set": "reference",
+                        "value": ""
+                      }
+                    ],
+                    "dataFilters": [
+                      {
+                        "id": "tila",
+                        "path": "tila",
+                        "value": "Ladattu"
+                      }
+                    ],
+                    "emptyText": "Ei ladattuja droneja"
+                  }
+                },
+                {
+                  "id": "lentaja",
+                  "kind": "data",
+                  "key": "lentaja",
+                  "label": "Lentäjä",
+                  "input": "text",
+                  "options": [],
+                  "required": true
+                },
+                {
+                  "id": "navigaattori",
+                  "kind": "data",
+                  "key": "navigaattori",
+                  "label": "Navigaattori",
+                  "input": "text",
+                  "options": []
+                },
+                {
+                  "id": "reittipisteet",
+                  "kind": "data",
+                  "key": "reittipisteet",
+                  "label": "Reittipisteet",
+                  "input": "textarea",
+                  "options": []
+                },
+                {
+                  "id": "aloitus",
+                  "kind": "event",
+                  "field": "eventTime",
+                  "label": "Aloitusaika",
+                  "required": true
+                },
+                {
+                  "id": "paattymisaika",
+                  "kind": "data",
+                  "key": "paattymisaika",
+                  "label": "Päättymisaika",
+                  "input": "text",
+                  "options": [],
+                  "description": "esim. 14:30"
+                },
+                {
+                  "id": "tila-default",
+                  "kind": "fixed",
+                  "target": "data",
+                  "key": "tila",
+                  "value": "Jonossa"
+                }
+              ]
+            }
+          },
+          {
+            "id": "lisaa-drone",
+            "type": "form",
+            "config": {
+              "title": "Lisää drone",
+              "reportType": "drone",
+              "submitLabel": "Lisää",
+              "fields": [
+                {
+                  "id": "tunnus",
+                  "kind": "event",
+                  "field": "header",
+                  "label": "Tunnus",
+                  "required": true
+                },
+                {
+                  "id": "laitetyyppi",
+                  "kind": "data",
+                  "key": "laitetyyppi",
+                  "label": "Laitetyyppi",
+                  "input": "select",
+                  "options": ["DJI Mavic", "Sensofusion AirX", "AttackD One"],
+                  "required": true
+                },
+                {
+                  "id": "tila-default",
+                  "kind": "fixed",
+                  "target": "data",
+                  "key": "tila",
+                  "value": "Ladattu"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 28,
+        "y": 0,
+        "w": 10,
+        "h": 14
+      }
+    },
+    {
+      "id": "kalusto",
+      "type": "status",
+      "config": {
+        "title": "Kalusto",
+        "statuses": [
+          {
+            "id": "dronet",
+            "label": "Dronet",
+            "kind": "choice",
+            "options": [
+              {
+                "value": "Ladattu",
+                "color": "green"
+              },
+              {
+                "value": "Tehtävällä",
+                "color": "blue"
+              },
+              {
+                "value": "Käytetty",
+                "color": "gray"
+              }
+            ],
+            "editable": true,
+            "group": {
+              "types": "form-drone",
+              "tags": "",
+              "dataFilters": [],
+              "field": "tila",
+              "layout": "list",
+              "labelField": "",
+              "properties": []
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 38,
+        "y": 0,
+        "w": 10,
+        "h": 14
+      }
+    },
+    {
+      "id": "muistiinpanot",
+      "type": "note",
+      "config": {
+        "title": "Muistiinpanot"
+      },
+      "layout": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 10
+      }
+    },
+    {
+      "id": "stream-1",
+      "type": "streams",
+      "config": {
+        "title": "Drone Team Alfa",
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 10
+      }
+    },
+    {
+      "id": "stream-2",
+      "type": "streams",
+      "config": {
+        "title": "Drone Team Bravo",
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "x": 24,
+        "y": 14,
+        "w": 12,
+        "h": 10
+      }
+    },
+    {
+      "id": "stream-3",
+      "type": "streams",
+      "config": {
+        "title": "Drone Team Charlie",
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "x": 36,
+        "y": 14,
+        "w": 12,
+        "h": 10
+      }
+    }
+  ]
+}
