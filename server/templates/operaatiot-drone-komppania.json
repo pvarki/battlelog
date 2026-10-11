@@ -572,7 +572,7 @@
                         "id": "set-tila",
                         "field": "tila",
                         "set": "text",
-                        "value": "Varattu"
+                        "value": "Tehtävällä"
                       },
                       {
                         "id": "set-tehtava",
@@ -585,10 +585,10 @@
                       {
                         "id": "tila",
                         "path": "tila",
-                        "value": "Vapaa"
+                        "value": "Ladattu"
                       }
                     ],
-                    "emptyText": "Ei vapaita droneja"
+                    "emptyText": "Ei ladattuja droneja"
                   }
                 },
                 {
@@ -671,7 +671,7 @@
                   "kind": "fixed",
                   "target": "data",
                   "key": "tila",
-                  "value": "Vapaa"
+                  "value": "Ladattu"
                 }
               ]
             }
@@ -697,24 +697,16 @@
             "kind": "choice",
             "options": [
               {
-                "value": "Vapaa",
+                "value": "Ladattu",
                 "color": "green"
               },
               {
-                "value": "Varattu",
-                "color": "yellow"
-              },
-              {
-                "value": "Lennossa",
+                "value": "Tehtävällä",
                 "color": "blue"
               },
               {
-                "value": "Huollossa",
-                "color": "orange"
-              },
-              {
-                "value": "Ei käytössä",
-                "color": "red"
+                "value": "Käytetty",
+                "color": "gray"
               }
             ],
             "editable": true,
@@ -754,6 +746,7 @@
       "id": "stream-1",
       "type": "streams",
       "config": {
+        "title": "Drone Team Alfa",
         "url": "",
         "sourceType": "auto"
       },
@@ -768,6 +761,7 @@
       "id": "stream-2",
       "type": "streams",
       "config": {
+        "title": "Drone Team Bravo",
         "url": "",
         "sourceType": "auto"
       },
@@ -782,6 +776,7 @@
       "id": "stream-3",
       "type": "streams",
       "config": {
+        "title": "Drone Team Charlie",
         "url": "",
         "sourceType": "auto"
       },

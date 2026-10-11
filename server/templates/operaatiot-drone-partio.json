@@ -5,6 +5,7 @@
       "id": "stream-1",
       "type": "streams",
       "config": {
+        "title": "Drone Team Alfa",
         "url": "",
         "sourceType": "auto"
       },
@@ -19,6 +20,7 @@
       "id": "stream-2",
       "type": "streams",
       "config": {
+        "title": "Drone Team Delta",
         "url": "",
         "sourceType": "auto"
       },
@@ -470,24 +472,16 @@
             "kind": "choice",
             "options": [
               {
-                "value": "Vapaa",
+                "value": "Ladattu",
                 "color": "green"
               },
               {
-                "value": "Varattu",
-                "color": "yellow"
-              },
-              {
-                "value": "Lennossa",
+                "value": "Tehtävällä",
                 "color": "blue"
               },
               {
-                "value": "Huollossa",
-                "color": "orange"
-              },
-              {
-                "value": "Ei käytössä",
-                "color": "red"
+                "value": "Käytetty",
+                "color": "gray"
               }
             ],
             "editable": true,

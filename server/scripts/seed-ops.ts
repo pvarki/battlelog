@@ -50,15 +50,15 @@ const seedTasks = async (type: string, pickKey: string, entities: EventRow[], ta
 const seedDrones = async () => {
   const drones: EventRow[] = [];
   for (const [tunnus, laitetyyppi, tila] of [
-    ["D-001", "DJI Mavic", "Vapaa"],
-    ["D-002", "DJI Mavic", "Vapaa"],
-    ["D-003", "Sensofusion AirX", "Vapaa"],
-    ["D-004", "AttackD One", "Vapaa"],
-    ["D-005", "AttackD One", "Vapaa"],
-    ["D-006", "DJI Mavic", "Huollossa"],
-    ["D-007", "Sensofusion AirX", "Ei käytössä"],
-    ["D-008", "DJI Mavic", "Vapaa"],
-    ["D-009", "AttackD One", "Vapaa"],
+    ["D-001", "DJI Mavic", "Ladattu"],
+    ["D-002", "DJI Mavic", "Ladattu"],
+    ["D-003", "Sensofusion AirX", "Ladattu"],
+    ["D-004", "AttackD One", "Ladattu"],
+    ["D-005", "AttackD One", "Ladattu"],
+    ["D-006", "DJI Mavic", "Käytetty"],
+    ["D-007", "Sensofusion AirX", "Käytetty"],
+    ["D-008", "DJI Mavic", "Ladattu"],
+    ["D-009", "AttackD One", "Ladattu"],
   ]) {
     drones.push(await create("form-drone", tunnus, { laitetyyppi, tila }));
   }
@@ -66,7 +66,7 @@ const seedDrones = async () => {
   const crew = (lentotyyppi: string, lentaja: string) => ({
     lentotyyppi,
     lentaja,
-    navigaattori: "Kers. Mäkelä",
+    navigaattori: "Kettu 5",
     reittipisteet: "LP1 → KP2 → KP3 → LP1",
     paattymisaika: "16:00",
   });
@@ -75,56 +75,56 @@ const seedDrones = async () => {
       header: "Tiedustelu tie 12 risteys",
       tila: "Jonossa",
       hours: -2,
-      data: crew("Tiedustelu", "Alik. Virtanen"),
-      picked: [0, "Varattu"],
+      data: crew("Tiedustelu", "Kärpä 7"),
+      picked: [0, "Tehtävällä"],
     },
     {
       header: "Sillan valvonta",
       tila: "Hyväksytty",
       hours: -1,
-      data: crew("Tiedustelu", "Kers. Laine"),
-      picked: [1, "Varattu"],
+      data: crew("Tiedustelu", "Haukka 2"),
+      picked: [1, "Tehtävällä"],
     },
     {
       header: "Metsätien tiedustelu",
       tila: "Lennossa",
       hours: 0.5,
-      data: crew("Tiedustelu", "Alik. Korhonen"),
-      picked: [2, "Lennossa"],
+      data: crew("Tiedustelu", "Korppi 4"),
+      picked: [2, "Tehtävällä"],
     },
     {
       header: "Isku kohteeseen K-14",
       tila: "Lennossa",
       hours: 0.2,
-      data: crew("Isku", "Kers. Nieminen"),
-      picked: [3, "Lennossa"],
+      data: crew("Isku", "Ilves 1"),
+      picked: [3, "Tehtävällä"],
     },
     {
       header: "Isku kohteeseen K-09",
       tila: "Raportoimatta",
       hours: 3,
-      data: crew("Isku", "Alik. Heikkinen"),
-      picked: [4, "Varattu"],
+      data: crew("Isku", "Susi 3"),
+      picked: [4, "Tehtävällä"],
     },
     {
       header: "Aamutiedustelu sektori B",
       tila: "Valmis",
       hours: 8,
-      data: crew("Tiedustelu", "Kers. Laine"),
+      data: crew("Tiedustelu", "Haukka 2"),
       picked: [1],
     },
     {
       header: "Pommitus kohteeseen K-03",
       tila: "Peruttu",
       hours: 6,
-      data: crew("Pommitus", "Alik. Virtanen"),
+      data: crew("Pommitus", "Kärpä 7"),
       picked: [5],
     },
     {
       header: "Reitin tarkistus",
       tila: "Jonossa",
       hours: -4,
-      data: crew("Tiedustelu", "Alik. Korhonen"),
+      data: crew("Tiedustelu", "Korppi 4"),
       picked: [1],
     },
   ]);
@@ -164,7 +164,7 @@ const seedVehicles = async () => {
     lasti,
     reitti: "Reitti A1",
     paluuaika: "18:00",
-    hyvaksyja: "Kapt. Salo",
+    hyvaksyja: "Kotka 1",
   });
   const tasks = await seedTasks("form-drive-task", "ajoneuvo", vehicles, [
     {
@@ -237,7 +237,7 @@ const seedPersonnel = async () => {
     await create(
       "form-training",
       "Koulutus",
-      { henkilo: ref(people[i]), koulutus, kouluttaja: "Kers. Mäkelä", tulos },
+      { henkilo: ref(people[i]), koulutus, kouluttaja: "Kettu 5", tulos },
       hoursAgo(h),
     );
   }
@@ -250,7 +250,7 @@ const seedPersonnel = async () => {
     await create(
       "form-evaluation",
       "Arviointi",
-      { henkilo: ref(people[i]), "osa-alue": osaAlue, arvosana, arvioija: "Kapt. Salo" },
+      { henkilo: ref(people[i]), "osa-alue": osaAlue, arvosana, arvioija: "Kotka 1" },
       hoursAgo(h),
     );
   }
