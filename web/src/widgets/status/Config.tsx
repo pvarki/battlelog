@@ -1,5 +1,6 @@
 import { Button, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
 import { EventPicker } from "../../dashboard/EventPicker.tsx";
+import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -228,7 +229,7 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
               value={row.description ?? ""}
               onChange={(e) =>
                 setRow(row.id, {
-                  description: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
+                  description: optionalText(e.currentTarget.value),
                 })
               }
             />
