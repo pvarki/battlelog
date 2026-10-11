@@ -18,6 +18,16 @@ test("setPath replaces one field without mutating or dropping siblings", () => {
   expect(data.battery.level).toBe(80);
 });
 
+test("setPath keeps arrays as arrays and creates missing objects", () => {
+  const data = { crew: [{ name: "A" }, { name: "B" }] };
+  expect(setPath(data, "crew.0.name", "C")).toEqual({ crew: [{ name: "C" }, { name: "B" }] });
+  expect(setPath({ status: "x" }, "mission.label", "M")).toEqual({
+    status: "x",
+    mission: { label: "M" },
+  });
+  expect(setPath(null, "a", 1)).toEqual({ a: 1 });
+});
+
 test("resolveBound distinguishes loading, missing event, missing field and value", () => {
   expect(resolveBound(undefined, ID, "status")).toEqual({ state: "loading" });
   expect(resolveBound(null, ID, "status")).toEqual({ state: "missing-event" });

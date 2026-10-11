@@ -4,6 +4,7 @@ import { subscribeToEvents } from "../live-events.ts";
 import { type BoundState, type BoundValue, resolveBound, setPath } from "./paths.ts";
 
 export const WRITE_DEBOUNCE_MS = 600;
+const RETRY_MS = 3000;
 
 /** Reserved field key for the event's own `header` (a NUL can't occur in a data path). */
 export const HEADER_FIELD = "\0header";
@@ -25,7 +26,7 @@ type Pending = {
  * (dropping the edits) instead of being overwritten.
  */
 export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) => {
-  const [fetched, setHeads] = useState<Record<string, Head>>({});
+  const [fetched, setFetched] = useState<Record<string, Head>>({});
   // `seed` rows (a query's live events) win over fetched ones only when newer:
   // a write's response must not be overwritten by an older seed row.
   const heads: Record<string, Head> = { ...fetched };
@@ -36,6 +37,19 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
   const headsRef = useRef(heads);
   headsRef.current = heads;
 
+  /**
+   * Installs a version unless a newer one is known: GETs, the stream and
+   * PATCH responses arrive out of order (UUIDv7 ids sort by time). The ref is
+   * updated synchronously so a queued save after unmount sees our own write.
+   */
+  const putHead = (eventId: string, row: Head) => {
+    const isNewer = (current: Head | undefined) =>
+      row === null ? current === undefined : !current || row.id > current.id;
+    if (!isNewer(headsRef.current[eventId])) return;
+    headsRef.current = { ...headsRef.current, [eventId]: row };
+    setFetched((h) => (isNewer(h[eventId]) ? { ...h, [eventId]: row } : h));
+  };
+
   /** eventId → field → value not yet confirmed by the server; shown over the head. */
   const [drafts, setDrafts] = useState<Record<string, Record<string, BoundValue>>>({});
   const pending = useRef(new Map<string, Pending>());
@@ -45,6 +59,7 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
 
   const ids = [...new Set(eventIds)].sort().join(",");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: putHead only touches a ref and a state setter
   useEffect(() => {
     const wanted = new Set(ids ? ids.split(",") : []);
     let cancelled = false;
@@ -54,10 +69,10 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
       try {
         const res = await api.events[":eventId"].$get({ param: { eventId } });
         if (cancelled) return;
-        if (res.status === 404) return setHeads((h) => ({ ...h, [eventId]: null }));
+        if (res.status === 404) return putHead(eventId, null);
         if (res.status !== 200) throw new Error(`load failed (${res.status})`);
         const row = await res.json();
-        if (!cancelled) setHeads((h) => ({ ...h, [eventId]: row }));
+        if (!cancelled) putHead(eventId, row);
       } catch {
         // ponytail: blanket retry on transport/5xx errors — back off if it matters.
         if (!cancelled) timers.add(setTimeout(() => load(eventId), 5000));
@@ -66,7 +81,7 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
     for (const eventId of wanted) void load(eventId);
 
     const unsubscribe = subscribeToEvents((row) => {
-      if (wanted.has(row.eventId)) setHeads((h) => ({ ...h, [row.eventId]: row }));
+      if (wanted.has(row.eventId)) putHead(row.eventId, row);
     });
     return () => {
       cancelled = true;
@@ -77,10 +92,7 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
 
   const reload = async (eventId: string) => {
     const res = await api.events[":eventId"].$get({ param: { eventId } });
-    if (res.status === 200) {
-      const row = await res.json();
-      setHeads((h) => ({ ...h, [eventId]: row }));
-    }
+    if (res.status === 200) putHead(eventId, await res.json());
   };
 
   const clearDrafts = (eventId: string, fields: string[]) => {
@@ -114,6 +126,7 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
     const headerPatch = typeof header === "string" && header.trim() ? { header } : {};
 
     inFlight.current.add(eventId);
+    let retry = false;
     try {
       const res = await api.events[":eventId"].$patch({
         param: { eventId },
@@ -122,16 +135,30 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
       if (res.status === 200) {
         const row = await res.json();
         ownVersions.current.add(row.id);
-        setHeads((h) => ({ ...h, [eventId]: row }));
+        putHead(eventId, row);
+      } else if (res.status === 409) {
+        // Someone else saved first: show theirs; these edits are dropped.
+        await reload(eventId).catch(() => {});
       } else {
-        await reload(eventId);
+        retry = true;
       }
     } catch {
-      await reload(eventId).catch(() => {});
+      retry = true;
     } finally {
       inFlight.current.delete(eventId);
-      clearDrafts(eventId, Object.keys(edit.fields));
     }
+    if (retry) {
+      // Transport or server error: keep the edits (still shown) and try again,
+      // merged with anything typed since. ponytail: retries forever, like
+      // useEventDocument — a permanent 4xx keeps retrying.
+      const newer = pending.current.get(eventId);
+      clearTimeout(newer?.timer);
+      const again: Pending = { base: edit.base, fields: { ...edit.fields, ...newer?.fields } };
+      again.timer = setTimeout(() => flush(eventId), RETRY_MS);
+      pending.current.set(eventId, again);
+      return;
+    }
+    clearDrafts(eventId, Object.keys(edit.fields));
   };
 
   /** Shows the value now; saves after `WRITE_DEBOUNCE_MS` of quiet on that event. */

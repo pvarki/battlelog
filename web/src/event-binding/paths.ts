@@ -9,12 +9,22 @@ export const getPath = (data: unknown, path: string): unknown => {
   return v;
 };
 
-/** Immutable set of an existing path; callers check `getPath` first — fields are never created. */
+/**
+ * Immutable set at a dot path; missing objects along it are created. Arrays
+ * stay arrays (`crew.0.name`): PATCH replaces `data` wholesale, so turning
+ * one into an index-keyed object would corrupt the event.
+ */
 export const setPath = (data: unknown, path: string, value: unknown): unknown => {
   const [head = "", ...rest] = keys(path);
-  const obj = { ...(data as Record<string, unknown>) };
-  obj[head] = rest.length ? setPath(obj[head], rest.join("."), value) : value;
-  return obj;
+  const next = rest.length
+    ? setPath((data as Record<string, unknown> | null | undefined)?.[head], rest.join("."), value)
+    : value;
+  if (Array.isArray(data)) {
+    const copy = [...data];
+    copy[Number(head)] = next;
+    return copy;
+  }
+  return { ...(data !== null && typeof data === "object" ? data : {}), [head]: next };
 };
 
 export type BoundValue = string | number | boolean | null;
