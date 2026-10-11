@@ -128,7 +128,17 @@ const Player = ({ url, type }: { url: string; type: Exclude<SourceType, "auto"> 
       <img key={attempt} src={url} alt="Stream" style={media} onError={() => setFailed(true)} />
     );
   }
-  return <video ref={videoRef} style={media} muted autoPlay playsInline controls />;
+  return (
+    <video
+      ref={videoRef}
+      style={media}
+      muted
+      autoPlay
+      playsInline
+      controls
+      loop={type === "video"}
+    />
+  );
 };
 
 export default StreamsView;
