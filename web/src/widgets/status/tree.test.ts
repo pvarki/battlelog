@@ -2,7 +2,13 @@ import { expect, test } from "vitest";
 import { buildStatusTree, flattenTree, parseLabel } from "./tree.ts";
 import type { StatusRow } from "./widget.ts";
 
-const row = (id: string, label: string): StatusRow => ({ id, label, kind: "choice", options: [] });
+const row = (id: string, label: string): StatusRow => ({
+  id,
+  label,
+  kind: "choice",
+  options: [],
+  editable: false,
+});
 
 test("parseLabel trims segments and caps at 3 levels", () => {
   expect(parseLabel("Pena")).toEqual(["Pena"]);

@@ -1,16 +1,28 @@
-import { ActionIcon, Badge, ColorSwatch, Group, Menu, Stack, Text, Tooltip } from "@mantine/core";
+import { Group, Loader, Stack, Text, Tooltip } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
+import { ChoiceChip, CountChip, countOf, ValueCell } from "../../event-binding/cells.tsx";
+import type { ValueSpec } from "../../event-binding/options.ts";
+import { eventLabel } from "../../event-binding/paths.ts";
+import { queryFilter } from "../../event-binding/query.ts";
+import { useBoundEvents } from "../../event-binding/useBoundEvents.ts";
+import { useLiveEvents } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
+import { matchesFeed, queryFor } from "../feed/widget.ts";
 import { buildStatusTree, flattenTree } from "./tree.ts";
-import { type StatusConfig, type StatusRow, widgetDocument } from "./widget.ts";
+import { type StatusConfig, type StatusGroup, type StatusRow, widgetDocument } from "./widget.ts";
 
-// A row switched choice→count still holds its old string value: render 0
-// instead of NaN (a NaN would serialize to null and destroy the stored value).
-const countOf = (stored: string | number | undefined): number => {
-  const n = Number(stored ?? 0);
-  return Number.isFinite(n) ? n : 0;
-};
+type Bound = ReturnType<typeof useBoundEvents>;
+
+const boundCell = (bound: Bound, spec: ValueSpec, eventId: string, field: string) => (
+  <ValueCell
+    spec={spec}
+    state={bound.resolve(eventId, field)}
+    field={field}
+    onWrite={(value) => bound.write(eventId, field, value)}
+    onFlush={() => void bound.flush(eventId)}
+  />
+);
 
 const StatusView = ({
   config,
@@ -24,6 +36,10 @@ const StatusView = ({
     dashboardIsTemplate,
     document: widgetDocument,
   });
+
+  const bound = useBoundEvents(
+    config.statuses.flatMap((r) => (r.source && !r.group ? [r.source.eventId.trim()] : [])),
+  );
 
   // ponytail: whole-object last-writer-wins — two screens editing different
   // rows within the same save window can drop each other's field (SSE
@@ -43,50 +59,62 @@ const StatusView = ({
     );
   }
 
+  const sections = toSections(config.statuses);
+
   return (
     <Stack gap={6} p="xs" h="100%" style={{ overflowY: "auto" }}>
-      {flattenTree(buildStatusTree(config.statuses)).map((node) => {
-        const row = node.row;
-        return (
-          <Group
-            key={row?.id ?? node.path}
-            justify="space-between"
-            wrap="nowrap"
-            pl={node.depth * 16}
-          >
-            <Tooltip
-              label={row?.description}
-              disabled={!row?.description?.trim()}
-              openDelay={600}
-              multiline
-              maw={320}
-              position="top-start"
-            >
-              <Text
-                fz="sm"
-                truncate
-                fw={node.children.length > 0 ? 600 : undefined}
-                style={row?.description?.trim() ? { cursor: "help" } : undefined}
+      {sections.map((section) =>
+        section.group ? (
+          <DynamicGroup key={section.row.id} row={section.row} group={section.group} />
+        ) : (
+          flattenTree(buildStatusTree(section.rows)).map((node) => {
+            const row = node.row;
+            const source = row?.source;
+            return (
+              <Group
+                key={row?.id ?? node.path}
+                justify="space-between"
+                wrap="nowrap"
+                pl={node.depth * 16}
               >
-                {node.name}
-              </Text>
-            </Tooltip>
-            {row &&
-              (row.kind === "count" ? (
-                <CountChip
-                  count={countOf(value.values[row.id])}
-                  onChange={(n) => setRowValue(row.id, n)}
-                />
-              ) : (
-                <ChoiceChip
-                  row={row}
-                  current={value.values[row.id]}
-                  onChange={(v) => setRowValue(row.id, v)}
-                />
-              ))}
-          </Group>
-        );
-      })}
+                <Tooltip
+                  label={row?.description}
+                  disabled={!row?.description?.trim()}
+                  openDelay={600}
+                  multiline
+                  maw={320}
+                  position="top-start"
+                >
+                  <Text
+                    fz="sm"
+                    truncate
+                    fw={node.children.length > 0 ? 600 : undefined}
+                    style={row?.description?.trim() ? { cursor: "help" } : undefined}
+                  >
+                    {node.name}
+                  </Text>
+                </Tooltip>
+                {row && source
+                  ? boundCell(bound, row, source.eventId.trim(), source.field)
+                  : row &&
+                    row.kind !== "text" &&
+                    (row.kind === "count" ? (
+                      <CountChip
+                        count={countOf(value.values[row.id])}
+                        onChange={(n) => setRowValue(row.id, n)}
+                      />
+                    ) : (
+                      <ChoiceChip
+                        options={row.options}
+                        current={value.values[row.id]}
+                        onChange={(v) => setRowValue(row.id, v)}
+                      />
+                    ))}
+              </Group>
+            );
+          })
+        ),
+      )}
       <Text c="dimmed" fz="xs" ta="right" mt="auto" mih="1.2em" role="status">
         {DOC_STATUS_LABEL[status]}
       </Text>
@@ -94,83 +122,105 @@ const StatusView = ({
   );
 };
 
-const ChoiceChip = ({
-  row,
-  current,
-  onChange,
-}: {
-  row: StatusRow;
-  current: string | number | undefined;
-  onChange: (value: string) => void;
-}) => {
-  const selected = row.options.find((o) => o.value === current);
+type Section = { group?: undefined; rows: StatusRow[] } | { group: StatusGroup; row: StatusRow };
+
+/** Static rows keep the label tree; each dynamic row is its own section. Order follows the config. */
+const toSections = (rows: StatusRow[]): Section[] => {
+  const sections: Section[] = [];
+  for (const row of rows) {
+    if (row.group) {
+      sections.push({ group: row.group, row });
+      continue;
+    }
+    const last = sections.at(-1);
+    if (last && !last.group) last.rows.push(row);
+    else sections.push({ rows: [row] });
+  }
+  return sections;
+};
+
+const DynamicGroup = ({ row, group }: { row: StatusRow; group: StatusGroup }) => {
+  const filter = queryFilter(group);
   return (
-    <Menu position="bottom-end">
-      <Menu.Target>
-        <Tooltip
-          label={selected?.description}
-          disabled={!selected?.description?.trim()}
-          openDelay={600}
-          multiline
-          maw={320}
-          position="top-end"
-        >
-          <Badge
-            component="button"
-            type="button"
-            color={selected?.color ?? "gray"}
-            variant={selected ? "filled" : "outline"}
-            style={{ cursor: "pointer" }}
-          >
-            {selected?.value ?? "not set"}
-          </Badge>
-        </Tooltip>
-      </Menu.Target>
-      <Menu.Dropdown>
-        {row.options.length === 0 && <Menu.Item disabled>No options configured</Menu.Item>}
-        {row.options.map((option) => (
-          <Menu.Item
-            key={option.value}
-            leftSection={<ColorSwatch size={10} color={`var(--mantine-color-${option.color}-6)`} />}
-            onClick={() => onChange(option.value)}
-          >
-            {option.value}
-            {option.description?.trim() && (
-              <Text fz="xs" c="dimmed">
-                {option.description}
-              </Text>
-            )}
-          </Menu.Item>
-        ))}
-      </Menu.Dropdown>
-    </Menu>
+    <Stack gap={6}>
+      <Text fz="sm" fw={600} truncate>
+        {row.label}
+      </Text>
+      {!filter ? (
+        <Text c="dimmed" fz="xs" pl={16}>
+          Set at least one event type
+        </Text>
+      ) : group.layout === "list" && !group.field.trim() ? (
+        <Text c="dimmed" fz="xs" pl={16}>
+          Set the field to show
+        </Text>
+      ) : group.layout === "sections" && group.properties.length === 0 ? (
+        <Text c="dimmed" fz="xs" pl={16}>
+          Add at least one property
+        </Text>
+      ) : (
+        <GroupRows row={row} group={group} filter={filter} />
+      )}
+    </Stack>
   );
 };
 
-const CountChip = ({ count, onChange }: { count: number; onChange: (next: number) => void }) => (
-  <Group gap={4} wrap="nowrap">
-    <ActionIcon
-      variant="subtle"
-      color="gray"
-      size="sm"
-      aria-label="Decrement"
-      onClick={() => onChange(count - 1)}
-    >
-      −
-    </ActionIcon>
-    <Badge color="accent" variant="light" miw={36}>
-      {count}
-    </Badge>
-    <ActionIcon
-      variant="subtle"
-      color="gray"
-      size="sm"
-      aria-label="Increment"
-      onClick={() => onChange(count + 1)}
-    >
-      +
-    </ActionIcon>
-  </Group>
-);
+const GroupRows = ({
+  row,
+  group,
+  filter,
+}: {
+  row: StatusRow;
+  group: StatusGroup;
+  filter: NonNullable<ReturnType<typeof queryFilter>>;
+}) => {
+  const { events, failed } = useLiveEvents({
+    limit: 100,
+    query: queryFor(filter),
+    match: (event) => matchesFeed(event, filter),
+  });
+  const bound = useBoundEvents([], events ?? []);
+
+  if (!events) return <Loader size="xs" ml={16} />;
+  if (events.length === 0) {
+    return (
+      <Text c="dimmed" fz="xs" pl={16}>
+        {failed ? "Could not load events" : "No matching events"}
+      </Text>
+    );
+  }
+  const sorted = [...events].sort((a, b) => a.header.localeCompare(b.header));
+  if (group.layout === "sections") {
+    return sorted.map((event) => (
+      <Stack key={event.eventId} gap={4} pl={16}>
+        <Text fz="sm" fw={600} truncate>
+          {eventLabel(event, group.labelField)}
+        </Text>
+        {group.properties.map((property) => (
+          <Group key={property.id} justify="space-between" wrap="nowrap" pl={16}>
+            <Text fz="sm" truncate>
+              {property.label.trim() || property.field}
+            </Text>
+            {property.field.trim() ? (
+              boundCell(bound, property, event.eventId, property.field)
+            ) : (
+              <Text c="dimmed" fz="xs">
+                set field
+              </Text>
+            )}
+          </Group>
+        ))}
+      </Stack>
+    ));
+  }
+  return sorted.map((event) => (
+    <Group key={event.eventId} justify="space-between" wrap="nowrap" pl={16}>
+      <Text fz="sm" truncate>
+        {event.header}
+      </Text>
+      {boundCell(bound, row, event.eventId, group.field)}
+    </Group>
+  ));
+};
 
 export default StatusView;

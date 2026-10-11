@@ -1,29 +1,202 @@
 import {
   ActionIcon,
   Button,
-  CheckIcon,
-  ColorSwatch,
   Group,
   Paper,
   SegmentedControl,
   Stack,
+  Switch,
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
+import type { FieldSuggestion } from "../../event-binding/detect.ts";
 import {
-  STATUS_COLORS,
-  type StatusColor,
-  type StatusConfig,
-  type StatusOption,
-  type StatusRow,
-} from "./widget.ts";
+  FieldInput,
+  OptionsEditor,
+  QueryEditor,
+  useFieldSuggestions,
+} from "../../event-binding/editors.tsx";
+import type { StatusConfig, StatusGroup, StatusProperty, StatusRow } from "./widget.ts";
+
+const EMPTY_GROUP: StatusGroup = {
+  types: "",
+  tags: "",
+  dataFilters: [],
+  field: "",
+  layout: "list",
+  labelField: "",
+  properties: [],
+};
+
+const KIND_OPTIONS = [
+  { label: "Choice", value: "choice" },
+  { label: "Count", value: "count" },
+  { label: "Text", value: "text" },
+];
+
+/** A picked suggestion fills what the user hasn't set yet: label, and kind/options while still default. */
+const fromSuggestion = (
+  current: { label: string; kind: string; options: unknown[] },
+  s: FieldSuggestion,
+) => ({
+  field: s.path,
+  ...(current.label.trim() ? {} : { label: s.path.split(".").at(-1) ?? s.path }),
+  ...(current.kind === "choice" && current.options.length === 0 && s.kind !== "boolean"
+    ? {
+        kind: s.kind,
+        options: s.options.map((value) => ({ value, color: "gray" as const })),
+      }
+    : {}),
+});
+
+const PropertyEditor = ({
+  property,
+  suggestions,
+  onChange,
+  onRemove,
+}: {
+  property: StatusProperty;
+  suggestions: FieldSuggestion[];
+  onChange: (patch: Partial<StatusProperty>) => void;
+  onRemove: () => void;
+}) => (
+  <Paper withBorder p="xs">
+    <Stack gap={4}>
+      <Group wrap="nowrap" align="flex-end">
+        <TextInput
+          label="Label"
+          size="xs"
+          style={{ flex: 1 }}
+          value={property.label}
+          onChange={(e) => onChange({ label: e.currentTarget.value })}
+        />
+        <FieldInput
+          label="Field"
+          value={property.field}
+          suggestions={suggestions}
+          onChange={(field) => onChange({ field })}
+          onPick={(s) => onChange(fromSuggestion(property, s))}
+        />
+        <ActionIcon variant="subtle" color="gray" aria-label="Remove property" onClick={onRemove}>
+          <IconX size={18} stroke={1.5} />
+        </ActionIcon>
+      </Group>
+      <SegmentedControl
+        size="xs"
+        data={KIND_OPTIONS}
+        value={property.kind}
+        onChange={(kind) => onChange({ kind: kind as StatusProperty["kind"] })}
+      />
+      <Switch
+        size="xs"
+        label="Allow updating from the board"
+        checked={property.editable}
+        onChange={(e) => onChange({ editable: e.currentTarget.checked })}
+      />
+      {property.kind === "choice" && (
+        <OptionsEditor options={property.options} onChange={(options) => onChange({ options })} />
+      )}
+    </Stack>
+  </Paper>
+);
+
+const GroupEditor = ({
+  group,
+  onChange,
+}: {
+  group: StatusGroup;
+  onChange: (next: StatusGroup) => void;
+}) => {
+  const suggestions = useFieldSuggestions(group);
+  return (
+    <Stack gap={4}>
+      <QueryEditor query={group} onChange={onChange} />
+      <SegmentedControl
+        size="xs"
+        data={[
+          { label: "One value per event", value: "list" },
+          { label: "Section per event", value: "sections" },
+        ]}
+        value={group.layout}
+        onChange={(layout) => onChange({ ...group, layout: layout as StatusGroup["layout"] })}
+      />
+      {group.layout === "list" ? (
+        <FieldInput
+          label="Field"
+          description="Shown for every matching event; the label above is the group header"
+          value={group.field}
+          suggestions={suggestions}
+          onChange={(field) => onChange({ ...group, field })}
+        />
+      ) : (
+        <>
+          <FieldInput
+            label="Section title field"
+            description="Data field used as each event's title; its header when empty or missing"
+            value={group.labelField}
+            suggestions={suggestions}
+            onChange={(labelField) => onChange({ ...group, labelField })}
+          />
+          {group.properties.map((property) => (
+            <PropertyEditor
+              key={property.id}
+              property={property}
+              suggestions={suggestions}
+              onChange={(patch) =>
+                onChange({
+                  ...group,
+                  properties: group.properties.map((p) =>
+                    p.id === property.id ? { ...p, ...patch } : p,
+                  ),
+                })
+              }
+              onRemove={() =>
+                onChange({
+                  ...group,
+                  properties: group.properties.filter((p) => p.id !== property.id),
+                })
+              }
+            />
+          ))}
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            onClick={() =>
+              onChange({
+                ...group,
+                properties: [
+                  ...group.properties,
+                  {
+                    id: crypto.randomUUID(),
+                    label: "",
+                    field: "",
+                    kind: "choice",
+                    options: [],
+                    editable: false,
+                  },
+                ],
+              })
+            }
+          >
+            Add property
+          </Button>
+        </>
+      )}
+    </Stack>
+  );
+};
 
 const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>) => {
   const setRows = (statuses: StatusRow[]) => onChange({ ...config, statuses });
   const setRow = (id: string, patch: Partial<StatusRow>) =>
     setRows(config.statuses.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+
+  const setSource = (row: StatusRow, patch: Partial<NonNullable<StatusRow["source"]>>) =>
+    setRow(row.id, { source: { eventId: "", field: "", ...row.source, ...patch } });
+
+  const sectionsMode = (row: StatusRow) => row.group?.layout === "sections";
 
   return (
     <Stack>
@@ -41,15 +214,14 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
                 value={row.label}
                 onChange={(e) => setRow(row.id, { label: e.currentTarget.value })}
               />
-              <SegmentedControl
-                size="xs"
-                data={[
-                  { label: "Choice", value: "choice" },
-                  { label: "Count", value: "count" },
-                ]}
-                value={row.kind}
-                onChange={(kind) => setRow(row.id, { kind: kind as StatusRow["kind"] })}
-              />
+              {!sectionsMode(row) && (
+                <SegmentedControl
+                  size="xs"
+                  data={KIND_OPTIONS}
+                  value={row.kind}
+                  onChange={(kind) => setRow(row.id, { kind: kind as StatusRow["kind"] })}
+                />
+              )}
               <ActionIcon
                 variant="subtle"
                 color="gray"
@@ -72,38 +244,58 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
               }
             />
 
-            {row.kind === "choice" && (
-              <Stack gap={4}>
-                {row.options.map((option, index) => (
-                  <OptionEditor
-                    // biome-ignore lint/suspicious/noArrayIndexKey: options have no stable id and are edited in place
-                    key={index}
-                    option={option}
-                    onChange={(next) =>
-                      setRow(row.id, {
-                        options: row.options.map((o, i) => (i === index ? next : o)),
-                      })
-                    }
-                    onRemove={() =>
-                      setRow(row.id, { options: row.options.filter((_, i) => i !== index) })
-                    }
-                  />
-                ))}
-                <Button
-                  size="compact-xs"
-                  variant="subtle"
-                  onClick={() =>
-                    setRow(row.id, {
-                      options: [
-                        ...row.options,
-                        { value: `Option ${row.options.length + 1}`, color: "gray" },
-                      ],
-                    })
-                  }
-                >
-                  Add option
-                </Button>
-              </Stack>
+            <SegmentedControl
+              size="xs"
+              data={[
+                { label: "Board value", value: "local" },
+                { label: "One event", value: "event" },
+                { label: "Events by query", value: "query" },
+              ]}
+              value={row.group ? "query" : row.source ? "event" : "local"}
+              onChange={(mode) =>
+                setRow(row.id, {
+                  source: mode === "event" ? { eventId: "", field: "" } : undefined,
+                  group: mode === "query" ? EMPTY_GROUP : undefined,
+                  editable: false,
+                })
+              }
+            />
+            {row.source && (
+              <Group wrap="nowrap" align="flex-end">
+                <TextInput
+                  label="Event ID"
+                  size="xs"
+                  style={{ flex: 1 }}
+                  value={row.source.eventId}
+                  onChange={(e) => setSource(row, { eventId: e.currentTarget.value.trim() })}
+                />
+                <TextInput
+                  label="Field"
+                  size="xs"
+                  placeholder="status or battery.level"
+                  style={{ flex: 1 }}
+                  value={row.source.field}
+                  onChange={(e) => setSource(row, { field: e.currentTarget.value })}
+                />
+              </Group>
+            )}
+            {row.group && (
+              <GroupEditor group={row.group} onChange={(group) => setRow(row.id, { group })} />
+            )}
+            {(row.source || (row.group && !sectionsMode(row))) && (
+              <Switch
+                size="xs"
+                label="Allow updating from the board"
+                checked={row.editable}
+                onChange={(e) => setRow(row.id, { editable: e.currentTarget.checked })}
+              />
+            )}
+
+            {row.kind === "choice" && !sectionsMode(row) && (
+              <OptionsEditor
+                options={row.options}
+                onChange={(options) => setRow(row.id, { options })}
+              />
             )}
           </Stack>
         </Paper>
@@ -119,6 +311,7 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
               label: `Status ${config.statuses.length + 1}`,
               kind: "choice",
               options: [],
+              editable: false,
             },
           ])
         }
@@ -128,68 +321,5 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
     </Stack>
   );
 };
-
-const OptionEditor = ({
-  option,
-  onChange,
-  onRemove,
-}: {
-  option: StatusOption;
-  onChange: (next: StatusOption) => void;
-  onRemove: () => void;
-}) => (
-  <Stack gap={2}>
-    <Group gap={6} wrap="nowrap">
-      <Group gap={4} wrap="nowrap">
-        {STATUS_COLORS.map((color) => (
-          <ColorSwatch
-            key={color}
-            size={18}
-            color={`var(--mantine-color-${color}-6)`}
-            component="button"
-            style={{ cursor: "pointer" }}
-            aria-label={color}
-            onClick={() => onChange({ ...option, color: color as StatusColor })}
-          >
-            {option.color === color && (
-              <CheckIcon
-                size={10}
-                color={
-                  color === "yellow" || color === "orange" ? "var(--mantine-color-dark-8)" : "white"
-                }
-              />
-            )}
-          </ColorSwatch>
-        ))}
-      </Group>
-      <TextInput
-        size="xs"
-        style={{ flex: 1 }}
-        value={option.value}
-        onChange={(e) => onChange({ ...option, value: e.currentTarget.value })}
-      />
-      <ActionIcon
-        variant="subtle"
-        color="gray"
-        size="sm"
-        aria-label="Remove option"
-        onClick={onRemove}
-      >
-        <IconX size={16} stroke={1.5} />
-      </ActionIcon>
-    </Group>
-    <TextInput
-      size="xs"
-      placeholder="Tooltip shown while this option is selected (optional)"
-      value={option.description ?? ""}
-      onChange={(e) =>
-        onChange({
-          ...option,
-          description: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
-        })
-      }
-    />
-  </Stack>
-);
 
 export default StatusConfigForm;
