@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Button,
   Checkbox,
+  Divider,
   Group,
   Menu,
   SegmentedControl,
@@ -172,6 +173,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
 
   return (
     <Stack>
+      <Divider label="General" labelPosition="left" />
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
       <TextInput
         label="Report type"
@@ -197,6 +199,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
         onChange={(e) => onChange({ ...config, allowEdit: e.currentTarget.checked || undefined })}
       />
 
+      <Divider label="Fields" labelPosition="left" />
       {config.fields.map((field, index) => (
         <ItemCard
           key={field.id}

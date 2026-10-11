@@ -1,4 +1,4 @@
-import { Button, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
+import { Button, Divider, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
 import { EventPicker } from "../../dashboard/EventPicker.tsx";
 import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
@@ -189,8 +189,10 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
 
   return (
     <Stack>
+      <Divider label="General" labelPosition="left" />
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
 
+      <Divider label="Statuses" labelPosition="left" />
       {config.statuses.map((row, index) => (
         <ItemCard
           key={row.id}
