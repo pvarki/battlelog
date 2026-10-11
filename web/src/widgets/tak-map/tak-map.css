@@ -1,0 +1,112 @@
+.tak-map {
+  background: #1a1b1e;
+}
+
+.tak-unit {
+  background: none;
+  border: none;
+}
+
+.tak-label {
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.tak-label::before {
+  display: none;
+}
+
+.tak-faded {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.tak-labels-hidden .tak-label-permanent {
+  display: none;
+}
+
+.tak-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Count bubbles echo the 2525 frame of what they hold: friendly rectangle,
+   hostile diamond, neutral square, unknown circle; standard fill colours. */
+.tak-cluster-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #000;
+  border-radius: 50%;
+  color: #000;
+  font-size: 12px;
+}
+
+.tak-cluster-friendly {
+  width: 34px;
+  height: 24px;
+  border-radius: 3px;
+  background: #80e0ff;
+}
+
+.tak-cluster-hostile {
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+  transform: rotate(45deg);
+  background: #ff8080;
+}
+
+.tak-cluster-hostile b {
+  transform: rotate(-45deg);
+}
+
+.tak-cluster-neutral {
+  border-radius: 0;
+  background: #aaffaa;
+}
+
+.tak-cluster-unknown {
+  background: #ffff80;
+}
+
+.tak-cluster-markers {
+  background: #e9ecef;
+}
+
+.tak-cluster-contacts {
+  border-color: #00ffff;
+  background: rgba(26, 27, 30, 0.85);
+  color: #fff;
+}
+
+.tak-coords {
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font: 11px/1.6 ui-monospace, monospace;
+  padding: 0 6px;
+  border-radius: 2px;
+}
+
+.tak-selected {
+  animation: tak-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tak-pulse {
+  50% {
+    stroke-opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tak-selected {
+    animation: none;
+  }
+}

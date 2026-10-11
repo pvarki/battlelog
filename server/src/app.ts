@@ -10,6 +10,7 @@ import { logger } from "./lib/logger.ts";
 import { dashboardRoutes } from "./routes/dashboards/dashboards.routes.ts";
 import { eventRoutes } from "./routes/events/events.routes.ts";
 import { rmRoutes } from "./routes/rmapi/rmapi.routes.ts";
+import { takRoutes } from "./routes/tak/tak.routes.ts";
 
 const joinBase = (path: string) => {
   const base = ENV.BASE_URL.replace(/\/$/, "");
@@ -46,6 +47,7 @@ export const createApp = () => {
     const base = joinBase(versioned);
     app.route(base, eventRoutes);
     app.route(base, dashboardRoutes);
+    app.route(base, takRoutes);
   }
 
   if (ENV.RM_API_ENABLED) {

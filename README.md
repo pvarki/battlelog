@@ -59,6 +59,9 @@ All runtime config flows through [varlock](https://varlock.dev/) and is declared
 - `USE_SWAGGER` — Swagger UI exposure (on by default in dev)
 - `RM_API_ENABLED` + `RM_MTLS_*` — opt-in Rasenmaeher (RM) integration with mTLS
 - `OTEL_EXPORTER_OTLP_ENDPOINT` — when set, boots the OTel SDK in prod
+- `TAK_ENABLED` + `TAK_HOST` + `TAK_*_PATH` — TAK map widget: the server connects to TAK Server with this client cert (PEM)
+
+With TAK configured, `pnpm dev` runs the map **direct to TAK** by default: the browser reads TAK's REST and `/takproto/1` WebSocket itself through the Vite dev proxy at `/tak`, which presents the same cert. That stands in for the planned same-origin deployment, where TAK sits under a path of BattleLog's origin. `TAK_SOURCE=battlelog pnpm dev` switches back to the server-side connection.
 
 ## Tech stack
 
