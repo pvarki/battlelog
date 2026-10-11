@@ -48,6 +48,7 @@ Root scripts fan out to both packages; run package-specific ones with `pnpm -C s
 | `pnpm -C server db:generate` | Generate migration from schema diff |
 | `pnpm -C server db:migrate` | Apply migrations (ensures `postgis` extension) |
 | `pnpm -C server db:seed` / `db:fake` | Seed / insert fake dev data |
+| `pnpm -C server db:seed:ops` | Demo drones, vehicles, personnel and tasks for the operations templates |
 | `pnpm -C server db:studio` | Drizzle Studio |
 | `pnpm -C server perf` | Load-test suite (see `server/scripts/perf.ts`) |
 
