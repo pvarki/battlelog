@@ -13,8 +13,8 @@ import {
 } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconArrowBackUp, IconArrowForwardUp, IconChevronDown } from "@tabler/icons-react";
-import { getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
+import { IconArrowBackUp, IconArrowForwardUp } from "@tabler/icons-react";
+import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
@@ -42,7 +42,6 @@ import { useWakeLock } from "../use-wake-lock.ts";
 import { TABS_TYPE, withFreshTabIds } from "../widgets/tabs/widget.ts";
 
 const route = getRouteApi("/d/$dashboardId");
-const rootRoute = getRouteApi("__root__");
 
 const SAVE_DEBOUNCE_MS = 800;
 
@@ -62,7 +61,6 @@ type PendingPatch = {
 
 export const DashboardPage = () => {
   const dashboard = route.useLoaderData();
-  const dashboards = rootRoute.useLoaderData();
   useWakeLock();
   useEffect(() => rememberOpened(dashboard.id), [dashboard.id]);
   // Phones get the switcher — one widget fullscreen, bottom bar to change.
@@ -73,24 +71,11 @@ export const DashboardPage = () => {
     return <MobileSwitcher key={`${dashboard.id}:${dashboard.version}`} dashboard={dashboard} />;
   }
   // Key by version too: a conflict reload must remount with fresh server state.
-  return (
-    <DashboardGrid
-      key={`${dashboard.id}:${dashboard.version}`}
-      dashboard={dashboard}
-      dashboards={dashboards}
-    />
-  );
+  return <DashboardGrid key={`${dashboard.id}:${dashboard.version}`} dashboard={dashboard} />;
 };
 
-const DashboardGrid = ({
-  dashboard,
-  dashboards,
-}: {
-  dashboard: DashboardResponse;
-  dashboards: DashboardResponse[];
-}) => {
+const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
   const router = useRouter();
-  const navigate = useNavigate();
   const [widgets, setWidgets] = useState<Widget[]>(dashboard.widgets);
   const [name, setName] = useState(dashboard.name);
   const [renaming, setRenaming] = useState(false);
@@ -476,33 +461,6 @@ const DashboardGrid = ({
               Template
             </Badge>
           )}
-          <Menu position="bottom-start">
-            <Menu.Target>
-              <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Switch view">
-                <IconChevronDown size={16} stroke={1.5} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {dashboards
-                .filter((d) => !d.isTemplate)
-                .map((d) => (
-                  <Menu.Item
-                    key={d.id}
-                    disabled={d.id === dashboard.id}
-                    onClick={() =>
-                      navigate({
-                        to: "/d/$dashboardId",
-                        params: { dashboardId: d.id },
-                      })
-                    }
-                  >
-                    {d.name}
-                  </Menu.Item>
-                ))}
-              <Menu.Divider />
-              <Menu.Item onClick={() => navigate({ to: "/" })}>Home</Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
           <Text c={saveState === "error" ? "danger.4" : "dimmed"} fz="xs" role="status">
             {DOC_STATUS_LABEL[saveState]}
           </Text>
