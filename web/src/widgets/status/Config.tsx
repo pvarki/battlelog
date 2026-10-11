@@ -9,6 +9,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+import { EventPicker } from "../../dashboard/EventPicker.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import type { FieldSuggestion } from "../../event-binding/detect.ts";
@@ -261,23 +262,20 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
               }
             />
             {row.source && (
-              <Group wrap="nowrap" align="flex-end">
-                <TextInput
-                  label="Event ID"
-                  size="xs"
-                  style={{ flex: 1 }}
-                  value={row.source.eventId}
-                  onChange={(e) => setSource(row, { eventId: e.currentTarget.value.trim() })}
+              <>
+                <EventPicker
+                  emptyText="No event selected."
+                  value={row.source.eventId || undefined}
+                  onChange={(eventId) => setSource(row, { eventId: eventId ?? "" })}
                 />
                 <TextInput
                   label="Field"
                   size="xs"
                   placeholder="status or battery.level"
-                  style={{ flex: 1 }}
                   value={row.source.field}
                   onChange={(e) => setSource(row, { field: e.currentTarget.value })}
                 />
-              </Group>
+              </>
             )}
             {row.group && (
               <GroupEditor group={row.group} onChange={(group) => setRow(row.id, { group })} />
