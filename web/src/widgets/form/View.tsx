@@ -77,11 +77,10 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   const [missingIds, setMissingIds] = useState<string[]>([]);
   /** The event being edited; null while composing a new one. */
   const [editing, setEditing] = useState<EventResponse | null>(null);
-  /** Write-backs that failed after the last submit, with the event they reference. */
-  const [failedWriteBacks, setFailedWriteBacks] = useState<{
-    pending: PendingWriteBack[];
-    submitted: EventReference;
-  } | null>(null);
+  /** Unresolved write-backs per saved submission, kept until retried successfully or dismissed. */
+  const [failedWriteBacks, setFailedWriteBacks] = useState<
+    { pending: PendingWriteBack[]; submitted: EventReference }[]
+  >([]);
   /** A selected event held back because loading it would discard unsaved input. */
   const [offered, setOffered] = useState<EventResponse | null>(null);
   const dirty = useRef(false);
@@ -162,7 +161,10 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
       pending.map((w) => applyWriteBack(w, submitted).catch(() => false)),
     );
     const failed = pending.filter((_, i) => !results[i]);
-    setFailedWriteBacks(failed.length ? { pending: failed, submitted } : null);
+    setFailedWriteBacks((all) => [
+      ...all.filter((f) => f.submitted.eventId !== submitted.eventId),
+      ...(failed.length ? [{ pending: failed, submitted }] : []),
+    ]);
     return failed;
   };
 
@@ -180,7 +182,6 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     const started = generation.current;
     // Captured before startOver clears the values; edits don't re-run write-backs.
     const writeBacks = editing ? [] : pendingWriteBacks(config, values);
-    setFailedWriteBacks(null);
     try {
       const res = editing
         ? await api.events[":eventId"].$patch({
@@ -256,27 +257,29 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
             Editing “{editing.header}”
           </Text>
         )}
-        {failedWriteBacks && (
+        {failedWriteBacks.length > 0 && (
           <Alert p="xs" color="orange" title="Linked events not updated">
-            <Text fz="xs">
-              “{failedWriteBacks.submitted.label}” was saved, but{" "}
-              {failedWriteBacks.pending.map((w) => w.label).join(", ")} couldn't be updated.
-            </Text>
+            {failedWriteBacks.map(({ pending, submitted }) => (
+              <Text key={submitted.eventId} fz="xs">
+                “{submitted.label}” was saved, but {pending.map((w) => w.label).join(", ")} couldn't
+                be updated.
+              </Text>
+            ))}
             <Group gap="xs" mt="xs">
               <Button
                 size="compact-xs"
                 onClick={async () => {
-                  const failed = await runWriteBacks(
-                    failedWriteBacks.pending,
-                    failedWriteBacks.submitted,
+                  const results = await Promise.all(
+                    failedWriteBacks.map((f) => runWriteBacks(f.pending, f.submitted)),
                   );
-                  setStatus(failed.length ? "error" : "idle");
-                  setProblem(failed.length ? "Update failed again" : "");
+                  const stillFailing = results.some((failed) => failed.length);
+                  setStatus(stillFailing ? "error" : "idle");
+                  setProblem(stillFailing ? "Update failed again" : "");
                 }}
               >
                 Retry
               </Button>
-              <Button size="compact-xs" variant="subtle" onClick={() => setFailedWriteBacks(null)}>
+              <Button size="compact-xs" variant="subtle" onClick={() => setFailedWriteBacks([])}>
                 Dismiss
               </Button>
             </Group>
