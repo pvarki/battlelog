@@ -88,7 +88,11 @@ const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) =
     let disposeUniver: (() => void) | undefined;
     void import("./univer.ts").then(({ createTableUniver }) => {
       if (disposed) return;
-      const { univer, univerAPI, workbook } = createTableUniver(container, snapshot);
+      const { univer, univerAPI, workbook } = createTableUniver(
+        container,
+        snapshot,
+        config.hideWidgetHeader,
+      );
       if (disposed) {
         univer.dispose();
         container.remove();
@@ -255,7 +259,7 @@ const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) =
       disposeUniver?.();
       if (!disposeUniver) container.remove();
     };
-  }, []);
+  }, [config.hideWidgetHeader]);
 
   return <Box ref={hostRef} h="100%" style={{ minHeight: 0, overflow: "hidden" }} />;
 };
@@ -306,6 +310,7 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
     tableRowCount(config.rowCount),
     config.hideRowNumbers,
     config.hideColumnHeaders,
+    config.hideWidgetHeader,
     config.title ?? "",
   ].join(":");
 

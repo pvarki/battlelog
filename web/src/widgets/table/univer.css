@@ -6,3 +6,49 @@
 .table-univer [data-u-comp="formula-bar"] > div:has(> [data-u-comp="defined-name"]) {
   display: none;
 }
+
+/*
+ * Univer's stock loading state is a generic document workbench: a large
+ * rounded placeholder and a footer that this one-sheet table never renders.
+ * Make the short loading state read as the spreadsheet that is about to load
+ * instead, using the dashboard's surface and grid tokens.
+ */
+.table-univer [data-u-comp="workbench-skeleton-toolbar"] {
+  height: 60px;
+  background-color: var(--mantine-color-dark-6);
+  border-color: var(--mantine-color-dark-4);
+}
+
+.table-univer--bare [data-u-comp="workbench-skeleton-toolbar"] {
+  display: none;
+}
+
+.table-univer [data-u-comp="workbench-skeleton-content"] {
+  position: relative;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--mantine-color-dark-6);
+}
+
+.table-univer
+  [data-u-comp="workbench-skeleton-content"]
+  > [data-u-comp="workbench-skeleton-shimmer"]:first-child {
+  display: none;
+}
+
+.table-univer
+  [data-u-comp="workbench-skeleton-content"]
+  > [data-u-comp="workbench-skeleton-shimmer"]:last-child {
+  border-radius: 0;
+  background-color: var(--mantine-color-dark-6);
+  background-image:
+    linear-gradient(var(--mantine-color-dark-4) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mantine-color-dark-4) 1px, transparent 1px);
+  background-position: 0 24px, 46px 24px;
+  background-size: 100% 24px, 96px 100%;
+}
+
+.table-univer [data-u-comp="workbench-skeleton-footer"] {
+  display: none;
+}

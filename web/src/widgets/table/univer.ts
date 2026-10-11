@@ -140,8 +140,8 @@ const TABLE_MENU = {
   "base-ui.operation.toggle-fullscreen": { hidden: true },
   "sheet.menu.paste": { hidden: true },
   // These occupy a separate top-right toolbar group. The table is local to a
-  // dashboard, so range protection and the shortcut reference panel add
-  // visual weight without a useful action here.
+  // dashboard, so only the contextual range-protection action is useful:
+  // it lets users protect a selected row or column without adding toolbar UI.
   "sheet.command.add-range-protection-from-toolbar": { hidden: true },
   "base-ui.operation.toggle-shortcut-panel": { hidden: true },
   "ui.operation.open-feature-search": { hidden: true },
@@ -213,10 +213,15 @@ const availableTableFonts = () => {
  * Kept in its own dynamic module so the full spreadsheet editor is not part
  * of the normal dashboard payload or its service-worker app shell.
  */
-export const createTableUniver = (container: HTMLElement, snapshot: unknown) => {
+export const createTableUniver = (
+  container: HTMLElement,
+  snapshot: unknown,
+  hideControls = false,
+) => {
   // Scope table-specific Univer adjustments so they cannot affect another
   // spreadsheet instance added elsewhere in the application.
   container.classList.add("table-univer");
+  container.classList.toggle("table-univer--bare", hideControls);
 
   const { univer, univerAPI } = createUniver({
     locale: LocaleType.EN_US,
@@ -227,12 +232,12 @@ export const createTableUniver = (container: HTMLElement, snapshot: unknown) => 
     presets: [
       UniverSheetsCorePreset({
         container,
-        header: true,
-        toolbar: true,
+        header: !hideControls,
+        toolbar: !hideControls,
         // A flat compact toolbar has the Excel-like controls without the
         // ribbon tabs and application menu.
         ribbonType: "simple",
-        formulaBar: true,
+        formulaBar: !hideControls,
         footer: false,
         contextMenu: true,
         disableAutoFocus: true,

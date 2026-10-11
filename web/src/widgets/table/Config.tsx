@@ -70,8 +70,8 @@ const TableConfigForm = ({ config, onChange }: WidgetConfigProps<TableConfig>) =
         }
       />
       <Checkbox
-        label="Show widget header"
-        description="Shows the table name above the spreadsheet. The header remains visible while editing."
+        label="Show spreadsheet controls"
+        description="Shows Univer's toolbar and formula bar above the sheet."
         checked={!config.hideWidgetHeader}
         onChange={(event) =>
           onChange({ ...config, hideWidgetHeader: !event.currentTarget.checked })

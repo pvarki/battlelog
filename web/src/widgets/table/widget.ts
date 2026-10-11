@@ -63,7 +63,7 @@ const configSchema = z
     rowCount: z.number().int().min(1).max(500).default(DEFAULT_ROW_COUNT),
     hideRowNumbers: z.boolean().default(false),
     hideColumnHeaders: z.boolean().default(false),
-    /** Hides the dashboard card header (type, title and edit menu) outside edit mode. */
+    /** Hides Univer's toolbar and formula bar, leaving the widget header and sheet. */
     hideWidgetHeader: z.boolean().default(false),
     /** Row values live in the event log as a type:"table" event chain. */
     eventId: z.string().uuid().optional(),

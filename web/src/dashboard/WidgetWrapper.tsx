@@ -70,11 +70,6 @@ export const WidgetWrapper = ({
   // Convention: a `title` string in any widget's config renders bold in the
   // header under the type caption (per the design mock).
   const title = configTitle(instance.config);
-  // Table widgets can opt out of their card chrome in view mode, giving the
-  // spreadsheet all available vertical space. Keep it in edit mode so the
-  // drag handle and settings menu remain reachable.
-  const hideHeader =
-    !editMode && (instance.config as { hideWidgetHeader?: unknown }).hideWidgetHeader === true;
 
   return (
     <Paper
@@ -92,49 +87,47 @@ export const WidgetWrapper = ({
         }),
       }}
     >
-      {!hideHeader && (
-        <Group
-          className="widget-drag-handle"
-          justify="space-between"
-          px="xs"
-          py={4}
-          style={{
-            cursor: editMode ? "grab" : "default",
-            borderBottom: "1px solid var(--mantine-color-dark-4)",
-          }}
-        >
-          <div>
-            <Text fz="xs" c="dimmed">
-              {descriptor?.name ?? instance.type}
+      <Group
+        className="widget-drag-handle"
+        justify="space-between"
+        px="xs"
+        py={4}
+        style={{
+          cursor: editMode ? "grab" : "default",
+          borderBottom: "1px solid var(--mantine-color-dark-4)",
+        }}
+      >
+        <div>
+          <Text fz="xs" c="dimmed">
+            {descriptor?.name ?? instance.type}
+          </Text>
+          {title && (
+            <Text fw={600} fz="sm" lh={1.2}>
+              {title}
             </Text>
-            {title && (
-              <Text fw={600} fz="sm" lh={1.2}>
-                {title}
-              </Text>
-            )}
-          </div>
-          {editMode && (
-            <Menu position="bottom-end">
-              <Menu.Target>
-                <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
-                  <IconDots size={16} stroke={1.5} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {descriptor?.ConfigForm && <Menu.Item onClick={onConfigure}>Settings</Menu.Item>}
-                <Menu.Item onClick={onDuplicate}>Duplicate</Menu.Item>
-                <Menu.Item onClick={onResetSize} disabled={!descriptor}>
-                  Reset size
-                </Menu.Item>
-                <Menu.Divider />
-                <Menu.Item color="red" onClick={onRemove}>
-                  Delete
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
           )}
-        </Group>
-      )}
+        </div>
+        {editMode && (
+          <Menu position="bottom-end">
+            <Menu.Target>
+              <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
+                <IconDots size={16} stroke={1.5} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {descriptor?.ConfigForm && <Menu.Item onClick={onConfigure}>Settings</Menu.Item>}
+              <Menu.Item onClick={onDuplicate}>Duplicate</Menu.Item>
+              <Menu.Item onClick={onResetSize} disabled={!descriptor}>
+                Reset size
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item color="red" onClick={onRemove}>
+                Delete
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        )}
+      </Group>
       <Box flex={1} mih={0}>
         <WidgetBody
           instance={instance}
