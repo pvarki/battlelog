@@ -79,7 +79,7 @@ const descriptor: WidgetDescriptor<EventTableConfig> = {
     dataFilters: [],
     columns: [
       {
-        id: "header",
+        id: "col-header",
         label: "",
         source: "header",
         field: "",

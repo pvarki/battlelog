@@ -38,6 +38,8 @@ const KIND_OPTIONS = [
   { label: "Boolean", value: "boolean" },
 ];
 
+const RESERVED_SORT_KEYS = ["header", "created"];
+
 const SOURCE_OPTIONS = (["data", ...BUILTIN_SOURCES] as const).map((value) => ({
   value,
   label: SOURCE_LABEL[value],
@@ -76,7 +78,11 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
           data={[
             { value: "header", label: "Header" },
             { value: "created", label: "Created" },
-            ...config.columns.map((c) => ({ value: c.id, label: columnLabel(c) })),
+            // A column id equal to a reserved key (older default configs used
+            // "header") would be a duplicate option, which Mantine rejects.
+            ...config.columns
+              .filter((c) => !RESERVED_SORT_KEYS.includes(c.id))
+              .map((c) => ({ value: c.id, label: columnLabel(c) })),
           ]}
           value={config.sortBy}
           onChange={(sortBy) => sortBy && onChange({ ...config, sortBy })}
