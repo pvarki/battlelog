@@ -7,6 +7,8 @@ import descriptor, {
   eventToValues,
   type FormConfig,
   missingRequired,
+  pendingWriteBacks,
+  writeBackData,
 } from "./widget.ts";
 
 test("defaultConfig validates against configSchema", () => {
@@ -295,4 +297,47 @@ test("buildPatch keeps an untouched event time instead of rewriting it from the 
   expect(buildPatch(config, { ...values, t: "2026-10-26T12:00" }, event).eventTime).toBe(
     new Date("2026-10-26T12:00").toISOString(),
   );
+});
+
+const ref = { eventId: "6f1c0a52-5c1e-4c1b-9a6e-0d6f2f6a1b11", label: "Drone 1" };
+
+const missionForm = descriptor.configSchema.parse({
+  reportType: "mission",
+  fields: [
+    {
+      id: "d",
+      kind: "data",
+      label: "Drone",
+      key: "drone",
+      input: "event",
+      eventSelect: {
+        types: "drone",
+        writeBack: [
+          { id: "w1", field: "status", value: "in-mission" },
+          { id: "w2", field: "mission", set: "reference" },
+          { id: "w3", field: " " },
+        ],
+      },
+    },
+  ],
+}) as FormConfig;
+
+test("an event field stores the reference and loads it back for editing", () => {
+  const payload = buildEvent(missionForm, { d: ref });
+  expect(payload.data).toEqual({ drone: ref });
+  const event = { ...payload, data: payload.data, tags: null, eventTime: null } as EventResponse;
+  expect(eventToValues(missionForm, event)).toEqual({ d: ref });
+});
+
+test("write-back sets text and the submitted reference, keeping other data", () => {
+  const rules = pendingWriteBacks(missionForm, { d: ref });
+  expect(rules).toHaveLength(1);
+  expect(rules[0]?.target).toEqual(ref);
+  const mission = { eventId: "01a1-mission", label: "Recon Bravo" };
+  expect(writeBackData({ status: "ready", battery: 80 }, rules[0]?.rules ?? [], mission)).toEqual({
+    status: "in-mission",
+    battery: 80,
+    mission,
+  });
+  expect(pendingWriteBacks(missionForm, {})).toEqual([]);
 });

@@ -5,6 +5,8 @@ import type { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import type { EventResponse } from "../../api.ts";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
+import { setPath } from "../../event-binding/paths.ts";
+import { eventQueryShape } from "../../event-binding/query.ts";
 
 /** Built-in event columns the form can expose, with their input labels. */
 export const EVENT_FIELDS = {
@@ -35,6 +37,37 @@ const eventFieldSchema = z.object({
   hideNowButton: z.boolean().optional(),
 });
 
+/** A field set on the selected event after a successful submit. */
+const writeBackSchema = z.object({
+  id: idSchema,
+  /** Dot path into the selected event's `data`; created when missing (the form's author asked for it). */
+  field: z.string().max(200).default(""),
+  /** "text": set to `value`. "reference": set to the submitted event as { eventId, label }. */
+  set: z.enum(["text", "reference"]).default("text"),
+  value: z.string().max(200).default(""),
+});
+export type WriteBack = z.infer<typeof writeBackSchema>;
+
+/** Options of an input:"event" field: the events a query matches, labelled by a field. */
+const eventSelectSchema = z.object({
+  ...eventQueryShape,
+  /** Data path for option labels (and the stored label); the event's header when empty or missing. */
+  labelField: z.string().max(200).default(""),
+  /** Shown instead of the default when no event matches. */
+  emptyText: z.string().max(120).default(""),
+  writeBack: z.array(writeBackSchema).max(10).default([]),
+});
+export type EventSelect = z.infer<typeof eventSelectSchema>;
+
+export const EMPTY_EVENT_SELECT: EventSelect = {
+  types: "",
+  tags: "",
+  dataFilters: [],
+  labelField: "",
+  emptyText: "",
+  writeBack: [],
+};
+
 // Empty strings are allowed in label/key/value/reportType: the config editor
 // stores every keystroke, and a config that fails the schema resets the
 // settings form to defaultConfig. buildEvent skips/falls back on empties.
@@ -45,9 +78,11 @@ const dataFieldSchema = z.object({
   /** Data-blob key. Empty falls back to the slugified label. */
   key: z.string().max(60).optional(),
   description: z.string().max(200).optional(),
-  input: z.enum(["text", "textarea", "number", "select", "checkbox"]),
+  input: z.enum(["text", "textarea", "number", "select", "checkbox", "event"]),
   /** Choices for input:"select". */
   options: z.array(z.string().min(1).max(60)).max(24).default([]),
+  /** Query and write-back for input:"event", which stores a reference to the picked event. */
+  eventSelect: eventSelectSchema.optional(),
   required: z.boolean().optional(),
 });
 
@@ -215,6 +250,43 @@ export const buildEvent = (config: FormConfig, values: FormValues): FormEventPay
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * What an input:"event" field stores: the stable id is the link; the label is
+ * the name at submit time — a fallback for when the event can't be looked up.
+ */
+export type EventReference = { eventId: string; label: string };
+
+export const isReference = (v: unknown): v is EventReference =>
+  typeof v === "object" &&
+  v !== null &&
+  typeof (v as EventReference).eventId === "string" &&
+  typeof (v as EventReference).label === "string";
+
+/** The selected event's data after the write-back rules; rules without a field are skipped. */
+export const writeBackData = (
+  data: unknown,
+  rules: WriteBack[],
+  submitted: EventReference,
+): unknown =>
+  rules
+    .filter((r) => r.field.trim())
+    .reduce<unknown>(
+      (acc, r) => setPath(acc, r.field.trim(), r.set === "reference" ? submitted : r.value),
+      isRecord(data) ? data : {},
+    );
+
+export type PendingWriteBack = { label: string; target: EventReference; rules: WriteBack[] };
+
+/** Write-backs a submit with these values triggers: one per event field with a pick and rules. */
+export const pendingWriteBacks = (config: FormConfig, values: FormValues): PendingWriteBack[] =>
+  config.fields.flatMap((f) => {
+    const target = values[f.id];
+    const rules = f.kind === "data" && f.input === "event" ? f.eventSelect?.writeBack : undefined;
+    return rules?.some((r) => r.field.trim()) && isReference(target)
+      ? [{ label: target.label, target, rules }]
+      : [];
+  });
 
 const fixedTags = (config: FormConfig): string[] =>
   config.fields.flatMap((f) => (f.kind === "fixed" && f.target === "tags" ? [f.value] : []));

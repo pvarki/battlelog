@@ -18,24 +18,57 @@ import { useEffect, useRef, useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api, type EventResponse } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
+import { eventLabel } from "../../event-binding/paths.ts";
+import { queryFilter } from "../../event-binding/query.ts";
+import { useLiveEvents } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
+import { matchesFeed, queryFor } from "../feed/widget.ts";
 import { FormPrint } from "./Print.tsx";
 import {
   buildEvent,
   buildPatch,
   datetimeLocalValue,
+  type EventReference,
+  type EventSelect,
   eventToValues,
   type FormConfig,
   type FormValues,
   fieldLabel,
   formEventType,
+  isReference,
   missingRequired,
+  type PendingWriteBack,
+  pendingWriteBacks,
   type VisibleField,
+  writeBackData,
 } from "./widget.ts";
 
 type Status = "idle" | "sending" | "sent" | "saved" | "error";
 
 const dashboardRoute = getRouteApi("/d/$dashboardId");
+
+/**
+ * Sets the rules' fields on the picked event, merged into its current data
+ * with `baseId`; one retry on a 409 (someone saved it in between). Returns
+ * whether it landed.
+ */
+const applyWriteBack = async (
+  { target, rules }: PendingWriteBack,
+  submitted: EventReference,
+): Promise<boolean> => {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const head = await api.events[":eventId"].$get({ param: { eventId: target.eventId } });
+    if (head.status !== 200) return false;
+    const row = await head.json();
+    const res = await api.events[":eventId"].$patch({
+      param: { eventId: target.eventId },
+      json: { data: writeBackData(row.data, rules, submitted), baseId: row.id },
+    });
+    if (res.ok) return true;
+    if (res.status !== 409) return false;
+  }
+  return false;
+};
 
 const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   const [values, setValues] = useState<FormValues>({});
@@ -44,6 +77,11 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   const [missingIds, setMissingIds] = useState<string[]>([]);
   /** The event being edited; null while composing a new one. */
   const [editing, setEditing] = useState<EventResponse | null>(null);
+  /** Write-backs that failed after the last submit, with the event they reference. */
+  const [failedWriteBacks, setFailedWriteBacks] = useState<{
+    pending: PendingWriteBack[];
+    submitted: EventReference;
+  } | null>(null);
   /** A selected event held back because loading it would discard unsaved input. */
   const [offered, setOffered] = useState<EventResponse | null>(null);
   const dirty = useRef(false);
@@ -119,6 +157,15 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     }
   };
 
+  const runWriteBacks = async (pending: PendingWriteBack[], submitted: EventReference) => {
+    const results = await Promise.all(
+      pending.map((w) => applyWriteBack(w, submitted).catch(() => false)),
+    );
+    const failed = pending.filter((_, i) => !results[i]);
+    setFailedWriteBacks(failed.length ? { pending: failed, submitted } : null);
+    return failed;
+  };
+
   const submit = async () => {
     const missing = missingRequired(config, values);
     if (missing.length) {
@@ -131,6 +178,9 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     setProblem("");
     setMissingIds([]);
     const started = generation.current;
+    // Captured before startOver clears the values; edits don't re-run write-backs.
+    const writeBacks = editing ? [] : pendingWriteBacks(config, values);
+    setFailedWriteBacks(null);
     try {
       const res = editing
         ? await api.events[":eventId"].$patch({
@@ -139,10 +189,19 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
           })
         : await api.events.$post({ json: buildEvent(config, values) });
       if (res.ok) {
+        const saved = await res.json();
         // The user may have loaded another event meanwhile; don't wipe it.
         if (generation.current === started) {
           startOver(null);
           if (editing) clearSelection();
+        }
+        const failed = writeBacks.length
+          ? await runWriteBacks(writeBacks, { eventId: saved.eventId, label: saved.header })
+          : [];
+        if (failed.length) {
+          setStatus("error");
+          setProblem(`Sent, but couldn't update ${failed.map((w) => w.label).join(", ")}`);
+          return;
         }
         setStatus(editing ? "saved" : "sent");
         setTimeout(() => setStatus("idle"), 2000);
@@ -196,6 +255,32 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
           <Text fz="xs" c="dimmed" truncate>
             Editing “{editing.header}”
           </Text>
+        )}
+        {failedWriteBacks && (
+          <Alert p="xs" color="orange" title="Linked events not updated">
+            <Text fz="xs">
+              “{failedWriteBacks.submitted.label}” was saved, but{" "}
+              {failedWriteBacks.pending.map((w) => w.label).join(", ")} couldn't be updated.
+            </Text>
+            <Group gap="xs" mt="xs">
+              <Button
+                size="compact-xs"
+                onClick={async () => {
+                  const failed = await runWriteBacks(
+                    failedWriteBacks.pending,
+                    failedWriteBacks.submitted,
+                  );
+                  setStatus(failed.length ? "error" : "idle");
+                  setProblem(failed.length ? "Update failed again" : "");
+                }}
+              >
+                Retry
+              </Button>
+              <Button size="compact-xs" variant="subtle" onClick={() => setFailedWriteBacks(null)}>
+                Dismiss
+              </Button>
+            </Group>
+          </Alert>
         )}
         <Stack gap="xs" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           {visible.length === 0 ? (
@@ -312,6 +397,15 @@ const FieldInput = ({
             onChange={(e) => onChange(e.currentTarget.checked)}
           />
         );
+      case "event":
+        return (
+          <EventSelectInput
+            common={common}
+            select={field.eventSelect}
+            value={isReference(value) ? value : undefined}
+            onChange={onChange}
+          />
+        );
     }
   }
 
@@ -398,6 +492,90 @@ const FieldInput = ({
       );
     }
   }
+};
+
+type CommonProps = {
+  label: string;
+  description?: string;
+  required?: boolean;
+  error?: string;
+  size: "xs";
+};
+
+const EventSelectInput = ({
+  common,
+  select,
+  value,
+  onChange,
+}: {
+  common: CommonProps;
+  select: EventSelect | undefined;
+  value: EventReference | undefined;
+  onChange: (v: EventReference | undefined) => void;
+}) => {
+  const filter = select && queryFilter(select);
+  if (!select || !filter) {
+    return <Select {...common} data={[]} disabled placeholder="Options not configured" />;
+  }
+  return (
+    <LiveEventSelect
+      common={common}
+      select={select}
+      filter={filter}
+      value={value}
+      onChange={onChange}
+    />
+  );
+};
+
+const LiveEventSelect = ({
+  common,
+  select,
+  filter,
+  value,
+  onChange,
+}: {
+  common: CommonProps;
+  select: EventSelect;
+  filter: NonNullable<ReturnType<typeof queryFilter>>;
+  value: EventReference | undefined;
+  onChange: (v: EventReference | undefined) => void;
+}) => {
+  const { events } = useLiveEvents({
+    limit: 100,
+    query: queryFor(filter),
+    match: (event) => matchesFeed(event, filter),
+  });
+  const options = (events ?? [])
+    .map((e) => ({ value: e.eventId, label: eventLabel(e, select.labelField) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  // An edited submission keeps its pick even when that event no longer matches
+  // (e.g. the drone is now "in-mission"): shown with its stored label.
+  if (value && !options.some((o) => o.value === value.eventId)) {
+    options.unshift({ value: value.eventId, label: value.label });
+  }
+  const empty = events !== null && options.length === 0;
+  return (
+    <Select
+      {...common}
+      clearable
+      searchable
+      data={options}
+      disabled={empty}
+      placeholder={
+        events === null
+          ? "Loading…"
+          : empty
+            ? select.emptyText.trim() || "No options available"
+            : undefined
+      }
+      value={value?.eventId ?? null}
+      onChange={(id) => {
+        const option = options.find((o) => o.value === id);
+        onChange(option ? { eventId: option.value, label: option.label } : undefined);
+      }}
+    />
+  );
 };
 
 export default FormView;
