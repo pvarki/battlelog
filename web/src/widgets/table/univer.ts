@@ -1,7 +1,11 @@
 import "@univerjs/preset-sheets-core/lib/index.css";
 import "./univer.css";
 
-import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
+import {
+  type ICellDataWithSpanInfo,
+  ISheetClipboardService,
+  UniverSheetsCorePreset,
+} from "@univerjs/preset-sheets-core";
 import UniverPresetSheetsCoreEnUS from "@univerjs/preset-sheets-core/locales/en-US";
 import { createUniver, darkBlueTheme, LocaleType, mergeLocales } from "@univerjs/presets";
 
@@ -101,6 +105,43 @@ const TABLE_THEME = {
   },
 } as const;
 
+const TABLE_DEFAULT_TEXT_COLOR = "#f6f7f9";
+const SET_DOC_INPUT_STYLE_COMMAND = "doc.command.set-input-style";
+
+// The system clipboard commonly serializes ordinary text as explicit black
+// text. In a dark table that explicit color wins over the sheet's white
+// default, including when the pasted cell is subsequently edited. Limit the
+// replacement to the office default black so any deliberately chosen non-black
+// text color and all other pasted formatting remain intact.
+const isOfficeBlack = (color: unknown): color is string => {
+  if (typeof color !== "string") return false;
+  const normalized = color.replaceAll(" ", "").toLowerCase();
+  return (
+    normalized === "#000" ||
+    normalized === "#000000" ||
+    normalized === "#000000ff" ||
+    normalized === "rgb(0,0,0)" ||
+    normalized === "rgba(0,0,0,1)"
+  );
+};
+
+const replacePastedBlackTextColor = (cell: ICellDataWithSpanInfo): void => {
+  if (cell.s && typeof cell.s !== "string" && isOfficeBlack(cell.s.cl?.rgb)) {
+    cell.s = {
+      ...cell.s,
+      cl: { ...cell.s.cl, rgb: TABLE_DEFAULT_TEXT_COLOR },
+    };
+  }
+
+  for (const textRun of cell.p?.body?.textRuns ?? []) {
+    if (!isOfficeBlack(textRun.ts?.cl?.rgb)) continue;
+    textRun.ts = {
+      ...textRun.ts,
+      cl: { ...textRun.ts.cl, rgb: TABLE_DEFAULT_TEXT_COLOR },
+    };
+  }
+};
+
 // The core preset does not include pictures or charts. These entries remove
 // structural spreadsheet actions from the remaining contextual UI. Clipboard
 // shortcuts and the context menu remain available.
@@ -130,6 +171,7 @@ const TABLE_MENU = {
   "sheet.command.set-shrink-to-fit": { hidden: true },
   "sheet.command.set-text-rotation": { hidden: true },
   "sheet.command.set-range-text-color": { hidden: true },
+  "sheet.command.reset-range-text-color": { hidden: true },
   "sheet.command.reset-text-color": { hidden: true },
   "sheet.command.set-background-color": { hidden: true },
   "sheet.command.reset-background-color": { hidden: true },
@@ -139,9 +181,10 @@ const TABLE_MENU = {
   "sheet.command.toggle-gridlines": { hidden: true },
   "base-ui.operation.toggle-fullscreen": { hidden: true },
   "sheet.menu.paste": { hidden: true },
-  // These occupy a separate top-right toolbar group. The table is local to a
-  // dashboard, so only the contextual range-protection action is useful:
-  // it lets users protect a selected row or column without adding toolbar UI.
+  // This parent appears in cell, row-header, and column-header context menus.
+  // Range protection is not supported by dashboard tables.
+  "sheet.contextMenu.permission": { hidden: true },
+  // This occupies a separate top-right toolbar group.
   "sheet.command.add-range-protection-from-toolbar": { hidden: true },
   "base-ui.operation.toggle-shortcut-panel": { hidden: true },
   "ui.operation.open-feature-search": { hidden: true },
@@ -255,5 +298,37 @@ export const createTableUniver = (
   const workbook = univerAPI.createWorkbook(
     snapshot as Parameters<typeof univerAPI.createWorkbook>[0],
   );
+
+  // A cross-table source arrives as a fresh, very-hidden sheet whenever this
+  // workbook mounts. Its dependent cells may still carry a cached result in
+  // the persisted snapshot, so tell Univer's own formula engine to perform a
+  // full calculation after all runtime sheets exist. This preserves the
+  // formula as the source of truth instead of writing a replacement value.
+  univerAPI.getFormula().executeCalculation();
+
+  // The formula bar is a separate Univer document. Give its input stream the
+  // same text default as the sheet up front, instead of rewriting a cell after
+  // the user has confirmed an edit.
+  univerAPI.addEvent(univerAPI.Event.BeforeSheetEditStart, () => {
+    void univerAPI.executeCommand(SET_DOC_INPUT_STYLE_COMMAND, {
+      style: { cl: { rgb: TABLE_DEFAULT_TEXT_COLOR } },
+    });
+  });
+
+  // Univer registers this sheet-scoped service while the workbook is being
+  // created. Registering the hook before that point made every table fail to
+  // mount with a missing `sheet.clipboard-service` dependency.
+  univer
+    .__getInjector()
+    .get(ISheetClipboardService)
+    .addClipboardHook({
+      id: "battlelog.table.clipboard-text-color",
+      priority: -1_000,
+      onPasteCells: (_pasteFrom, _pasteTo, cells) => {
+        cells.forValue((_row, _column, cell) => replacePastedBlackTextColor(cell));
+        return { undos: [], redos: [] };
+      },
+    });
+
   return { univer, univerAPI, workbook };
 };

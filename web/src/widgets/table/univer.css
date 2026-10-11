@@ -8,6 +8,17 @@
 }
 
 /*
+ * Univer's collapsed formula bar is 28px high, while its embedded editor
+ * needs a couple more pixels for a single text line. Leave the editor's
+ * native overflow behaviour intact and give the collapsed table-local bar
+ * 30px so a vertical scrollbar is not created just for that line. The
+ * expanded state retains Univer's own height.
+ */
+.table-univer [data-u-comp="formula-bar"].univer-h-7 {
+  height: 30px;
+}
+
+/*
  * Univer's stock loading state is a generic document workbench: a large
  * rounded placeholder and a footer that this one-sheet table never renders.
  * Make the short loading state read as the spreadsheet that is about to load

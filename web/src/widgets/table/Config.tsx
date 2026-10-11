@@ -30,7 +30,6 @@ const TableConfigForm = ({ config, onChange }: WidgetConfigProps<TableConfig>) =
           else if (isUuid(trimmed)) onChange({ ...config, eventId: trimmed });
         }}
       />
-
       <Group grow align="flex-start">
         <NumberInput
           label="Columns"

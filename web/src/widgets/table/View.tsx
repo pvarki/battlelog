@@ -2,6 +2,7 @@ import { Box, Text } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
+import { useExternalTableSources } from "./useExternalTableValues.ts";
 import {
   type TableConfig,
   tableColumnCount,
@@ -11,13 +12,16 @@ import {
 } from "./widget.ts";
 import {
   documentFromWorkbookSnapshot,
+  externalSourceIdsForDocument,
   hydrateWorkbookSnapshot,
+  type ExternalTableSources,
   type TableDoc,
 } from "./workbook.ts";
 
 type SpreadsheetProps = {
   document: TableDoc;
   config: TableConfig;
+  externalSources: ExternalTableSources;
   /** `final` is only used while unmounting, when the debounce can no longer run. */
   onDocumentChange: (document: TableDoc, final?: boolean) => void;
 };
@@ -25,7 +29,7 @@ type SpreadsheetProps = {
 // Univer and JSON transport may enumerate otherwise identical object keys in
 // different orders. A canonical signature keeps our own SSE echo from looking
 // like a remote workbook revision (which would recreate the whole editor).
-const documentSignature = (document: TableDoc): string => {
+const documentSignature = (document: unknown): string => {
   const stringify = (value: unknown): string => {
     if (Array.isArray(value)) return `[${value.map(stringify).join(",")}]`;
     if (value && typeof value === "object") {
@@ -46,10 +50,15 @@ const documentSignature = (document: TableDoc): string => {
  * from another editor or a display setting changes; local edits retain the
  * native selection and undo stack.
  */
-const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) => {
+const Spreadsheet = ({ document, config, externalSources, onDocumentChange }: SpreadsheetProps) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const changeRef = useRef(onDocumentChange);
   changeRef.current = onDocumentChange;
+  // The component key below owns when a document/source update recreates the
+  // sheet. Keep this instance's persistence context fixed so ordinary local
+  // saves do not reset the cursor or undo stack.
+  const initialDocument = useRef(document).current;
+  const initialExternalSources = useRef(externalSources).current;
 
   // This component is keyed by display settings and remote revisions below.
   // Keeping the initial snapshot in a ref means a local event-log update does
@@ -61,14 +70,18 @@ const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) =
       ...config.columns.slice(0, columnCount),
       ...tableColumns(columnCount).slice(config.columns.length),
     ];
-    initialSnapshot.current = hydrateWorkbookSnapshot(document, {
-      title: config.title,
-      rowCount: tableRowCount(config.rowCount),
-      columnCount,
-      hideRowNumbers: config.hideRowNumbers,
-      hideColumnHeaders: config.hideColumnHeaders,
-      columns: legacyColumns,
-    });
+    initialSnapshot.current = hydrateWorkbookSnapshot(
+      initialDocument,
+      {
+        title: config.title,
+        rowCount: tableRowCount(config.rowCount),
+        columnCount,
+        hideRowNumbers: config.hideRowNumbers,
+        hideColumnHeaders: config.hideColumnHeaders,
+        columns: legacyColumns,
+      },
+      initialExternalSources,
+    );
   }
 
   // The screen has one sheet, no sheet bar, and no import/export or chart
@@ -104,17 +117,24 @@ const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) =
       let formulaBarTimer: ReturnType<typeof setTimeout> | undefined;
       let formulaBarArmed = false;
       let cellEditActive = false;
-      let lastSaved = documentSignature(documentFromWorkbookSnapshot(workbook.save()));
+      // Cross-table formulas are normal Univer formulas whose source sheets
+      // were included in this runtime workbook as very-hidden worksheets.
+      const currentDocument = () =>
+        documentFromWorkbookSnapshot(
+          workbook.save(),
+          externalSourceIdsForDocument(initialDocument),
+        );
+      let lastSaved = documentSignature(currentDocument());
       const readyFrame = requestAnimationFrame(() => {
         // Formula and layout plugins can issue setup commands just after mount.
         // They must not create an empty event before the user changes a cell.
-        lastSaved = documentSignature(documentFromWorkbookSnapshot(workbook.save()));
+        lastSaved = documentSignature(currentDocument());
         ready = true;
       });
       const persistWorkbook = (force = false) => {
         saveFrame = undefined;
         if ((disposed && !force) || !ready) return;
-        const next = documentFromWorkbookSnapshot(workbook.save());
+        const next = currentDocument();
         const nextSignature = documentSignature(next);
         if (nextSignature === lastSaved) return;
         lastSaved = nextSignature;
@@ -259,7 +279,7 @@ const Spreadsheet = ({ document, config, onDocumentChange }: SpreadsheetProps) =
       disposeUniver?.();
       if (!disposeUniver) container.remove();
     };
-  }, [config.hideWidgetHeader]);
+  }, [config.hideWidgetHeader, initialDocument, initialExternalSources]);
 
   return <Box ref={hostRef} h="100%" style={{ minHeight: 0, overflow: "hidden" }} />;
 };
@@ -278,6 +298,8 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
   const initialDocumentPending = useRef(Boolean(config.eventId));
   const [remoteRevision, setRemoteRevision] = useState(0);
   const valueSignature = documentSignature(value);
+  const externalSources = useExternalTableSources(value);
+  const externalSourceSignature = documentSignature(externalSources);
 
   // `useEventDocument` reflects local saves and SSE updates through the same
   // value. Do not recreate Univer after our own save, but do reload when an
@@ -312,12 +334,13 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
     config.hideColumnHeaders,
     config.hideWidgetHeader,
     config.title ?? "",
+    externalSourceSignature,
   ].join(":");
 
   return (
     <Box
       h="100%"
-      style={{ display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", minHeight: 0 }}
+      style={{ position: "relative", minHeight: 0, isolation: "isolate" }}
     >
       {blocked ? (
         <Box p="sm">
@@ -330,11 +353,25 @@ const TableView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProp
           key={tableKey}
           document={value}
           config={config}
+          externalSources={externalSources}
           onDocumentChange={onDocumentChange}
         />
       )}
       {!blocked && (
-        <Text c="dimmed" fz="xs" ta="right" px="xs" py={3} mih="1.2em" role="status">
+        <Text
+          c="dimmed"
+          fz="xs"
+          ta="right"
+          mih="1.2em"
+          role="status"
+          style={{
+            position: "absolute",
+            right: 6,
+            bottom: 4,
+            zIndex: 10,
+            pointerEvents: "none",
+          }}
+        >
           {DOC_STATUS_LABEL[status]}
         </Text>
       )}
