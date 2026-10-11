@@ -39,3 +39,56 @@ test("bad option color and empty labels are rejected", () => {
     }).success,
   ).toBe(false);
 });
+
+test("rows keep working without a source, and bound rows validate", () => {
+  const parsed = descriptor.configSchema.parse({
+    statuses: [
+      { id: "r1", label: "Local", kind: "choice", options: [] },
+      {
+        id: "r2",
+        label: "Drone 1",
+        kind: "text",
+        source: { eventId: "6f1c0a52-5c1e-4c1b-9a6e-0d6f2f6a1b11", field: "status" },
+      },
+    ],
+  });
+  expect(parsed.statuses[0]?.source).toBeUndefined();
+  expect(parsed.statuses[0]?.editable).toBe(false);
+  expect(parsed.statuses[1]?.source?.field).toBe("status");
+});
+
+test("a dynamic group row validates and defaults its filters", () => {
+  const parsed = descriptor.configSchema.parse({
+    statuses: [{ id: "g1", label: "Drones", kind: "choice", group: { types: "drone" } }],
+  });
+  expect(parsed.statuses[0]?.group).toEqual({
+    types: "drone",
+    tags: "",
+    dataFilters: [],
+    field: "",
+    layout: "list",
+    labelField: "",
+    properties: [],
+  });
+});
+
+test("a sections group validates with properties", () => {
+  const parsed = descriptor.configSchema.parse({
+    statuses: [
+      {
+        id: "g",
+        label: "Drones",
+        group: {
+          types: "drone",
+          layout: "sections",
+          labelField: "callsign",
+          properties: [
+            { id: "p1", field: "status", kind: "choice", options: [{ value: "ready" }] },
+          ],
+        },
+      },
+    ],
+  });
+  const property = parsed.statuses[0]?.group?.properties[0];
+  expect(property).toMatchObject({ label: "", editable: false, kind: "choice" });
+});
