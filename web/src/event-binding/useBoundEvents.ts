@@ -152,11 +152,17 @@ export const useBoundEvents = (eventIds: string[], seed: EventResponse[] = []) =
       // merged with anything typed since. ponytail: retries forever, like
       // useEventDocument — a permanent 4xx keeps retrying.
       const newer = pending.current.get(eventId);
-      clearTimeout(newer?.timer);
-      const again: Pending = { base: edit.base, fields: { ...edit.fields, ...newer?.fields } };
-      again.timer = setTimeout(() => flush(eventId), RETRY_MS);
-      pending.current.set(eventId, again);
-      return;
+      // A newer edit made on someone else's version: our batch would 409 on
+      // retry anyway, and merging would drag the newer edit down with it.
+      const supersededByOthers =
+        newer && newer.base.id > edit.base.id && !ownVersions.current.has(newer.base.id);
+      if (!supersededByOthers) {
+        clearTimeout(newer?.timer);
+        const again: Pending = { base: edit.base, fields: { ...edit.fields, ...newer?.fields } };
+        again.timer = setTimeout(() => flush(eventId), RETRY_MS);
+        pending.current.set(eventId, again);
+        return;
+      }
     }
     clearDrafts(eventId, Object.keys(edit.fields));
   };

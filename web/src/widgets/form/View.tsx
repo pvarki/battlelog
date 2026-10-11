@@ -156,11 +156,16 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     }
   };
 
+  /** Bumped on Dismiss, so a retry still in flight can't bring dismissed failures back. */
+  const dismissals = useRef(0);
+
   const runWriteBacks = async (pending: PendingWriteBack[], submitted: EventReference) => {
+    const started = dismissals.current;
     const results = await Promise.all(
       pending.map((w) => applyWriteBack(w, submitted).catch(() => false)),
     );
     const failed = pending.filter((_, i) => !results[i]);
+    if (dismissals.current !== started) return failed;
     setFailedWriteBacks((all) => [
       ...all.filter((f) => f.submitted.eventId !== submitted.eventId),
       ...(failed.length ? [{ pending: failed, submitted }] : []),
@@ -279,7 +284,14 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
               >
                 Retry
               </Button>
-              <Button size="compact-xs" variant="subtle" onClick={() => setFailedWriteBacks([])}>
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                onClick={() => {
+                  dismissals.current++;
+                  setFailedWriteBacks([]);
+                }}
+              >
                 Dismiss
               </Button>
             </Group>
