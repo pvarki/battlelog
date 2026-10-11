@@ -79,6 +79,9 @@ const blank = (field: VisibleField): { surface: ReactNode; wide: boolean } => {
           : { surface: <div className="print-line" />, wide: true };
       case "checkbox":
         return { surface: null, wide: false };
+      // Options come from live events, so paper gets a write-in line, not a stale list.
+      case "event":
+        return { surface: <div className="print-line" />, wide: true };
     }
   }
   switch (field.field) {

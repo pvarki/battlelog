@@ -14,10 +14,13 @@ import {
 import { IconArrowDown, IconArrowUp, IconX } from "@tabler/icons-react";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
+import { FieldInput, QueryEditor, useFieldSuggestions } from "../../event-binding/editors.tsx";
 import {
   buildEvent,
+  EMPTY_EVENT_SELECT,
   EVENT_FIELDS,
   type EventFieldName,
+  type EventSelect,
   type FormConfig,
   type FormField,
   slugify,
@@ -44,6 +47,110 @@ const DescriptionInput = ({
     onChange={(e) => setField(field.id, { description: e.currentTarget.value })}
   />
 );
+
+const INPUT_OPTIONS = [
+  { value: "text", label: "text" },
+  { value: "textarea", label: "textarea" },
+  { value: "number", label: "number" },
+  { value: "select", label: "select" },
+  { value: "checkbox", label: "checkbox" },
+  { value: "event", label: "event (pick from a query)" },
+];
+
+const EventSelectEditor = ({
+  select,
+  onChange,
+}: {
+  select: EventSelect;
+  onChange: (next: EventSelect) => void;
+}) => {
+  const suggestions = useFieldSuggestions(select);
+  const setRule = (id: string, patch: Partial<EventSelect["writeBack"][number]>) =>
+    onChange({
+      ...select,
+      writeBack: select.writeBack.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    });
+  return (
+    <Stack gap={4}>
+      <Text fz="xs" fw={500}>
+        Options: events matching
+      </Text>
+      <QueryEditor query={select} onChange={onChange} />
+      <FieldInput
+        label="Option label"
+        description="Data field shown for each option (and stored as the label); header when empty"
+        value={select.labelField}
+        suggestions={suggestions}
+        onChange={(labelField) => onChange({ ...select, labelField })}
+      />
+      <TextInput
+        label="Text when empty"
+        size="xs"
+        placeholder="No options available"
+        value={select.emptyText}
+        onChange={(e) => onChange({ ...select, emptyText: e.currentTarget.value })}
+      />
+      <Text fz="xs" fw={500} mt={4}>
+        On submit, update the picked event
+      </Text>
+      {select.writeBack.map((rule) => (
+        <Group key={rule.id} gap={6} wrap="nowrap" align="flex-end">
+          <FieldInput
+            label="Field"
+            value={rule.field}
+            suggestions={suggestions}
+            onChange={(field) => setRule(rule.id, { field })}
+          />
+          <Select
+            label="Set to"
+            size="xs"
+            w={150}
+            data={[
+              { value: "text", label: "Value" },
+              { value: "reference", label: "This submission" },
+            ]}
+            value={rule.set}
+            onChange={(set) => set && setRule(rule.id, { set: set as typeof rule.set })}
+          />
+          {rule.set === "text" && (
+            <TextInput
+              label="Value"
+              size="xs"
+              style={{ flex: 1 }}
+              value={rule.value}
+              onChange={(e) => setRule(rule.id, { value: e.currentTarget.value })}
+            />
+          )}
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            aria-label="Remove update"
+            onClick={() =>
+              onChange({ ...select, writeBack: select.writeBack.filter((r) => r.id !== rule.id) })
+            }
+          >
+            <IconX size={14} stroke={1.5} />
+          </ActionIcon>
+        </Group>
+      ))}
+      <Button
+        size="compact-xs"
+        variant="subtle"
+        onClick={() =>
+          onChange({
+            ...select,
+            writeBack: [
+              ...select.writeBack,
+              { id: crypto.randomUUID(), field: "", set: "text", value: "" },
+            ],
+          })
+        }
+      >
+        Add update
+      </Button>
+    </Stack>
+  );
+};
 
 const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => {
   const setFields = (fields: FormField[]) => onChange({ ...config, fields });
@@ -194,9 +301,17 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                   <Select
                     label="Input"
                     size="xs"
-                    data={["text", "textarea", "number", "select", "checkbox"]}
+                    data={INPUT_OPTIONS}
                     value={field.input}
-                    onChange={(v) => v && setField(field.id, { input: v as typeof field.input })}
+                    onChange={(v) =>
+                      v &&
+                      setField(field.id, {
+                        input: v as typeof field.input,
+                        ...(v === "event" && !field.eventSelect
+                          ? { eventSelect: EMPTY_EVENT_SELECT }
+                          : {}),
+                      })
+                    }
                   />
                   <Checkbox
                     size="xs"
@@ -212,6 +327,12 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                     size="xs"
                     value={field.options}
                     onChange={(options) => setField(field.id, { options })}
+                  />
+                )}
+                {field.input === "event" && (
+                  <EventSelectEditor
+                    select={field.eventSelect ?? EMPTY_EVENT_SELECT}
+                    onChange={(eventSelect) => setField(field.id, { eventSelect })}
                   />
                 )}
               </>
