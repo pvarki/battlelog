@@ -91,7 +91,7 @@ export const MobileSwitcher = ({ dashboard }: { dashboard: DashboardResponse }) 
       <Box h="calc(100dvh - 48px)">
         <Placeholder
           title="No widgets for mobile"
-          detail="This dashboard has no widgets enabled for mobile — configure widgets on a desktop."
+          detail="This view has no widgets enabled for mobile — configure widgets on a desktop."
         />
       </Box>
     );

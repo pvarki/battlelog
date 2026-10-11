@@ -164,12 +164,12 @@ export const parseDashboardImport = (text: string): ImportResult => {
     return { ok: false, error: "Not valid JSON" };
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
-    return { ok: false, error: "Expected a single dashboard export object" };
+    return { ok: false, error: "Expected a single view export object" };
   const d = raw as Partial<DashboardExport>;
   if (typeof d.name !== "string" || !d.name.trim())
-    return { ok: false, error: "Missing a dashboard name" };
+    return { ok: false, error: "Missing a view name" };
   if (d.name.trim().length > 100)
-    return { ok: false, error: "Dashboard name is too long — the maximum is 100 characters" };
+    return { ok: false, error: "View name is too long — the maximum is 100 characters" };
   if (d.description !== undefined && d.description !== null && typeof d.description !== "string")
     return { ok: false, error: "Description must be a string or null" };
   if (typeof d.description === "string" && d.description.length > 280)

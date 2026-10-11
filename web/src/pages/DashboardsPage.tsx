@@ -85,8 +85,8 @@ const MobileDashboards = () => {
     <Box p="md" h="calc(100dvh - 48px)" style={{ overflowY: "auto" }}>
       {dashboards.length === 0 ? (
         <Placeholder
-          title="No dashboards yet"
-          detail="Dashboards are created and managed on a desktop screen."
+          title="No views yet"
+          detail="Views are created and managed on a desktop screen."
         />
       ) : (
         <Stack gap="xs">
