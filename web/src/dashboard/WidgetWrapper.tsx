@@ -70,7 +70,8 @@ export const WidgetWrapper = ({
   const descriptor = getWidget(instance.type);
 
   // Convention: a `title` string in any widget's config renders bold in the
-  // header under the type caption (per the design mock).
+  // header. The type caption only helps while arranging, so outside edit mode
+  // it's dropped, and an untitled widget gets no header at all.
   const title = configTitle(instance.config);
 
   const typeName = descriptor?.name ?? instance.type;
@@ -131,48 +132,52 @@ export const WidgetWrapper = ({
         <div className="print-doc-title">{printHeader.title}</div>
         <div className="print-doc-meta">Printed {printHeader.at}</div>
       </div>
-      <Group
-        className="widget-drag-handle screen-only"
-        justify="space-between"
-        px="xs"
-        py={4}
-        style={{
-          cursor: editMode ? "grab" : "default",
-          borderBottom: "1px solid var(--mantine-color-dark-4)",
-        }}
-      >
-        <div>
-          <Text fz="xs" c="dimmed">
-            {typeName}
-          </Text>
-          {title && (
-            <Text fw={600} fz="sm" lh={1.2}>
-              {title}
-            </Text>
+      {(editMode || title) && (
+        <Group
+          className="widget-drag-handle screen-only"
+          justify="space-between"
+          px="xs"
+          py={4}
+          style={{
+            cursor: editMode ? "grab" : "default",
+            borderBottom: "1px solid var(--mantine-color-dark-4)",
+          }}
+        >
+          <div>
+            {editMode && (
+              <Text fz="xs" c="dimmed">
+                {typeName}
+              </Text>
+            )}
+            {title && (
+              <Text fw={600} fz="sm" lh={1.2}>
+                {title}
+              </Text>
+            )}
+          </div>
+          {editMode && (
+            <Menu position="bottom-end" onOpen={() => setPrintScope(readPrintScope())}>
+              <Menu.Target>
+                <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
+                  <IconDots size={16} stroke={1.5} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {descriptor?.ConfigForm && <Menu.Item onClick={onConfigure}>Settings</Menu.Item>}
+                <Menu.Item onClick={onDuplicate}>Duplicate</Menu.Item>
+                <PrintItems instance={instance} scope={printScope} onPrint={print} />
+                <Menu.Item onClick={onResetSize} disabled={!descriptor}>
+                  Reset size
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item color="red" onClick={onRemove}>
+                  Delete
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           )}
-        </div>
-        {editMode && (
-          <Menu position="bottom-end" onOpen={() => setPrintScope(readPrintScope())}>
-            <Menu.Target>
-              <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
-                <IconDots size={16} stroke={1.5} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {descriptor?.ConfigForm && <Menu.Item onClick={onConfigure}>Settings</Menu.Item>}
-              <Menu.Item onClick={onDuplicate}>Duplicate</Menu.Item>
-              <PrintItems instance={instance} scope={printScope} onPrint={print} />
-              <Menu.Item onClick={onResetSize} disabled={!descriptor}>
-                Reset size
-              </Menu.Item>
-              <Menu.Divider />
-              <Menu.Item color="red" onClick={onRemove}>
-                Delete
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        )}
-      </Group>
+        </Group>
+      )}
       <Box flex={1} mih={0}>
         <WidgetBody
           instance={instance}
