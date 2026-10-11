@@ -12,6 +12,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -46,7 +47,7 @@ const DescriptionInput = ({
     placeholder="Optional hint shown under the label"
     size="xs"
     value={field.description ?? ""}
-    onChange={(e) => setField(field.id, { description: e.currentTarget.value })}
+    onChange={(e) => setField(field.id, { description: optionalText(e.currentTarget.value) })}
   />
 );
 
@@ -185,7 +186,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
         onChange={(e) =>
           onChange({
             ...config,
-            submitLabel: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
+            submitLabel: optionalText(e.currentTarget.value),
           })
         }
       />

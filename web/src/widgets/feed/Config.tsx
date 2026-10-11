@@ -10,6 +10,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -112,7 +113,7 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
         onChange={(e) =>
           onChange({
             ...config,
-            search: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
+            search: optionalText(e.currentTarget.value),
           })
         }
       />
@@ -122,7 +123,7 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
         onChange={(e) =>
           onChange({
             ...config,
-            createdBy: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
+            createdBy: optionalText(e.currentTarget.value),
           })
         }
       />

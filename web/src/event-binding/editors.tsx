@@ -12,6 +12,7 @@ import {
 import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { api } from "../api.ts";
+import { optionalText } from "../dashboard/form-utils.ts";
 import { queryFor } from "../widgets/feed/widget.ts";
 import { detectFields, type FieldSuggestion } from "./detect.ts";
 import { STATUS_COLORS, type StatusColor, type StatusOption } from "./options.ts";
@@ -102,7 +103,7 @@ const OptionEditor = ({
       onChange={(e) =>
         onChange({
           ...option,
-          description: e.currentTarget.value.trim() ? e.currentTarget.value : undefined,
+          description: optionalText(e.currentTarget.value),
         })
       }
     />

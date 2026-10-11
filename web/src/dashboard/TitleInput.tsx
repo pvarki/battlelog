@@ -1,4 +1,5 @@
 import { TextInput } from "@mantine/core";
+import { optionalText } from "./form-utils.ts";
 
 /**
  * The optional widget title rendered by WidgetWrapper. maxLength matches the
@@ -16,6 +17,6 @@ export const TitleInput = ({
     placeholder="Shown in the widget header"
     maxLength={100}
     value={value ?? ""}
-    onChange={(e) => onChange(e.currentTarget.value.trim() ? e.currentTarget.value : undefined)}
+    onChange={(e) => onChange(optionalText(e.currentTarget.value))}
   />
 );
