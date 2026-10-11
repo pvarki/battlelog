@@ -1,0 +1,36 @@
+diff --git a/lib/es/index.js b/lib/es/index.js
+index 7be238d5d14a5888130250434e8f366d54a0abf2..2da3b74201a1a601e766a48556b06b6938f66b21 100644
+--- a/lib/es/index.js
++++ b/lib/es/index.js
+@@ -2603,7 +2603,7 @@ function useDocHight(_leadingCharacter = "") {
+ 		if (sequenceNodes == null || sequenceNodes.length === 0) {
+ 			commandService.syncExecuteCommand(ReplaceTextRunsCommand.id, {
+ 				unitId: editorId,
+-				body: createFormulaHighlightBody(str, [])
++				body: createFormulaHighlightBody(str, createHighlightTextRuns([], leadingCharacterLength, colorMap.plainTextColor))
+ 			});
+ 			return [];
+ 		} else {
+@@ -2613,7 +2613,7 @@ function useDocHight(_leadingCharacter = "") {
+ 				e.st = e.st + leadingCharacterLength;
+ 			});
+ 			const highlightDataStream = getFormulaHighlightDataStream(_leadingCharacter, sequenceNodes, sourceText);
+-			const highlightTextRuns = createHighlightTextRuns(textRuns, leadingCharacterLength);
++			const highlightTextRuns = createHighlightTextRuns(textRuns, leadingCharacterLength, colorMap.plainTextColor);
+ 			let selections;
+ 			if (isNeedResetSelection) {
+ 				selections = editor.getSelectionRanges();
+@@ -2643,11 +2643,11 @@ function createFormulaHighlightBody(dataStream, textRuns) {
+ 		textRuns
+ 	};
+ }
+-function createHighlightTextRuns(textRuns, leadingCharacterLength) {
++function createHighlightTextRuns(textRuns, leadingCharacterLength, plainTextColor) {
+ 	return leadingCharacterLength ? [{
+ 		st: 0,
+ 		ed: leadingCharacterLength,
+-		ts: { fs: 11 }
++		ts: { fs: 11, cl: { rgb: plainTextColor } }
+ 	}, ...textRuns] : textRuns;
+ }
+ function useColor() {

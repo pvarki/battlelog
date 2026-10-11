@@ -7,6 +7,10 @@ settings:
 overrides:
   '@grpc/grpc-js': 1.14.5
 
+patchedDependencies:
+  '@univerjs/sheets-formula-ui@1.0.4': cb116094d325e0eef97552304ff6a3c52dc4140481755b5fef779c0319ada5c5
+  '@univerjs/sheets-ui@1.0.4': c81293ed0e7f271660a04400ed445b01e113dc5c27bd99cec98869a378bfde4b
+
 importers:
 
   .:
@@ -7193,10 +7197,10 @@ snapshots:
       '@univerjs/rpc': 1.0.4(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/sheets': 1.0.4(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/sheets-formula': 1.0.4(react@19.2.8)(rxjs@7.8.2)
-      '@univerjs/sheets-formula-ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
+      '@univerjs/sheets-formula-ui': 1.0.4(patch_hash=cb116094d325e0eef97552304ff6a3c52dc4140481755b5fef779c0319ada5c5)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/sheets-numfmt': 1.0.4(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/sheets-numfmt-ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
-      '@univerjs/sheets-ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 1.0.4(patch_hash=c81293ed0e7f271660a04400ed445b01e113dc5c27bd99cec98869a378bfde4b)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
@@ -7231,7 +7235,7 @@ snapshots:
     transitivePeerDependencies:
       - react
 
-  '@univerjs/sheets-formula-ui@1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)':
+  '@univerjs/sheets-formula-ui@1.0.4(patch_hash=cb116094d325e0eef97552304ff6a3c52dc4140481755b5fef779c0319ada5c5)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)':
     dependencies:
       '@univerjs/core': 1.0.4(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/design': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -7242,7 +7246,7 @@ snapshots:
       '@univerjs/icons': 1.43.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@univerjs/sheets': 1.0.4(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/sheets-formula': 1.0.4(react@19.2.8)(rxjs@7.8.2)
-      '@univerjs/sheets-ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 1.0.4(patch_hash=c81293ed0e7f271660a04400ed445b01e113dc5c27bd99cec98869a378bfde4b)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
@@ -7271,7 +7275,7 @@ snapshots:
       '@univerjs/icons': 1.43.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@univerjs/sheets': 1.0.4(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/sheets-numfmt': 1.0.4(react@19.2.8)(rxjs@7.8.2)
-      '@univerjs/sheets-ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
+      '@univerjs/sheets-ui': 1.0.4(patch_hash=c81293ed0e7f271660a04400ed445b01e113dc5c27bd99cec98869a378bfde4b)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/ui': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)
       react: 19.2.8
       rxjs: 7.8.2
@@ -7289,7 +7293,7 @@ snapshots:
     transitivePeerDependencies:
       - react
 
-  '@univerjs/sheets-ui@1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)':
+  '@univerjs/sheets-ui@1.0.4(patch_hash=c81293ed0e7f271660a04400ed445b01e113dc5c27bd99cec98869a378bfde4b)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rxjs@7.8.2)':
     dependencies:
       '@univerjs/core': 1.0.4(react@19.2.8)(rxjs@7.8.2)
       '@univerjs/design': 1.0.4(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

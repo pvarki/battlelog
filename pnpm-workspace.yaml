@@ -30,3 +30,6 @@ minimumReleaseAgeExclude:
   - '@univerjs/ui@1.0.4'
 overrides:
   '@grpc/grpc-js': 1.14.5
+patchedDependencies:
+  '@univerjs/sheets-formula-ui@1.0.4': patches/@univerjs__sheets-formula-ui@1.0.4.patch
+  '@univerjs/sheets-ui@1.0.4': patches/@univerjs__sheets-ui@1.0.4.patch

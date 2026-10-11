@@ -1,0 +1,16 @@
+diff --git a/lib/es/index.js b/lib/es/index.js
+index 5ae414ae9be9a2367510455809cb84a77d023b80..efa2495aa8f93ce063f6b5a962e176a4b88f3f04 100644
+--- a/lib/es/index.js
++++ b/lib/es/index.js
+@@ -22376,7 +22376,10 @@ function FormulaBar(props) {
+ 								if (isSelecting) editorBridgeService.enableForceKeepVisible();
+ 								else editorBridgeService.disableForceKeepVisible();
+ 							},
+-							autoScrollbar: false,
++							// Keep the compact bar clear for a single line, then let the
++							// embedded editor add a vertical scrollbar once its content
++							// actually exceeds the available height.
++							autoScrollbar: true,
+ 							disableContextMenu: false
+ 						}), hideEditor && /* @__PURE__ */ jsx("div", { className: "univer-pointer-events-none univer-relative univer-left-0 univer-top-0 univer-z-[100] univer-size-full univer-cursor-not-allowed univer-bg-gray-0 dark:!univer-bg-gray-800" })]
+ 					}), /* @__PURE__ */ jsx("div", {
