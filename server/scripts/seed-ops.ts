@@ -26,8 +26,8 @@ type Task = {
   tila: string;
   hours: number;
   data: Data;
-  /** Index of the drone/vehicle the task picked, and the state that left it in. */
-  picked?: [number, string];
+  /** Index of the drone/vehicle the task picked, and the state that left it in; no state when it has since been released. */
+  picked?: [number, string?];
 };
 
 /** Tasks as the forms leave them: the task references its pick, the pick references the task. */
@@ -41,7 +41,7 @@ const seedTasks = async (type: string, pickKey: string, entities: EventRow[], ta
       { ...data, tila, ...(entity && { [pickKey]: ref(entity) }) },
       hoursAgo(hours),
     );
-    if (entity && picked) await patchData(entity, { tila: picked[1], tehtava: ref(task) });
+    if (entity && picked?.[1]) await patchData(entity, { tila: picked[1], tehtava: ref(task) });
     created.push(task);
   }
   return created;
@@ -111,18 +111,21 @@ const seedDrones = async () => {
       tila: "Valmis",
       hours: 8,
       data: crew("Tiedustelu", "Kers. Laine"),
+      picked: [1],
     },
     {
       header: "Pommitus kohteeseen K-03",
       tila: "Peruttu",
       hours: 6,
       data: crew("Pommitus", "Alik. Virtanen"),
+      picked: [5],
     },
     {
       header: "Reitin tarkistus",
       tila: "Jonossa",
       hours: -4,
       data: crew("Tiedustelu", "Alik. Korhonen"),
+      picked: [1],
     },
   ]);
 
@@ -190,12 +193,14 @@ const seedVehicles = async () => {
       tila: "Valmis",
       hours: 5,
       data: route("1. jk", "Kenttäkeittiö", "1. jk", "Muona 40 hlö"),
+      picked: [3],
     },
     {
       header: "Varaosien nouto",
       tila: "Jonossa",
       hours: 0.2,
       data: route("Korjaamo", "Varikko", "Korjaamo", "Varaosat"),
+      picked: [0],
     },
   ]);
   logger.info(
