@@ -31,6 +31,7 @@ import {
 import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import { firstFreeSlot } from "../dashboard/placement.ts";
+import { rememberOpened } from "../dashboard/recent.ts";
 import { getWidget, registry } from "../dashboard/registry.ts";
 import { TEMPLATE_TAG, templateEventFor, widgetEventPointers } from "../dashboard/transfer.ts";
 import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
@@ -41,6 +42,7 @@ import { useWakeLock } from "../use-wake-lock.ts";
 import { TABS_TYPE, withFreshTabIds } from "../widgets/tabs/widget.ts";
 
 const route = getRouteApi("/d/$dashboardId");
+const rootRoute = getRouteApi("__root__");
 
 const SAVE_DEBOUNCE_MS = 800;
 
@@ -59,8 +61,10 @@ type PendingPatch = {
 };
 
 export const DashboardPage = () => {
-  const { dashboard, dashboards } = route.useLoaderData();
+  const dashboard = route.useLoaderData();
+  const dashboards = rootRoute.useLoaderData();
   useWakeLock();
+  useEffect(() => rememberOpened(dashboard.id), [dashboard.id]);
   // Phones get the switcher — one widget fullscreen, bottom bar to change.
   // No edit machinery mounts at all, so mobile editing is disabled by
   // construction, not by flags.
