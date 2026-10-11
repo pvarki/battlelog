@@ -1,4 +1,5 @@
-import { Anchor, AppShell, Group, Text, VisuallyHidden } from "@mantine/core";
+import { Anchor, AppShell, Burger, Group, Text, VisuallyHidden } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
 import {
@@ -11,9 +12,11 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { z } from "zod";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
+import { DashboardNav } from "./dashboard/DashboardNav.tsx";
+import { useIsMobile } from "./dashboard/mobile.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
 import { Placeholder } from "./Placeholder.tsx";
@@ -92,11 +95,39 @@ const ConnectionIndicator = () => {
   );
 };
 
-const RootLayout = () => {
+// Without `dashboards` (the root loader itself failed) the panel is left out,
+// but the header still renders so its nav remains a way out.
+const Shell = ({
+  dashboards,
+  children,
+}: {
+  dashboards?: DashboardResponse[];
+  children: ReactNode;
+}) => {
+  // Phones already have their own switchers; the panel is a desktop affordance.
+  const isMobile = useIsMobile();
+  const [navOpen, setNavOpen] = useLocalStorage({ key: "battlelog.nav-open", defaultValue: true });
+  const hasNav = !!dashboards && !isMobile;
   return (
-    <AppShell header={{ height: 48 }} padding={0}>
+    <AppShell
+      header={{ height: 48 }}
+      navbar={{
+        width: 260,
+        breakpoint: "sm",
+        collapsed: { mobile: true, desktop: !hasNav || !navOpen },
+      }}
+      padding={0}
+    >
       <AppShell.Header>
         <Group h="100%" px="md" gap="lg" wrap="nowrap">
+          {hasNav && (
+            <Burger
+              size="sm"
+              opened={navOpen}
+              onClick={() => setNavOpen((v) => !v)}
+              aria-label={navOpen ? "Hide dashboard panel" : "Show dashboard panel"}
+            />
+          )}
           <Text fw={700} style={{ letterSpacing: "0.04em" }}>
             BATTLELOG
           </Text>
@@ -105,12 +136,21 @@ const RootLayout = () => {
           <ConnectionIndicator />
         </Group>
       </AppShell.Header>
-      <AppShell.Main>
-        <Outlet />
-      </AppShell.Main>
+      {hasNav && (
+        <AppShell.Navbar>
+          <DashboardNav dashboards={dashboards} />
+        </AppShell.Navbar>
+      )}
+      <AppShell.Main>{children}</AppShell.Main>
     </AppShell>
   );
 };
+
+const RootLayout = () => (
+  <Shell dashboards={rootRoute.useLoaderData()}>
+    <Outlet />
+  </Shell>
+);
 
 /**
  * Every route's failure screen. Loaders throw on a bad response, so this is
@@ -151,12 +191,6 @@ export const routerDefaults = {
   defaultNotFoundComponent: RouteNotFound,
 };
 
-const rootRoute = createRootRoute({
-  component: RootLayout,
-  // RootLayout itself throwing has no parent to catch it.
-  errorComponent: RouteError,
-});
-
 // Offline fallback for the route loaders: the last successful dashboards list,
 // one localStorage key. A handful of small JSON docs overwritten on every
 // successful load, so no eviction. Saves stay online-only; editing a stale
@@ -180,9 +214,9 @@ const cachedDashboards = (): DashboardResponse[] | undefined => {
   }
 };
 
-export const dashboardsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
+// The list lives on the root so the side panel has it on every page, and one
+// router.invalidate() after a create/rename/delete refreshes panel and page alike.
+const rootRoute = createRootRoute({
   loader: async () => {
     try {
       const res = await dashboardsApi.dashboards.$get();
@@ -198,6 +232,18 @@ export const dashboardsRoute = createRoute({
       throw err;
     }
   },
+  component: RootLayout,
+  // Neither RootLayout nor the root loader has a parent to catch it.
+  errorComponent: (props) => (
+    <Shell>
+      <RouteError {...props} />
+    </Shell>
+  ),
+});
+
+export const dashboardsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
   component: DashboardsPage,
 });
 
@@ -211,29 +257,21 @@ export const dashboardRoute = createRoute({
   validateSearch: (search: unknown) => dashboardSearchSchema.parse(search),
   loader: async ({ params }) => {
     try {
-      const [one, all] = await Promise.all([
-        dashboardsApi.dashboards[":dashboardId"].$get({
-          param: { dashboardId: params.dashboardId },
-        }),
-        dashboardsApi.dashboards.$get(),
-      ]);
+      const res = await dashboardsApi.dashboards[":dashboardId"].$get({
+        param: { dashboardId: params.dashboardId },
+      });
       // A stale link to a deleted dashboard is the likeliest failure on this
       // route, and it deserves the not-found screen rather than a status code.
-      if (one.status === 404) throw notFound();
-      if (!one.ok || !all.ok) {
-        throw new Error(`Failed to load dashboard (${one.status}/${all.status})`);
-      }
-      const data = { dashboard: await one.json(), dashboards: await all.json() };
-      cacheDashboards(data.dashboards);
-      return data;
+      if (res.status === 404) throw notFound();
+      if (!res.ok) throw new Error(`Failed to load dashboard (${res.status})`);
+      return await res.json();
     } catch (err) {
       // fetch rejects transport failures as TypeError (offline): last-known
       // copy. Server-answered errors (403/500, and the 404 above) fall
       // through to their usual screens instead of a stale render.
       if (err instanceof TypeError) {
-        const dashboards = cachedDashboards();
-        const dashboard = dashboards?.find((d) => d.id === params.dashboardId);
-        if (dashboards && dashboard) return { dashboard, dashboards };
+        const dashboard = cachedDashboards()?.find((d) => d.id === params.dashboardId);
+        if (dashboard) return dashboard;
       }
       throw err;
     }

@@ -123,3 +123,40 @@
   background-color: color-mix(in srgb, var(--mantine-color-yellow-9) 25%, transparent);
   box-shadow: inset 3px 0 var(--mantine-color-yellow-5);
 }
+
+/*
+ * Side panel row: link and its actions share one hover surface. The actions
+ * stay out of the way until the row is hovered or focused — except a set star
+ * and a menu that is open.
+ */
+.nav-row {
+  position: relative;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.nav-row:hover {
+  background-color: var(--mantine-color-dark-6);
+}
+
+.nav-row > .mantine-NavLink-root:not([data-active]):hover {
+  background-color: transparent;
+}
+
+/* Centred without transform: ActionIcon's :active transform would override it,
+ * the button jumps on press and the mouseup lands on the link underneath. */
+.nav-actions {
+  position: absolute;
+  inset-block: 0;
+  right: 4px;
+}
+
+.nav-row .nav-reveal {
+  opacity: 0;
+}
+
+.nav-row:hover .nav-reveal,
+.nav-row:focus-within .nav-reveal,
+.nav-reveal[data-favorite],
+.nav-reveal[data-expanded] {
+  opacity: 1;
+}
