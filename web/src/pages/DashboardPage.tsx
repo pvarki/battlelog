@@ -365,7 +365,7 @@ const DashboardGrid = ({
     if (!slot) {
       notifications.show({
         color: "red",
-        title: "No room on this dashboard",
+        title: "No room on this view",
         message: "Remove or resize a widget to make space.",
       });
     }
@@ -462,8 +462,8 @@ const DashboardGrid = ({
           ) : editMode ? (
             <UnstyledButton
               onClick={() => setRenaming(true)}
-              title="Rename dashboard"
-              aria-label={`Rename dashboard ${name}`}
+              title="Rename view"
+              aria-label={`Rename view ${name}`}
               style={{ cursor: "text" }}
             >
               <Title order={3}>{name}</Title>
@@ -478,7 +478,7 @@ const DashboardGrid = ({
           )}
           <Menu position="bottom-start">
             <Menu.Target>
-              <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Switch dashboard">
+              <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Switch view">
                 <IconChevronDown size={16} stroke={1.5} />
               </ActionIcon>
             </Menu.Target>
@@ -500,7 +500,7 @@ const DashboardGrid = ({
                   </Menu.Item>
                 ))}
               <Menu.Divider />
-              <Menu.Item onClick={() => navigate({ to: "/" })}>All dashboards…</Menu.Item>
+              <Menu.Item onClick={() => navigate({ to: "/" })}>Home</Menu.Item>
             </Menu.Dropdown>
           </Menu>
           <Text c={saveState === "error" ? "danger.4" : "dimmed"} fz="xs" role="status">
@@ -606,7 +606,7 @@ const DashboardGrid = ({
         )}
         {widgets.length === 0 && (
           <Placeholder
-            title="Empty dashboard"
+            title="Empty view"
             detail={
               editMode
                 ? "Use Add widget above to place your first one."

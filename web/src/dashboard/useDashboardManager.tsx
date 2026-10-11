@@ -75,8 +75,8 @@ type DetailsTarget =
   | null;
 
 const DETAILS_TITLE: Record<NonNullable<DetailsTarget>["kind"], string> = {
-  new: "New dashboard",
-  fromTemplate: "New dashboard from template",
+  new: "New view",
+  fromTemplate: "New view from template",
   saveTemplate: "Save as template",
   edit: "Name & description",
 };
@@ -260,7 +260,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
   };
 
   const remove = (d: DashboardResponse) => {
-    const kind = d.isTemplate ? "template" : "dashboard";
+    const kind = d.isTemplate ? "template" : "view";
     if (!window.confirm(`Delete ${kind} "${d.name}"? This cannot be undone.`)) return;
     void mutate("Delete", () =>
       dashboardsApi.dashboards[":dashboardId"].$delete({ param: { dashboardId: d.id } }),
@@ -338,7 +338,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
     startCreate(async () => {
       const res = await dashboardsApi.dashboards.$post({ json: parsed.value });
       if (!res.ok) {
-        setImportError(`Rejected by the server (${res.status}) — not a valid dashboard export`);
+        setImportError(`Rejected by the server (${res.status}) — not a valid view export`);
         return;
       }
       const created = await res.json();
@@ -446,15 +446,15 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
         <ActionIcon
           variant="default"
           size="input-xs"
-          aria-label="New dashboard"
-          title="New dashboard"
+          aria-label="New view"
+          title="New view"
           loading={creating}
         >
           <IconPlus size={16} stroke={1.5} />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item onClick={openNew}>Empty dashboard…</Menu.Item>
+        <Menu.Item onClick={openNew}>Empty view…</Menu.Item>
         {/* One item rather than the template list inline: the picker has
                     room to say what each template contains, and the menu stops
                     growing with the number of them. */}
@@ -554,7 +554,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
           />
           <Textarea
             label="Description"
-            description="Shown in the dashboard list — what this board is for, so near-identical names stay apart."
+            description="Shown in the views list — what this view is for, so near-identical names stay apart."
             autosize
             minRows={2}
             maxRows={5}
@@ -587,9 +587,9 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
       >
         <Stack gap="xs">
           <Text c="dimmed" fz="sm">
-            A template is a starting point, not a dashboard. Pick one under New to make a copy —
-            editing that copy never changes the template. Templates deployed with the server are
-            restored on restart.
+            A template is a starting point, not a view. Pick one under New to make a copy — editing
+            that copy never changes the template. Templates deployed with the server are restored on
+            restart.
           </Text>
           {searchable && (
             <TextInput
@@ -608,12 +608,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
         </Stack>
       </Modal>
 
-      <Modal
-        opened={importOpen}
-        onClose={() => setImportOpen(false)}
-        title="Import dashboard"
-        size="lg"
-      >
+      <Modal opened={importOpen} onClose={() => setImportOpen(false)} title="Import view" size="lg">
         <Stack>
           <Text c="dimmed" fz="sm">
             Layout and widget settings are restored. Contents that live in the event log don't

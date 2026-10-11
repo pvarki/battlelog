@@ -112,8 +112,8 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
   const emptyText = q
     ? "No matches."
     : filter === "favorites"
-      ? "Star a dashboard to pin it here."
-      : "No dashboards yet.";
+      ? "Star a view to pin it here."
+      : "No views yet.";
 
   return (
     <Stack gap="xs" h="100%" p="xs">
@@ -133,7 +133,7 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
           flex={1}
           size="xs"
           placeholder="Search"
-          aria-label="Search dashboards"
+          aria-label="Search views"
           leftSection={<IconSearch size={14} stroke={1.5} />}
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}

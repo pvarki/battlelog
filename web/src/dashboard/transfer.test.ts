@@ -161,7 +161,7 @@ test("import names what is wrong instead of posting garbage", () => {
   expect(parseDashboardImport('{"name":"  ","widgets":[]}').ok).toBe(false);
   expect(parseDashboardImport(`{"name":"${"x".repeat(101)}","widgets":[]}`)).toEqual({
     ok: false,
-    error: "Dashboard name is too long — the maximum is 100 characters",
+    error: "View name is too long — the maximum is 100 characters",
   });
   expect(parseDashboardImport('{"name":"x","description":42,"widgets":[]}')).toEqual({
     ok: false,

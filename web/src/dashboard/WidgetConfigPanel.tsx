@@ -25,7 +25,7 @@ export const WidgetConfigPanel = ({
       {descriptor.showOnMobile !== false && (
         <Switch
           label="Show on mobile"
-          description="Include this widget in the phone view of the dashboard"
+          description="Include this widget in the phone layout of the view"
           checked={(formConfig as { showOnMobile?: boolean }).showOnMobile !== false}
           onChange={(e) =>
             onChange({

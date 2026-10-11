@@ -125,13 +125,13 @@ const Shell = ({
               size="sm"
               opened={navOpen}
               onClick={() => setNavOpen((v) => !v)}
-              aria-label={navOpen ? "Hide dashboard panel" : "Show dashboard panel"}
+              aria-label={navOpen ? "Hide views panel" : "Show views panel"}
             />
           )}
           <Text fw={700} style={{ letterSpacing: "0.04em" }}>
             BATTLELOG
           </Text>
-          <NavLink to="/">Dashboards</NavLink>
+          <NavLink to="/">Home</NavLink>
           <NavLink to="/events">Event Explorer</NavLink>
           <ConnectionIndicator />
         </Group>
@@ -180,8 +180,8 @@ const RouteNotFound = () => {
   return (
     <Placeholder
       title="Nothing here"
-      detail="That address doesn't match anything — the dashboard may have been deleted."
-      action={{ label: "All dashboards", onClick: () => void navigate({ to: "/" }) }}
+      detail="That address doesn't match anything — the view may have been deleted."
+      action={{ label: "Home", onClick: () => void navigate({ to: "/" }) }}
     />
   );
 };
@@ -220,7 +220,7 @@ const rootRoute = createRootRoute({
   loader: async () => {
     try {
       const res = await dashboardsApi.dashboards.$get();
-      if (!res.ok) throw new Error(`Failed to load dashboards (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to load views (${res.status})`);
       const dashboards = await res.json();
       cacheDashboards(dashboards);
       return dashboards;
@@ -263,7 +263,7 @@ export const dashboardRoute = createRoute({
       // A stale link to a deleted dashboard is the likeliest failure on this
       // route, and it deserves the not-found screen rather than a status code.
       if (res.status === 404) throw notFound();
-      if (!res.ok) throw new Error(`Failed to load dashboard (${res.status})`);
+      if (!res.ok) throw new Error(`Failed to load view (${res.status})`);
       return await res.json();
     } catch (err) {
       // fetch rejects transport failures as TypeError (offline): last-known
