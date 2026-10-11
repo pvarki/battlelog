@@ -66,6 +66,7 @@ const useEventSearch = (opened: boolean, search: string, eventType: string | und
   useEffect(() => {
     if (!opened) return;
     let cancelled = false;
+    setRows(undefined);
     setFailed(false);
     api.events
       .$get({
@@ -128,7 +129,7 @@ const PickerDialog = ({
       <Stack>
         <TextInput
           data-autofocus
-          placeholder="Search header and text"
+          placeholder="Search headers"
           leftSection={<IconSearch size={16} stroke={1.5} />}
           value={search}
           onChange={(e) => setSearch(e.currentTarget.value)}
@@ -228,7 +229,16 @@ export const EventPicker = ({
             </Alert>
           )}
           <Group gap="xs">
-            <Button size="compact-xs" variant="light" onClick={() => setOpened(true)}>
+            <Button
+              size="compact-xs"
+              variant="light"
+              aria-label={
+                linked.state === "found" && value
+                  ? `Change ${label}: ${linked.row.header}`
+                  : `Change ${label}`
+              }
+              onClick={() => setOpened(true)}
+            >
               Change…
             </Button>
             {value && (
