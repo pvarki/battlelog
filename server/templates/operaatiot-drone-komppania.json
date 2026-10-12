@@ -1,0 +1,400 @@
+{
+  "name": "Operaatiot – Drone – Komppania",
+  "widgets": [
+    {
+      "id": "c11a9057-b95c-4e3e-86f0-180ffe670a24",
+      "type": "note",
+      "config": {},
+      "layout": {
+        "h": 16,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "df180cf7-ac3e-466b-8f9e-6b8a4f85984e",
+      "type": "note",
+      "config": {},
+      "layout": {
+        "h": 16,
+        "w": 12,
+        "x": 16,
+        "y": 0
+      }
+    },
+    {
+      "id": "6f3d7d40-387b-418f-ad91-7ca3921968a1",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "id": "ae353ca3-f9ec-4a39-a834-bb89ff9d4f00",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 8,
+        "w": 15,
+        "x": 16,
+        "y": 16
+      }
+    },
+    {
+      "id": "dc36bfaf-0adb-4a42-8eed-f1b5f81e8863",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 8,
+        "w": 17,
+        "x": 31,
+        "y": 16
+      }
+    },
+    {
+      "id": "7a79109e-af9c-4cdb-99ee-5b8e2c7df256",
+      "type": "form",
+      "config": {
+        "title": "Lentotehtävä",
+        "fields": [
+          {
+            "id": "7b5b08d8-489d-4948-a3f5-7da158344a19",
+            "kind": "data",
+            "input": "select",
+            "label": "Lentotyyppi",
+            "options": ["Tiedustelu", "Isku", "Pommitus"]
+          },
+          {
+            "id": "9351d513-4b05-46e1-ba74-3349ca3d9bce",
+            "kind": "data",
+            "input": "text",
+            "label": "LaiteID",
+            "options": []
+          },
+          {
+            "id": "70f30cb5-9ac2-4865-8c08-88ad62f68311",
+            "kind": "data",
+            "input": "select",
+            "label": "Laitetyyppi",
+            "options": ["DJI Mavric", "Xdrone", "Ydrone"]
+          },
+          {
+            "id": "63b6c0fc-4e2b-496a-be92-ef0aa6938997",
+            "kind": "data",
+            "input": "text",
+            "label": "Lentäjä",
+            "options": [],
+            "required": true
+          },
+          {
+            "id": "7bf76976-26b1-492e-be47-5faab2729170",
+            "kind": "data",
+            "input": "text",
+            "label": "Navigaattori",
+            "options": []
+          },
+          {
+            "id": "718bc40f-6850-493b-ba57-73d0179cde3c",
+            "kind": "data",
+            "input": "text",
+            "label": "Reittipisteet",
+            "options": []
+          },
+          {
+            "id": "c4061c2b-2e90-420c-ab3c-3ee261e69c59",
+            "kind": "event",
+            "field": "eventTime",
+            "label": "Aloitusaika",
+            "required": true
+          },
+          {
+            "id": "ca2bb60c-2737-4ffc-ab25-2bbfd0ed6b5d",
+            "kind": "event",
+            "field": "eventTime",
+            "label": "Päättymisaika",
+            "required": true
+          },
+          {
+            "id": "eff800ad-f4d9-4f2d-b1c5-d1abbd444ca3",
+            "key": "tila",
+            "kind": "fixed",
+            "value": "Jonossa",
+            "target": "data"
+          }
+        ],
+        "reportType": "flight-task",
+        "submitLabel": "Tallenna"
+      },
+      "layout": {
+        "h": 11,
+        "w": 8,
+        "x": 40,
+        "y": 0
+      }
+    },
+    {
+      "id": "c244b59e-f595-48fe-9f2e-6762db2a9c3d",
+      "type": "tabs",
+      "config": {
+        "tabs": [
+          {
+            "id": "0ceaa3fc-1d46-4218-aeaf-b0335d27d174",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Jonossa",
+              "types": ["form-flight-task"],
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "9796dbab-1e21-467d-85e8-f1b72c0f75ce",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Hyväksytty",
+              "types": ["form-flight-task"],
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "970472f3-7fce-42df-bc9e-e8eda6d08a96",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Lennossa",
+              "types": ["form-flight-task"],
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "052f3c7f-cf3a-4e76-9770-3372cdeb1cc9",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Valmis",
+              "types": ["form-flight-task"],
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "575ca35f-c673-4500-a695-dc073e512e56",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Peruttu",
+              "types": ["form-flight-task"],
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          }
+        ],
+        "title": "Tehtävät"
+      },
+      "layout": {
+        "h": 11,
+        "w": 12,
+        "x": 28,
+        "y": 0
+      }
+    },
+    {
+      "id": "a8c9f415-6c75-40c8-bba7-15f5a286cd01",
+      "type": "status",
+      "config": {
+        "title": "Kalusto",
+        "statuses": [
+          {
+            "id": "e9c7bcff-bcc1-43a3-a664-aa4b514459a9",
+            "kind": "choice",
+            "label": "DJI MAVIC / D-001",
+            "options": [
+              {
+                "color": "green",
+                "value": "Vapaa"
+              },
+              {
+                "color": "yellow",
+                "value": "Varattu"
+              },
+              {
+                "color": "blue",
+                "value": "Lennossa"
+              },
+              {
+                "color": "gray",
+                "value": "Ei käytössä"
+              }
+            ]
+          },
+          {
+            "id": "8699ef71-d144-41e8-a57a-e3caa522018e",
+            "kind": "choice",
+            "label": "DJI MAVIC / D-002",
+            "options": [
+              {
+                "color": "green",
+                "value": "Vapaa"
+              },
+              {
+                "color": "yellow",
+                "value": "Varattu"
+              },
+              {
+                "color": "blue",
+                "value": "Lennossa "
+              },
+              {
+                "color": "red",
+                "value": "Ei käytössä"
+              }
+            ]
+          },
+          {
+            "id": "91eb9fcc-6408-4a6d-98c0-12085db097f5",
+            "kind": "choice",
+            "label": "Sensofusion AirX/D-003",
+            "options": [
+              {
+                "color": "gray",
+                "value": "Vapaa"
+              },
+              {
+                "color": "yellow",
+                "value": "Varattu"
+              },
+              {
+                "color": "blue",
+                "value": "Lennossa"
+              },
+              {
+                "color": "red",
+                "value": "Ei käytössä"
+              }
+            ]
+          },
+          {
+            "id": "e93e32e7-841f-475d-87e2-404a840333c0",
+            "kind": "count",
+            "label": "AttackD One",
+            "options": []
+          }
+        ]
+      },
+      "layout": {
+        "h": 5,
+        "w": 9,
+        "x": 28,
+        "y": 11
+      }
+    }
+  ]
+}

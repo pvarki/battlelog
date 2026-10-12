@@ -1,0 +1,110 @@
+{
+  "name": "Operaatiot – Drone – Joukkue",
+  "widgets": [
+    {
+      "id": "badf55ee-b475-440e-86b2-001574a05428",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 6,
+        "w": 9,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "2bf13ea7-0d92-47f9-8021-6278a3aafe56",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 6,
+        "w": 9,
+        "x": 9,
+        "y": 0
+      }
+    },
+    {
+      "id": "9bb656b5-9c22-4d1c-aba1-d6abb26361e5",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 6,
+        "w": 9,
+        "x": 0,
+        "y": 18
+      }
+    },
+    {
+      "id": "1fa97012-bd29-4b76-8c6c-d21ca60b9ef5",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 6,
+        "w": 9,
+        "x": 0,
+        "y": 12
+      }
+    },
+    {
+      "id": "42fda96f-2f20-4782-93ac-43aed459f90d",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 6,
+        "w": 9,
+        "x": 0,
+        "y": 6
+      }
+    },
+    {
+      "id": "195d200a-c94e-4de1-a90a-57f67dfc51cb",
+      "type": "status",
+      "config": {
+        "statuses": []
+      },
+      "layout": {
+        "h": 12,
+        "w": 9,
+        "x": 9,
+        "y": 6
+      }
+    },
+    {
+      "id": "37be5e55-a695-4df0-8971-16a787123166",
+      "type": "note",
+      "config": {},
+      "layout": {
+        "h": 18,
+        "w": 15,
+        "x": 18,
+        "y": 0
+      }
+    },
+    {
+      "id": "ba2ad290-c2eb-44c4-a05f-feb7f239d472",
+      "type": "note",
+      "config": {},
+      "layout": {
+        "h": 18,
+        "w": 15,
+        "x": 33,
+        "y": 0
+      }
+    }
+  ]
+}
