@@ -1,0 +1,281 @@
+{
+  "name": "Henkilöstö",
+  "widgets": [
+    {
+      "id": "0e3a611b-9162-4ea6-a865-9ee89ba7e9fa",
+      "type": "table",
+      "config": {
+        "title": "Henkilöstörekisteri",
+        "columns": [
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          },
+          {
+            "id": "E",
+            "kind": "text",
+            "label": "E"
+          },
+          {
+            "id": "F",
+            "kind": "text",
+            "label": "F"
+          },
+          {
+            "id": "G",
+            "kind": "text",
+            "label": "G"
+          },
+          {
+            "id": "H",
+            "kind": "text",
+            "label": "H"
+          },
+          {
+            "id": "I",
+            "kind": "text",
+            "label": "I"
+          },
+          {
+            "id": "J",
+            "kind": "text",
+            "label": "J"
+          },
+          {
+            "id": "K",
+            "kind": "text",
+            "label": "K"
+          },
+          {
+            "id": "L",
+            "kind": "text",
+            "label": "L"
+          },
+          {
+            "id": "M",
+            "kind": "text",
+            "label": "M"
+          },
+          {
+            "id": "N",
+            "kind": "text",
+            "label": "N"
+          },
+          {
+            "id": "O",
+            "kind": "text",
+            "label": "O"
+          },
+          {
+            "id": "P",
+            "kind": "text",
+            "label": "P"
+          }
+        ],
+        "rowCount": 100,
+        "columnCount": 16,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": {
+        "h": 8,
+        "w": 48,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "eaa412be-43f6-4318-bb32-4f6af660b8a8",
+      "type": "table",
+      "config": {
+        "title": "Koulutusrekisteri",
+        "columns": [
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          },
+          {
+            "id": "E",
+            "kind": "text",
+            "label": "E"
+          },
+          {
+            "id": "F",
+            "kind": "text",
+            "label": "F"
+          },
+          {
+            "id": "G",
+            "kind": "text",
+            "label": "G"
+          }
+        ],
+        "rowCount": 100,
+        "columnCount": 7,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "id": "aee9bd33-1293-4d54-9013-a2b46341d856",
+      "type": "table",
+      "config": {
+        "title": "Vahvuus",
+        "columns": [
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          },
+          {
+            "id": "E",
+            "kind": "text",
+            "label": "E"
+          },
+          {
+            "id": "F",
+            "kind": "text",
+            "label": "F"
+          }
+        ],
+        "rowCount": 50,
+        "columnCount": 6,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": {
+        "h": 8,
+        "w": 24,
+        "x": 24,
+        "y": 8
+      }
+    },
+    {
+      "id": "2f7d7eed-fb68-4735-ad7f-c74c86a214e4",
+      "type": "table",
+      "config": {
+        "title": "Arvioinnit",
+        "columns": [
+          {
+            "id": "A",
+            "kind": "text",
+            "label": "A"
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "label": "B"
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "label": "C"
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "label": "D"
+          },
+          {
+            "id": "E",
+            "kind": "text",
+            "label": "E"
+          },
+          {
+            "id": "F",
+            "kind": "text",
+            "label": "F"
+          },
+          {
+            "id": "G",
+            "kind": "text",
+            "label": "G"
+          },
+          {
+            "id": "H",
+            "kind": "text",
+            "label": "H"
+          },
+          {
+            "id": "I",
+            "kind": "text",
+            "label": "I"
+          },
+          {
+            "id": "J",
+            "kind": "text",
+            "label": "J"
+          },
+          {
+            "id": "K",
+            "kind": "text",
+            "label": "K"
+          }
+        ],
+        "rowCount": 100,
+        "columnCount": 11,
+        "hideRowNumbers": true,
+        "hideColumnHeaders": true
+      },
+      "layout": {
+        "h": 8,
+        "w": 48,
+        "x": 0,
+        "y": 16
+      }
+    }
+  ]
+}

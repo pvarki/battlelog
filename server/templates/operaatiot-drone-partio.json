@@ -1,0 +1,196 @@
+{
+  "name": "Operaatiot – Drone – Partio",
+  "widgets": [
+    {
+      "id": "0395a9ff-f78d-4454-ba71-59cedf6b7617",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 12,
+        "w": 24,
+        "x": 24,
+        "y": 0
+      }
+    },
+    {
+      "id": "be3c096e-f36e-4b60-a78d-6c9393190e17",
+      "type": "streams",
+      "config": {
+        "url": "",
+        "sourceType": "auto"
+      },
+      "layout": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "58e137e6-7dc2-442f-88f1-3e128d9eb32f",
+      "type": "tabs",
+      "config": {
+        "tabs": [
+          {
+            "id": "fe386137-400a-4c5c-9dc7-47b7a23cc5f0",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Hyväksytyt",
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "28167904-f4b5-4f19-bc2e-4e6f94228779",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Lennossa",
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "16c88f71-48d4-4fcd-94b9-35b0bc0b50a2",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Raportoimatta",
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          },
+          {
+            "id": "04e4613f-c1e3-469f-aa97-1a79c547a61b",
+            "type": "feed",
+            "config": {
+              "rows": 10,
+              "title": "Valmiit",
+              "columns": [
+                {
+                  "id": "time",
+                  "label": "",
+                  "source": "time",
+                  "dataPath": ""
+                },
+                {
+                  "id": "header",
+                  "label": "",
+                  "source": "header",
+                  "dataPath": ""
+                },
+                {
+                  "id": "type",
+                  "label": "",
+                  "source": "type",
+                  "dataPath": ""
+                }
+              ]
+            }
+          }
+        ],
+        "title": "Tehtävät"
+      },
+      "layout": {
+        "h": 12,
+        "w": 19,
+        "x": 0,
+        "y": 12
+      }
+    },
+    {
+      "id": "19523dd2-ba68-4b4a-b18e-0af40aefb4c0",
+      "type": "status",
+      "config": {
+        "statuses": [
+          {
+            "id": "f6ff7390-ca4c-4017-911c-05a2b9b43bf7",
+            "kind": "choice",
+            "label": "Hyökkäysdrone",
+            "options": []
+          }
+        ]
+      },
+      "layout": {
+        "h": 12,
+        "w": 21,
+        "x": 27,
+        "y": 12
+      }
+    },
+    {
+      "id": "94d15b38-d9fb-4b2f-97e5-a980c806dab9",
+      "type": "form",
+      "config": {
+        "title": "Tehtäväraportti",
+        "fields": [],
+        "reportType": "report",
+        "submitLabel": "Lähetä"
+      },
+      "layout": {
+        "h": 12,
+        "w": 8,
+        "x": 19,
+        "y": 12
+      }
+    }
+  ]
+}
