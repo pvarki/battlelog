@@ -53,6 +53,7 @@ import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { anchorOf, hasPosition, labelOf } from "./items.ts";
+import { createCursor } from "./map/cursor.ts";
 import { type Follow, followedItems, positionsOf, useFollow } from "./map/follow.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
@@ -297,7 +298,8 @@ export const TakWorkspace = ({
   );
   useFollow(map, follow ? positionsOf(followedItems(items, follow, followMissionUids)) : []);
   const drawing = useDrawing(map);
-  const measure = useMeasure(map);
+  const [cursor] = useState(createCursor);
+  const measure = useMeasure(map, cursor);
   const searchRef = useRef<HTMLInputElement>(null);
   const missionItem = (uid: string) => {
     for (const contents of missions.contents.values()) {
@@ -637,6 +639,7 @@ export const TakWorkspace = ({
 
       <div className="tak-main">
         <MapCanvas
+          cursor={cursor}
           preview={{ sketch: drawing.sketch, build: previewOf }}
           items={items.filter(
             (i) => !(ownPosition.fix && i.uid === sender.uid) && i.uid !== drawing.editing?.uid,
@@ -744,7 +747,7 @@ export const TakWorkspace = ({
           >
             <MeasurePanel
               points={measure.points}
-              cursor={measure.cursor}
+              cursor={cursor}
               onClear={measure.clear}
               onSave={() => {
                 const [from, to] = measure.points;
@@ -802,6 +805,7 @@ export const TakWorkspace = ({
       {drawing.graphic ? tacticalDialog : newItemDialog}
       {!wall && (
         <StatusBar
+          cursor={cursor}
           status={status}
           callsign={callsign}
           coordFormat={settings.coordFormat}

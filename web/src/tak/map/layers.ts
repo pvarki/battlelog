@@ -6,6 +6,7 @@ import { groupOf, isHidden } from "../overlays.ts";
 import {
   arrowhead,
   iconFor,
+  keepUsedLabels,
   type LabelStyle,
   labelImage,
   type MapImage,
@@ -389,7 +390,7 @@ export const toSources = (
   if (prune) {
     pruneTactical();
     pruneLabels(map);
-  }
+  } else keepUsedLabels();
   return {
     points: collection(points),
     shapes: collection(shapes),

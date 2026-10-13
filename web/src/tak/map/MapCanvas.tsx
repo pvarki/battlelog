@@ -17,13 +17,15 @@ import { labelOf } from "../items.ts";
 import type { MapView } from "../tools.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
-import { setCursor, useCursor } from "./cursor.ts";
+import { type Cursor, useCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
 import { toSources } from "./layers.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
 type Props = {
   items: TakItem[];
+  /** Where the pointer is on this map. */
+  cursor: Cursor;
   /** What's being drawn, in its final look, on its own layers: the pointer moving it redraws only that. */
   preview?: {
     sketch: Sketch;
@@ -277,6 +279,7 @@ const addItemLayers = (map: MapLibreMap, prefix: string) => {
 export const MapCanvas = ({
   items,
   preview,
+  cursor,
   tracks,
   hidden,
   basemap,
@@ -294,8 +297,8 @@ export const MapCanvas = ({
   const [bearing, setBearing] = useState(0);
   const itemsByUid = useRef(new Map<string, TakItem>());
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
-  const callbacks = useRef({ onPick, onReady, passive });
-  callbacks.current = { onPick, onReady, passive };
+  const callbacks = useRef({ onPick, onReady, passive, cursor });
+  callbacks.current = { onPick, onReady, passive, cursor };
   // The map is created once; pinning a new view applies on the next open.
   const startView = useRef(view);
 
@@ -340,7 +343,7 @@ export const MapCanvas = ({
       if (!callbacks.current.passive) callbacks.current.onPick(uidsAt(e), e.point);
     });
     m.on("mousemove", (e) => {
-      setCursor([e.lngLat.lng, e.lngLat.lat]);
+      callbacks.current.cursor.set([e.lngLat.lng, e.lngLat.lat]);
       const uid = callbacks.current.passive ? undefined : uidAt(e);
       const item = uid ? itemsByUid.current.get(uid) : undefined;
       m.getCanvas().style.cursor = item ? "pointer" : "";
@@ -353,7 +356,7 @@ export const MapCanvas = ({
       hover.setLngLat(e.lngLat).setDOMContent(label).addTo(m);
     });
     m.on("mouseout", () => {
-      setCursor(undefined);
+      callbacks.current.cursor.set(undefined);
       hover.remove();
     });
 
@@ -437,7 +440,7 @@ export const MapCanvas = ({
   return (
     <>
       <div ref={container} className="tak-map" aria-label="TAK map" role="application" />
-      {map && preview && <PreviewLayer map={map} bearing={bearing} {...preview} />}
+      {map && preview && <PreviewLayer map={map} bearing={bearing} cursor={cursor} {...preview} />}
     </>
   );
 };
@@ -447,11 +450,12 @@ const NO_GROUPS_HIDDEN = new Set<string>();
 const PreviewLayer = ({
   map,
   bearing,
+  cursor,
   sketch,
   build,
-}: { map: MapLibreMap; bearing: number } & NonNullable<Props["preview"]>) => {
+}: { map: MapLibreMap; bearing: number; cursor: Cursor } & NonNullable<Props["preview"]>) => {
   const shape = useSyncExternalStore(sketch.subscribe, sketch.get);
-  const items = build(shape, useCursor());
+  const items = build(shape, useCursor(cursor));
   useEffect(() => {
     const draw = () => {
       const sources = toSources(map, items, NO_GROUPS_HIDDEN, Date.now(), bearing, false);

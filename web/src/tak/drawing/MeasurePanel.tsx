@@ -1,11 +1,12 @@
 import { Button, Group, Table, Text, Tooltip } from "@mantine/core";
 import type { Position } from "../cot.ts";
+import { type Cursor, useCursor } from "../map/cursor.ts";
 import { formatDistance } from "../map/layers.ts";
 import { formatBearing, legsOf, totalDistance } from "./measure.ts";
 
 type Props = {
   points: Position[];
-  cursor: Position | undefined;
+  cursor: Cursor;
   onClear: () => void;
   /** Publishes the measurement as an ATAK range-and-bearing line; needs exactly two points. */
   onSave: () => void;
@@ -14,7 +15,14 @@ type Props = {
 };
 
 /** Each leg's distance and bearing, the total, and the leg to the cursor. */
-export const MeasurePanel = ({ points, cursor, onClear, onSave, saveDisabledReason }: Props) => {
+export const MeasurePanel = ({
+  points,
+  cursor: pointer,
+  onClear,
+  onSave,
+  saveDisabledReason,
+}: Props) => {
+  const cursor = useCursor(pointer);
   const legs = legsOf(points);
   const [next] = cursor && points.length ? legsOf([points.at(-1) as Position, cursor]) : [];
   const saveReason =

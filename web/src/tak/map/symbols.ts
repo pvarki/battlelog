@@ -31,6 +31,13 @@ const DOT_RADIUS = 7;
 const registered = new Map<string, MapImage>();
 // Measurement labels change text as their items move, so unused ones must go.
 const usedLabels = new Set<string>();
+// Labels the drawing preview shows; the picture's redraws must not prune them from under it.
+let previewLabels = new Set<string>();
+
+/** Call after drawing the preview, which doesn't prune: keeps its labels alive. */
+export const keepUsedLabels = () => {
+  previewLabels = new Set(usedLabels);
+};
 // A counter, not the map size: pruned labels must not hand their id to a new image.
 let nextId = 0;
 const MAX_LABELS = 3000;
@@ -283,7 +290,7 @@ export const pruneLabels = (map: MapLibreMap) => {
   const labels = [...registered.keys()].filter((key) => key.startsWith("label|"));
   if (labels.length > MAX_LABELS) {
     for (const key of labels) {
-      if (usedLabels.has(key)) continue;
+      if (usedLabels.has(key) || previewLabels.has(key)) continue;
       const image = registered.get(key);
       if (image && map.hasImage(image.id)) map.removeImage(image.id);
       registered.delete(key);

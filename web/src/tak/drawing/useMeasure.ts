@@ -1,6 +1,7 @@
 import type { GeoJSONSource, Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import { useEffect, useState } from "react";
 import type { Position } from "../cot.ts";
+import type { Cursor } from "../map/cursor.ts";
 
 const SOURCE = "tak-measure";
 const COLOR = "#ffcc00";
@@ -11,10 +12,9 @@ const lngLat = (e: MapMouseEvent): Position => [e.lngLat.lng, e.lngLat.lat];
  * ATAK's range-and-bearing tool, kept in this browser: each click adds a
  * point, and a rubber band follows the cursor from the last one.
  */
-export const useMeasure = (map: MapLibreMap | undefined) => {
+export const useMeasure = (map: MapLibreMap | undefined, cursor: Cursor) => {
   const [active, setActive] = useState(false);
   const [points, setPoints] = useState<Position[]>([]);
-  const [cursor, setCursor] = useState<Position>();
 
   useEffect(() => {
     if (!map || !active) return;
@@ -40,8 +40,7 @@ export const useMeasure = (map: MapLibreMap | undefined) => {
       },
     });
     const onClick = (e: MapMouseEvent) => setPoints((p) => [...p, lngLat(e)]);
-    const onMove = (e: MapMouseEvent) => {
-      setCursor(lngLat(e));
+    const onMove = () => {
       // After MapCanvas's hover handler, which resets the cursor.
       map.getCanvas().style.cursor = "crosshair";
     };
@@ -59,29 +58,37 @@ export const useMeasure = (map: MapLibreMap | undefined) => {
     };
   }, [map, active]);
 
+  // The rubber band follows the pointer outside React, so moving doesn't re-render the workspace.
   useEffect(() => {
-    const source = map?.getSource(SOURCE) as GeoJSONSource | undefined;
-    const line = cursor && points.length ? [...points, cursor] : points;
-    source?.setData({
-      type: "FeatureCollection",
-      features: [
-        { type: "Feature", geometry: { type: "LineString", coordinates: line }, properties: {} },
-        { type: "Feature", geometry: { type: "MultiPoint", coordinates: points }, properties: {} },
-      ],
-    });
-  }, [map, points, cursor]);
+    if (!active) return;
+    const draw = () => {
+      const source = map?.getSource(SOURCE) as GeoJSONSource | undefined;
+      const at = cursor.get();
+      const line = at && points.length ? [...points, at] : points;
+      source?.setData({
+        type: "FeatureCollection",
+        features: [
+          { type: "Feature", geometry: { type: "LineString", coordinates: line }, properties: {} },
+          {
+            type: "Feature",
+            geometry: { type: "MultiPoint", coordinates: points },
+            properties: {},
+          },
+        ],
+      });
+    };
+    draw();
+    return cursor.subscribe(draw);
+  }, [map, active, points, cursor]);
 
   const stop = () => {
     setActive(false);
     setPoints([]);
-    setCursor(undefined);
   };
 
   return {
     active,
     points,
-    /** Where the next point would go; undefined when the cursor is off the map. */
-    cursor,
     start: () => setActive(true),
     stop,
     clear: () => setPoints([]),
