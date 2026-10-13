@@ -1,5 +1,5 @@
 import type { Feature, Geometry, LineString, Polygon } from "geojson";
-import type { ExpressionSpecification, FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
+import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
 import type { Position, TakItem } from "../cot.ts";
 
 /**
@@ -16,7 +16,6 @@ type Shape = LineString | Polygon;
 type Properties = Record<string, unknown>;
 type RendererFeature = { geometry: Geometry; properties?: Properties };
 
-const RENDERED_AS: Record<Shape["type"], string> = { LineString: "Line", Polygon: "Area" };
 // Long side of the virtual canvas the graphic is laid out on: tick marks and
 // label spacing scale with the drawing, so it renders once rather than per zoom.
 const LAYOUT_PX = 1024;
@@ -237,6 +236,14 @@ export const pruneTactical = () => {
   drawn.clear();
 };
 
+// A burst of new drawings finishes rendering one by one; redraw once per batch.
+const NOTIFY_DELAY_MS = 250;
+let notifyTimer: ReturnType<typeof setTimeout> | undefined;
+const notify = () => {
+  notifyTimer = undefined;
+  for (const listener of listeners) listener();
+};
+
 const prepare = async (key: string, item: TakItem) => {
   pending.add(key);
   try {
@@ -250,16 +257,8 @@ const prepare = async (key: string, item: TakItem) => {
     graphics.set(key, null);
   } finally {
     pending.delete(key);
-    notifyTimer ??= setTimeout(notify, NOTIFY_DELAY_MS);
+    if (!notifyTimer) notifyTimer = setTimeout(notify, NOTIFY_DELAY_MS);
   }
-};
-
-// A burst of new drawings finishes rendering one by one; redraw once per batch.
-const NOTIFY_DELAY_MS = 250;
-let notifyTimer: ReturnType<typeof setTimeout> | undefined;
-const notify = () => {
-  notifyTimer = undefined;
-  for (const listener of listeners) listener();
 };
 
 /** Calls back whenever a graphic finished rendering, so the map can redraw. */

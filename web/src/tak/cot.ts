@@ -44,6 +44,8 @@ export type TakItem = {
   strokeStyle?: StrokeStyle;
   /** Circle or ellipse in metres and degrees; the geometry is the centre point. */
   ellipse?: { major: number; minor: number; angle: number };
+  /** ATAK's tactical overlay on a rectangle: each side drawn in its own colour (`<tog enabled="1"/>`). */
+  tacticalOverlay?: true;
   /** ATAK's per-drawing switch for name and measurement labels on lines and shapes. */
   labelsOn?: boolean;
   /** The sender asked for the marker's name not to be shown. */
@@ -233,6 +235,7 @@ export const toChange = (event: CotEvent): TakChange | null => {
       ? labelsOnEl.getAttribute("value") !== "false"
       : CIRCLE_TYPES.includes(type) || undefined,
     hideLabel: child("hideLabel") ? true : undefined,
+    tacticalOverlay: type === "u-d-r" && attr("tog", "enabled") === "1" ? true : undefined,
     waypoints: waypoints.length ? waypoints : undefined,
     footprint: new Set(footprint.map(String)).size >= 3 ? footprint : undefined,
     rangeBearing,

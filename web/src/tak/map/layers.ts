@@ -80,6 +80,30 @@ const textAngle = ([lon1, lat1]: Position, [lon2, lat2]: Position, bearing: numb
   return upright + bearing;
 };
 
+/**
+ * ATAK's tactical overlay colours for a rectangle's four sides (`ring` closed,
+ * first edge = front), worked out the way ATAK does: white front, black back,
+ * and red/green on whichever sides are left/right of the front.
+ */
+export const tacticalOverlayColors = (ring: Position[]): string[] => {
+  const mids = [0, 1, 2, 3].map((i) => midpoint(ring[i] as Position, ring[i + 1] as Position));
+  const [front, right, back, left] = mids as [Position, Position, Position, Position];
+  const heading = compassBearing(back, front);
+  const toFront = (from: Position) => (((compassBearing(from, front) - heading) % 360) + 360) % 360;
+  const leftIsLeft = toFront(left) < 180 && toFront(right) > 180;
+  return [
+    "#ffffff",
+    leftIsLeft ? "#00ff00" : "#ff0000",
+    "#000000",
+    leftIsLeft ? "#ff0000" : "#00ff00",
+  ];
+};
+
+const compassBearing = ([lon1, lat1]: Position, [lon2, lat2]: Position) => {
+  const east = (lon2 - lon1) * Math.cos(((lat1 + lat2) / 2) * RAD);
+  return (((Math.atan2(east, lat2 - lat1) / RAD) % 360) + 360) % 360;
+};
+
 const midpoint = ([lon1, lat1]: Position, [lon2, lat2]: Position): Position => [
   (lon1 + lon2) / 2,
   (lat1 + lat2) / 2,
@@ -218,6 +242,8 @@ export const toSources = (
           ? (g.coordinates[0] ?? [])
           : undefined;
     const line = g.type === "LineString" ? g.coordinates : undefined;
+    const overlay =
+      item.tacticalOverlay && ring?.length === 5 ? tacticalOverlayColors(ring) : undefined;
     shapes.push({
       type: "Feature",
       geometry: ring
@@ -227,7 +253,8 @@ export const toSources = (
         uid,
         draft,
         stroke,
-        strokeOpacity: item.stroke?.opacity ?? 1,
+        // With ATAK's tactical overlay the sides are drawn below, one colour each.
+        strokeOpacity: overlay ? 0 : (item.stroke?.opacity ?? 1),
         strokeWidth: item.strokeWidth ?? 3,
         strokeStyle: item.rangeBearing ? "outlined" : (item.strokeStyle ?? "solid"),
         // ATAK fills closed shapes only.
@@ -235,6 +262,25 @@ export const toSources = (
         fillOpacity: ring ? (item.fill?.opacity ?? 0) : 0,
       },
     });
+
+    for (const [i, color] of (overlay ?? []).entries()) {
+      shapes.push({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [ring?.[i] as Position, ring?.[i + 1] as Position],
+        },
+        properties: {
+          uid,
+          draft,
+          stroke: color,
+          strokeOpacity: 1,
+          strokeWidth: (item.strokeWidth ?? 3) + 1,
+          strokeStyle: "outlined",
+          fillOpacity: 0,
+        },
+      });
+    }
 
     if (ring) {
       const centre = g.type === "Point" ? g.coordinates : centreOf(ring);
@@ -263,7 +309,7 @@ export const toSources = (
     if (item.rangeBearing) {
       const { range, bearing: heading, northRef } = item.rangeBearing;
       const [from, to] = [line[0] as Position, line[1] as Position];
-      const arrow = bearing >= 180 ? "←" : "→";
+      const arrow = heading >= 180 ? "←" : "→";
       alongLine(
         uid,
         from,

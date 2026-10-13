@@ -2,14 +2,7 @@ import { Button, Group, Select, Stack, Textarea, TextInput } from "@mantine/core
 import { useState } from "react";
 import { editEvent, setCallsign, setRemarks, setSymbol } from "../commands.ts";
 import type { CotEvent, TakItem } from "../cot.ts";
-import {
-  labelOf,
-  sidcOf,
-  UNIT_STATUSES,
-  type UnitStatus,
-  unitStatusOf,
-  withUnitStatus,
-} from "../items.ts";
+import { sidcOf, UNIT_STATUSES, type UnitStatus, unitStatusOf, withUnitStatus } from "../items.ts";
 
 type Props = {
   item: TakItem;
