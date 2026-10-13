@@ -48,6 +48,8 @@ type Props = {
   contacts: string[];
   onSubmit: (event: CotEvent) => void;
   submitLabel: string;
+  /** Photos go straight to TAK, so they can't be staged in a plan. */
+  livePhotos: boolean;
   /** Names of the missions (Data Sync) that hold this item. */
   missions: string[];
   onCenter: () => void;
@@ -83,6 +85,7 @@ export const ItemDetails = ({
   contacts,
   onSubmit,
   submitLabel,
+  livePhotos,
   missions,
   onCenter,
   onClose,
@@ -253,7 +256,7 @@ export const ItemDetails = ({
               Mark destroyed
             </Button>
           )}
-          {callsign && !readOnlyReason && (
+          {callsign && !readOnlyReason && livePhotos && !item.draft && (
             <AttachPhoto
               item={item}
               callsign={callsign}

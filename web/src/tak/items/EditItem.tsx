@@ -20,17 +20,23 @@ type Props = {
  */
 export const EditItem = ({ item, status: preset, onSubmit, submitLabel, onDone }: Props) => {
   const sidc = item.type.startsWith("a-") ? sidcOf(item) : undefined;
-  const original = item.callsign ?? item.uid;
-  const [name, setName] = useState(original);
-  const [remarks, setRemarksText] = useState(item.remarks ?? "");
-  const current = sidc ? unitStatusOf(sidc) : undefined;
-  const [status, setStatus] = useState<UnitStatus | undefined>(preset ?? current);
+  // What the form opened with: only fields the user changed are written, so
+  // an update arriving meanwhile isn't overwritten by untouched fields.
+  const [initial] = useState(() => ({
+    name: item.callsign ?? item.uid,
+    remarks: item.remarks ?? "",
+    status: sidc ? unitStatusOf(sidc) : undefined,
+  }));
+  const [name, setName] = useState(initial.name);
+  const [remarks, setRemarksText] = useState(initial.remarks);
+  const [status, setStatus] = useState<UnitStatus | undefined>(preset ?? initial.status);
   const save = () => {
     onSubmit(
       editEvent(item, (detail) => {
-        if (name.trim() && name !== original) setCallsign(detail, name.trim());
-        if (remarks !== (item.remarks ?? "")) setRemarks(detail, remarks);
-        if (sidc && status && status !== current) setSymbol(detail, withUnitStatus(sidc, status));
+        if (name.trim() && name !== initial.name) setCallsign(detail, name.trim());
+        if (remarks !== initial.remarks) setRemarks(detail, remarks);
+        if (sidc && status && status !== initial.status)
+          setSymbol(detail, withUnitStatus(sidc, status));
       }),
     );
     onDone();

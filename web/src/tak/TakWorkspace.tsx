@@ -330,6 +330,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
       contacts={contacts}
       onSubmit={submit}
       submitLabel={submitLabel}
+      livePhotos={!activePlan}
       onCenter={() => flyTo(anchorOf(selected))}
       onClose={() => setSelectedUid(undefined)}
     />

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { unzipSync } from "fflate";
+import { unzipSync, zipSync } from "fflate";
 import { expect, test } from "vitest";
 import type { CotEvent } from "../cot.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
@@ -62,4 +62,10 @@ test("importing keeps map items and drops deletes and other control messages", a
   const blob = exportPlan({ ...plan, entries: [{ event }, { event: del }] });
   const imported = await importPlan(new File([await blob.arrayBuffer()], "mixed.zip"));
   expect(imported.entries.map((e) => e.event.uid)).toEqual(["draft-1"]);
+});
+
+test("a package whose CoT expands past the limit is refused", async () => {
+  const big = new Uint8Array(2 * 1_048_576);
+  const zip = zipSync({ "a/a.cot": big, "notes.txt": big });
+  await expect(importPlan(new File([zip.slice()], "big.zip"))).rejects.toThrow(/too large/);
 });

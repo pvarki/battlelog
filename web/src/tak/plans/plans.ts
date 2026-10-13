@@ -1,3 +1,4 @@
+import { notifications } from "@mantine/notifications";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { useSyncExternalStore } from "react";
 import { publish } from "../commands.ts";
@@ -63,21 +64,45 @@ const openDb = (): Promise<IDBDatabase | undefined> => {
   return dbPromise;
 };
 
-const persist = async (plan: Plan | { id: string; deleted: true }) => {
+const write = async (plan: Plan | { id: string; deleted: true }) => {
   const db = await openDb();
   if (!db) return;
-  const store = db.transaction(STORE, "readwrite").objectStore(STORE);
-  if ("deleted" in plan) await request(store.delete(plan.id));
-  else await request(store.put(plan));
+  const tx = db.transaction(STORE, "readwrite");
+  const store = tx.objectStore(STORE);
+  if ("deleted" in plan) store.delete(plan.id);
+  else store.put(plan);
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = tx.onabort = () => reject(tx.error);
+  });
 };
 
-const load = async () => {
-  if (state.loaded) return;
-  const db = await openDb();
-  const plans = db
-    ? await request(db.transaction(STORE).objectStore(STORE).getAll() as IDBRequest<Plan[]>)
-    : [];
-  set({ plans: plans.sort((a, b) => b.updated - a.updated), loaded: true });
+const persist = (plan: Plan | { id: string; deleted: true }) =>
+  write(plan).catch((err: unknown) =>
+    notifications.show({
+      color: "red",
+      title: "Plan not saved in this browser",
+      message: `It will be lost on reload; export it to keep it. (${String(err)})`,
+    }),
+  );
+
+let loading: Promise<void> | undefined;
+
+const load = () => {
+  loading ??= (async () => {
+    const db = await openDb();
+    const stored = db
+      ? await request(db.transaction(STORE).objectStore(STORE).getAll() as IDBRequest<Plan[]>)
+      : [];
+    // Plans made before the read finished are newer than anything stored.
+    const made = new Set(state.plans.map((p) => p.id));
+    const plans = [...state.plans, ...stored.filter((p) => !made.has(p.id))];
+    set({ plans: plans.sort((a, b) => b.updated - a.updated), loaded: true });
+  })().catch((err: unknown) => {
+    console.warn("TAK plans could not be read", err);
+    set({ loaded: true });
+  });
+  return loading;
 };
 
 const save = (plan: Plan) => {
@@ -151,11 +176,11 @@ export const publishPlan = async (plan: Plan): Promise<{ sent: number; kept: num
       }),
     ),
   );
-  const kept = plan.entries.filter((_, i) => !results[i]);
-  const sent = plan.entries.length - kept.length;
+  const published = new Set(plan.entries.filter((_, i) => results[i]));
+  // Drafts added or changed while publishing aren't the ones TAK confirmed: keep them.
   const current = state.plans.find((p) => p.id === plan.id);
-  if (current) save({ ...current, entries: kept });
-  return { sent, kept: kept.length };
+  if (current) save({ ...current, entries: current.entries.filter((e) => !published.has(e)) });
+  return { sent: published.size, kept: plan.entries.length - published.size };
 };
 
 const escapeXml = (s: string) =>
@@ -194,8 +219,22 @@ export const exportPlan = (plan: Plan): Blob => {
  * a package from elsewhere must not be able to make the user publish deletes
  * or other control messages under their own name.
  */
+const MAX_PACKAGE_BYTES = 50 * 1_048_576;
+const MAX_COT_BYTES = 1_048_576;
+
 export const importPlan = async (file: File): Promise<Plan> => {
-  const files = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  if (file.size > MAX_PACKAGE_BYTES) throw new Error("Package is too large to import");
+  let total = 0;
+  const files = unzipSync(new Uint8Array(await file.arrayBuffer()), {
+    // Only CoT files are read; anything else is never decompressed.
+    filter: (entry) => {
+      if (!entry.name.toLowerCase().endsWith(".cot")) return false;
+      total += entry.originalSize;
+      if (entry.originalSize > MAX_COT_BYTES || total > MAX_PACKAGE_BYTES)
+        throw new Error("Package expands too large to import");
+      return true;
+    },
+  });
   const events = Object.entries(files)
     .filter(([path]) => path.toLowerCase().endsWith(".cot"))
     .flatMap(([, bytes]) => parseCotXml(strFromU8(bytes)))

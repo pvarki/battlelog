@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { CotEvent, TakItem } from "./cot.ts";
+import { type CotEvent, type TakItem, toChange } from "./cot.ts";
 import { childNamed } from "./protocol/cot-event.ts";
 import { fetchLatestCot, publicContentUrl, uploadFile } from "./rest.ts";
 import { sendCot } from "./session.ts";
@@ -125,10 +125,14 @@ export const attachPhotoLink = async (item: TakItem, photo: File, callsign: stri
     setWrite(item.uid, "failed");
     throw err;
   }
+  // The upload can take a while; changes made meanwhile must survive the link.
+  const latest = await fetchLatestCot(item.uid).catch(() => undefined);
+  const change = latest && toChange(latest);
+  const current = change?.kind === "upsert" && change.item.time > item.time ? change.item : item;
   const line = `Photo: ${publicContentUrl(hash)}`;
   await publish(
-    editEvent(item, (detail) =>
-      setRemarks(detail, item.remarks ? `${item.remarks}\n${line}` : line),
+    editEvent(current, (detail) =>
+      setRemarks(detail, current.remarks ? `${current.remarks}\n${line}` : line),
     ),
   );
 };
