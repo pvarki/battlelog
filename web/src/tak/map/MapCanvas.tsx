@@ -24,7 +24,8 @@ type Props = {
   /** Night use: the bright MML maps glare next to a dark UI. */
   dim: boolean;
   selectedUid: string | undefined;
-  onSelect: (uid: string | undefined) => void;
+  /** Every item under a click, topmost first, and where on the map it was. */
+  onPick: (uids: string[], at: { x: number; y: number }) => void;
   onCursor: (position: Position | undefined) => void;
   onReady: (map: MapLibreMap | undefined) => void;
 };
@@ -33,6 +34,7 @@ const VIEW_KEY = "battlelog.tak.view";
 const FINLAND = { center: [25.5, 64] as [number, number], zoom: 4.5, bearing: 0 };
 // Fading depends on the clock as well as on data: re-evaluate even when nothing arrives.
 const FADE_CHECK_MS = 30_000;
+const CLICK_SLACK_PX = 4;
 const INTERACTIVE_LAYERS = [
   "tak-points",
   "tak-shape-lines",
@@ -231,7 +233,7 @@ export const MapCanvas = ({
   basemap,
   dim,
   selectedUid,
-  onSelect,
+  onPick,
   onCursor,
   onReady,
 }: Props) => {
@@ -241,8 +243,8 @@ export const MapCanvas = ({
   const [bearing, setBearing] = useState(0);
   const itemsByUid = useRef(new Map<string, TakItem>());
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
-  const callbacks = useRef({ onSelect, onCursor, onReady });
-  callbacks.current = { onSelect, onCursor, onReady };
+  const callbacks = useRef({ onPick, onCursor, onReady });
+  callbacks.current = { onPick, onCursor, onReady };
 
   useEffect(() => {
     const m = new MapLibreMap({
@@ -256,10 +258,21 @@ export const MapCanvas = ({
     m.keyboard.enable();
 
     const hover = new Popup({ closeButton: false, closeOnClick: false, offset: 14 });
-    const uidAt = (e: MapMouseEvent) =>
-      m.queryRenderedFeatures(e.point, { layers: INTERACTIVE_LAYERS })[0]?.properties?.uid as
-        | string
-        | undefined;
+    // A few pixels of slack: thin lines are otherwise nearly impossible to hit.
+    const uidsAt = (e: MapMouseEvent) => {
+      const { x, y } = e.point;
+      const hits = m.queryRenderedFeatures(
+        [
+          [x - CLICK_SLACK_PX, y - CLICK_SLACK_PX],
+          [x + CLICK_SLACK_PX, y + CLICK_SLACK_PX],
+        ],
+        { layers: INTERACTIVE_LAYERS },
+      );
+      return [
+        ...new Set(hits.flatMap((f) => (f.properties?.uid ? [f.properties.uid as string] : []))),
+      ];
+    };
+    const uidAt = (e: MapMouseEvent) => uidsAt(e)[0];
 
     m.on("load", () => {
       addItemLayers(m);
@@ -269,7 +282,7 @@ export const MapCanvas = ({
     });
     m.on("moveend", () => saveView(m));
     m.on("rotateend", () => setBearing(m.getBearing()));
-    m.on("click", (e) => callbacks.current.onSelect(uidAt(e)));
+    m.on("click", (e) => callbacks.current.onPick(uidsAt(e), e.point));
     m.on("mousemove", (e) => {
       callbacks.current.onCursor([e.lngLat.lng, e.lngLat.lat]);
       const uid = uidAt(e);

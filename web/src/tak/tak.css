@@ -224,3 +224,13 @@
   z-index: 2;
   max-width: calc(100% - 20px);
 }
+
+.tak-chooser {
+  position: absolute;
+  z-index: 3;
+  width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-bottom: 4px;
+  transform: translate(8px, 8px);
+}

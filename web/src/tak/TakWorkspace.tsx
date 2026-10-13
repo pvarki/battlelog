@@ -32,6 +32,7 @@ import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { anchorOf, hasPosition } from "./items.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
+import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
@@ -142,6 +143,7 @@ export const TakWorkspace = () => {
   const isMobile = useIsMobile();
   const [drawer, setDrawer] = useState<DrawerId | null>(isMobile ? null : "items");
   const [selectedUid, setSelectedUid] = useState<string>();
+  const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [cursor, setCursor] = useState<Position>();
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
@@ -239,7 +241,8 @@ export const TakWorkspace = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (drawing.tool && !drawing.drawn) drawing.clear();
+        if (chooser) setChooser(undefined);
+        else if (drawing.tool && !drawing.drawn) drawing.clear();
         else if (selectedUid) setSelectedUid(undefined);
         else setDrawer(null);
         return;
@@ -353,8 +356,10 @@ export const TakWorkspace = () => {
           basemap={settings.basemap}
           dim={settings.dim}
           selectedUid={selectedUid}
-          onSelect={(uid) => {
-            if (!drawing.tool) setSelectedUid(uid);
+          onPick={(uids, at) => {
+            if (drawing.tool) return;
+            setChooser(uids.length > 1 ? { uids, at } : undefined);
+            setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
           }}
           onCursor={setCursor}
           onReady={(ready) => {
@@ -371,6 +376,17 @@ export const TakWorkspace = () => {
             onGoTo={flyTo}
           />
         </div>
+        {chooser && (
+          <PickChooser
+            items={chooser.uids.flatMap((uid) => items.find((i) => i.uid === uid) ?? [])}
+            at={chooser.at}
+            onPick={(item) => {
+              setChooser(undefined);
+              setSelectedUid(item.uid);
+            }}
+            onClose={() => setChooser(undefined)}
+          />
+        )}
         <DrawToolbar
           tool={drawing.tool}
           onChoose={drawing.choose}
