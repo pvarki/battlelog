@@ -73,15 +73,25 @@ const refreshWanted = () => {
   }
 };
 
+const applyList = (missions: Mission[]) => {
+  // A deleted or renamed mission takes its items off the map with it.
+  const names = new Set(missions.map((m) => m.name));
+  const contents = new Map([...state.contents].filter(([name]) => names.has(name)));
+  set({ missions, listFailed: false, contents });
+  refreshWanted();
+};
+
+/** Refetches the list now, e.g. to read back a write, and returns it. */
+export const refreshMissions = async (): Promise<Mission[]> => {
+  const missions = await fetchMissions();
+  applyList(missions);
+  return missions;
+};
+
 const poll = async () => {
   timer = undefined;
   try {
-    const missions = await fetchMissions();
-    // A deleted or renamed mission takes its items off the map with it.
-    const names = new Set(missions.map((m) => m.name));
-    const contents = new Map([...state.contents].filter(([name]) => names.has(name)));
-    set({ missions, listFailed: false, contents });
-    refreshWanted();
+    applyList(await fetchMissions());
   } catch (err) {
     console.warn("TAK mission list failed", err);
     set({ listFailed: true });

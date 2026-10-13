@@ -33,6 +33,8 @@ import {
   type UnitStatus,
   unitStatusOf,
 } from "../items.ts";
+import { AddToMission } from "../missions/AddToMission.tsx";
+import type { Mission } from "../missions/missions.ts";
 import { contentLinks } from "../rest.ts";
 import { useNow } from "../use-now.ts";
 import { AttachPhoto } from "./AttachPhoto.tsx";
@@ -57,6 +59,10 @@ type Props = {
   onToggleTrack: (() => void) | undefined;
   /** Names of the missions (Data Sync) that hold this item. */
   missions: string[];
+  /** Every mission the item could be added to. */
+  allMissions: Mission[];
+  /** Who this browser writes to TAK as; undefined without a callsign. */
+  clientUid: string | undefined;
   onCenter: () => void;
   onClose: () => void;
 };
@@ -94,6 +100,8 @@ export const ItemDetails = ({
   tracking,
   onToggleTrack,
   missions,
+  allMissions,
+  clientUid,
   onCenter,
   onClose,
 }: Props) => {
@@ -281,6 +289,9 @@ export const ItemDetails = ({
               contacts={contacts}
               disabled={write === "sending"}
             />
+          )}
+          {clientUid && !item.draft && allMissions.length > 0 && (
+            <AddToMission item={item} missions={allMissions} clientUid={clientUid} />
           )}
           <Group gap="xs" grow>
             <Tooltip label={readOnlyReason} disabled={!readOnlyReason} withArrow>
