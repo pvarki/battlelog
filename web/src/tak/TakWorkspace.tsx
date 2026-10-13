@@ -41,6 +41,7 @@ import { SearchBox } from "./SearchBox.tsx";
 import { StatusBar } from "./StatusBar.tsx";
 import { type TakStatus, useTakItems, useTakSession, useTakStatus } from "./session.ts";
 import { useMapSettings } from "./settings.ts";
+import type { MapView, TakTool } from "./tools.ts";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
@@ -129,19 +130,30 @@ const Panel = ({
   </Stack>
 );
 
+type Props = {
+  /** What's switched on; all of it when absent (the Map page). */
+  tools?: ReadonlySet<TakTool>;
+  view?: MapView;
+  /** Inside a dashboard widget: fills its box and leaves the page's keys alone. */
+  embedded?: boolean;
+  onMap?: (map: MapLibreMap | undefined) => void;
+};
+
 /**
  * The TAK client: map, item list, layers and item details around one shared
- * TAK session. The Map page shows all of it; a dashboard widget will reuse it
- * with fewer features switched on.
+ * TAK session. The Map page shows all of it; a dashboard widget shows the
+ * tools it was configured with.
  */
-export const TakWorkspace = () => {
+export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
+  const has = (tool: TakTool) => !tools || tools.has(tool);
+  const drawers = (Object.keys(DRAWERS) as DrawerId[]).filter(has);
   useTakSession();
   const liveItems = useTakItems();
   const status = useTakStatus();
   const callsign = useCallsign();
   const settings = useMapSettings();
   const isMobile = useIsMobile();
-  const [drawer, setDrawer] = useState<DrawerId | null>(isMobile ? null : "items");
+  const [drawer, setDrawer] = useState<DrawerId | null>(isMobile || !has("items") ? null : "items");
   const [selectedUid, setSelectedUid] = useState<string>();
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [cursor, setCursor] = useState<Position>();
@@ -150,7 +162,8 @@ export const TakWorkspace = () => {
   useMissionsSync([...settings.shownMissions, ...(browsedMission ? [browsedMission] : [])]);
   const missions = useMissions();
   const plans = usePlans();
-  const activePlan = plans.plans.find((p) => p.id === plans.activeId);
+  // Without the plans tool there's no sign of a plan, so nothing may quietly go into one.
+  const activePlan = has("plans") ? plans.plans.find((p) => p.id === plans.activeId) : undefined;
   const items = withDrafts(
     withMissionItems(liveItems, missions, settings.shownMissions),
     activePlan ? draftItems(activePlan, liveItems).map((d) => d.item) : [],
@@ -239,6 +252,7 @@ export const TakWorkspace = () => {
   const toggleDrawer = (id: DrawerId) => setDrawer((open) => (open === id ? null : id));
 
   useEffect(() => {
+    if (embedded) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (chooser) setChooser(undefined);
@@ -252,8 +266,8 @@ export const TakWorkspace = () => {
         e.preventDefault();
         searchRef.current?.focus();
       }
-      for (const [id, { key }] of Object.entries(DRAWERS)) {
-        if (e.key === key) toggleDrawer(id as DrawerId);
+      for (const id of drawers) {
+        if (e.key === DRAWERS[id].key) toggleDrawer(id);
       }
     };
     document.addEventListener("keydown", onKey);
@@ -322,9 +336,14 @@ export const TakWorkspace = () => {
   );
 
   return (
-    <div className="tak-workspace" data-mobile={isMobile || undefined}>
-      <nav className="tak-rail" aria-label="Map tools">
-        {(Object.keys(DRAWERS) as DrawerId[]).map((id) => {
+    <div
+      className="tak-workspace"
+      data-mobile={isMobile || undefined}
+      data-embedded={embedded || undefined}
+      data-no-rail={drawers.length === 0 || undefined}
+    >
+      <nav className="tak-rail" aria-label="Map tools" hidden={drawers.length === 0}>
+        {drawers.map((id) => {
           const { label, Icon, key } = DRAWERS[id];
           return (
             <UnstyledButton
@@ -332,7 +351,7 @@ export const TakWorkspace = () => {
               className="tak-rail-button"
               aria-pressed={drawer === id}
               onClick={() => toggleDrawer(id)}
-              title={`${label} (${key})`}
+              title={embedded ? label : `${label} (${key})`}
             >
               <Icon size={20} stroke={1.5} />
               <span>{label}</span>
@@ -365,17 +384,21 @@ export const TakWorkspace = () => {
           onReady={(ready) => {
             mapRef.current = ready;
             setMap(ready);
+            onMap?.(ready);
           }}
+          view={view}
         />
-        <div className="tak-search-slot">
-          <SearchBox
-            ref={searchRef}
-            items={items}
-            coordFormat={settings.coordFormat}
-            onPickItem={pick}
-            onGoTo={flyTo}
-          />
-        </div>
+        {has("search") && (
+          <div className="tak-search-slot">
+            <SearchBox
+              ref={searchRef}
+              items={items}
+              coordFormat={settings.coordFormat}
+              onPickItem={pick}
+              onGoTo={flyTo}
+            />
+          </div>
+        )}
         {chooser && (
           <PickChooser
             items={chooser.uids.flatMap((uid) => items.find((i) => i.uid === uid) ?? [])}
@@ -387,12 +410,14 @@ export const TakWorkspace = () => {
             onClose={() => setChooser(undefined)}
           />
         )}
-        <DrawToolbar
-          tool={drawing.tool}
-          onChoose={drawing.choose}
-          disabledReason={activePlan ? undefined : drawReason}
-          planName={activePlan?.name}
-        />
+        {has("draw") && (
+          <DrawToolbar
+            tool={drawing.tool}
+            onChoose={drawing.choose}
+            disabledReason={activePlan ? undefined : drawReason}
+            planName={activePlan?.name}
+          />
+        )}
         <ConnectionBanner status={status} />
       </div>
 

@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { Position, TakItem } from "../cot.ts";
 import { labelOf } from "../items.ts";
+import type { MapView } from "../tools.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
 import { toSources } from "./layers.ts";
@@ -28,6 +29,8 @@ type Props = {
   onPick: (uids: string[], at: { x: number; y: number }) => void;
   onCursor: (position: Position | undefined) => void;
   onReady: (map: MapLibreMap | undefined) => void;
+  /** A fixed starting view; the map then doesn't remember where the viewer left it. */
+  view?: MapView;
 };
 
 const VIEW_KEY = "battlelog.tak.view";
@@ -55,13 +58,14 @@ const savedView = () => {
   }
 };
 
+export const viewOf = (map: MapLibreMap): MapView => {
+  const { lng, lat } = map.getCenter();
+  return { center: [lng, lat], zoom: map.getZoom(), bearing: map.getBearing() };
+};
+
 const saveView = (map: MapLibreMap) => {
   try {
-    const { lng, lat } = map.getCenter();
-    localStorage.setItem(
-      VIEW_KEY,
-      JSON.stringify({ center: [lng, lat], zoom: map.getZoom(), bearing: map.getBearing() }),
-    );
+    localStorage.setItem(VIEW_KEY, JSON.stringify(viewOf(map)));
   } catch {
     // storage denied: the next visit starts from the default view
   }
@@ -236,6 +240,7 @@ export const MapCanvas = ({
   onPick,
   onCursor,
   onReady,
+  view,
 }: Props) => {
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap>();
@@ -245,12 +250,14 @@ export const MapCanvas = ({
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
   const callbacks = useRef({ onPick, onCursor, onReady });
   callbacks.current = { onPick, onCursor, onReady };
+  // The map is created once; pinning a new view applies on the next open.
+  const startView = useRef(view);
 
   useEffect(() => {
     const m = new MapLibreMap({
       container: container.current as HTMLDivElement,
       style: { version: 8, sources: {}, layers: [] },
-      ...savedView(),
+      ...(startView.current ?? savedView()),
       attributionControl: { compact: true },
     });
     m.addControl(new NavigationControl({ visualizePitch: false }), "top-right");
@@ -280,7 +287,7 @@ export const MapCanvas = ({
       setBearing(m.getBearing());
       callbacks.current.onReady(m);
     });
-    m.on("moveend", () => saveView(m));
+    if (!startView.current) m.on("moveend", () => saveView(m));
     m.on("rotateend", () => setBearing(m.getBearing()));
     m.on("click", (e) => callbacks.current.onPick(uidsAt(e), e.point));
     m.on("mousemove", (e) => {
