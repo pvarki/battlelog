@@ -1,0 +1,49 @@
+// @vitest-environment happy-dom
+import { expect, test } from "vitest";
+import { editEvent, setCallsign, setRemarks } from "./commands.ts";
+import { type CotEvent, toChange } from "./cot.ts";
+
+const event: CotEvent = {
+  uid: "hostile-1",
+  type: "a-h-G",
+  how: "h-g-i-g-o",
+  time: 1_000,
+  start: 1_000,
+  stale: 1_000 + 86_400_000,
+  lat: 60.4,
+  lon: 22.2,
+  hae: 9999999,
+  ce: 9999999,
+  le: 9999999,
+  detail:
+    '<contact callsign="Vihollinen 1"/><__milsym id="10061000001211000000"/><link uid="ANDROID-1" relation="p-p" type="a-f-G-U-C" parent_callsign="SUSI11"/><plugin_extension x="1"><nested a="b"/></plugin_extension>',
+};
+
+const item = () => {
+  const change = toChange(event);
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  return change.item;
+};
+
+test("an edit changes only what it is about and keeps other clients' extensions", () => {
+  const edited = editEvent(
+    item(),
+    (detail) => {
+      setCallsign(detail, "Vihollinen 1 (tuhottu)");
+      setRemarks(detail, "Tuhottu 13.10. & kuvattu");
+    },
+    5_000,
+  );
+  expect(edited.uid).toBe("hostile-1");
+  expect(edited.type).toBe("a-h-G");
+  expect(edited.detail).toContain('<contact callsign="Vihollinen 1 (tuhottu)"/>');
+  expect(edited.detail).toContain("<remarks>Tuhottu 13.10. &amp; kuvattu</remarks>");
+  expect(edited.detail).toContain('<__milsym id="10061000001211000000"/>');
+  expect(edited.detail).toContain('parent_callsign="SUSI11"');
+  expect(edited.detail).toContain('<plugin_extension x="1"><nested a="b"/></plugin_extension>');
+});
+
+test("an edit is re-issued now and keeps the item's lifetime", () => {
+  const edited = editEvent(item(), () => {}, 5_000);
+  expect(edited).toMatchObject({ time: 5_000, start: 5_000, stale: 5_000 + 86_400_000 });
+});

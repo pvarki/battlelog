@@ -10,8 +10,9 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconCurrentLocation, IconX } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { IconCheck, IconCopy, IconCurrentLocation, IconPencil, IconX } from "@tabler/icons-react";
+import { type ReactNode, useState } from "react";
+import { useWrites, type WriteState } from "../commands.ts";
 import { type CoordFormat, formatCoord } from "../coords.ts";
 import type { TakItem } from "../cot.ts";
 import {
@@ -26,10 +27,13 @@ import {
   teamColor,
 } from "../items.ts";
 import { useNow } from "../use-now.ts";
+import { EditItem } from "./EditItem.tsx";
 
 type Props = {
   item: TakItem;
   coordFormat: CoordFormat;
+  /** Why the item can't be changed from here, or undefined when it can. */
+  readOnlyReason: string | undefined;
   /** Names of the missions (Data Sync) that hold this item. */
   missions: string[];
   onCenter: () => void;
@@ -50,8 +54,24 @@ const Field = ({ label, children }: { label: string; children: ReactNode }) => (
 const absoluteTime = (ms: number) => new Date(ms).toLocaleString("fi-FI");
 
 /** Everything known about the selected item. Editing actions arrive with the editing slice. */
-export const ItemDetails = ({ item, coordFormat, missions, onCenter, onClose }: Props) => {
+const WRITE_BADGE: Record<WriteState, { label: string; color: string }> = {
+  sending: { label: "Sending…", color: "gray" },
+  confirmed: { label: "Saved to TAK", color: "success" },
+  unconfirmed: { label: "Not confirmed by TAK", color: "warning" },
+  failed: { label: "Not sent: no TAK connection", color: "danger" },
+};
+
+export const ItemDetails = ({
+  item,
+  coordFormat,
+  readOnlyReason,
+  missions,
+  onCenter,
+  onClose,
+}: Props) => {
   const now = useNow(10_000);
+  const [editing, setEditing] = useState(false);
+  const write = useWrites().get(item.uid);
   const status = statusOf(item, now);
   const position = anchorOf(item);
   const coordinate = formatCoord(position, coordFormat);
@@ -93,6 +113,12 @@ export const ItemDetails = ({ item, coordFormat, missions, onCenter, onClose }: 
           </Badge>
         )}
       </Group>
+
+      {write && (
+        <Badge variant="light" color={WRITE_BADGE[write].color} role="status">
+          {WRITE_BADGE[write].label}
+        </Badge>
+      )}
 
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         <Stack gap="sm">
@@ -162,15 +188,32 @@ export const ItemDetails = ({ item, coordFormat, missions, onCenter, onClose }: 
         </Stack>
       </ScrollArea>
 
-      <Button
-        variant="default"
-        size="xs"
-        leftSection={<IconCurrentLocation size={14} />}
-        onClick={onCenter}
-        disabled={!hasPosition(item)}
-      >
-        Center on map
-      </Button>
+      {editing ? (
+        <EditItem item={item} onDone={() => setEditing(false)} />
+      ) : (
+        <Group gap="xs" grow>
+          <Tooltip label={readOnlyReason} disabled={!readOnlyReason} withArrow>
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconPencil size={14} />}
+              onClick={() => setEditing(true)}
+              disabled={!!readOnlyReason}
+            >
+              Edit
+            </Button>
+          </Tooltip>
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconCurrentLocation size={14} />}
+            onClick={onCenter}
+            disabled={!hasPosition(item)}
+          >
+            Center on map
+          </Button>
+        </Group>
+      )}
     </Stack>
   );
 };
