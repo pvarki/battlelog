@@ -24,6 +24,8 @@ import {
   type NewRoute,
   type ShapeStyle,
 } from "./new-items.ts";
+import { DEFAULT_SYMBOL, SymbolPicker } from "./SymbolPicker.tsx";
+import { cotTypeOf, type SymbolChoice, sidcOf } from "./symbol-catalogue.ts";
 import type { Drawn } from "./useDrawing.ts";
 
 /** ATAK's drawing palette. */
@@ -45,6 +47,7 @@ const MARKER_KINDS: { value: NewMarker["kind"]; label: string }[] = [
   { value: "f", label: "Friendly" },
   { value: "n", label: "Neutral" },
   { value: "u", label: "Unknown" },
+  { value: "symbol", label: "Symbol" },
 ];
 const ICON_KIND = { value: "icon" as const, label: "Icon" };
 
@@ -87,6 +90,8 @@ type Props = {
   saveLabel: string;
   /** Hears the shape's style as it is chosen, so the map can show the result before saving. */
   onStyle?: (style: ShapeStyle) => void;
+  /** A symbol chosen before the marker was placed. */
+  initialSymbol?: SymbolChoice;
 };
 
 /** Name and style for what was just drawn, then it goes to TAK. */
@@ -99,6 +104,7 @@ export const NewItemDialog = ({
   onSaveRoute,
   saveLabel,
   onStyle,
+  initialSymbol,
 }: Props) => {
   const [name, setName] = useState(defaultName);
   const [remarks, setRemarks] = useState("");
@@ -108,7 +114,10 @@ export const NewItemDialog = ({
   const [fillOpacity, setFillOpacity] = useState(0.25);
   const [labelsOn, setLabelsOn] = useState(drawn.kind === "circle");
   const [sidc, setSidc] = useState("");
-  const [markerKind, setMarkerKind] = useState<NewMarker["kind"]>("spot");
+  const [markerKind, setMarkerKind] = useState<NewMarker["kind"]>(
+    initialSymbol ? "symbol" : "spot",
+  );
+  const [symbol, setSymbol] = useState(initialSymbol ?? DEFAULT_SYMBOL);
   const [icon, setIcon] = useState<NewMarker["icon"]>();
   const hasIconsets = useIconsets().sets.length > 0;
   const [waypointNames, setWaypointNames] = useState(
@@ -135,13 +144,28 @@ export const NewItemDialog = ({
   }, [onStyle, name, color, strokeWeight, strokeStyle, fillOpacity, labelsOn, sidc]);
 
   const save = () => {
-    if (isMarker) onSaveMarker({ name: name.trim(), remarks, kind: markerKind, color, icon });
+    if (isMarker)
+      onSaveMarker({
+        name: name.trim(),
+        remarks,
+        kind: markerKind,
+        color,
+        icon,
+        symbol:
+          markerKind === "symbol" ? { sidc: sidcOf(symbol), type: cotTypeOf(symbol) } : undefined,
+      });
     else if (isRoute) onSaveRoute({ name: name.trim(), remarks, color, waypointNames });
     else onSaveShape(shapeStyle());
   };
 
   return (
-    <Modal opened onClose={onCancel} title={`New ${KIND_LABEL[drawn.kind].toLowerCase()}`} centered>
+    <Modal
+      opened
+      onClose={onCancel}
+      title={`New ${KIND_LABEL[drawn.kind].toLowerCase()}`}
+      size={isMarker && markerKind === "symbol" ? "lg" : "md"}
+      centered
+    >
       <Stack
         gap="sm"
         component="form"
@@ -169,6 +193,9 @@ export const NewItemDialog = ({
             value={markerKind}
             onChange={(v) => setMarkerKind(v as NewMarker["kind"])}
           />
+        )}
+        {isMarker && markerKind === "symbol" && (
+          <SymbolPicker value={symbol} onChange={setSymbol} name={name.trim()} />
         )}
         {isMarker && markerKind === "icon" && (
           <IconsetPicker value={icon?.path} onChange={setIcon} />

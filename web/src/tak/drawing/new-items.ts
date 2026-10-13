@@ -33,12 +33,17 @@ export type NewMarker = {
   position: Position;
   name: string;
   remarks: string;
-  /** "spot" is ATAK's coloured dot, "icon" an icon-set icon; the rest are 2525 units by affiliation. */
-  kind: "spot" | "icon" | "f" | "h" | "n" | "u";
+  /**
+   * "spot" is ATAK's coloured dot, "icon" an icon-set icon, "symbol" a chosen
+   * 2525 symbol; the rest are plain 2525 units by affiliation.
+   */
+  kind: "spot" | "icon" | "symbol" | "f" | "h" | "n" | "u";
   /** Spot marker colour, #rrggbb. */
   color: string;
   /** For "icon": the ATAK icon-set path and the CoT type the set gives it. */
   icon?: { path: string; type?: string };
+  /** For "symbol": the 2525D code and the CoT type ATAK derives from it. */
+  symbol?: { sidc: string; type: string };
 };
 
 const DAY_MS = 86_400_000;
@@ -133,16 +138,24 @@ export const newMarkerEvent = (
   now = Date.now(),
   uid: string = crypto.randomUUID(),
 ): CotEvent => {
-  const { kind, icon } = marker;
+  const { kind, icon, symbol } = marker;
   // ATAK's icon palette places white-tinted icons as unknown ground unless the set names a type.
   const type =
-    kind === "spot" ? "b-m-p-s-m" : kind === "icon" ? (icon?.type ?? "a-u-G") : `a-${kind}-G`;
+    kind === "spot"
+      ? "b-m-p-s-m"
+      : kind === "icon"
+        ? (icon?.type ?? "a-u-G")
+        : kind === "symbol"
+          ? (symbol?.type ?? "a-u-G")
+          : `a-${kind}-G`;
   const look =
     kind === "spot"
       ? `<color argb="${toArgb(marker.color)}"/><usericon iconsetpath="COT_MAPPING_SPOTMAP/b-m-p-s-m/${toArgb(marker.color)}"/>`
       : kind === "icon" && icon
         ? `<color argb="-1"/><usericon iconsetpath="${escapeXml(icon.path)}"/>`
-        : "";
+        : kind === "symbol" && symbol
+          ? `<__milsym id="${escapeXml(symbol.sidc)}"/><__milicon id="${escapeXml(symbol.sidc)}"/>`
+          : "";
   const detail = [
     `<contact callsign="${escapeXml(marker.name)}"/>`,
     `<link uid="${escapeXml(sender.uid)}" relation="p-p" type="a-f-G-U-C" parent_callsign="${escapeXml(sender.callsign)}" production_time="${iso(now)}"/>`,

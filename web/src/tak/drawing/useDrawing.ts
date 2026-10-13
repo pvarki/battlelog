@@ -13,6 +13,7 @@ import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import type { Position, TakItem } from "../cot.ts";
 import { editTarget } from "./edit-geometry.ts";
 import type { NewShape } from "./new-items.ts";
+import type { SymbolChoice } from "./symbol-catalogue.ts";
 import type { TacticalGraphic } from "./tactical-graphics.ts";
 
 export const TOOLS = {
@@ -137,6 +138,8 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
   const [tool, setTool] = useState<Tool>();
   const [drawn, setDrawn] = useState<Drawn>();
   const [graphic, setGraphic] = useState<TacticalGraphic>();
+  /** The 2525 symbol the marker tool places, chosen before clicking the map. */
+  const [symbol, setSymbol] = useState<SymbolChoice>();
   /** A tactical graphic's shape while it's being drawn, so it can be previewed. */
   const [sketch] = useState(createSketch);
   const [editing, setEditing] = useState<{ item: TakItem; tool: Tool; featureId: string }>();
@@ -196,16 +199,22 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
     sketch.set(undefined);
     setTool(undefined);
     setGraphic(undefined);
+    setSymbol(undefined);
     setEditing(undefined);
   };
 
-  const choose = (next: Tool | undefined, nextGraphic?: TacticalGraphic) => {
+  const choose = (
+    next: Tool | undefined,
+    nextGraphic?: TacticalGraphic,
+    nextSymbol?: SymbolChoice,
+  ) => {
     draw.current?.clear();
     setDrawn(undefined);
     sketch.set(undefined);
     setEditing(undefined);
     setTool(next);
     setGraphic(next && nextGraphic);
+    setSymbol(next && nextSymbol);
     draw.current?.setMode(next ? TOOLS[next].mode : "static");
   };
 
@@ -236,5 +245,16 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
     return feature && editing ? drawnFrom(editing.tool, feature.geometry) : undefined;
   };
 
-  return { tool, graphic, drawn, sketch, choose, clear, editing: editing?.item, edit, edited };
+  return {
+    tool,
+    graphic,
+    symbol,
+    drawn,
+    sketch,
+    choose,
+    clear,
+    editing: editing?.item,
+    edit,
+    edited,
+  };
 };
