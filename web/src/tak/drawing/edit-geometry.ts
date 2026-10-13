@@ -58,8 +58,47 @@ const positionOf = (link: Element): Position => {
 
 const key = ([lon, lat]: Position) => `${lat.toFixed(7)},${lon.toFixed(7)}`;
 
-/** Index pairs of the longest common subsequence of `a` and `b`. */
+// The matching tables are (a+1)×(b+1); past this, points are paired by position in the list.
+const MAX_TABLE_CELLS = 1_000_000;
+
+/** Index pairs of `a` and `b` matched in order by their place in each list. */
+const proportionalPairs = (a: number, b: number): [number, number][] =>
+  Array.from({ length: Math.min(a, b) }, (_, k) =>
+    a <= b
+      ? [k, Math.round((k * (b - 1)) / Math.max(1, a - 1))]
+      : [Math.round((k * (a - 1)) / Math.max(1, b - 1)), k],
+  );
+
+/**
+ * Index pairs of the longest common subsequence of `a` and `b`. An edit
+ * usually touches a few points, so the shared start and end are matched
+ * first and only the middle needs the table.
+ */
 const commonPairs = (a: string[], b: string[]): [number, number][] => {
+  let start = 0;
+  while (start < a.length && start < b.length && a[start] === b[start]) start++;
+  let end = 0;
+  while (
+    end < a.length - start &&
+    end < b.length - start &&
+    a[a.length - 1 - end] === b[b.length - 1 - end]
+  )
+    end++;
+  const head = Array.from({ length: start }, (_, k): [number, number] => [k, k]);
+  const tail = Array.from({ length: end }, (_, k): [number, number] => [
+    a.length - end + k,
+    b.length - end + k,
+  ]);
+  const middleA = a.slice(start, a.length - end);
+  const middleB = b.slice(start, b.length - end);
+  const middle =
+    (middleA.length + 1) * (middleB.length + 1) > MAX_TABLE_CELLS
+      ? []
+      : middlePairs(middleA, middleB).map(([i, j]): [number, number] => [i + start, j + start]);
+  return [...head, ...middle, ...tail];
+};
+
+const middlePairs = (a: string[], b: string[]): [number, number][] => {
   const width = b.length + 1;
   const lengths = new Uint32Array((a.length + 1) * width);
   const length = (i: number, j: number) => lengths[i * width + j] ?? 0;
@@ -83,6 +122,8 @@ const squaredDistance = (p: Position, q: Position) => (p[0] - q[0]) ** 2 + (p[1]
 /** Pairs every point of the shorter list with one of the longer, in order, as close as possible. */
 const closestPairs = (a: Position[], b: Position[]): [number, number][] => {
   if (a.length > b.length) return closestPairs(b, a).map(([j, i]) => [i, j]);
+  if ((a.length + 1) * (b.length + 1) > MAX_TABLE_CELLS)
+    return proportionalPairs(a.length, b.length);
   const width = b.length + 1;
   const best = new Float64Array((a.length + 1) * width);
   const cost = (i: number, j: number) => best[i * width + j] ?? 0;

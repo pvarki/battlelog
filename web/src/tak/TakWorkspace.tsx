@@ -228,7 +228,11 @@ export const TakWorkspace = ({
     ...(follow?.mission ? [follow.mission] : []),
   ]);
   const isMobile = useIsMobile();
-  const [drawer, setDrawer] = useState<DrawerId | null>(isMobile || !has("items") ? null : "items");
+  const [chosenDrawer, setDrawer] = useState<DrawerId | null>(
+    isMobile || !has("items") ? null : "items",
+  );
+  // A widget switched to fewer tools (or to wall display) closes what it no longer has.
+  const drawer = chosenDrawer && drawers.includes(chosenDrawer) ? chosenDrawer : null;
   const [selectedUid, setSelectedUid] = useState<string>();
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [cursor, setCursor] = useState<Position>();
@@ -246,7 +250,7 @@ export const TakWorkspace = ({
   /** Where new items and changes go: the active plan, or straight to TAK. */
   const submit = (event: CotEvent) => {
     if (!activePlan) return void publish(event);
-    const existing = liveItems.find((i) => i.uid === event.uid);
+    const existing = liveItems.find((i) => i.uid === event.uid) ?? missionItem(event.uid);
     const planned = activePlan.entries.some((e) => e.event.uid === event.uid);
     // Deleting an item that exists only in the plan just drops its draft.
     if (toChange(event)?.kind === "delete" && !existing && planned)

@@ -118,3 +118,18 @@ test("TAK users' own positions and derived drawings can't be reshaped", () => {
   ).toBeUndefined();
   expect(editTarget(item("u-rb-a", '<range value="100"/><bearing value="90"/>'))).toBeUndefined();
 });
+
+test("saving a long line with one moved point stays fast and keeps every other link", () => {
+  const links = Array.from(
+    { length: 5_000 },
+    (_, k) => `<link point="${60 + k / 10_000},${22 + k / 10_000}"/>`,
+  ).join("");
+  const line = item("u-d-f", `${links}<contact callsign="Pitkä"/>`);
+  const points = (line.geometry.coordinates as [number, number][]).map((p, k): [number, number] =>
+    k === 2_500 ? [p[0] + 0.01, p[1]] : p,
+  );
+  const started = performance.now();
+  const saved = editGeometryEvent(line, { kind: "line", points }, 5_000);
+  expect(performance.now() - started).toBeLessThan(1_000);
+  expect(saved.detail.match(/<link /g)).toHaveLength(5_000);
+});

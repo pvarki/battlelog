@@ -85,18 +85,22 @@ export const useOwnPosition = (map: MapLibreMap | undefined, self: SelfIdentity 
 
   useEffect(() => {
     if (!self || !fix) return;
+    // Sharing switched off (or a newer fix) while the battery was read: send nothing.
+    let current = true;
     const send = async (force: boolean) => {
       const now = Date.now();
       if (document.hidden || (!force && !isSendDue(lastSent.current, fix.position, now))) return;
-      const event = newSelfSaEvent(fix, self, {
-        os: navigator.platform,
-        battery: await batteryPercent(),
-      });
+      const battery = await batteryPercent();
+      if (!current || document.hidden) return;
+      const event = newSelfSaEvent(fix, self, { os: navigator.platform, battery });
       if (sendCot(event)) lastSent.current = { position: fix.position, time: now };
     };
     void send(false);
     const heartbeat = setInterval(() => void send(true), IDLE_INTERVAL_MS);
-    return () => clearInterval(heartbeat);
+    return () => {
+      current = false;
+      clearInterval(heartbeat);
+    };
   }, [self, fix]);
 
   const flyToFix = (at: Position) =>

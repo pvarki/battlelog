@@ -185,6 +185,7 @@ const sensorOf = (el: Element | undefined): Sensor | undefined => {
   const slantRange = get("range");
   if (!el || azimuth === undefined || fov === undefined || slantRange === undefined) return;
   if (el.hasAttribute("hideFov")) return;
+  if (!(fov > 0 && fov <= 360) || !(slantRange > 0)) return;
   const [red, green, blue] = ["fovRed", "fovGreen", "fovBlue"].map((c) =>
     colorChannel(get(c) ?? 1),
   );

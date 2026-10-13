@@ -136,7 +136,7 @@ const ellipseRing = (
 
 /** ATAK's sensor field of view: a wedge from the sensor out to its range, centred on its azimuth. */
 export const sensorCone = (origin: Position, { azimuth, fov, range }: Sensor): Position[] => {
-  const steps = Math.max(2, Math.ceil(fov / 5));
+  const steps = Math.min(72, Math.max(2, Math.ceil(fov / 5)));
   const arc = Array.from({ length: steps + 1 }, (_, i) =>
     destination(origin, range, azimuth - fov / 2 + (fov * i) / steps),
   );

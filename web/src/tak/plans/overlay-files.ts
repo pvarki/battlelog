@@ -231,7 +231,8 @@ const ellipseRing = (item: TakItem, { major, minor, angle }: NonNullable<TakItem
   const centre = item.geometry.coordinates as Position;
   return Array.from({ length: CIRCLE_STEPS + 1 }, (_, i) => {
     const t = (2 * Math.PI * i) / CIRCLE_STEPS;
-    const [east, north] = [major * Math.cos(t), minor * Math.sin(t)];
+    // As the map draws it: the major axis points north before turning by `angle`.
+    const [north, east] = [major * Math.cos(t), minor * Math.sin(t)];
     const bearing = (Math.atan2(east, north) * 180) / Math.PI + angle;
     return destination(centre, Math.hypot(east, north), bearing);
   });

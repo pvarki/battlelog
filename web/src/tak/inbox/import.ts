@@ -46,14 +46,38 @@ const toFile = ({ name, bytes }: { name: string; bytes: Uint8Array }): ReceivedF
 
 const tooLarge = () => new Error("Package is too large to import");
 
+/** The body, read only until it passes `max` bytes: a missing or false Content-Length can't make us buffer more. */
+const readCapped = async (res: Response, max: number): Promise<Uint8Array<ArrayBuffer>> => {
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("Package download had no body");
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return bytes;
+};
+
 /** Downloads a package from our TAK Server, checks it is the one announced and unpacks it. */
 export const importPackage = async (ref: PackageRef): Promise<Imported> => {
   if (ref.size > MAX_PACKAGE_BYTES) throw tooLarge();
   const res = await fetch(contentUrl(ref.hash), { credentials: "include" });
   if (!res.ok) throw new TakRequestError("/Marti/sync/content", res.status);
   if (Number(res.headers.get("Content-Length")) > MAX_PACKAGE_BYTES) throw tooLarge();
-  const zip = new Uint8Array(await res.arrayBuffer());
-  if (zip.length > MAX_PACKAGE_BYTES) throw tooLarge();
+  const zip = await readCapped(res, MAX_PACKAGE_BYTES);
   if ((await sha256Hex(zip)) !== ref.hash.toLowerCase())
     throw new Error("Package doesn't match its announced hash");
   const contents = readPackage(unzipLimited(zip, () => true, MAX_PACKAGE_BYTES));

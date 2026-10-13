@@ -267,3 +267,17 @@ test("a sensor point of interest knows which sensor looks at it", () => {
   if (change?.kind !== "upsert") throw new Error("expected upsert");
   expect(change.item.sensorUid).toBe("1SCCHB5017AS0Q");
 });
+
+test("a sensor with an impossible field of view draws no cone", () => {
+  const sensorWith = (fov: string) => {
+    const change = toChange({
+      ...base,
+      type: "a-f-A-M-H-Q",
+      detail: `<sensor azimuth="0" range="300" fov="${fov}"/>`,
+    });
+    return change?.kind === "upsert" ? change.item.sensor : undefined;
+  };
+  expect(sensorWith("1000000000000")).toBeUndefined();
+  expect(sensorWith("0")).toBeUndefined();
+  expect(sensorWith("72.7")).toBeDefined();
+});
