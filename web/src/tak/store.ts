@@ -118,8 +118,9 @@ export const createTakStore = ({
         changed();
       }
     }
+    const hadTracks = tracks.size > 0;
     for (const uid of tracks.keys()) addToTrack(uid, [], now);
-    if (tracks.size) changed();
+    if (hadTracks) changed();
     for (const marks of [tombstones, disconnects]) {
       for (const [uid, at] of marks) {
         if (at + markRetentionMs < now) marks.delete(uid);

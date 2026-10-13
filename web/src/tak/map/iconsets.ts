@@ -64,10 +64,12 @@ export const parseIconset = (zip: Uint8Array, imported = Date.now()): Iconset =>
   let entries: Record<string, Uint8Array>;
   try {
     entries = unzipSync(zip, {
-      filter: ({ name, originalSize }) => {
+      filter: ({ name, size, originalSize }) => {
         if (name !== "iconset.xml" && !isImageName(name)) return false;
-        if (originalSize > MAX_ICON_BYTES || wanted > MAX_ICONS) return false;
-        total += originalSize;
+        // Stored entries are copied by their compressed size, which a forged zip can inflate.
+        const bytes = Math.max(size, originalSize);
+        if (bytes > MAX_ICON_BYTES || wanted > MAX_ICONS) return false;
+        total += bytes;
         wanted++;
         return total <= MAX_TOTAL_BYTES;
       },
@@ -122,6 +124,12 @@ const notify = () => {
 
 const set = (sets: Iconset[]) => {
   state = { sets: sets.sort((a, b) => a.name.localeCompare(b.name)), loaded: true };
+  const current = new Set(sets.map((s) => `${s.uid}|${s.imported}|`));
+  for (const [key, bitmap] of bitmaps) {
+    if (current.has(key.slice(0, key.lastIndexOf("|") + 1))) continue;
+    bitmaps.delete(key);
+    if (bitmap instanceof ImageBitmap) bitmap.close();
+  }
   notify();
 };
 
@@ -212,6 +220,8 @@ export const iconsetImage = (path: string): IconsetImage | undefined => {
     bitmaps.set(key, "decoding");
     createImageBitmap(new Blob([icon.image.slice()], { type: icon.mime })).then(
       (decoded) => {
+        // Its set was removed or re-imported while decoding.
+        if (bitmaps.get(key) !== "decoding") return decoded.close();
         bitmaps.set(key, decoded);
         notify();
       },

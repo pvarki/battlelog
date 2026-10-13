@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useId, useSyncExternalStore } from "react";
 import type { TakItem } from "../cot.ts";
 import { fetchMissionItems, fetchMissions, isAccessDenied, type Mission } from "./missions.ts";
 
@@ -26,7 +26,9 @@ const POLL_MS = 60_000;
 
 let state: MissionsState = { missions: null, listFailed: false, contents: new Map() };
 const listeners = new Set<() => void>();
-let wanted = new Set<string>();
+// Per holder (the Map page, each map widget): what it wants loaded.
+const wantedBy = new Map<string, ReadonlySet<string>>();
+const isWanted = (name: string) => [...wantedBy.values()].some((names) => names.has(name));
 let holders = 0;
 // True from a poll's start until the loop stops, so a quick unmount/remount can't start a second loop.
 let polling = false;
@@ -69,7 +71,7 @@ const refreshContents = async (mission: Mission) => {
 
 const refreshWanted = () => {
   for (const mission of state.missions ?? []) {
-    if (wanted.has(mission.name)) void refreshContents(mission);
+    if (isWanted(mission.name)) void refreshContents(mission);
   }
 };
 
@@ -114,7 +116,6 @@ export const useMissionsSync = (names: string[]) => {
     return () => {
       if (--holders > 0) return;
       // Nothing holds missions: stop the loop now, not after one more large fetch.
-      wanted = new Set();
       if (timer) {
         clearTimeout(timer);
         timer = undefined;
@@ -122,11 +123,15 @@ export const useMissionsSync = (names: string[]) => {
       }
     };
   }, []);
+  const holder = useId();
   const key = names.join("\n");
   useEffect(() => {
-    wanted = new Set(key ? key.split("\n") : []);
+    wantedBy.set(holder, new Set(key ? key.split("\n") : []));
     refreshWanted();
-  }, [key]);
+    return () => {
+      wantedBy.delete(holder);
+    };
+  }, [holder, key]);
 };
 
 export const useMissions = (): MissionsState =>

@@ -121,6 +121,9 @@ export const loadSubscription = (name: string, clientUid: string): Promise<strin
   if (!pending) {
     pending = takGetText(subscriptionPath(name, clientUid))
       .then((text) => {
+        // A subscribe or unsubscribe while this was in flight knows better.
+        const settled = subscriptions.get(name);
+        if (settled !== undefined) return settled;
         const token = text ? (parseToken(JSON.parse(text)) ?? null) : null;
         setSubscription(name, token);
         return token;

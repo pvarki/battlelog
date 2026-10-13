@@ -229,8 +229,10 @@ export const importPlan = async (file: File): Promise<Plan> => {
     // Only CoT files are read; anything else is never decompressed.
     filter: (entry) => {
       if (!entry.name.toLowerCase().endsWith(".cot")) return false;
-      total += entry.originalSize;
-      if (entry.originalSize > MAX_COT_BYTES || total > MAX_PACKAGE_BYTES)
+      // Stored entries are copied by their compressed size, which a forged zip can inflate.
+      const bytes = Math.max(entry.size, entry.originalSize);
+      total += bytes;
+      if (bytes > MAX_COT_BYTES || total > MAX_PACKAGE_BYTES)
         throw new Error("Package expands too large to import");
       return true;
     },

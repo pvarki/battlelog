@@ -100,3 +100,18 @@ test("an item that moves leaves a track, which goes with the item", () => {
   store.flush();
   expect(store.getTracks().has("a")).toBe(false);
 });
+
+test("the last track ageing out clears it from the snapshot", () => {
+  const store = createTakStore();
+  const at = (time: number, lon: number): TakItem => ({
+    ...item("a", time, time + 365 * 86_400_000),
+    geometry: { type: "Point", coordinates: [lon, 60] },
+  });
+  store.apply({ kind: "upsert", item: at(1_000, 25) });
+  store.apply({ kind: "upsert", item: at(2_000, 25.01) });
+  store.flush();
+  expect(store.getTracks().has("a")).toBe(true);
+  store.sweep(2_000 + 3 * 3_600_000);
+  store.flush();
+  expect(store.getTracks().has("a")).toBe(false);
+});
