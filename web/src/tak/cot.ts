@@ -56,6 +56,8 @@ export type TakItem = {
   footprint?: Position[];
   /** Range-and-bearing line from the item's point; the geometry runs to its end. */
   rangeBearing?: { range: number; bearing: number; northRef: "T" | "M" | "G" };
+  /** An ATAK emergency alert (b-a-*): what kind, and the callsign of who raised it. */
+  emergency?: { kind: string; from: string };
   /** The user disconnected from TAK; ATAK keeps them, greyed out. */
   offline?: true;
   /** A change in a plan in this browser, not (yet) on TAK. */
@@ -68,7 +70,15 @@ export type TakChange =
   | { kind: "delete"; uid: string; time: number }
   | { kind: "offline"; uid: string; time: number };
 
-const MAP_TYPE_PREFIXES = ["a-", "b-m-p", "b-m-r", "u-d-", "u-rb-a"];
+const MAP_TYPE_PREFIXES = ["a-", "b-a-", "b-m-p", "b-m-r", "u-d-", "u-rb-a"];
+const EMERGENCY_CANCEL = "b-a-o-can";
+/** ATAK's names for its emergency types, for alerts that don't name themselves. */
+const EMERGENCY_KIND: Record<string, string> = {
+  "b-a-o-tbl": "911 Alert",
+  "b-a-o-pan": "Ring The Bell",
+  "b-a-o-opn": "Troops In Contact",
+  "b-a-g": "Geo-fence Breached",
+};
 const STROKE_STYLES: StrokeStyle[] = ["solid", "dashed", "dotted", "outlined"];
 const EARTH_RADIUS_M = 6_371_008.8;
 const CIRCLE_TYPES = ["u-d-c-c", "u-d-c-e"];
@@ -167,6 +177,10 @@ export const toChange = (event: CotEvent): TakChange | null => {
     const disconnect = links[0]?.getAttribute("relation") === "p-p" && !child("__forcedelete");
     return { kind: disconnect ? "offline" : "delete", uid: target, time };
   }
+  // ATAK cancels an alert by re-sending its uid as b-a-o-can; until then it stays up.
+  if (type === EMERGENCY_CANCEL || attr("emergency", "cancel") === "true") {
+    return { kind: "delete", uid, time };
+  }
   if (!MAP_TYPE_PREFIXES.some((p) => type.startsWith(p))) return null;
 
   const parent = links.find((l) => l.getAttribute("relation") === "p-p");
@@ -195,6 +209,7 @@ export const toChange = (event: CotEvent): TakChange | null => {
   });
   const device = [attr("takv", "platform"), attr("takv", "version")].filter(Boolean).join(" ");
   const ellipse = child("shape") && childNamed(child("shape") as Element, "ellipse");
+  const callsign = attr("contact", "callsign");
 
   const item: TakItem = {
     uid,
@@ -211,7 +226,7 @@ export const toChange = (event: CotEvent): TakChange | null => {
         }
       : geometryFor(type, [event.lon, event.lat], links),
     hae: event.hae === UNKNOWN_HAE ? undefined : event.hae,
-    callsign: attr("contact", "callsign"),
+    callsign,
     team: attr("__group", "name"),
     role: attr("__group", "role"),
     remarks: child("remarks")?.textContent || undefined,
@@ -239,6 +254,13 @@ export const toChange = (event: CotEvent): TakChange | null => {
     waypoints: waypoints.length ? waypoints : undefined,
     footprint: new Set(footprint.map(String)).size >= 3 ? footprint : undefined,
     rangeBearing,
+    emergency: type.startsWith("b-a-")
+      ? {
+          kind: attr("emergency", "type") || (EMERGENCY_KIND[type] ?? "Emergency"),
+          // ATAK names the alert "<callsign>-Alert" and puts the plain callsign in <emergency>.
+          from: child("emergency")?.textContent?.trim() || callsign || uid,
+        }
+      : undefined,
     event,
   };
   for (const key of Object.keys(item) as (keyof TakItem)[]) {

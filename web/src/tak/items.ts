@@ -27,6 +27,10 @@ export const anchorOf = (item: TakItem): Position => {
   return g.coordinates[0]?.[0] ?? [0, 0];
 };
 
+/** Emergency alerts still in force, newest first; an alert nobody renews goes stale. */
+export const activeEmergencies = (items: TakItem[], now: number): TakItem[] =>
+  items.filter((i) => i.emergency && i.stale > now).sort((a, b) => b.time - a.time);
+
 export const labelOf = (item: TakItem): string =>
   `${item.callsign ?? item.uid}${item.draft ? " (draft)" : ""}`;
 

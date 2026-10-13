@@ -169,3 +169,45 @@ test("range and bearing runs from its point to the computed end", () => {
   expect(end?.[0]).toBeGreaterThan(25.017);
   expect(end?.[0]).toBeLessThan(25.019);
 });
+
+test("an ATAK emergency names its kind and who raised it", () => {
+  const change = toChange({
+    ...base,
+    uid: "ANDROID-1-9-1-1",
+    type: "b-a-o-tbl",
+    detail:
+      '<link uid="ANDROID-1" type="a-f-G-U-C" relation="p-p"/><contact callsign="KETTU-Alert"/><emergency type="911 Alert">KETTU</emergency>',
+  });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  expect(change.item.emergency).toEqual({ kind: "911 Alert", from: "KETTU" });
+});
+
+test("an emergency without an <emergency> element is named after its type", () => {
+  const change = toChange({ ...base, type: "b-a-o-opn", detail: '<contact callsign="KETTU"/>' });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  expect(change.item.emergency).toEqual({ kind: "Troops In Contact", from: "KETTU" });
+});
+
+test("cancelling an emergency deletes its alert", () => {
+  const cancel = { ...base, uid: "ANDROID-1-9-1-1", time: 5000 };
+  expect(
+    toChange({
+      ...cancel,
+      type: "b-a-o-can",
+      detail: '<emergency cancel="true">KETTU</emergency>',
+    }),
+  ).toEqual({ kind: "delete", uid: "ANDROID-1-9-1-1", time: 5000 });
+  expect(
+    toChange({
+      ...cancel,
+      type: "b-a-o-tbl",
+      detail: '<emergency cancel="true">KETTU</emergency>',
+    }),
+  ).toEqual({ kind: "delete", uid: "ANDROID-1-9-1-1", time: 5000 });
+});
+
+test("other items carry no emergency", () => {
+  const change = toChange({ ...base, detail: '<contact callsign="KETTU"/>' });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  expect(change.item.emergency).toBeUndefined();
+});

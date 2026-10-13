@@ -1,5 +1,13 @@
 /** Parts of the TAK workspace a dashboard widget can switch on; the Map page has all of them. */
-export const TAK_TOOLS = ["items", "missions", "plans", "layers", "draw", "search"] as const;
+export const TAK_TOOLS = [
+  "items",
+  "missions",
+  "plans",
+  "layers",
+  "draw",
+  "search",
+  "chat",
+] as const;
 
 export type TakTool = (typeof TAK_TOOLS)[number];
 
@@ -10,6 +18,7 @@ export const TOOL_LABEL: Record<TakTool, string> = {
   layers: "Layers",
   draw: "Drawing",
   search: "Search",
+  chat: "Chat",
 };
 
 export type MapView = { center: [number, number]; zoom: number; bearing: number };
