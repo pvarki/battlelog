@@ -5,8 +5,10 @@ import {
   IconMapPin,
   IconPolygon,
   IconRectangle,
+  IconRuler2,
   IconX,
 } from "@tabler/icons-react";
+import type { ReactNode } from "react";
 import { TOOLS, type Tool } from "./useDrawing.ts";
 
 const ICONS = {
@@ -32,10 +34,22 @@ type Props = {
   disabledReason: string | undefined;
   /** The plan new items go into; undefined = Live, straight to TAK. */
   planName: string | undefined;
+  measuring: boolean;
+  onToggleMeasure: () => void;
+  /** The measurement readout, shown while measuring. */
+  children?: ReactNode;
 };
 
 /** Drawing tools over the map; the active tool shows how to use it. */
-export const DrawToolbar = ({ tool, onChoose, disabledReason, planName }: Props) => (
+export const DrawToolbar = ({
+  tool,
+  onChoose,
+  disabledReason,
+  planName,
+  measuring,
+  onToggleMeasure,
+  children,
+}: Props) => (
   <Paper className="tak-draw-toolbar" shadow="sm" p={4} withBorder>
     <Group gap={4} wrap="nowrap">
       <Badge
@@ -68,13 +82,23 @@ export const DrawToolbar = ({ tool, onChoose, disabledReason, planName }: Props)
           </Tooltip>
         );
       })}
-      {tool && (
+      <Button
+        size="compact-xs"
+        variant={measuring ? "filled" : "subtle"}
+        color={measuring ? "primary" : "gray"}
+        leftSection={<IconRuler2 size={14} />}
+        aria-pressed={measuring}
+        onClick={onToggleMeasure}
+      >
+        Measure
+      </Button>
+      {(tool || measuring) && (
         <Button
           size="compact-xs"
           variant="subtle"
           color="gray"
           leftSection={<IconX size={14} />}
-          onClick={() => onChoose(undefined)}
+          onClick={() => (measuring ? onToggleMeasure() : onChoose(undefined))}
         >
           Stop (Esc)
         </Button>
@@ -85,5 +109,6 @@ export const DrawToolbar = ({ tool, onChoose, disabledReason, planName }: Props)
         {HINT[tool]}
       </Text>
     )}
+    {measuring && children}
   </Paper>
 );

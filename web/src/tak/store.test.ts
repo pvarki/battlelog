@@ -77,3 +77,26 @@ test("listeners hear one notification per batch, not per change", () => {
   expect(calls).toBe(1);
   expect(store.getSnapshot()).toBe(store.getSnapshot());
 });
+
+test("an item that moves leaves a track, which goes with the item", () => {
+  const store = createTakStore();
+  const moved = (time: number, lon: number): TakItem => ({
+    ...item("a", time),
+    geometry: { type: "Point", coordinates: [lon, 60] },
+  });
+  store.apply({ kind: "upsert", item: item("b", 100) });
+  store.apply({ kind: "upsert", item: item("b", 200) });
+  store.apply({ kind: "upsert", item: moved(100, 25) });
+  store.apply({ kind: "upsert", item: moved(200, 25.01) });
+  store.flush();
+  expect(
+    store
+      .getTracks()
+      .get("a")
+      ?.map((p) => p.position[0]),
+  ).toEqual([25, 25.01]);
+  expect(store.getTracks().has("b")).toBe(false);
+  store.apply({ kind: "delete", uid: "a", time: 300 });
+  store.flush();
+  expect(store.getTracks().has("a")).toBe(false);
+});

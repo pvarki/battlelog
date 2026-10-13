@@ -1,4 +1,5 @@
 import type { CotEvent, Position, StrokeStyle } from "../cot.ts";
+import { bearing, distance } from "../geo.ts";
 
 /**
  * New TAK items written the way ATAK writes them (compared against ATAK's own
@@ -41,6 +42,7 @@ export type NewMarker = {
 };
 
 const DAY_MS = 86_400_000;
+const RANGE_BEARING_RED = -65536;
 const UNKNOWN = 9_999_999;
 const SHAPE_TYPE = {
   line: "u-d-f",
@@ -149,4 +151,32 @@ export const newMarkerEvent = (
     "<archive/>",
   ].join("");
   return { ...base(uid, type, marker.position, now, 365 * DAY_MS), detail };
+};
+
+/**
+ * A range-and-bearing line from `from` to `to`, as ATAK's R&B tool writes it
+ * (takcot "Range & Bearing - Line"): metres, degrees, true north.
+ */
+export const newRangeBearingEvent = (
+  [from, to]: [Position, Position],
+  name: string,
+  now = Date.now(),
+  uid: string = crypto.randomUUID(),
+): CotEvent => {
+  const detail = [
+    `<range value="${distance(from, to)}"/>`,
+    `<bearing value="${bearing(from, to)}"/>`,
+    `<inclination value="0.0"/>`,
+    `<rangeUnits value="1"/>`,
+    `<bearingUnits value="0"/>`,
+    `<northRef value="0"/>`,
+    `<strokeColor value="${RANGE_BEARING_RED}"/>`,
+    `<strokeWeight value="3.0"/>`,
+    `<contact callsign="${escapeXml(name)}"/>`,
+    remarksXml(""),
+    "<archive/>",
+    `<labels_on value="false"/>`,
+    `<color value="${RANGE_BEARING_RED}"/>`,
+  ].join("");
+  return { ...base(uid, "u-rb-a", from, now, DAY_MS), detail };
 };

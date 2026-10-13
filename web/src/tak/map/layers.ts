@@ -314,10 +314,10 @@ export const toSources = (
         uid,
         from,
         to,
-        `${arrow} ${Math.round(bearing)}°${northRef}   ${formatDistance(range)}`,
+        `${arrow} ${Math.round(heading)}°${northRef}   ${formatDistance(range)}`,
         "emphasis",
       );
-      decorations.push(point(to, { uid, icon: arrowhead(map, stroke).id, rotate: bearing }));
+      decorations.push(point(to, { uid, icon: arrowhead(map, stroke).id, rotate: heading }));
       continue;
     }
     if (item.labelsOn) {
