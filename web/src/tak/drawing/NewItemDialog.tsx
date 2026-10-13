@@ -74,6 +74,7 @@ type Props = {
   onCancel: () => void;
   onSaveShape: (style: ShapeStyle) => void;
   onSaveMarker: (marker: Omit<NewMarker, "position">) => void;
+  saveLabel: string;
 };
 
 /** Name and style for what was just drawn, then it goes to TAK. */
@@ -83,6 +84,7 @@ export const NewItemDialog = ({
   onCancel,
   onSaveShape,
   onSaveMarker,
+  saveLabel,
 }: Props) => {
   const [name, setName] = useState(defaultName);
   const [remarks, setRemarks] = useState("");
@@ -228,7 +230,7 @@ export const NewItemDialog = ({
             Discard
           </Button>
           <Button size="xs" type="submit" disabled={!name.trim()}>
-            Save to TAK
+            {saveLabel}
           </Button>
         </Group>
       </Stack>

@@ -1,4 +1,4 @@
-import { Button, Group, Paper, Text, Tooltip } from "@mantine/core";
+import { Badge, Button, Group, Paper, Text, Tooltip } from "@mantine/core";
 import {
   IconCircle,
   IconLine,
@@ -30,12 +30,26 @@ type Props = {
   onChoose: (tool: Tool | undefined) => void;
   /** Why drawing is unavailable, or undefined when it is. */
   disabledReason: string | undefined;
+  /** The plan new items go into; undefined = Live, straight to TAK. */
+  planName: string | undefined;
 };
 
 /** Drawing tools over the map; the active tool shows how to use it. */
-export const DrawToolbar = ({ tool, onChoose, disabledReason }: Props) => (
+export const DrawToolbar = ({ tool, onChoose, disabledReason, planName }: Props) => (
   <Paper className="tak-draw-toolbar" shadow="sm" p={4} withBorder>
     <Group gap={4} wrap="nowrap">
+      <Badge
+        size="sm"
+        variant={planName ? "filled" : "outline"}
+        color={planName ? "primary" : "gray"}
+        title={
+          planName
+            ? "Drawings and edits go into this plan"
+            : "Drawings and edits go straight to TAK"
+        }
+      >
+        {planName ? `Plan: ${planName}` : "Live"}
+      </Badge>
       {(Object.keys(TOOLS) as Tool[]).map((id) => {
         const Icon = ICONS[id];
         return (

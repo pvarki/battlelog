@@ -92,19 +92,22 @@ export const setSymbol = (detail: Element, sidc: string) => {
   ensureChild(detail, "__milsym").setAttribute("id", sidc);
 };
 
-/** Sends the changed item and confirms with TAK that it stored it. */
-export const publish = async (event: CotEvent) => {
+/** Sends the item and confirms with TAK that it stored it; true once confirmed. */
+export const publish = async (event: CotEvent): Promise<boolean> => {
   setWrite(event.uid, "sending");
   if (!sendCot(event)) {
     setWrite(event.uid, "failed");
-    return;
+    return false;
   }
   await new Promise((resolve) => setTimeout(resolve, VERIFY_DELAY_MS));
   try {
     const stored = await fetchLatestCot(event.uid);
-    setWrite(event.uid, stored && stored.time >= event.time ? "confirmed" : "unconfirmed");
+    const confirmed = !!stored && stored.time >= event.time;
+    setWrite(event.uid, confirmed ? "confirmed" : "unconfirmed");
+    return confirmed;
   } catch {
     setWrite(event.uid, "unconfirmed");
+    return false;
   }
 };
 

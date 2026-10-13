@@ -112,6 +112,18 @@ const addItemLayers = (map: MapLibreMap) => {
     paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fillOpacity"] },
   });
   map.addLayer({
+    id: "tak-draft-shapes",
+    type: "line",
+    source: "tak-shapes",
+    filter: ["==", ["get", "draft"], true],
+    paint: {
+      "line-color": ACCENT,
+      "line-width": ["+", ["get", "strokeWidth"], 6],
+      "line-opacity": 0.7,
+      "line-dasharray": ["literal", [1, 1]],
+    },
+  });
+  map.addLayer({
     id: "tak-shape-casings",
     type: "line",
     source: "tak-shapes",
@@ -165,6 +177,19 @@ const addItemLayers = (map: MapLibreMap) => {
       "icon-image": ["get", "icon"],
       "icon-rotate": ["get", "rotate"],
       "icon-rotation-alignment": "map",
+    },
+  });
+  map.addLayer({
+    id: "tak-draft-points",
+    type: "circle",
+    source: "tak-points",
+    filter: ["==", ["get", "draft"], true],
+    paint: {
+      "circle-radius": 15,
+      "circle-color": "transparent",
+      "circle-stroke-color": ACCENT,
+      "circle-stroke-width": 2,
+      "circle-stroke-opacity": 0.8,
     },
   });
   map.addLayer({

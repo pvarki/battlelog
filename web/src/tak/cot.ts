@@ -56,6 +56,8 @@ export type TakItem = {
   rangeBearing?: { range: number; bearing: number; northRef: "T" | "M" | "G" };
   /** The user disconnected from TAK; ATAK keeps them, greyed out. */
   offline?: true;
+  /** A change in a plan in this browser, not (yet) on TAK. */
+  draft?: true;
   event: CotEvent;
 };
 

@@ -43,3 +43,19 @@ export const parseCotXml = (xml: string): CotEvent[] => {
     };
   });
 };
+
+const attr = (value: string | number) =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
+/** One event as CoT XML, e.g. for a data package; the detail goes back verbatim. */
+export const serializeCot = (e: CotEvent): string => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const markings = MARKING_FIELDS.flatMap((name) =>
+    e[name] ? [` ${name}="${attr(e[name] as string)}"`] : [],
+  ).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><event version="2.0" uid="${attr(e.uid)}" type="${attr(e.type)}" how="${attr(e.how)}" time="${iso(e.time)}" start="${iso(e.start)}" stale="${iso(e.stale)}"${markings}><point lat="${e.lat}" lon="${e.lon}" hae="${e.hae}" ce="${e.ce}" le="${e.le}"/><detail>${e.detail}</detail></event>`;
+};

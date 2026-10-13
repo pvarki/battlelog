@@ -1,7 +1,7 @@
 import { Button, Group, Select, Stack, Textarea, TextInput } from "@mantine/core";
 import { useState } from "react";
-import { editEvent, publish, setCallsign, setRemarks, setSymbol } from "../commands.ts";
-import type { TakItem } from "../cot.ts";
+import { editEvent, setCallsign, setRemarks, setSymbol } from "../commands.ts";
+import type { CotEvent, TakItem } from "../cot.ts";
 import {
   labelOf,
   sidcOf,
@@ -15,6 +15,9 @@ type Props = {
   item: TakItem;
   /** Preselected status, e.g. from "Mark destroyed". */
   status?: UnitStatus;
+  /** Live mode sends to TAK; with a plan active the change becomes a draft. */
+  onSubmit: (event: CotEvent) => void;
+  submitLabel: string;
   onDone: () => void;
 };
 
@@ -22,16 +25,17 @@ type Props = {
  * Name, remarks and (for units) 2525 status of an existing item, sent to TAK
  * on save. Live mode: everyone sees the change at once.
  */
-export const EditItem = ({ item, status: preset, onDone }: Props) => {
+export const EditItem = ({ item, status: preset, onSubmit, submitLabel, onDone }: Props) => {
   const sidc = item.type.startsWith("a-") ? sidcOf(item) : undefined;
-  const [name, setName] = useState(labelOf(item));
+  const original = item.callsign ?? item.uid;
+  const [name, setName] = useState(original);
   const [remarks, setRemarksText] = useState(item.remarks ?? "");
   const current = sidc ? unitStatusOf(sidc) : undefined;
   const [status, setStatus] = useState<UnitStatus | undefined>(preset ?? current);
   const save = () => {
-    void publish(
+    onSubmit(
       editEvent(item, (detail) => {
-        if (name.trim() && name !== labelOf(item)) setCallsign(detail, name.trim());
+        if (name.trim() && name !== original) setCallsign(detail, name.trim());
         if (remarks !== (item.remarks ?? "")) setRemarks(detail, remarks);
         if (sidc && status && status !== current) setSymbol(detail, withUnitStatus(sidc, status));
       }),
@@ -79,7 +83,7 @@ export const EditItem = ({ item, status: preset, onDone }: Props) => {
           Cancel
         </Button>
         <Button size="xs" type="submit" disabled={!name.trim()}>
-          Save to TAK
+          {submitLabel}
         </Button>
       </Group>
     </Stack>

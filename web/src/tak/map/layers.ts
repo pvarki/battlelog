@@ -137,8 +137,10 @@ export const toSources = (
   const decorations: Feature[] = [];
   const tactical: Feature[] = [];
 
+  // Set per item below; drafts get a dashed outline so they can't pass for what TAK has.
+  let draft = false;
   const icon = (uid: string, at: Position, image: MapImage, order: number) =>
-    points.push(point(at, { uid, icon: image.id, offset: image.offset, order }));
+    points.push(point(at, { uid, icon: image.id, offset: image.offset, order, draft }));
 
   /** A name centred under an icon, as ATAK draws marker labels. */
   const nameUnder = (uid: string, at: Position, text: string, under: MapImage) => {
@@ -172,6 +174,7 @@ export const toSources = (
     const group = groupOf(item);
     if (isHidden(group, hidden) || !hasPosition(item)) continue;
     const { uid } = item;
+    draft = item.draft === true;
     const stale = statusOf(item, now) !== "online";
     const name = labelOf(item);
     const stroke = item.stroke?.color ?? (item.rangeBearing ? RANGE_BEARING_COLOR : DEFAULT_STROKE);
@@ -222,6 +225,7 @@ export const toSources = (
         : { type: "LineString", coordinates: line ?? [] },
       properties: {
         uid,
+        draft,
         stroke,
         strokeOpacity: item.stroke?.opacity ?? 1,
         strokeWidth: item.strokeWidth ?? 3,

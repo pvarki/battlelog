@@ -27,7 +27,8 @@ export const anchorOf = (item: TakItem): Position => {
   return g.coordinates[0]?.[0] ?? [0, 0];
 };
 
-export const labelOf = (item: TakItem): string => item.callsign ?? item.uid;
+export const labelOf = (item: TakItem): string =>
+  `${item.callsign ?? item.uid}${item.draft ? " (draft)" : ""}`;
 
 /** ATAK's team colours, as its team markers are tinted. */
 const TEAM_COLOR: Record<string, string> = {

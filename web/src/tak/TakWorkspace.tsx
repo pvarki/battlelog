@@ -9,12 +9,18 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconAlertTriangle, IconFolders, IconList, IconStack2 } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconClipboardList,
+  IconFolders,
+  IconList,
+  IconStack2,
+} from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import { publish } from "./commands.ts";
-import type { Position, TakItem } from "./cot.ts";
+import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
 import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
 import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
@@ -28,6 +34,8 @@ import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
+import { PlansDrawer } from "./plans/PlansDrawer.tsx";
+import { addToPlan, type Plan, usePlans } from "./plans/plans.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { StatusBar } from "./StatusBar.tsx";
 import { type TakStatus, useTakItems, useTakSession, useTakStatus } from "./session.ts";
@@ -36,7 +44,8 @@ import { useMapSettings } from "./settings.ts";
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
   missions: { label: "Missions", Icon: IconFolders, key: "2" },
-  layers: { label: "Layers", Icon: IconStack2, key: "3" },
+  plans: { label: "Plans", Icon: IconClipboardList, key: "3" },
+  layers: { label: "Layers", Icon: IconStack2, key: "4" },
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
@@ -64,6 +73,23 @@ const withMissionItems = (live: TakItem[], missions: MissionsState, shown: Reado
     }
   }
   return extra.length ? [...live, ...extra] : live;
+};
+
+/** A plan's drafts as map items, named so they can't be mistaken for what TAK has. */
+const draftItems = (plan: Plan, live: TakItem[]) =>
+  plan.entries.flatMap(({ event, basedOn }) => {
+    const change = toChange(event);
+    if (change?.kind !== "upsert") return [];
+    const item: TakItem = { ...change.item, draft: true };
+    const current = live.find((i) => i.uid === event.uid);
+    return [{ item, conflict: basedOn !== undefined && !!current && current.time > basedOn }];
+  });
+
+/** Live items with the active plan's drafts in place of (or beside) them. */
+const withDrafts = (items: TakItem[], drafts: TakItem[]) => {
+  if (drafts.length === 0) return items;
+  const drafted = new Set(drafts.map((d) => d.uid));
+  return [...items.filter((i) => !drafted.has(i.uid)), ...drafts];
 };
 
 const ConnectionBanner = ({ status }: { status: TakStatus }) => {
@@ -121,7 +147,19 @@ export const TakWorkspace = () => {
   const browsedMission = drawer === "missions" ? openMission : undefined;
   useMissionsSync([...settings.shownMissions, ...(browsedMission ? [browsedMission] : [])]);
   const missions = useMissions();
-  const items = withMissionItems(liveItems, missions, settings.shownMissions);
+  const plans = usePlans();
+  const activePlan = plans.plans.find((p) => p.id === plans.activeId);
+  const items = withDrafts(
+    withMissionItems(liveItems, missions, settings.shownMissions),
+    activePlan ? draftItems(activePlan, liveItems).map((d) => d.item) : [],
+  );
+  /** Where new items and changes go: the active plan, or straight to TAK. */
+  const submit = (event: CotEvent) => {
+    if (!activePlan) return void publish(event);
+    const existing = liveItems.find((i) => i.uid === event.uid);
+    addToPlan(activePlan, { event, basedOn: existing?.time });
+  };
+  const submitLabel = activePlan ? `Add to ${activePlan.name}` : "Save to TAK";
   const mapRef = useRef<MapLibreMap>(undefined);
   const [map, setMap] = useState<MapLibreMap>();
   const drawing = useDrawing(map);
@@ -138,7 +176,7 @@ export const TakWorkspace = () => {
   const readOnlyReason = (item: TakItem) => {
     if (item.team) return "A TAK user's own position comes from their device";
     if (!callsign) return "No callsign: open BattleLog from the deploy app to change TAK items";
-    if (status.connection !== "live") return "Not connected to TAK";
+    if (!activePlan && status.connection !== "live") return "Not connected to TAK";
   };
   const contacts = [
     ...new Set(
@@ -168,14 +206,15 @@ export const TakWorkspace = () => {
         }[drawing.drawn.kind],
       )}
       onCancel={drawing.clear}
+      saveLabel={submitLabel}
       onSaveShape={(style) => {
         if (drawing.drawn && drawing.drawn.kind !== "marker")
-          void publish(newShapeEvent(drawing.drawn, style, sender));
+          submit(newShapeEvent(drawing.drawn, style, sender));
         drawing.clear();
       }}
       onSaveMarker={(marker) => {
         if (drawing.drawn?.kind === "marker")
-          void publish(newMarkerEvent({ ...marker, position: drawing.drawn.position }, sender));
+          submit(newMarkerEvent({ ...marker, position: drawing.drawn.position }, sender));
         drawing.clear();
       }}
     />
@@ -219,7 +258,15 @@ export const TakWorkspace = () => {
   });
 
   const drawerContent = (id: DrawerId) =>
-    id === "missions" ? (
+    id === "plans" ? (
+      <PlansDrawer
+        state={plans}
+        draftsOf={(plan) => draftItems(plan, liveItems)}
+        selectedUid={selectedUid}
+        onPick={pick}
+        publishReason={drawReason}
+      />
+    ) : id === "missions" ? (
       <MissionsDrawer
         state={missions}
         shown={settings.shownMissions}
@@ -264,6 +311,8 @@ export const TakWorkspace = () => {
       readOnlyReason={readOnlyReason(selected)}
       callsign={callsign}
       contacts={contacts}
+      onSubmit={submit}
+      submitLabel={submitLabel}
       onCenter={() => flyTo(anchorOf(selected))}
       onClose={() => setSelectedUid(undefined)}
     />
@@ -322,7 +371,12 @@ export const TakWorkspace = () => {
             onGoTo={flyTo}
           />
         </div>
-        <DrawToolbar tool={drawing.tool} onChoose={drawing.choose} disabledReason={drawReason} />
+        <DrawToolbar
+          tool={drawing.tool}
+          onChoose={drawing.choose}
+          disabledReason={activePlan ? undefined : drawReason}
+          planName={activePlan?.name}
+        />
         <ConnectionBanner status={status} />
       </div>
 

@@ -16,7 +16,7 @@ import { IconCheck, IconCopy, IconCurrentLocation, IconPencil, IconX } from "@ta
 import { type ReactNode, useState } from "react";
 import { useWrites, type WriteState } from "../commands.ts";
 import { type CoordFormat, formatCoord } from "../coords.ts";
-import type { TakItem } from "../cot.ts";
+import type { CotEvent, TakItem } from "../cot.ts";
 import {
   anchorOf,
   describeType,
@@ -46,6 +46,8 @@ type Props = {
   callsign: string | null | undefined;
   /** Callsigns of TAK users, for sending photos to chosen people. */
   contacts: string[];
+  onSubmit: (event: CotEvent) => void;
+  submitLabel: string;
   /** Names of the missions (Data Sync) that hold this item. */
   missions: string[];
   onCenter: () => void;
@@ -79,6 +81,8 @@ export const ItemDetails = ({
   readOnlyReason,
   callsign,
   contacts,
+  onSubmit,
+  submitLabel,
   missions,
   onCenter,
   onClose,
@@ -229,7 +233,13 @@ export const ItemDetails = ({
       </ScrollArea>
 
       {editing ? (
-        <EditItem item={item} status={editing.status} onDone={() => setEditing(false)} />
+        <EditItem
+          item={item}
+          status={editing.status}
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          onDone={() => setEditing(false)}
+        />
       ) : (
         <Stack gap="xs">
           {isUnit && !readOnlyReason && status2525 !== "destroyed" && (
