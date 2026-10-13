@@ -31,6 +31,8 @@ import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
 import { MeasurePanel } from "./drawing/MeasurePanel.tsx";
 import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
 import { newMarkerEvent, newRangeBearingEvent, newShapeEvent } from "./drawing/new-items.ts";
+import { TacticalGraphicDialog } from "./drawing/TacticalGraphicDialog.tsx";
+import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-graphics.ts";
 import { useDrawing } from "./drawing/useDrawing.ts";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
@@ -238,6 +240,24 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
     .sort((a, b) => a.callsign.localeCompare(b.callsign));
   const nameFor = (label: string) =>
     `${label} ${liveItems.filter((i) => i.callsign?.startsWith(`${label} `)).length + 1}`;
+  const [tacticalLook, setTacticalLook] = useState<TacticalLook>();
+  const tacticalShape = drawing.drawn ?? drawing.sketch;
+  const tacticalPoints = tacticalShape && "points" in tacticalShape ? tacticalShape.points : [];
+  const tacticalEvent = (uid?: string) =>
+    drawing.graphic && tacticalLook
+      ? newTacticalGraphicEvent(
+          drawing.graphic,
+          tacticalPoints,
+          tacticalLook,
+          sender,
+          Date.now(),
+          uid,
+        )
+      : undefined;
+  const previewEvent = tacticalPoints.length > 1 ? tacticalEvent("tactical-preview") : undefined;
+  const preview = previewEvent && toChange(previewEvent);
+  const mapItems =
+    preview?.kind === "upsert" ? [...items, { ...preview.item, draft: true as const }] : items;
   const newItemDialog = drawing.drawn && (
     <NewItemDialog
       drawn={drawing.drawn}
@@ -260,6 +280,21 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
       onSaveMarker={(marker) => {
         if (drawing.drawn?.kind === "marker")
           submit(newMarkerEvent({ ...marker, position: drawing.drawn.position }, sender));
+        drawing.clear();
+      }}
+    />
+  );
+  const tacticalDialog = drawing.drawn && drawing.graphic && tacticalLook && (
+    <TacticalGraphicDialog
+      graphic={drawing.graphic}
+      pointCount={tacticalPoints.length}
+      value={tacticalLook}
+      onChange={setTacticalLook}
+      onCancel={drawing.clear}
+      saveLabel={submitLabel}
+      onSave={() => {
+        const event = tacticalEvent();
+        if (event) submit(event);
         drawing.clear();
       }}
     />
@@ -429,7 +464,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
 
       <div className="tak-main">
         <MapCanvas
-          items={items}
+          items={mapItems}
           tracks={trackFeatures(
             settings.showAllTracks ? items : items.filter((i) => trackedUids.has(i.uid)),
             tracks,
@@ -480,6 +515,17 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
             onChoose={(tool) => {
               measure.stop();
               drawing.choose(tool);
+            }}
+            graphic={drawing.graphic}
+            onChooseGraphic={(graphic) => {
+              measure.stop();
+              drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
+              if (graphic)
+                setTacticalLook({
+                  name: nameFor(graphic.name),
+                  affiliation: "friendly",
+                  remarks: "",
+                });
             }}
             disabledReason={activePlan ? undefined : drawReason}
             planName={activePlan?.name}
@@ -538,7 +584,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
         </>
       )}
 
-      {newItemDialog}
+      {drawing.graphic ? tacticalDialog : newItemDialog}
       <StatusBar
         status={status}
         callsign={callsign}
