@@ -5,6 +5,12 @@ import { Player } from "../../widgets/streams/View.tsx";
 import { detectSourceType, isBrowserPlayable } from "../../widgets/streams/widget.ts";
 import type { TakItem } from "../cot.ts";
 
+/** The URL as shown on screen; copying still gives the real one. */
+export const maskCredentials = (url: string) =>
+  url
+    .replace(/\/\/([^/@:]+):[^/@]+@/, "//$1:•••@")
+    .replace(/([?&](?:pass|password|pwd|token)=)[^&]*/gi, "$1•••");
+
 /** An item's video feed: played in place when a browser can, otherwise its URL to open elsewhere. */
 export const VideoFeed = ({ video }: { video: NonNullable<TakItem["video"]> }) => {
   const [watching, setWatching] = useState(false);
@@ -33,7 +39,7 @@ export const VideoFeed = ({ video }: { video: NonNullable<TakItem["video"]> }) =
       )}
       <Group gap={4} wrap="nowrap" align="flex-start">
         <Text fz="xs" className="tak-mono" style={{ overflowWrap: "anywhere" }}>
-          {video.url}
+          {maskCredentials(video.url)}
         </Text>
         <CopyButton value={video.url}>
           {({ copied, copy }) => (
