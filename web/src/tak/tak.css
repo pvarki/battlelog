@@ -81,13 +81,44 @@
   z-index: 2;
 }
 
-.tak-banner {
+/* Below the draw toolbar, which shares the top of the map. */
+.tak-banners {
   position: absolute;
-  top: 56px;
+  top: 100px;
   left: 10px;
   right: 60px;
   max-width: 640px;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tak-emergency-pulse {
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+}
+
+/* MapLibre positions the marker element by its transform, so the ring animates inside it. */
+.tak-emergency-pulse::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid #ff2a2a;
+  border-radius: 50%;
+  animation: tak-emergency-pulse 1.4s ease-out infinite;
+}
+
+@keyframes tak-emergency-pulse {
+  from {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
 }
 
 .tak-statusbar {
@@ -233,4 +264,16 @@
   overflow-y: auto;
   padding-bottom: 4px;
   transform: translate(8px, 8px);
+}
+
+.tak-chat-message {
+  max-width: 85%;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-chat-message[data-own] {
+  align-self: flex-end;
+  background: var(--mantine-color-dark-4);
 }

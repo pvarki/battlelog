@@ -5,6 +5,7 @@ import {
   CloseButton,
   Drawer,
   Group,
+  Indicator,
   Stack,
   Text,
   UnstyledButton,
@@ -14,11 +15,15 @@ import {
   IconClipboardList,
   IconFolders,
   IconList,
+  IconMessage,
   IconStack2,
 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "../dashboard/mobile.ts";
+import { ChatDrawer } from "./chat/ChatDrawer.tsx";
+import { newChatEvent } from "./chat/chat.ts";
+import { useChatMessages } from "./chat/store.ts";
 import { publish } from "./commands.ts";
 import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
@@ -26,6 +31,7 @@ import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
 import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
 import { newMarkerEvent, newShapeEvent } from "./drawing/new-items.ts";
 import { useDrawing } from "./drawing/useDrawing.ts";
+import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { useCallsign } from "./identity.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
@@ -39,7 +45,7 @@ import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { addToPlan, type Plan, usePlans } from "./plans/plans.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { StatusBar } from "./StatusBar.tsx";
-import { type TakStatus, useTakItems, useTakSession, useTakStatus } from "./session.ts";
+import { sendCot, type TakStatus, useTakItems, useTakSession, useTakStatus } from "./session.ts";
 import { useMapSettings } from "./settings.ts";
 
 const DRAWERS = {
@@ -47,6 +53,7 @@ const DRAWERS = {
   missions: { label: "Missions", Icon: IconFolders, key: "2" },
   plans: { label: "Plans", Icon: IconClipboardList, key: "3" },
   layers: { label: "Layers", Icon: IconStack2, key: "4" },
+  chat: { label: "Chat", Icon: IconMessage, key: "5" },
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
@@ -96,12 +103,7 @@ const withDrafts = (items: TakItem[], drafts: TakItem[]) => {
 const ConnectionBanner = ({ status }: { status: TakStatus }) => {
   if (status.connection !== "down") return null;
   return (
-    <Alert
-      className="tak-banner"
-      color="danger"
-      variant="filled"
-      icon={<IconAlertTriangle size={18} />}
-    >
+    <Alert color="danger" variant="filled" icon={<IconAlertTriangle size={18} />}>
       {status.everConnected
         ? "Connection to TAK lost — reconnecting. The map shows the last known picture."
         : "Can't connect to TAK. Open BattleLog from the deploy app so your device certificate is used. TAK may also be unreachable."}
@@ -193,6 +195,20 @@ export const TakWorkspace = () => {
       ? "Not connected to TAK"
       : undefined;
   const sender = { uid: `BattleLog-${callsign}`, callsign: callsign ?? "" };
+  const chatMessages = useChatMessages();
+  const [chatReadCount, setChatReadCount] = useState(0);
+  const unreadChats =
+    drawer === "chat"
+      ? 0
+      : chatMessages.slice(chatReadCount).filter((m) => m.senderUid !== sender.uid).length;
+  useEffect(() => {
+    if (drawer === "chat") setChatReadCount(chatMessages.length);
+  }, [drawer, chatMessages.length]);
+  const chatContacts = liveItems
+    .flatMap((i) =>
+      i.team && i.callsign && i.callsign !== callsign ? [{ uid: i.uid, callsign: i.callsign }] : [],
+    )
+    .sort((a, b) => a.callsign.localeCompare(b.callsign));
   const nameFor = (label: string) =>
     `${label} ${liveItems.filter((i) => i.callsign?.startsWith(`${label} `)).length + 1}`;
   const newItemDialog = drawing.drawn && (
@@ -261,7 +277,15 @@ export const TakWorkspace = () => {
   });
 
   const drawerContent = (id: DrawerId) =>
-    id === "plans" ? (
+    id === "chat" ? (
+      <ChatDrawer
+        messages={chatMessages}
+        selfUid={sender.uid}
+        contacts={chatContacts}
+        sendReason={drawReason}
+        onSend={(text, to) => sendCot(newChatEvent(text, to, sender))}
+      />
+    ) : id === "plans" ? (
       <PlansDrawer
         state={plans}
         draftsOf={(plan) => draftItems(plan, liveItems)}
@@ -334,7 +358,14 @@ export const TakWorkspace = () => {
               onClick={() => toggleDrawer(id)}
               title={`${label} (${key})`}
             >
-              <Icon size={20} stroke={1.5} />
+              <Indicator
+                label={unreadChats}
+                size={16}
+                color="red"
+                disabled={id !== "chat" || unreadChats === 0}
+              >
+                <Icon size={20} stroke={1.5} />
+              </Indicator>
               <span>{label}</span>
             </UnstyledButton>
           );
@@ -393,7 +424,10 @@ export const TakWorkspace = () => {
           disabledReason={activePlan ? undefined : drawReason}
           planName={activePlan?.name}
         />
-        <ConnectionBanner status={status} />
+        <div className="tak-banners">
+          <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
+          <ConnectionBanner status={status} />
+        </div>
       </div>
 
       {!isMobile && details && (

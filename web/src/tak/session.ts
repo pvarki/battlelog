@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { receiveChat } from "./chat/store.ts";
 import { type CotEvent, toChange } from "./cot.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
 import { fetchArchive, takBaseUrl } from "./rest.ts";
@@ -44,6 +45,7 @@ let sweepTimer: ReturnType<typeof setInterval> | undefined;
 let backfillAbort: AbortController | undefined;
 
 const applyEvent = (event: CotEvent) => {
+  if (receiveChat(event)) return;
   const change = toChange(event);
   if (change) takStore.apply(change);
 };

@@ -47,7 +47,7 @@ const SHAPE_TYPE = {
   circle: "u-d-c-c",
 } as const;
 
-const escapeXml = (s: string) =>
+export const escapeXml = (s: string) =>
   s
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
