@@ -105,3 +105,21 @@ test("markers: a spot marker in its colour, units by affiliation, with who place
   const hostile = parsed(newMarkerEvent({ ...marker, kind: "h" }, sender, 1_000));
   expect(hostile).toMatchObject({ type: "a-h-G", stale: 1_000 + 365 * 86_400_000 });
 });
+
+test("icon-set markers: white like ATAK's palette, unknown ground unless the set names a type", () => {
+  const marker = {
+    position: [22, 60] as [number, number],
+    name: "Nuotio",
+    remarks: "",
+    color: "#ffff00",
+    kind: "icon" as const,
+  };
+  const path = "3c1f9a52-8d0e-4c41-9b0a-1a2d5e7f4b61/Retkeily/nuotiopaikka.png";
+  expect(parsed(newMarkerEvent({ ...marker, icon: { path } }, sender))).toMatchObject({
+    type: "a-u-G",
+    iconPath: path,
+    stroke: { color: "#ffffff" },
+  });
+  const typed = parsed(newMarkerEvent({ ...marker, icon: { path, type: "a-n-G-I" } }, sender));
+  expect(typed.type).toBe("a-n-G-I");
+});

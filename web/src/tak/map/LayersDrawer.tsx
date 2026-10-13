@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { COORD_FORMATS, type CoordFormat } from "../coords.ts";
 import type { MapSettings } from "../settings.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
+import { IconsetsSection } from "./IconsetsSection.tsx";
 
 type Props = {
   settings: MapSettings;
@@ -45,6 +46,8 @@ export const LayersDrawer = ({ settings, children }: Props) => (
       allowDeselect={false}
       comboboxProps={{ withinPortal: true }}
     />
+
+    <IconsetsSection />
 
     {children}
   </Stack>

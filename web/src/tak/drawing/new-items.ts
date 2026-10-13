@@ -32,10 +32,12 @@ export type NewMarker = {
   position: Position;
   name: string;
   remarks: string;
-  /** "spot" is ATAK's coloured dot; the rest are 2525 units by affiliation. */
-  kind: "spot" | "f" | "h" | "n" | "u";
+  /** "spot" is ATAK's coloured dot, "icon" an icon-set icon; the rest are 2525 units by affiliation. */
+  kind: "spot" | "icon" | "f" | "h" | "n" | "u";
   /** Spot marker colour, #rrggbb. */
   color: string;
+  /** For "icon": the ATAK icon-set path and the CoT type the set gives it. */
+  icon?: { path: string; type?: string };
 };
 
 const DAY_MS = 86_400_000;
@@ -129,14 +131,20 @@ export const newMarkerEvent = (
   now = Date.now(),
   uid: string = crypto.randomUUID(),
 ): CotEvent => {
-  const spot = marker.kind === "spot";
-  const type = spot ? "b-m-p-s-m" : `a-${marker.kind}-G`;
+  const { kind, icon } = marker;
+  // ATAK's icon palette places white-tinted icons as unknown ground unless the set names a type.
+  const type =
+    kind === "spot" ? "b-m-p-s-m" : kind === "icon" ? (icon?.type ?? "a-u-G") : `a-${kind}-G`;
+  const look =
+    kind === "spot"
+      ? `<color argb="${toArgb(marker.color)}"/><usericon iconsetpath="COT_MAPPING_SPOTMAP/b-m-p-s-m/${toArgb(marker.color)}"/>`
+      : kind === "icon" && icon
+        ? `<color argb="-1"/><usericon iconsetpath="${escapeXml(icon.path)}"/>`
+        : "";
   const detail = [
     `<contact callsign="${escapeXml(marker.name)}"/>`,
     `<link uid="${escapeXml(sender.uid)}" relation="p-p" type="a-f-G-U-C" parent_callsign="${escapeXml(sender.callsign)}" production_time="${iso(now)}"/>`,
-    spot
-      ? `<color argb="${toArgb(marker.color)}"/><usericon iconsetpath="COT_MAPPING_SPOTMAP/b-m-p-s-m/${toArgb(marker.color)}"/>`
-      : "",
+    look,
     remarksXml(marker.remarks),
     "<archive/>",
   ].join("");
