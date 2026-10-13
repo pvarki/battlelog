@@ -40,7 +40,7 @@ const matches = (item: TakItem, query: string) => {
 const byName = (a: TakItem, b: TakItem) =>
   (a.team ?? "").localeCompare(b.team ?? "") || labelOf(a).localeCompare(labelOf(b));
 
-const Row = ({
+export const ItemRow = ({
   item,
   selected,
   now,
@@ -145,7 +145,7 @@ export const ItemsDrawer = ({ items, selectedUid, onPick, hidden, onToggleGroup 
           <div className="tak-group-body">
             {group.children.map((child) => renderGroup(child, ownHidden || parentHidden))}
             {group.items.sort(byName).map((item) => (
-              <Row
+              <ItemRow
                 key={item.uid}
                 item={item}
                 now={now}

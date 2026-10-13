@@ -9,7 +9,7 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconAlertTriangle, IconList, IconStack2 } from "@tabler/icons-react";
+import { IconAlertTriangle, IconFolders, IconList, IconStack2 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "../dashboard/mobile.ts";
@@ -21,6 +21,8 @@ import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { anchorOf, hasPosition } from "./items.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
+import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
+import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { StatusBar } from "./StatusBar.tsx";
 import { type TakStatus, useTakItems, useTakSession, useTakStatus } from "./session.ts";
@@ -28,7 +30,8 @@ import { useMapSettings } from "./settings.ts";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
-  layers: { label: "Layers", Icon: IconStack2, key: "2" },
+  missions: { label: "Missions", Icon: IconFolders, key: "2" },
+  layers: { label: "Layers", Icon: IconStack2, key: "3" },
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
@@ -38,6 +41,25 @@ const FOCUS_ZOOM = 14;
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+
+/**
+ * The live picture plus the items of missions shown on the map. A mission
+ * item that is also live is the same uid; the live copy wins.
+ */
+const withMissionItems = (live: TakItem[], missions: MissionsState, shown: ReadonlySet<string>) => {
+  const seen = new Set(live.map((i) => i.uid));
+  const extra: TakItem[] = [];
+  for (const [name, contents] of missions.contents) {
+    if (!shown.has(name) || contents.kind !== "loaded") continue;
+    for (const item of contents.items) {
+      if (!seen.has(item.uid)) {
+        seen.add(item.uid);
+        extra.push(item);
+      }
+    }
+  }
+  return extra.length ? [...live, ...extra] : live;
+};
 
 const ConnectionBanner = ({ status }: { status: TakStatus }) => {
   if (status.connection !== "down") return null;
@@ -82,7 +104,7 @@ const Panel = ({
  */
 export const TakWorkspace = () => {
   useTakSession();
-  const items = useTakItems();
+  const liveItems = useTakItems();
   const status = useTakStatus();
   const callsign = useCallsign();
   const settings = useMapSettings();
@@ -90,9 +112,24 @@ export const TakWorkspace = () => {
   const [drawer, setDrawer] = useState<DrawerId | null>(isMobile ? null : "items");
   const [selectedUid, setSelectedUid] = useState<string>();
   const [cursor, setCursor] = useState<Position>();
+  const [openMission, setOpenMission] = useState<string>();
+  useMissionsSync([...settings.shownMissions, ...(openMission ? [openMission] : [])]);
+  const missions = useMissions();
+  const items = withMissionItems(liveItems, missions, settings.shownMissions);
   const mapRef = useRef<MapLibreMap>(undefined);
   const searchRef = useRef<HTMLInputElement>(null);
-  const selected = items.find((i) => i.uid === selectedUid);
+  const missionItem = (uid: string) => {
+    for (const contents of missions.contents.values()) {
+      const found = contents.kind === "loaded" && contents.items.find((i) => i.uid === uid);
+      if (found) return found;
+    }
+  };
+  const selected = selectedUid
+    ? (items.find((i) => i.uid === selectedUid) ?? missionItem(selectedUid))
+    : undefined;
+  const callsignOf = (uid: string) => liveItems.find((i) => i.uid === uid)?.callsign;
+  const missionsOf = (uid: string) =>
+    (missions.missions ?? []).filter((m) => m.itemUids.includes(uid)).map((m) => m.name);
 
   const flyTo = (position: Position) => {
     const map = mapRef.current;
@@ -128,7 +165,18 @@ export const TakWorkspace = () => {
   });
 
   const drawerContent = (id: DrawerId) =>
-    id === "items" ? (
+    id === "missions" ? (
+      <MissionsDrawer
+        state={missions}
+        shown={settings.shownMissions}
+        onToggleShown={settings.toggleMission}
+        open={openMission}
+        onOpen={setOpenMission}
+        selectedUid={selectedUid}
+        onPick={pick}
+        callsignOf={callsignOf}
+      />
+    ) : id === "items" ? (
       <ItemsDrawer
         items={items}
         selectedUid={selectedUid}
@@ -157,6 +205,7 @@ export const TakWorkspace = () => {
     <ItemDetails
       item={selected}
       coordFormat={settings.coordFormat}
+      missions={missionsOf(selected.uid)}
       onCenter={() => flyTo(anchorOf(selected))}
       onClose={() => setSelectedUid(undefined)}
     />

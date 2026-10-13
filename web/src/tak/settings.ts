@@ -20,7 +20,27 @@ export const useMapSettings = () => {
   const hidden = new Set(hiddenList);
   const toggleGroup = (key: string) =>
     setHiddenList((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
-  return { coordFormat, setCoordFormat, basemap, setBasemap, dim, setDim, hidden, toggleGroup };
+  const [shownMissionList, setShownMissionList] = useLocalStorage<string[]>({
+    key: "battlelog.tak.shownMissions",
+    defaultValue: [],
+  });
+  const shownMissions = new Set(shownMissionList);
+  const toggleMission = (name: string) =>
+    setShownMissionList((list) =>
+      list.includes(name) ? list.filter((n) => n !== name) : [...list, name],
+    );
+  return {
+    coordFormat,
+    setCoordFormat,
+    basemap,
+    setBasemap,
+    dim,
+    setDim,
+    hidden,
+    toggleGroup,
+    shownMissions,
+    toggleMission,
+  };
 };
 
 export type MapSettings = ReturnType<typeof useMapSettings>;

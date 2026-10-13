@@ -30,6 +30,8 @@ import { useNow } from "../use-now.ts";
 type Props = {
   item: TakItem;
   coordFormat: CoordFormat;
+  /** Names of the missions (Data Sync) that hold this item. */
+  missions: string[];
   onCenter: () => void;
   onClose: () => void;
 };
@@ -48,7 +50,7 @@ const Field = ({ label, children }: { label: string; children: ReactNode }) => (
 const absoluteTime = (ms: number) => new Date(ms).toLocaleString("fi-FI");
 
 /** Everything known about the selected item. Editing actions arrive with the editing slice. */
-export const ItemDetails = ({ item, coordFormat, onCenter, onClose }: Props) => {
+export const ItemDetails = ({ item, coordFormat, missions, onCenter, onClose }: Props) => {
   const now = useNow(10_000);
   const status = statusOf(item, now);
   const position = anchorOf(item);
@@ -151,6 +153,7 @@ export const ItemDetails = ({ item, coordFormat, onCenter, onClose }: Props) => 
               <span className="tak-mono">{item.sidc}</span>
             </Field>
           )}
+          {missions.length > 0 && <Field label="Missions">{missions.join(", ")}</Field>}
           <Field label="UID">
             <span className="tak-mono" style={{ overflowWrap: "anywhere" }}>
               {item.uid}
