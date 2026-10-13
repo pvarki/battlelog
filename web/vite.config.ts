@@ -111,6 +111,8 @@ export default defineConfig(({ command, mode }) => {
           globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
           // Chat needs the network anyway; don't make every install download the Matrix SDK.
           globIgnores: ["**/matrix-*.js"],
+          // The tactical graphics renderer (C5Ren, 7.4 MB) must work offline like the map.
+          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           navigateFallbackDenylist: [/^\/(api|uploads|rmapi|healthz|openapi\.json)/],
         },
       }),

@@ -15,6 +15,7 @@ import { labelOf } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
 import { toSources } from "./layers.ts";
+import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
 type Props = {
   items: TakItem[];
@@ -32,7 +33,14 @@ const VIEW_KEY = "battlelog.tak.view";
 const FINLAND = { center: [25.5, 64] as [number, number], zoom: 4.5, bearing: 0 };
 // Fading depends on the clock as well as on data: re-evaluate even when nothing arrives.
 const FADE_CHECK_MS = 30_000;
-const INTERACTIVE_LAYERS = ["tak-points", "tak-shape-lines", "tak-shape-fills"];
+const INTERACTIVE_LAYERS = [
+  "tak-points",
+  "tak-shape-lines",
+  "tak-shape-fills",
+  "tak-tactical-labels",
+  "tak-tactical-lines",
+  "tak-tactical-fills",
+];
 const ACCENT = "#8abbff";
 // ATAK hides marker names beyond 10 m per pixel, about zoom 12 at Finnish latitudes.
 const MARKER_LABEL_MIN_ZOOM = 12;
@@ -70,7 +78,14 @@ const showBasemap = (map: MapLibreMap, basemap: Basemap) => {
   map.addLayer({ id: "basemap", type: "raster", source: "basemap" }, firstItemLayer);
 };
 
-const ITEM_SOURCES = ["points", "shapes", "markerLabels", "lineLabels", "decorations"] as const;
+const ITEM_SOURCES = [
+  "points",
+  "shapes",
+  "markerLabels",
+  "lineLabels",
+  "decorations",
+  "tactical",
+] as const;
 
 // ATAK's dash patterns (6 on / 10 off, 2 on / 14 off) in line-width units for a typical 3–4 px line.
 const DASHES: ExpressionSpecification = [
@@ -85,7 +100,9 @@ const DASHES: ExpressionSpecification = [
 
 const addItemLayers = (map: MapLibreMap) => {
   const empty = { type: "FeatureCollection" as const, features: [] };
-  for (const name of ITEM_SOURCES) map.addSource(`tak-${name}`, { type: "geojson", data: empty });
+  for (const name of ITEM_SOURCES) {
+    if (name !== "tactical") map.addSource(`tak-${name}`, { type: "geojson", data: empty });
+  }
   const overlapping = { "icon-allow-overlap": true, "icon-ignore-placement": true } as const;
   map.addLayer({
     id: "tak-shape-fills",
@@ -116,6 +133,14 @@ const addItemLayers = (map: MapLibreMap) => {
     id: "tak-selected-shape",
     type: "line",
     source: "tak-shapes",
+    filter: ["==", ["get", "uid"], ""],
+    paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
+  });
+  addTacticalLayers(map);
+  map.addLayer({
+    id: "tak-selected-tactical",
+    type: "line",
+    source: "tak-tactical",
     filter: ["==", ["get", "uid"], ""],
     paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
   });
@@ -250,10 +275,15 @@ export const MapCanvas = ({
   useEffect(() => {
     if (!map) return;
     // ponytail: full setData per notify (≤4/s); switch to updateData diffs if large pictures stutter.
-    const sources = toSources(map, items, hidden, now);
-    for (const name of ITEM_SOURCES) {
-      (map.getSource(`tak-${name}`) as GeoJSONSource).setData(sources[name]);
-    }
+    const draw = () => {
+      const sources = toSources(map, items, hidden, now);
+      for (const name of ITEM_SOURCES) {
+        (map.getSource(`tak-${name}`) as GeoJSONSource).setData(sources[name]);
+      }
+    };
+    draw();
+    // Graphics render asynchronously the first time; redraw when they're ready.
+    return onTacticalRendered(draw);
   }, [map, items, hidden, now]);
 
   useEffect(() => {
@@ -261,6 +291,7 @@ export const MapCanvas = ({
     const filter = ["==", ["get", "uid"], selectedUid ?? ""] as FilterSpecification;
     map.setFilter("tak-selected-point", filter);
     map.setFilter("tak-selected-shape", filter);
+    map.setFilter("tak-selected-tactical", filter);
   }, [map, selectedUid]);
 
   return <div ref={container} className="tak-map" aria-label="TAK map" role="application" />;

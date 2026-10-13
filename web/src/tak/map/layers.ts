@@ -11,6 +11,7 @@ import {
   type MapImage,
   referenceDot,
 } from "./symbols.ts";
+import { tacticalFeatures } from "./tactical.ts";
 
 /**
  * Items as the GeoJSON sources the map draws, following ATAK's conventions:
@@ -28,6 +29,8 @@ export type Sources = {
   lineLabels: FeatureCollection;
   /** Map-aligned decorations such as range-and-bearing arrowheads. */
   decorations: FeatureCollection;
+  /** MIL-STD-2525 tactical graphics, rendered from drawings that carry a symbol code. */
+  tactical: FeatureCollection;
 };
 
 const EARTH_RADIUS_M = 6_371_008.8;
@@ -127,6 +130,7 @@ export const toSources = (
   const markerLabels: Feature[] = [];
   const lineLabels: Feature[] = [];
   const decorations: Feature[] = [];
+  const tactical: Feature[] = [];
 
   const icon = (uid: string, at: Position, image: MapImage, order: number) =>
     points.push(point(at, { uid, icon: image.id, offset: image.offset, order }));
@@ -167,6 +171,12 @@ export const toSources = (
     const name = labelOf(item);
     const stroke = item.stroke?.color ?? (item.rangeBearing ? RANGE_BEARING_COLOR : DEFAULT_STROKE);
     const g = item.geometry;
+
+    const graphic = g.type === "Point" ? undefined : tacticalFeatures(map, item);
+    if (graphic) {
+      tactical.push(...graphic);
+      continue;
+    }
 
     if (g.type === "Point" && !item.ellipse) {
       const image = iconFor(map, item, stale);
@@ -276,5 +286,6 @@ export const toSources = (
     markerLabels: collection(markerLabels),
     lineLabels: collection(lineLabels),
     decorations: collection(decorations),
+    tactical: collection(tactical),
   };
 };
