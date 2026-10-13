@@ -62,7 +62,7 @@ export const contentUrl = (hash: string) =>
  * TAK's address as other TAK clients reach it. Same as ours in a deployment;
  * in local dev ours is the /tak proxy, which means nothing to an ATAK phone.
  */
-const takPublicUrl = (): string => import.meta.env.VITE_TAK_PUBLIC_URL || takBaseUrl();
+export const takPublicUrl = (): string => import.meta.env.VITE_TAK_PUBLIC_URL || takBaseUrl();
 
 /** A download link to write into CoT, where other clients will read it. */
 export const publicContentUrl = (hash: string) =>

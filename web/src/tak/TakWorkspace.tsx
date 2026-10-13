@@ -41,6 +41,7 @@ import { useDrawing } from "./drawing/useDrawing.ts";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { useCallsign } from "./identity.ts";
+import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { anchorOf, hasPosition } from "./items.ts";
@@ -278,6 +279,11 @@ export const TakWorkspace = ({
       ? { ...sender, team: settings.team, role: settings.role }
       : undefined,
   );
+  const receivedPackages = useInbox().length;
+  const badges: Partial<Record<DrawerId, number>> = {
+    chat: unreadChats,
+    plans: receivedPackages,
+  };
   const chatContacts = liveItems
     .flatMap((i) =>
       i.team && i.callsign && i.callsign !== callsign ? [{ uid: i.uid, callsign: i.callsign }] : [],
@@ -431,6 +437,7 @@ export const TakWorkspace = ({
         selectedUid={selectedUid}
         onPick={pick}
         publishReason={drawReason}
+        sender={sender}
       />
     ) : id === "missions" ? (
       <MissionsDrawer
@@ -509,12 +516,7 @@ export const TakWorkspace = ({
               onClick={() => toggleDrawer(id)}
               title={embedded ? label : `${label} (${key})`}
             >
-              <Indicator
-                label={unreadChats}
-                size={16}
-                color="red"
-                disabled={id !== "chat" || unreadChats === 0}
-              >
+              <Indicator label={badges[id]} size={16} color="red" disabled={!badges[id]}>
                 <Icon size={20} stroke={1.5} />
               </Indicator>
               <span>{label}</span>

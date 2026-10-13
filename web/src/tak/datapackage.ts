@@ -1,5 +1,6 @@
 import { zipSync } from "fflate";
 import type { CotEvent, TakItem } from "./cot.ts";
+import { FILE_SHARE_TYPE, sha256Hex } from "./inbox/fileshare.ts";
 import { labelOf } from "./items.ts";
 import { safeZipName } from "./plans/plans.ts";
 import { publicContentUrl, TakRequestError, takBaseUrl } from "./rest.ts";
@@ -41,11 +42,6 @@ export const attachmentPackage = (
   return zipSync({ "MANIFEST/manifest.xml": manifest, [zipEntry]: photo }, { level: 0 });
 };
 
-const sha256Hex = async (bytes: Uint8Array<ArrayBuffer>) =>
-  Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
 /** The file-share announcement; no recipients means every TAK user in the sender's groups. */
 export const fileShareEvent = (
   share: { fileName: string; hash: string; size: number; name: string },
@@ -56,7 +52,7 @@ export const fileShareEvent = (
   const dest = recipients.map((callsign) => `<dest callsign="${escapeXml(callsign)}"/>`).join("");
   return {
     uid: crypto.randomUUID(),
-    type: "b-f-t-r",
+    type: FILE_SHARE_TYPE,
     how: "h-e",
     time: now,
     start: now,

@@ -18,6 +18,7 @@ import { type ReactNode, useState } from "react";
 import { useWrites, type WriteState } from "../commands.ts";
 import { type CoordFormat, formatCoord } from "../coords.ts";
 import type { CotEvent, TakItem } from "../cot.ts";
+import { isImage, useAttachments } from "../inbox/import.ts";
 import {
   anchorOf,
   describeType,
@@ -110,7 +111,12 @@ export const ItemDetails = ({
   const now = useNow(10_000);
   const [editing, setEditing] = useState<false | { status?: UnitStatus }>(false);
   const write = useWrites().get(item.uid);
-  const photos = contentLinks(item.remarks);
+  const received = useAttachments(item.uid);
+  const photos = [
+    ...contentLinks(item.remarks),
+    ...received.filter((f) => isImage(f.name)).map((f) => f.url),
+  ];
+  const files = received.filter((f) => !isImage(f.name));
   const isUnit = item.type.startsWith("a-") && !item.team;
   const status2525 = isUnit ? unitStatusOf(sidcOf(item) ?? "") : undefined;
   const status = statusOf(item, now);
@@ -247,6 +253,15 @@ export const ItemDetails = ({
                   </Anchor>
                 ))}
               </Group>
+            </Field>
+          )}
+          {files.length > 0 && (
+            <Field label="Files">
+              {files.map((file) => (
+                <Anchor key={file.url} href={file.url} download={file.name} display="block">
+                  {file.name}
+                </Anchor>
+              ))}
             </Field>
           )}
           {item.battery !== undefined && <Field label="Battery">{item.battery} %</Field>}

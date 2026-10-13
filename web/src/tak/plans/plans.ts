@@ -3,7 +3,9 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { useSyncExternalStore } from "react";
 import { publish } from "../commands.ts";
 import { type CotEvent, toChange } from "../cot.ts";
+import type { Sender } from "../drawing/new-items.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
+import { gpxToEvents, kmlToEvents } from "./overlay-files.ts";
 
 /**
  * Plans: drafts prepared before anything reaches TAK. A plan holds new items
@@ -214,33 +216,69 @@ export const exportPlan = (plan: Plan): Blob => {
   return new Blob([zipSync(files).slice()], { type: "application/zip" });
 };
 
-/**
- * A plan from a data package (ours or ATAK's). Only map items become drafts:
- * a package from elsewhere must not be able to make the user publish deletes
- * or other control messages under their own name.
- */
-const MAX_PACKAGE_BYTES = 50 * 1_048_576;
+export const MAX_PACKAGE_BYTES = 50 * 1_048_576;
 const MAX_COT_BYTES = 1_048_576;
 
-export const importPlan = async (file: File): Promise<Plan> => {
-  if (file.size > MAX_PACKAGE_BYTES) throw new Error("Package is too large to import");
+/**
+ * The accepted entries of a zip from elsewhere, refusing one that expands
+ * past the limits. Entries not accepted are never decompressed.
+ */
+export const unzipLimited = (
+  zip: Uint8Array,
+  accept: (path: string) => boolean,
+  maxEntryBytes = MAX_COT_BYTES,
+): Record<string, Uint8Array> => {
   let total = 0;
-  const files = unzipSync(new Uint8Array(await file.arrayBuffer()), {
-    // Only CoT files are read; anything else is never decompressed.
+  return unzipSync(zip, {
     filter: (entry) => {
-      if (!entry.name.toLowerCase().endsWith(".cot")) return false;
+      if (!accept(entry.name)) return false;
       // Stored entries are copied by their compressed size, which a forged zip can inflate.
       const bytes = Math.max(entry.size, entry.originalSize);
       total += bytes;
-      if (bytes > MAX_COT_BYTES || total > MAX_PACKAGE_BYTES)
+      if (bytes > maxEntryBytes || total > MAX_PACKAGE_BYTES)
         throw new Error("Package expands too large to import");
       return true;
     },
   });
-  const events = Object.entries(files)
-    .filter(([path]) => path.toLowerCase().endsWith(".cot"))
-    .flatMap(([, bytes]) => parseCotXml(strFromU8(bytes)))
-    .filter((event) => toChange(event)?.kind === "upsert");
-  const plan = createPlan(file.name.replace(/\.zip$/i, ""));
-  return save({ ...plan, entries: events.map((event) => ({ event })) });
+};
+
+export const isCot = (path: string) => path.toLowerCase().endsWith(".cot");
+
+/**
+ * Only map items become drafts: a file from elsewhere must not be able to
+ * make the user publish deletes or other control messages under their own name.
+ */
+export const planFromEvents = (name: string, events: CotEvent[]): Plan => {
+  const entries = events
+    .filter((event) => toChange(event)?.kind === "upsert")
+    .map((event) => ({ event }));
+  return save({ ...createPlan(name), entries });
+};
+
+/** The CoT in a data package (ours or ATAK's). */
+const packageEvents = (files: Record<string, Uint8Array>): CotEvent[] =>
+  Object.entries(files)
+    .filter(([path]) => isCot(path))
+    .flatMap(([, bytes]) => parseCotXml(strFromU8(bytes)));
+
+const kmzToKml = (zip: Uint8Array) => {
+  const files = unzipLimited(zip, (path) => path.toLowerCase().endsWith(".kml"), MAX_PACKAGE_BYTES);
+  // Google Earth reads doc.kml, or else the first KML in the archive.
+  const kml = files["doc.kml"] ?? Object.values(files)[0];
+  if (!kml) throw new Error("No KML in the KMZ");
+  return strFromU8(kml);
+};
+
+export const IMPORT_ACCEPT = ".zip,.kml,.kmz,.gpx";
+
+/** A plan from a data package, KML/KMZ or GPX file; drawings name `sender` as their creator. */
+export const importPlan = async (file: File, sender: Sender): Promise<Plan> => {
+  if (file.size > MAX_PACKAGE_BYTES) throw new Error("File is too large to import");
+  const extension = file.name.match(/\.([^.]*)$/)?.[1]?.toLowerCase();
+  const name = file.name.replace(/\.[^.]*$/, "");
+  if (extension === "kml") return planFromEvents(name, kmlToEvents(await file.text(), sender));
+  if (extension === "gpx") return planFromEvents(name, gpxToEvents(await file.text(), sender));
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (extension === "kmz") return planFromEvents(name, kmlToEvents(kmzToKml(bytes), sender));
+  return planFromEvents(name, packageEvents(unzipLimited(bytes, isCot)));
 };

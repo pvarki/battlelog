@@ -5,6 +5,8 @@ import type { CotEvent } from "../cot.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
 import { addToPlan, createPlan, exportPlan, importPlan } from "./plans.ts";
 
+const sender = { uid: "BattleLog-Eversti", callsign: "Eversti" };
+
 const event: CotEvent = {
   uid: "draft-1",
   type: "u-d-f",
@@ -32,7 +34,10 @@ test("a plan exports as an ATAK data package and imports back as the same drafts
   const exported = exportPlan({ ...plan, entries: [{ event }] });
   const files = unzipSync(new Uint8Array(await exported.arrayBuffer()));
   expect(Object.keys(files).sort()).toEqual(["0-draft-1/0-draft-1.cot", "MANIFEST/manifest.xml"]);
-  const imported = await importPlan(new File([await exported.arrayBuffer()], "Hyökkäys.zip"));
+  const imported = await importPlan(
+    new File([await exported.arrayBuffer()], "Hyökkäys.zip"),
+    sender,
+  );
   expect(imported.name).toBe("Hyökkäys");
   expect(imported.entries.map((e) => e.event)).toEqual([event]);
 });
@@ -60,12 +65,26 @@ test("importing keeps map items and drops deletes and other control messages", a
   };
   const plan = createPlan("mixed");
   const blob = exportPlan({ ...plan, entries: [{ event }, { event: del }] });
-  const imported = await importPlan(new File([await blob.arrayBuffer()], "mixed.zip"));
+  const imported = await importPlan(new File([await blob.arrayBuffer()], "mixed.zip"), sender);
   expect(imported.entries.map((e) => e.event.uid)).toEqual(["draft-1"]);
 });
 
 test("a package whose CoT expands past the limit is refused", async () => {
   const big = new Uint8Array(2 * 1_048_576);
   const zip = zipSync({ "a/a.cot": big, "notes.txt": big });
-  await expect(importPlan(new File([zip.slice()], "big.zip"))).rejects.toThrow(/too large/);
+  await expect(importPlan(new File([zip.slice()], "big.zip"), sender)).rejects.toThrow(/too large/);
+});
+
+const kml = `<kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>OP</name><Point><coordinates>22.2,60.4</coordinates></Point></Placemark></Document></kml>`;
+
+test("a KMZ imports as a plan of its KML's drawings", async () => {
+  const kmz = zipSync({ "doc.kml": new TextEncoder().encode(kml) });
+  const plan = await importPlan(new File([kmz.slice()], "Alue.kmz"), sender);
+  expect(plan.name).toBe("Alue");
+  expect(plan.entries.map((e) => e.event.type)).toEqual(["b-m-p-s-m"]);
+});
+
+test("a KMZ whose KML expands past the limit is refused", async () => {
+  const kmz = zipSync({ "doc.kml": new Uint8Array(51 * 1_048_576) });
+  await expect(importPlan(new File([kmz.slice()], "big.kmz"), sender)).rejects.toThrow(/too large/);
 });
