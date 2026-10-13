@@ -13,7 +13,14 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconCurrentLocation, IconPencil, IconX } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCopy,
+  IconCurrentLocation,
+  IconPencil,
+  IconShape,
+  IconX,
+} from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { useWrites, type WriteState } from "../commands.ts";
 import { type CoordFormat, formatCoord } from "../coords.ts";
@@ -38,6 +45,7 @@ import type { Mission } from "../missions/missions.ts";
 import { contentLinks } from "../rest.ts";
 import { useNow } from "../use-now.ts";
 import { AttachPhoto } from "./AttachPhoto.tsx";
+import { DeleteItem } from "./DeleteItem.tsx";
 import { EditItem } from "./EditItem.tsx";
 
 type Props = {
@@ -51,6 +59,8 @@ type Props = {
   contacts: string[];
   onSubmit: (event: CotEvent) => void;
   submitLabel: string;
+  /** Starts moving or reshaping the item on the map; undefined when its geometry can't be edited. */
+  onEditShape: (() => void) | undefined;
   /** Photos go straight to TAK, so they can't be staged in a plan. */
   livePhotos: boolean;
   /** Whether the map shows where this item has been. */
@@ -96,6 +106,7 @@ export const ItemDetails = ({
   contacts,
   onSubmit,
   submitLabel,
+  onEditShape,
   livePhotos,
   tracking,
   onToggleTrack,
@@ -290,6 +301,17 @@ export const ItemDetails = ({
               disabled={write === "sending"}
             />
           )}
+          {onEditShape && !readOnlyReason && (
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconShape size={14} />}
+              onClick={onEditShape}
+            >
+              {item.geometry.type === "Point" && !item.ellipse ? "Move" : "Edit shape"}
+            </Button>
+          )}
+          {!readOnlyReason && <DeleteItem item={item} onSubmit={onSubmit} />}
           {clientUid && !item.draft && allMissions.length > 0 && (
             <AddToMission item={item} missions={allMissions} clientUid={clientUid} />
           )}

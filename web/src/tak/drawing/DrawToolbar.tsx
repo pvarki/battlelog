@@ -5,6 +5,7 @@ import {
   IconMapPin,
   IconPolygon,
   IconRectangle,
+  IconRoute,
   IconRuler2,
   IconX,
 } from "@tabler/icons-react";
@@ -17,6 +18,7 @@ const ICONS = {
   polygon: IconPolygon,
   rectangle: IconRectangle,
   circle: IconCircle,
+  route: IconRoute,
 } as const;
 
 const HINT: Record<Tool, string> = {
@@ -25,7 +27,11 @@ const HINT: Record<Tool, string> = {
   polygon: "Click to add corners; click the first corner to close.",
   rectangle: "Click one corner, then the opposite corner.",
   circle: "Click the centre, then click again at the edge.",
+  route: "Click each checkpoint in order; click the last one again to finish.",
 };
+
+const EDIT_HINT =
+  "Drag the item or its points. On a line, route or area, drag a midpoint to add a point and right-click a point to remove it.";
 
 type Props = {
   tool: Tool | undefined;
@@ -38,6 +44,8 @@ type Props = {
   onToggleMeasure: () => void;
   /** The measurement readout, shown while measuring. */
   children?: ReactNode;
+  /** While an existing item's shape is being edited: its name and how to end the edit. */
+  editing?: { name: string; saveLabel: string; onSave: () => void; onCancel: () => void };
 };
 
 /** Drawing tools over the map; the active tool shows how to use it. */
@@ -49,8 +57,53 @@ export const DrawToolbar = ({
   measuring,
   onToggleMeasure,
   children,
+  editing,
 }: Props) => (
   <Paper className="tak-draw-toolbar" shadow="sm" p={4} withBorder>
+    {editing ? (
+      <>
+        <Group gap={4} wrap="nowrap" justify="space-between">
+          <Text fz="xs" fw={600} px={6} truncate>
+            Editing {editing.name}
+          </Text>
+          <Group gap={4} wrap="nowrap">
+            <Button size="compact-xs" variant="subtle" color="gray" onClick={editing.onCancel}>
+              Cancel (Esc)
+            </Button>
+            <Button size="compact-xs" onClick={editing.onSave}>
+              {editing.saveLabel}
+            </Button>
+          </Group>
+        </Group>
+        <Text fz="xs" c="dimmed" px={6} pt={2}>
+          {EDIT_HINT}
+        </Text>
+      </>
+    ) : (
+      <ToolButtons
+        tool={tool}
+        onChoose={onChoose}
+        disabledReason={disabledReason}
+        planName={planName}
+        measuring={measuring}
+        onToggleMeasure={onToggleMeasure}
+      >
+        {children}
+      </ToolButtons>
+    )}
+  </Paper>
+);
+
+const ToolButtons = ({
+  tool,
+  onChoose,
+  disabledReason,
+  planName,
+  measuring,
+  onToggleMeasure,
+  children,
+}: Omit<Props, "editing">) => (
+  <>
     <Group gap={4} wrap="nowrap">
       <Badge
         size="sm"
@@ -110,5 +163,5 @@ export const DrawToolbar = ({
       </Text>
     )}
     {measuring && children}
-  </Paper>
+  </>
 );

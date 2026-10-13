@@ -18,7 +18,12 @@ import type { StrokeStyle } from "../cot.ts";
 import { useIconsets } from "../map/iconsets.ts";
 import { formatDistance } from "../map/layers.ts";
 import { IconsetPicker } from "./IconsetPicker.tsx";
-import type { NewMarker, ShapeStyle } from "./new-items.ts";
+import {
+  defaultWaypointNames,
+  type NewMarker,
+  type NewRoute,
+  type ShapeStyle,
+} from "./new-items.ts";
 import type { Drawn } from "./useDrawing.ts";
 
 /** ATAK's drawing palette. */
@@ -49,6 +54,7 @@ const KIND_LABEL = {
   polygon: "Area",
   rectangle: "Rectangle",
   circle: "Circle",
+  route: "Route",
 };
 
 const Palette = ({ value, onChange }: { value: string; onChange: (color: string) => void }) => (
@@ -77,6 +83,7 @@ type Props = {
   onCancel: () => void;
   onSaveShape: (style: ShapeStyle) => void;
   onSaveMarker: (marker: Omit<NewMarker, "position">) => void;
+  onSaveRoute: (route: Omit<NewRoute, "points">) => void;
   saveLabel: string;
 };
 
@@ -87,6 +94,7 @@ export const NewItemDialog = ({
   onCancel,
   onSaveShape,
   onSaveMarker,
+  onSaveRoute,
   saveLabel,
 }: Props) => {
   const [name, setName] = useState(defaultName);
@@ -100,12 +108,17 @@ export const NewItemDialog = ({
   const [markerKind, setMarkerKind] = useState<NewMarker["kind"]>("spot");
   const [icon, setIcon] = useState<NewMarker["icon"]>();
   const hasIconsets = useIconsets().sets.length > 0;
+  const [waypointNames, setWaypointNames] = useState(
+    drawn.kind === "route" ? defaultWaypointNames(defaultName, drawn.points.length) : [],
+  );
   const isMarker = drawn.kind === "marker";
-  const closed = drawn.kind !== "marker" && drawn.kind !== "line";
+  const isRoute = drawn.kind === "route";
+  const closed = drawn.kind !== "marker" && drawn.kind !== "line" && !isRoute;
   const missingIcon = isMarker && markerKind === "icon" && !icon;
 
   const save = () => {
     if (isMarker) onSaveMarker({ name: name.trim(), remarks, kind: markerKind, color, icon });
+    else if (isRoute) onSaveRoute({ name: name.trim(), remarks, color, waypointNames });
     else
       onSaveShape({
         name: name.trim(),
@@ -160,7 +173,31 @@ export const NewItemDialog = ({
             <Palette value={color} onChange={setColor} />
           </div>
         )}
-        {!isMarker && (
+        {isRoute && (
+          <Stack gap={4}>
+            <Text fz="xs" fw={500}>
+              Checkpoints
+            </Text>
+            <Text fz="xs" c="dimmed">
+              A point without a name is an unnamed turn point.
+            </Text>
+            {waypointNames.map((waypoint, i) => (
+              <TextInput
+                // biome-ignore lint/suspicious/noArrayIndexKey: one input per drawn point, in order
+                key={i}
+                size="xs"
+                aria-label={`Checkpoint ${i + 1} name`}
+                leftSection={<Text fz="xs">{i + 1}</Text>}
+                value={waypoint}
+                onChange={(e) => {
+                  const value = e.currentTarget.value;
+                  setWaypointNames((names) => names.map((n, j) => (j === i ? value : n)));
+                }}
+              />
+            ))}
+          </Stack>
+        )}
+        {!isMarker && !isRoute && (
           <>
             <Group grow>
               <Select

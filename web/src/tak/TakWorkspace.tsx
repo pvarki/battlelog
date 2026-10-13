@@ -28,23 +28,29 @@ import { publish } from "./commands.ts";
 import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
 import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
+import { editGeometryEvent, editTarget } from "./drawing/edit-geometry.ts";
 import { MeasurePanel } from "./drawing/MeasurePanel.tsx";
 import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
-import { newMarkerEvent, newRangeBearingEvent, newShapeEvent } from "./drawing/new-items.ts";
+import {
+  newMarkerEvent,
+  newRangeBearingEvent,
+  newRouteEvent,
+  newShapeEvent,
+} from "./drawing/new-items.ts";
 import { useDrawing } from "./drawing/useDrawing.ts";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { useCallsign } from "./identity.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
-import { anchorOf, hasPosition } from "./items.ts";
+import { anchorOf, hasPosition, labelOf } from "./items.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
-import { addToPlan, type Plan, usePlans } from "./plans/plans.ts";
+import { addToPlan, type Plan, removeFromPlan, usePlans } from "./plans/plans.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { StatusBar } from "./StatusBar.tsx";
 import {
@@ -95,21 +101,39 @@ const withMissionItems = (live: TakItem[], missions: MissionsState, shown: Reado
   return extra.length ? [...live, ...extra] : live;
 };
 
-/** A plan's drafts as map items, named so they can't be mistaken for what TAK has. */
-const draftItems = (plan: Plan, live: TakItem[]) =>
-  plan.entries.flatMap(({ event, basedOn }) => {
+type Draft = { item: TakItem; conflict: boolean; deleted: boolean };
+
+/**
+ * A plan's drafts as map items, named so they can't be mistaken for what TAK
+ * has. A staged delete shows the item it removes, or what the delete names.
+ */
+const draftItems = (plan: Plan, live: TakItem[]): Draft[] =>
+  plan.entries.flatMap(({ event, basedOn }): Draft[] => {
     const change = toChange(event);
-    if (change?.kind !== "upsert") return [];
-    const item: TakItem = { ...change.item, draft: true };
+    if (!change || change.kind === "offline") return [];
     const current = live.find((i) => i.uid === event.uid);
-    return [{ item, conflict: basedOn !== undefined && !!current && current.time > basedOn }];
+    const conflict = basedOn !== undefined && !!current && current.time > basedOn;
+    if (change.kind === "upsert")
+      return [{ item: { ...change.item, draft: true }, conflict, deleted: false }];
+    const item: TakItem = current ?? {
+      uid: event.uid,
+      type: event.type,
+      time: event.time,
+      stale: event.stale,
+      geometry: { type: "Point", coordinates: [0, 0] },
+      event,
+    };
+    return [{ item: { ...item, draft: true }, conflict, deleted: true }];
   });
 
-/** Live items with the active plan's drafts in place of (or beside) them. */
-const withDrafts = (items: TakItem[], drafts: TakItem[]) => {
+/** Live items with the active plan's drafts in place of (or beside) them; staged deletes hide theirs. */
+const withDrafts = (items: TakItem[], drafts: Draft[]) => {
   if (drafts.length === 0) return items;
-  const drafted = new Set(drafts.map((d) => d.uid));
-  return [...items.filter((i) => !drafted.has(i.uid)), ...drafts];
+  const drafted = new Set(drafts.map((d) => d.item.uid));
+  return [
+    ...items.filter((i) => !drafted.has(i.uid)),
+    ...drafts.flatMap((d) => (d.deleted ? [] : [d.item])),
+  ];
 };
 
 const ConnectionBanner = ({ status }: { status: TakStatus }) => {
@@ -181,12 +205,16 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
   const activePlan = has("plans") ? plans.plans.find((p) => p.id === plans.activeId) : undefined;
   const items = withDrafts(
     withMissionItems(liveItems, missions, settings.shownMissions),
-    activePlan ? draftItems(activePlan, liveItems).map((d) => d.item) : [],
+    activePlan ? draftItems(activePlan, liveItems) : [],
   );
   /** Where new items and changes go: the active plan, or straight to TAK. */
   const submit = (event: CotEvent) => {
     if (!activePlan) return void publish(event);
     const existing = liveItems.find((i) => i.uid === event.uid);
+    const planned = activePlan.entries.some((e) => e.event.uid === event.uid);
+    // Deleting an item that exists only in the plan just drops its draft.
+    if (toChange(event)?.kind === "delete" && !existing && planned)
+      return removeFromPlan(activePlan, event.uid);
     addToPlan(activePlan, { event, basedOn: existing?.time });
   };
   const submitLabel = activePlan ? `Add to ${activePlan.name}` : "Save to TAK";
@@ -248,18 +276,24 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
           polygon: "Area",
           rectangle: "Rectangle",
           circle: "Circle",
+          route: "Route",
         }[drawing.drawn.kind],
       )}
       onCancel={drawing.clear}
       saveLabel={submitLabel}
       onSaveShape={(style) => {
-        if (drawing.drawn && drawing.drawn.kind !== "marker")
+        if (drawing.drawn && drawing.drawn.kind !== "marker" && drawing.drawn.kind !== "route")
           submit(newShapeEvent(drawing.drawn, style, sender));
         drawing.clear();
       }}
       onSaveMarker={(marker) => {
         if (drawing.drawn?.kind === "marker")
           submit(newMarkerEvent({ ...marker, position: drawing.drawn.position }, sender));
+        drawing.clear();
+      }}
+      onSaveRoute={(route) => {
+        if (drawing.drawn?.kind === "route")
+          submit(newRouteEvent({ ...route, points: drawing.drawn.points }, sender));
         drawing.clear();
       }}
     />
@@ -294,6 +328,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
       if (e.key === "Escape") {
         if (chooser) setChooser(undefined);
         else if (measure.active) measure.stop();
+        else if (drawing.editing) drawing.clear();
         else if (drawing.tool && !drawing.drawn) drawing.clear();
         else if (selectedUid) setSelectedUid(undefined);
         else setDrawer(null);
@@ -379,6 +414,14 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
       contacts={contacts}
       onSubmit={submit}
       submitLabel={submitLabel}
+      onEditShape={
+        has("draw") && editTarget(selected)
+          ? () => {
+              // The details sheet would cover the map being edited.
+              if (drawing.edit(selected) && isMobile) setSelectedUid(undefined);
+            }
+          : undefined
+      }
       livePhotos={!activePlan}
       tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
       onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}
@@ -429,7 +472,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
 
       <div className="tak-main">
         <MapCanvas
-          items={items}
+          items={drawing.editing ? items.filter((i) => i.uid !== drawing.editing?.uid) : items}
           tracks={trackFeatures(
             settings.showAllTracks ? items : items.filter((i) => trackedUids.has(i.uid)),
             tracks,
@@ -440,7 +483,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
           dim={settings.dim}
           selectedUid={selectedUid}
           onPick={(uids, at) => {
-            if (drawing.tool || measure.active) return;
+            if (drawing.tool || drawing.editing || measure.active) return;
             setChooser(uids.length > 1 ? { uids, at } : undefined);
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
           }}
@@ -483,6 +526,19 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
             }}
             disabledReason={activePlan ? undefined : drawReason}
             planName={activePlan?.name}
+            editing={
+              drawing.editing && {
+                name: labelOf(drawing.editing),
+                saveLabel: submitLabel,
+                onCancel: drawing.clear,
+                onSave: () => {
+                  const item = drawing.editing;
+                  const edited = drawing.edited();
+                  if (item && edited) submit(editGeometryEvent(item, edited));
+                  drawing.clear();
+                },
+              }
+            }
             measuring={measure.active}
             onToggleMeasure={() => {
               if (measure.active) return measure.stop();

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { type CotEvent, type TakItem, toChange } from "./cot.ts";
+import { escapeXml } from "./drawing/new-items.ts";
 import { childNamed } from "./protocol/cot-event.ts";
 import { fetchLatestCot, publicContentUrl, uploadFile } from "./rest.ts";
 import { sendCot } from "./session.ts";
@@ -78,6 +79,30 @@ export const editEvent = (
     detail: serializeChildren(doc.documentElement),
   };
 };
+
+const UNKNOWN = 9_999_999;
+const DELETE_LIFETIME_MS = 60_000;
+
+/**
+ * Removes the item from every TAK client. ATAK sends its delete under the
+ * item's own uid (CoTAutoBroadcaster), so TAK's latest copy of the uid becomes
+ * the delete and late joiners don't get the item back; markings stay so it
+ * reaches whoever received the item.
+ */
+export const deleteEvent = (item: TakItem, now = Date.now()): CotEvent => ({
+  ...item.event,
+  type: "t-x-d-d",
+  how: "h-g-i-g-o",
+  time: now,
+  start: now,
+  stale: now + DELETE_LIFETIME_MS,
+  lat: 0,
+  lon: 0,
+  hae: UNKNOWN,
+  ce: UNKNOWN,
+  le: UNKNOWN,
+  detail: `<link uid="${escapeXml(item.uid)}" relation="none" type="${escapeXml(item.type)}"/><__forcedelete/>`,
+});
 
 export const setCallsign = (detail: Element, callsign: string) =>
   ensureChild(detail, "contact").setAttribute("callsign", callsign);
