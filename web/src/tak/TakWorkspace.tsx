@@ -23,9 +23,11 @@ import { publish } from "./commands.ts";
 import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
 import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
+import { MeasurePanel } from "./drawing/MeasurePanel.tsx";
 import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
-import { newMarkerEvent, newShapeEvent } from "./drawing/new-items.ts";
+import { newMarkerEvent, newRangeBearingEvent, newShapeEvent } from "./drawing/new-items.ts";
 import { useDrawing } from "./drawing/useDrawing.ts";
+import { useMeasure } from "./drawing/useMeasure.ts";
 import { useCallsign } from "./identity.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
@@ -39,8 +41,16 @@ import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { addToPlan, type Plan, usePlans } from "./plans/plans.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { StatusBar } from "./StatusBar.tsx";
-import { type TakStatus, useTakItems, useTakSession, useTakStatus } from "./session.ts";
+import {
+  loadTrack,
+  type TakStatus,
+  useTakItems,
+  useTakSession,
+  useTakStatus,
+  useTakTracks,
+} from "./session.ts";
 import { useMapSettings } from "./settings.ts";
+import { trackFeatures } from "./tracks.ts";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
@@ -137,6 +147,8 @@ const Panel = ({
 export const TakWorkspace = () => {
   useTakSession();
   const liveItems = useTakItems();
+  const tracks = useTakTracks();
+  const [trackedUids, setTrackedUids] = useState<ReadonlySet<string>>(new Set());
   const status = useTakStatus();
   const callsign = useCallsign();
   const settings = useMapSettings();
@@ -165,6 +177,7 @@ export const TakWorkspace = () => {
   const mapRef = useRef<MapLibreMap>(undefined);
   const [map, setMap] = useState<MapLibreMap>();
   const drawing = useDrawing(map);
+  const measure = useMeasure(map);
   const searchRef = useRef<HTMLInputElement>(null);
   const missionItem = (uid: string) => {
     for (const contents of missions.contents.values()) {
@@ -236,12 +249,20 @@ export const TakWorkspace = () => {
     if (isMobile) setDrawer(null);
   };
 
+  const toggleTrack = (uid: string) => {
+    const next = new Set(trackedUids);
+    if (next.delete(uid)) return setTrackedUids(next);
+    setTrackedUids(next.add(uid));
+    void loadTrack(uid);
+  };
+
   const toggleDrawer = (id: DrawerId) => setDrawer((open) => (open === id ? null : id));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (chooser) setChooser(undefined);
+        else if (measure.active) measure.stop();
         else if (drawing.tool && !drawing.drawn) drawing.clear();
         else if (selectedUid) setSelectedUid(undefined);
         else setDrawer(null);
@@ -316,6 +337,8 @@ export const TakWorkspace = () => {
       contacts={contacts}
       onSubmit={submit}
       submitLabel={submitLabel}
+      tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
+      onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}
       onCenter={() => flyTo(anchorOf(selected))}
       onClose={() => setSelectedUid(undefined)}
     />
@@ -352,12 +375,17 @@ export const TakWorkspace = () => {
       <div className="tak-main">
         <MapCanvas
           items={items}
+          tracks={trackFeatures(
+            settings.showAllTracks ? items : items.filter((i) => trackedUids.has(i.uid)),
+            tracks,
+            settings.hidden,
+          )}
           hidden={settings.hidden}
           basemap={settings.basemap}
           dim={settings.dim}
           selectedUid={selectedUid}
           onPick={(uids, at) => {
-            if (drawing.tool) return;
+            if (drawing.tool || measure.active) return;
             setChooser(uids.length > 1 ? { uids, at } : undefined);
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
           }}
@@ -389,10 +417,31 @@ export const TakWorkspace = () => {
         )}
         <DrawToolbar
           tool={drawing.tool}
-          onChoose={drawing.choose}
+          onChoose={(tool) => {
+            measure.stop();
+            drawing.choose(tool);
+          }}
           disabledReason={activePlan ? undefined : drawReason}
           planName={activePlan?.name}
-        />
+          measuring={measure.active}
+          onToggleMeasure={() => {
+            if (measure.active) return measure.stop();
+            drawing.choose(undefined);
+            measure.start();
+          }}
+        >
+          <MeasurePanel
+            points={measure.points}
+            cursor={measure.cursor}
+            onClear={measure.clear}
+            onSave={() => {
+              const [from, to] = measure.points;
+              if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
+              measure.stop();
+            }}
+            saveDisabledReason={activePlan ? undefined : drawReason}
+          />
+        </DrawToolbar>
         <ConnectionBanner status={status} />
       </div>
 

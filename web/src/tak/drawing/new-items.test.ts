@@ -1,7 +1,13 @@
 // @vitest-environment happy-dom
 import { expect, test } from "vitest";
 import { type CotEvent, type TakItem, toChange } from "../cot.ts";
-import { newMarkerEvent, newShapeEvent, type ShapeStyle, toArgb } from "./new-items.ts";
+import {
+  newMarkerEvent,
+  newRangeBearingEvent,
+  newShapeEvent,
+  type ShapeStyle,
+  toArgb,
+} from "./new-items.ts";
 
 const sender = { uid: "BattleLog-Eversti", callsign: "Eversti" };
 const style: ShapeStyle = {
@@ -104,4 +110,20 @@ test("markers: a spot marker in its colour, units by affiliation, with who place
   expect(spot.iconPath).toBe("COT_MAPPING_SPOTMAP/b-m-p-s-m/-256");
   const hostile = parsed(newMarkerEvent({ ...marker, kind: "h" }, sender, 1_000));
   expect(hostile).toMatchObject({ type: "a-h-G", stale: 1_000 + 365 * 86_400_000 });
+});
+
+test("a measured leg reads back as the range-and-bearing line ATAK would send", () => {
+  const leg: [[number, number], [number, number]] = [
+    [25, 60],
+    [25.018, 60],
+  ];
+  const item = parsed(newRangeBearingEvent(leg, "R&B 1", 1_000, "rb"));
+  expect(item).toMatchObject({ type: "u-rb-a", callsign: "R&B 1", stroke: { color: "#ff0000" } });
+  expect(item.rangeBearing?.northRef).toBe("T");
+  expect(item.rangeBearing?.range).toBeCloseTo(1000, -1);
+  expect(item.rangeBearing?.bearing).toBeCloseTo(90, 0);
+  if (item.geometry.type !== "LineString") throw new Error("expected a line");
+  const [, end] = item.geometry.coordinates;
+  expect(end?.[0]).toBeCloseTo(25.018, 5);
+  expect(end?.[1]).toBeCloseTo(60, 5);
 });

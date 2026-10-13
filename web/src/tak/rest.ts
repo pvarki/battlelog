@@ -45,6 +45,15 @@ export const fetchLatestCot = async (
 ): Promise<CotEvent | undefined> =>
   parseCotXml(await takGetText(`/Marti/api/cot/xml/${encodeURIComponent(uid)}`, signal))[0];
 
+/** Every stored copy of one item from the last `seconds`, e.g. a user's past positions. */
+export const fetchHistory = async (uid: string, seconds: number, signal?: AbortSignal) =>
+  parseCotXml(
+    await takGetText(
+      `/Marti/api/cot/xml/${encodeURIComponent(uid)}/all?secago=${Math.round(seconds)}`,
+      signal,
+    ),
+  );
+
 /** Where this browser downloads an uploaded file. */
 export const contentUrl = (hash: string) =>
   `${takBaseUrl()}/Marti/sync/content?hash=${encodeURIComponent(hash)}`;

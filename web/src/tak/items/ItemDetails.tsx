@@ -8,6 +8,7 @@ import {
   Image,
   ScrollArea,
   Stack,
+  Switch,
   Text,
   Title,
   Tooltip,
@@ -48,6 +49,10 @@ type Props = {
   contacts: string[];
   onSubmit: (event: CotEvent) => void;
   submitLabel: string;
+  /** Whether the map shows where this item has been. */
+  tracking: boolean;
+  /** Undefined when tracks can't be switched per item (all are shown). */
+  onToggleTrack: (() => void) | undefined;
   /** Names of the missions (Data Sync) that hold this item. */
   missions: string[];
   onCenter: () => void;
@@ -83,6 +88,8 @@ export const ItemDetails = ({
   contacts,
   onSubmit,
   submitLabel,
+  tracking,
+  onToggleTrack,
   missions,
   onCenter,
   onClose,
@@ -97,6 +104,7 @@ export const ItemDetails = ({
   const position = anchorOf(item);
   const coordinate = formatCoord(position, coordFormat);
   const secondary = formatCoord(position, coordFormat === "dd" ? "mgrs" : "dd");
+  const canMove = item.geometry.type === "Point" && !item.ellipse;
 
   return (
     <Stack gap="sm" h="100%">
@@ -242,6 +250,16 @@ export const ItemDetails = ({
         />
       ) : (
         <Stack gap="xs">
+          {canMove && (
+            <Switch
+              size="xs"
+              label="Show track"
+              description={onToggleTrack ? undefined : "All tracks are shown (Layers)"}
+              checked={tracking}
+              disabled={!onToggleTrack}
+              onChange={onToggleTrack}
+            />
+          )}
           {isUnit && !readOnlyReason && status2525 !== "destroyed" && (
             <Button
               variant="light"

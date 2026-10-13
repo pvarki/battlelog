@@ -1,8 +1,9 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { type CotEvent, toChange } from "./cot.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
-import { fetchArchive, takBaseUrl } from "./rest.ts";
+import { fetchArchive, fetchHistory, takBaseUrl } from "./rest.ts";
 import { createTakStore, DAY_MS } from "./store.ts";
+import { TRACK_MAX_AGE_MS, trackPointOf } from "./tracks.ts";
 
 /**
  * The one TAK connection per tab: the `/takproto/1` WebSocket for live CoT in
@@ -136,6 +137,18 @@ export const useTakStatus = (): TakStatus =>
   );
 
 export const useTakItems = () => useSyncExternalStore(takStore.subscribe, takStore.getSnapshot);
+
+export const useTakTracks = () => useSyncExternalStore(takStore.subscribe, takStore.getTracks);
+
+/** Fills in where `uid` was before this page saw it move, from TAK's stored history. */
+export const loadTrack = async (uid: string) => {
+  try {
+    const events = await fetchHistory(uid, TRACK_MAX_AGE_MS / 1000);
+    takStore.addTrack(uid, events.map(trackPointOf));
+  } catch (err) {
+    console.warn("TAK track history unavailable", err);
+  }
+};
 
 /**
  * Sends one CoT event to TAK. True means it left this browser, not that TAK

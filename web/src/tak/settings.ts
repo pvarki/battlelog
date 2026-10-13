@@ -13,6 +13,10 @@ export const useMapSettings = () => {
     defaultValue: "topographic",
   });
   const [dim, setDim] = useLocalStorage({ key: "battlelog.tak.dim", defaultValue: false });
+  const [showAllTracks, setShowAllTracks] = useLocalStorage({
+    key: "battlelog.tak.showAllTracks",
+    defaultValue: false,
+  });
   const [hiddenList, setHiddenList] = useLocalStorage<string[]>({
     key: "battlelog.tak.hiddenGroups",
     defaultValue: [],
@@ -36,6 +40,8 @@ export const useMapSettings = () => {
     setBasemap,
     dim,
     setDim,
+    showAllTracks,
+    setShowAllTracks,
     hidden,
     toggleGroup,
     shownMissions,

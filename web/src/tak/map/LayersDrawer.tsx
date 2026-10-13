@@ -36,6 +36,14 @@ export const LayersDrawer = ({ settings, children }: Props) => (
       onChange={(e) => settings.setDim(e.currentTarget.checked)}
     />
 
+    <Switch
+      size="xs"
+      label="Show all tracks"
+      description="Where moving users and units went in the last 2 hours"
+      checked={settings.showAllTracks}
+      onChange={(e) => settings.setShowAllTracks(e.currentTarget.checked)}
+    />
+
     <Select
       size="xs"
       label="Coordinate format"

@@ -1,4 +1,5 @@
 import "maplibre-gl/dist/maplibre-gl.css";
+import type { FeatureCollection } from "geojson";
 import {
   type ExpressionSpecification,
   type FilterSpecification,
@@ -19,6 +20,8 @@ import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
 type Props = {
   items: TakItem[];
+  /** Breadcrumb trails, from `trackFeatures`. */
+  tracks: FeatureCollection;
   hidden: ReadonlySet<string>;
   basemap: Basemap;
   /** Night use: the bright MML maps glare next to a dark UI. */
@@ -150,6 +153,26 @@ const addItemLayers = (map: MapLibreMap) => {
     filter: ["==", ["get", "uid"], ""],
     paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
   });
+  map.addSource("tak-tracks", { type: "geojson", data: empty });
+  map.addLayer({
+    id: "tak-track-lines",
+    type: "line",
+    source: "tak-tracks",
+    filter: ["==", ["geometry-type"], "LineString"],
+    paint: { "line-color": ["get", "color"], "line-width": 2, "line-opacity": 0.8 },
+  });
+  map.addLayer({
+    id: "tak-track-crumbs",
+    type: "circle",
+    source: "tak-tracks",
+    filter: ["!=", ["geometry-type"], "LineString"],
+    paint: {
+      "circle-radius": 2.5,
+      "circle-color": ["get", "color"],
+      "circle-stroke-color": "#000000",
+      "circle-stroke-width": 0.5,
+    },
+  });
   addTacticalLayers(map);
   map.addLayer({
     id: "tak-selected-tactical",
@@ -229,6 +252,7 @@ const addItemLayers = (map: MapLibreMap) => {
 /** The MapLibre map: basemap, TAK items, selection, hover names and the cursor position. */
 export const MapCanvas = ({
   items,
+  tracks,
   hidden,
   basemap,
   dim,
@@ -327,6 +351,10 @@ export const MapCanvas = ({
     // Graphics render asynchronously the first time; redraw when they're ready.
     return onTacticalRendered(draw);
   }, [map, items, hidden, now, bearing]);
+
+  useEffect(() => {
+    (map?.getSource("tak-tracks") as GeoJSONSource | undefined)?.setData(tracks);
+  }, [map, tracks]);
 
   useEffect(() => {
     if (!map) return;
