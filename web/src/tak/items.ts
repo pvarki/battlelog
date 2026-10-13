@@ -135,3 +135,35 @@ export const formatAge = (ms: number): string => {
   if (s < 86_400) return `${Math.floor(s / 3600)} h`;
   return `${Math.floor(s / 86_400)} d`;
 };
+
+/**
+ * ATAK's unit statuses, as it writes them into the 2525 code: the 4th
+ * character of a 2525C code, the 7th digit of a 2525D one.
+ */
+export const UNIT_STATUSES = {
+  present: { label: "Present", c: "P", d: "0" },
+  anticipated: { label: "Anticipated / planned", c: "A", d: "1" },
+  capable: { label: "Fully capable", c: "C", d: "2" },
+  damaged: { label: "Damaged", c: "D", d: "3" },
+  destroyed: { label: "Destroyed", c: "X", d: "4" },
+  full: { label: "Full to capacity", c: "F", d: "5" },
+} as const;
+
+export type UnitStatus = keyof typeof UNIT_STATUSES;
+
+const isNumericSidc = (sidc: string) => /^\d{20,30}$/.test(sidc);
+
+export const unitStatusOf = (sidc: string): UnitStatus => {
+  const at = isNumericSidc(sidc) ? sidc[6] : sidc[3];
+  const match = Object.entries(UNIT_STATUSES).find(
+    ([, s]) => (isNumericSidc(sidc) ? s.d : s.c) === at,
+  );
+  return (match?.[0] as UnitStatus | undefined) ?? "present";
+};
+
+export const withUnitStatus = (sidc: string, status: UnitStatus): string => {
+  const numeric = isNumericSidc(sidc);
+  const at = numeric ? 6 : 3;
+  const value = numeric ? UNIT_STATUSES[status].d : UNIT_STATUSES[status].c;
+  return sidc.slice(0, at) + value + sidc.slice(at + 1);
+};

@@ -1,4 +1,4 @@
-import { type CotEvent, childNamed } from "./cot-event.ts";
+import { type CotEvent, childNamed, MARKING_FIELDS } from "./cot-event.ts";
 
 /**
  * CoT XML as TAK's REST API returns it: one `<event>` or many (archive
@@ -16,7 +16,14 @@ export const parseCotXml = (xml: string): CotEvent[] => {
     const detail = childNamed(event, "detail");
     const time = (name: string) => Date.parse(event.getAttribute(name) ?? "") || 0;
     const num = (name: string) => Number(point?.getAttribute(name) ?? 0) || 0;
+    const markings = Object.fromEntries(
+      MARKING_FIELDS.flatMap((name) => {
+        const value = event.getAttribute(name);
+        return value ? [[name, value]] : [];
+      }),
+    );
     return {
+      ...markings,
       uid: event.getAttribute("uid") ?? "",
       type: event.getAttribute("type") ?? "",
       how: event.getAttribute("how") ?? "",

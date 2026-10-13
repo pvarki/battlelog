@@ -5,10 +5,11 @@ import { type Field, fieldText, Reader, readFields, Writer } from "./protobuf.ts
  * TAK's streaming protobuf protocol, as spoken on the `/takproto/1` WebSocket:
  * each message is `0xbf`, a varint length, then a TakMessage. Field numbers
  * follow TAK's published protocol (TakMessage 2 = CotEvent; CotEvent 1 type,
- * 5 uid, 6–8 send/start/stale epoch ms, 9 how, 10–14 lat/lon/hae/ce/le,
- * 15 Detail). Detail carries some elements as structured messages and the rest
- * as raw XML; decoding turns the structured ones back into XML so the rest of
- * the client sees one detail format.
+ * 2–4 access/qos/opex, 5 uid, 6–8 send/start/stale epoch ms, 9 how,
+ * 10–14 lat/lon/hae/ce/le, 15 Detail, 16 caveat, 17 releasableTo). Detail
+ * carries some elements as structured messages and the rest as raw XML;
+ * decoding turns the structured ones back into XML so the rest of the client
+ * sees one detail format.
  */
 
 const MAGIC = 0xbf;
@@ -66,7 +67,13 @@ const decodeCotEvent = (buf: Uint8Array): CotEvent => {
   // proto3 leaves zero values out, so a missing number is 0.
   const dbl = (n: number) => m.get(n)?.double ?? 0;
   const ms = (n: number) => m.get(n)?.varint ?? 0;
+  const marking = (n: number) => str(n) || undefined;
   return {
+    access: marking(2),
+    qos: marking(3),
+    opex: marking(4),
+    caveat: marking(16),
+    releasableTo: marking(17),
     uid: str(5),
     type: str(1),
     how: str(9),
@@ -108,6 +115,9 @@ export const encodeTakMessage = (event: CotEvent): Uint8Array => {
   const detail = new Writer().string(1, event.detail).finish();
   const cot = new Writer()
     .string(1, event.type)
+    .string(2, event.access ?? "")
+    .string(3, event.qos ?? "")
+    .string(4, event.opex ?? "")
     .string(5, event.uid)
     .uint(6, event.time)
     .uint(7, event.start)
@@ -119,6 +129,8 @@ export const encodeTakMessage = (event: CotEvent): Uint8Array => {
     .double(13, event.ce)
     .double(14, event.le)
     .bytes(15, detail)
+    .string(16, event.caveat ?? "")
+    .string(17, event.releasableTo ?? "")
     .finish();
   const takMessage = new Writer().bytes(2, cot).finish();
   return Uint8Array.from([

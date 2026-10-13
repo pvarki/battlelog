@@ -43,7 +43,20 @@ test("an edit changes only what it is about and keeps other clients' extensions"
   expect(edited.detail).toContain('<plugin_extension x="1"><nested a="b"/></plugin_extension>');
 });
 
-test("an edit is re-issued now and keeps the item's lifetime", () => {
-  const edited = editEvent(item(), () => {}, 5_000);
-  expect(edited).toMatchObject({ time: 5_000, start: 5_000, stale: 5_000 + 86_400_000 });
+test("an edit is re-issued now with ATAK's lifetimes: a year for markers, a day for shapes", () => {
+  expect(editEvent(item(), () => {}, 5_000)).toMatchObject({
+    time: 5_000,
+    start: 5_000,
+    stale: 5_000 + 365 * 86_400_000,
+  });
+  const shape = { ...item(), type: "u-d-f" };
+  expect(editEvent(shape, () => {}, 5_000).stale).toBe(5_000 + 86_400_000);
+});
+
+test("classification markings travel with the edit", () => {
+  const marked = { ...item(), event: { ...event, access: "Unclassified", caveat: "FOUO" } };
+  expect(editEvent(marked, () => {}, 5_000)).toMatchObject({
+    access: "Unclassified",
+    caveat: "FOUO",
+  });
 });

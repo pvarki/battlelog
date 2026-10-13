@@ -213,7 +213,8 @@ export const toChange = (event: CotEvent): TakChange | null => {
     remarks: child("remarks")?.textContent || undefined,
     battery: num(attr("status", "battery")),
     device: device || undefined,
-    sidc: attr("__milsym", "id")?.replaceAll("*", "-"),
+    // ATAK writes single-point symbols to __milicon, multi-point graphics to __milsym.
+    sidc: (attr("__milsym", "id") ?? attr("__milicon", "id"))?.replaceAll("*", "-"),
     iconPath: attr("usericon", "iconsetpath"),
     speed: num(attr("track", "speed")),
     course: num(attr("track", "course")),

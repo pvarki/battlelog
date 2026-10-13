@@ -17,7 +17,18 @@ export type CotEvent = {
   ce: number;
   le: number;
   detail: string;
+  /**
+   * Classification and handling markings. TAK Server routes on them, so an
+   * edit must send back whatever arrived.
+   */
+  access?: string;
+  qos?: string;
+  opex?: string;
+  caveat?: string;
+  releasableTo?: string;
 };
+
+export const MARKING_FIELDS = ["access", "qos", "opex", "caveat", "releasableTo"] as const;
 
 export const childNamed = (parent: Element, name: string): Element | undefined =>
   Array.from(parent.children).find((el) => el.tagName === name);

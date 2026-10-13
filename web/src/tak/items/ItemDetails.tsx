@@ -23,8 +23,12 @@ import {
   labelOf,
   STATUS_LABEL,
   shortDevice,
+  sidcOf,
   statusOf,
   teamColor,
+  UNIT_STATUSES,
+  type UnitStatus,
+  unitStatusOf,
 } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { EditItem } from "./EditItem.tsx";
@@ -70,8 +74,10 @@ export const ItemDetails = ({
   onClose,
 }: Props) => {
   const now = useNow(10_000);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<false | { status?: UnitStatus }>(false);
   const write = useWrites().get(item.uid);
+  const isUnit = item.type.startsWith("a-") && !item.team;
+  const status2525 = isUnit ? unitStatusOf(sidcOf(item) ?? "") : undefined;
   const status = statusOf(item, now);
   const position = anchorOf(item);
   const coordinate = formatCoord(position, coordFormat);
@@ -149,6 +155,9 @@ export const ItemDetails = ({
           ) : (
             <Field label="Position">No position fix</Field>
           )}
+          {status2525 && status2525 !== "present" && (
+            <Field label="Status">{UNIT_STATUSES[status2525].label}</Field>
+          )}
           {item.hae !== undefined && <Field label="Altitude (HAE)">{Math.round(item.hae)} m</Field>}
           {item.speed !== undefined && item.speed > 0 && (
             <Field label="Speed and course">
@@ -189,30 +198,43 @@ export const ItemDetails = ({
       </ScrollArea>
 
       {editing ? (
-        <EditItem item={item} onDone={() => setEditing(false)} />
+        <EditItem item={item} status={editing.status} onDone={() => setEditing(false)} />
       ) : (
-        <Group gap="xs" grow>
-          <Tooltip label={readOnlyReason} disabled={!readOnlyReason} withArrow>
+        <Stack gap="xs">
+          {isUnit && !readOnlyReason && status2525 !== "destroyed" && (
+            <Button
+              variant="light"
+              color="danger"
+              size="xs"
+              leftSection={<IconX size={14} />}
+              onClick={() => setEditing({ status: "destroyed" })}
+            >
+              Mark destroyed
+            </Button>
+          )}
+          <Group gap="xs" grow>
+            <Tooltip label={readOnlyReason} disabled={!readOnlyReason} withArrow>
+              <Button
+                variant="default"
+                size="xs"
+                leftSection={<IconPencil size={14} />}
+                onClick={() => setEditing({})}
+                disabled={!!readOnlyReason}
+              >
+                Edit
+              </Button>
+            </Tooltip>
             <Button
               variant="default"
               size="xs"
-              leftSection={<IconPencil size={14} />}
-              onClick={() => setEditing(true)}
-              disabled={!!readOnlyReason}
+              leftSection={<IconCurrentLocation size={14} />}
+              onClick={onCenter}
+              disabled={!hasPosition(item)}
             >
-              Edit
+              Center on map
             </Button>
-          </Tooltip>
-          <Button
-            variant="default"
-            size="xs"
-            leftSection={<IconCurrentLocation size={14} />}
-            onClick={onCenter}
-            disabled={!hasPosition(item)}
-          >
-            Center on map
-          </Button>
-        </Group>
+          </Group>
+        </Stack>
       )}
     </Stack>
   );

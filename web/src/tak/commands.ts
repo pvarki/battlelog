@@ -54,10 +54,14 @@ export const ensureChild = (detail: Element, name: string): Element => {
   return created;
 };
 
+const DAY_MS = 86_400_000;
+// What ATAK gives an item it re-sends: shapes a day, markers a year.
+const lifetimeOf = (type: string) =>
+  type.startsWith("u-d-") || type === "b-m-r" ? DAY_MS : 365 * DAY_MS;
+
 /**
- * The item's event re-issued now with `edit` applied to its detail. The stale
- * time keeps the item's original lifetime, so an edit doesn't make a
- * long-lived marker expire sooner.
+ * The item's event re-issued now with `edit` applied to its detail; uid,
+ * creator links and markings stay as they arrived, like ATAK does.
  */
 export const editEvent = (
   item: TakItem,
@@ -66,12 +70,11 @@ export const editEvent = (
 ): CotEvent => {
   const doc = parseDetail(item.event.detail);
   edit(doc.documentElement);
-  const lifetime = Math.max(item.event.stale - item.event.time, 0);
   return {
     ...item.event,
     time: now,
     start: now,
-    stale: now + lifetime,
+    stale: now + lifetimeOf(item.type),
     detail: serializeChildren(doc.documentElement),
   };
 };
@@ -81,6 +84,12 @@ export const setCallsign = (detail: Element, callsign: string) =>
 
 export const setRemarks = (detail: Element, remarks: string) => {
   ensureChild(detail, "remarks").textContent = remarks;
+};
+
+/** The symbol code in both places ATAK reads it from, so every client redraws it. */
+export const setSymbol = (detail: Element, sidc: string) => {
+  ensureChild(detail, "__milicon").setAttribute("id", sidc);
+  ensureChild(detail, "__milsym").setAttribute("id", sidc);
 };
 
 /** Sends the changed item and confirms with TAK that it stored it. */
