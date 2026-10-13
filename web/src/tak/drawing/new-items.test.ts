@@ -2,8 +2,10 @@
 import { expect, test } from "vitest";
 import { type CotEvent, type TakItem, toChange } from "../cot.ts";
 import {
+  defaultWaypointNames,
   newMarkerEvent,
   newRangeBearingEvent,
+  newRouteEvent,
   newShapeEvent,
   type ShapeStyle,
   toArgb,
@@ -128,6 +130,38 @@ test("icon-set markers: white like ATAK's palette, unknown ground unless the set
   });
   const typed = parsed(newMarkerEvent({ ...marker, icon: { path, type: "a-n-G-I" } }, sender));
   expect(typed.type).toBe("a-n-G-I");
+});
+
+test("a route reads back with its named checkpoints; unnamed points are control points", () => {
+  const points: [number, number][] = [
+    [22, 60],
+    [22.05, 60.02],
+    [22.1, 60.1],
+  ];
+  expect(defaultWaypointNames("Reitti 1", 3)).toEqual(["Reitti 1 SP", "CP1", "VDO"]);
+  const event = newRouteEvent(
+    {
+      points,
+      name: "Reitti 1",
+      color: "#ffffff",
+      remarks: "",
+      waypointNames: ["Reitti 1 SP", " ", "VDO"],
+    },
+    sender,
+    1_000,
+    "r1",
+  );
+  expect(event).toMatchObject({ uid: "r1", type: "b-m-r", lat: 0, lon: 0, how: "h-e" });
+  expect(event.detail).toContain('callsign="" type="b-m-p-c" point="60.02,22.05"');
+  expect(event.detail).toContain('<link_attr planningmethod="Infil" color="-1"');
+  expect(event.detail).toContain("<__routeinfo><__navcues/></__routeinfo>");
+  const item = parsed(event);
+  expect(item.geometry).toEqual({ type: "LineString", coordinates: points });
+  expect(item.callsign).toBe("Reitti 1");
+  expect(item.waypoints).toEqual([
+    { name: "Reitti 1 SP", position: [22, 60] },
+    { name: "VDO", position: [22.1, 60.1] },
+  ]);
 });
 
 test("a measured leg reads back as the range-and-bearing line ATAK would send", () => {

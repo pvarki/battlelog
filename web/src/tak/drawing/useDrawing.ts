@@ -7,9 +7,11 @@ import {
   TerraDrawPointMode,
   TerraDrawPolygonMode,
   TerraDrawRectangleMode,
+  TerraDrawSelectMode,
 } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
-import type { Position } from "../cot.ts";
+import type { Position, TakItem } from "../cot.ts";
+import { editTarget } from "./edit-geometry.ts";
 import type { NewShape } from "./new-items.ts";
 import type { TacticalGraphic } from "./tactical-graphics.ts";
 
@@ -19,12 +21,16 @@ export const TOOLS = {
   polygon: { label: "Area", mode: "polygon" },
   rectangle: { label: "Rectangle", mode: "rectangle" },
   circle: { label: "Circle", mode: "circle" },
+  route: { label: "Route", mode: "linestring" },
 } as const;
 
 export type Tool = keyof typeof TOOLS;
 
 /** What the user just drew, before it has a name and style. */
-export type Drawn = { kind: "marker"; position: Position } | NewShape;
+export type Drawn =
+  | { kind: "marker"; position: Position }
+  | NewShape
+  | { kind: "route"; points: Position[] };
 
 const ACCENT = "#8abbff";
 const EARTH_RADIUS_M = 6_371_008.8;
@@ -44,7 +50,10 @@ const drawnFrom = (
   if (geometry.type === "Point")
     return { kind: "marker", position: geometry.coordinates as Position };
   if (geometry.type === "LineString")
-    return { kind: "line", points: geometry.coordinates as Position[] };
+    return {
+      kind: tool === "route" ? "route" : "line",
+      points: geometry.coordinates as Position[],
+    };
   if (geometry.type !== "Polygon") return undefined;
   const ring = ((geometry.coordinates as Position[][])[0] ?? []).slice(0, -1);
   if (tool === "circle") {
@@ -55,9 +64,40 @@ const drawnFrom = (
   return { kind: tool === "rectangle" ? "rectangle" : "polygon", points: ring };
 };
 
+const selectFlags = (tool: Tool, item: TakItem) => {
+  if (tool === "marker") return { feature: { draggable: true } };
+  if (tool === "circle") {
+    const resizable = item.ellipse?.major === item.ellipse?.minor;
+    return {
+      feature: {
+        draggable: true,
+        coordinates: resizable
+          ? { draggable: true, resizable: "center-fixed" as const }
+          : undefined,
+      },
+    };
+  }
+  if (tool === "rectangle")
+    return {
+      feature: {
+        draggable: true,
+        coordinates: { draggable: true, resizable: "opposite" as const },
+      },
+    };
+  // A tactical graphic's points carry meaning by position: they may move, not come or go.
+  const reshape = !item.sidc;
+  return {
+    feature: {
+      draggable: reshape,
+      coordinates: { draggable: true, midpoints: reshape, deletable: reshape },
+    },
+  };
+};
+
 /**
  * Drawing on the map with terra-draw: pick a tool, draw, and get back what was
  * drawn; the sketch stays on the map until `clear` (after save or cancel).
+ * `edit` puts an existing item on the sketch layer to move and reshape it.
  */
 export const useDrawing = (map: MapLibreMap | undefined) => {
   const draw = useRef<TerraDraw>(undefined);
@@ -66,6 +106,7 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
   const [graphic, setGraphic] = useState<TacticalGraphic>();
   /** A tactical graphic's shape while it's being drawn, so it can be previewed. */
   const [sketch, setSketch] = useState<Drawn>();
+  const [editing, setEditing] = useState<{ item: TakItem; tool: Tool; featureId: string }>();
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const graphicRef = useRef(graphic);
@@ -81,6 +122,12 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
         new TerraDrawPolygonMode({ styles: { fillColor: ACCENT, outlineColor: ACCENT } }),
         new TerraDrawRectangleMode({ styles: { fillColor: ACCENT, outlineColor: ACCENT } }),
         new TerraDrawCircleMode({ styles: { fillColor: ACCENT, outlineColor: ACCENT } }),
+        new TerraDrawSelectMode({
+          // Only the item being edited is on the layer, and Save or Cancel ends the edit.
+          allowManualSelection: false,
+          allowManualDeselection: false,
+          keyEvents: null,
+        }),
       ],
     });
     terra.start();
@@ -92,10 +139,10 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
         .find((g) => g && g.type !== "Point");
       if (geometry) setSketch(drawnFrom(current, geometry));
     });
-    terra.on("finish", (id) => {
+    terra.on("finish", (id, context) => {
       const feature = terra.getSnapshotFeature(id);
       const current = toolRef.current;
-      if (!feature || !current) return;
+      if (context.action !== "draw" || !feature || !current) return;
       setDrawn(drawnFrom(current, feature.geometry));
       setSketch(undefined);
       // One item at a time: stop drawing while the user names and styles it.
@@ -115,16 +162,45 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
     setSketch(undefined);
     setTool(undefined);
     setGraphic(undefined);
+    setEditing(undefined);
   };
 
   const choose = (next: Tool | undefined, nextGraphic?: TacticalGraphic) => {
     draw.current?.clear();
     setDrawn(undefined);
     setSketch(undefined);
+    setEditing(undefined);
     setTool(next);
     setGraphic(next && nextGraphic);
     draw.current?.setMode(next ? TOOLS[next].mode : "static");
   };
 
-  return { tool, graphic, drawn, sketch, choose, clear };
+  /** False when the item's geometry can't be edited here. */
+  const edit = (item: TakItem): boolean => {
+    const terra = draw.current;
+    const target = editTarget(item);
+    if (!terra || !target) return false;
+    choose(undefined);
+    const mode = TOOLS[target.tool].mode;
+    const featureId = crypto.randomUUID();
+    terra.updateModeOptions<typeof TerraDrawSelectMode>("select", {
+      flags: { [mode]: selectFlags(target.tool, item) },
+    });
+    const [added] = terra.addFeatures([
+      { id: featureId, type: "Feature", geometry: target.geometry, properties: { mode } },
+    ]);
+    if (!added?.valid) return false;
+    terra.setMode("select");
+    terra.selectFeature(featureId);
+    setEditing({ item, tool: target.tool, featureId });
+    return true;
+  };
+
+  /** Where the edited item's geometry is now; undefined when not editing. */
+  const edited = (): Drawn | undefined => {
+    const feature = editing && draw.current?.getSnapshotFeature(editing.featureId);
+    return feature && editing ? drawnFrom(editing.tool, feature.geometry) : undefined;
+  };
+
+  return { tool, graphic, drawn, sketch, choose, clear, editing: editing?.item, edit, edited };
 };

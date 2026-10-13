@@ -36,8 +36,8 @@ import {
 
 type Props = {
   state: PlansState;
-  /** Drafts of a plan as map items, and whether TAK changed the original since. */
-  draftsOf: (plan: Plan) => { item: TakItem; conflict: boolean }[];
+  /** Drafts of a plan as map items, whether TAK changed the original since, and staged deletes. */
+  draftsOf: (plan: Plan) => { item: TakItem; conflict: boolean; deleted: boolean }[];
   selectedUid: string | undefined;
   onPick: (item: TakItem) => void;
   /** Why publishing is unavailable, or undefined when it is. */
@@ -106,9 +106,15 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
             Empty. Turn on "Draw and edit into this plan", then draw or edit items.
           </Text>
         ) : (
-          drafts.map(({ item, conflict }) => (
+          drafts.map(({ item, conflict, deleted }) => (
             <Group key={item.uid} gap={4} wrap="nowrap">
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  textDecoration: deleted ? "line-through" : undefined,
+                }}
+              >
                 <ItemRow
                   item={item}
                   now={now}
@@ -116,6 +122,11 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
                   onPick={() => props.onPick(item)}
                 />
               </div>
+              {deleted && (
+                <Badge size="xs" color="danger" variant="outline">
+                  Delete
+                </Badge>
+              )}
               {conflict && (
                 <Badge size="xs" color="warning" variant="outline">
                   Changed

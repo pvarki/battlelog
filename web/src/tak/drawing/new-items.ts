@@ -154,37 +154,6 @@ export const newMarkerEvent = (
 };
 
 /**
- * A route through named waypoints, as ATAK writes one (takcot Route.cot):
- * every point a `b-m-p-w` link, the first being the start point.
- */
-export const newRouteEvent = (
-  route: { name: string; remarks: string; points: { position: Position; name: string }[] },
-  sender: Sender,
-  now = Date.now(),
-  uid: string = crypto.randomUUID(),
-): CotEvent => {
-  const white = -1;
-  const links = route.points.map(({ position: [lon, lat], name }, i) => {
-    const callsign = name || (i === 0 ? `${route.name} SP` : `CP${i}`);
-    return `<link uid="${crypto.randomUUID()}" callsign="${escapeXml(callsign)}" type="b-m-p-w" point="${lat},${lon}" remarks="" relation="c"/>`;
-  });
-  const detail = [
-    ...links,
-    `<link_attr planningmethod="Infil" color="${white}" method="Driving" prefix="CP" type="On Foot" stroke="3" direction="Infil" routetype="Primary" order="Ascending Check Points"/>`,
-    `<strokeColor value="${white}"/>`,
-    `<strokeWeight value="3.0"/>`,
-    "<__routeinfo><__navcues/></__routeinfo>",
-    `<contact callsign="${escapeXml(route.name)}"/>`,
-    `<creator uid="${escapeXml(sender.uid)}" callsign="${escapeXml(sender.callsign)}" time="${iso(now)}" type="a-f-G-U-C"/>`,
-    remarksXml(route.remarks),
-    "<archive/>",
-    `<labels_on value="false"/>`,
-    `<color value="${white}"/>`,
-  ].join("");
-  return { ...base(uid, "b-m-r", route.points[0]?.position ?? [0, 0], now, DAY_MS), detail };
-};
-
-/**
  * A range-and-bearing line from `from` to `to`, as ATAK's R&B tool writes it
  * (takcot "Range & Bearing - Line"): metres, degrees, true north.
  */
@@ -210,4 +179,48 @@ export const newRangeBearingEvent = (
     `<color value="${RANGE_BEARING_RED}"/>`,
   ].join("");
   return { ...base(uid, "u-rb-a", from, now, DAY_MS), detail };
+};
+
+export type NewRoute = {
+  points: Position[];
+  name: string;
+  /** #rrggbb */
+  color: string;
+  remarks: string;
+  /** One per point; an empty name makes the point an unnamed control point. */
+  waypointNames: string[];
+};
+
+/** ATAK's default checkpoint names: start point, numbered checkpoints, release point. */
+export const defaultWaypointNames = (routeName: string, count: number): string[] =>
+  Array.from({ length: count }, (_, i) =>
+    i === 0 ? `${routeName} SP` : i === count - 1 ? "VDO" : `CP${i}`,
+  );
+
+/** A route as ATAK writes one (takcot Route.cot): checkpoints as linked points, the event at 0,0. */
+export const newRouteEvent = (
+  route: NewRoute,
+  sender: Sender,
+  now = Date.now(),
+  uid: string = crypto.randomUUID(),
+): CotEvent => {
+  const color = toArgb(route.color);
+  const links = route.points.map(([lon, lat], i) => {
+    const name = route.waypointNames[i]?.trim() ?? "";
+    return `<link uid="${crypto.randomUUID()}" callsign="${escapeXml(name)}" type="${name ? "b-m-p-w" : "b-m-p-c"}" point="${lat},${lon}" remarks="" relation="c"/>`;
+  });
+  const detail = [
+    ...links,
+    `<link_attr planningmethod="Infil" color="${color}" method="Driving" prefix="CP" type="Vehicle" stroke="3" direction="Infil" routetype="Primary" order="Ascending Check Points"/>`,
+    `<strokeColor value="${color}"/>`,
+    `<strokeWeight value="3.0"/>`,
+    "<__routeinfo><__navcues/></__routeinfo>",
+    `<contact callsign="${escapeXml(route.name)}"/>`,
+    remarksXml(route.remarks),
+    "<archive/>",
+    `<labels_on value="false"/>`,
+    `<color value="${color}"/>`,
+    `<creator uid="${escapeXml(sender.uid)}" callsign="${escapeXml(sender.callsign)}" time="${iso(now)}" type="a-f-G-U-C"/>`,
+  ].join("");
+  return { ...base(uid, "b-m-r", [0, 0], now, DAY_MS), detail };
 };

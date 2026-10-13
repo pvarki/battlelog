@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { expect, test } from "vitest";
-import { editEvent, setCallsign, setRemarks } from "./commands.ts";
+import { deleteEvent, editEvent, setCallsign, setRemarks } from "./commands.ts";
 import { type CotEvent, toChange } from "./cot.ts";
 
 const event: CotEvent = {
@@ -51,6 +51,21 @@ test("an edit is re-issued now with ATAK's lifetimes: a year for markers, a day 
   });
   const shape = { ...item(), type: "u-d-f" };
   expect(editEvent(shape, () => {}, 5_000).stale).toBe(5_000 + 86_400_000);
+});
+
+test("a delete is ATAK's forced delete of the item, under its uid and markings", () => {
+  const marked = { ...item(), event: { ...event, access: "Unclassified" } };
+  const del = deleteEvent(marked, 5_000);
+  expect(del).toMatchObject({
+    uid: "hostile-1",
+    type: "t-x-d-d",
+    time: 5_000,
+    lat: 0,
+    lon: 0,
+    access: "Unclassified",
+  });
+  expect(del.detail).toBe('<link uid="hostile-1" relation="none" type="a-h-G"/><__forcedelete/>');
+  expect(toChange(del)).toEqual({ kind: "delete", uid: "hostile-1", time: 5_000 });
 });
 
 test("classification markings travel with the edit", () => {

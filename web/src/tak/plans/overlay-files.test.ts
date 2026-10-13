@@ -94,7 +94,7 @@ test("GPX waypoints, tracks and routes become markers, lines and an ATAK route",
     },
     waypoints: [
       { name: "Lähtö", position: [24.9, 60.1] },
-      { name: "CP1", position: [25.1, 60.3] },
+      { name: "VDO", position: [25.1, 60.3] },
     ],
   });
 });

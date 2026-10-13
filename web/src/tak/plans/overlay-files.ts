@@ -1,5 +1,6 @@
 import { type CotEvent, destination, type Position, type TakColor, type TakItem } from "../cot.ts";
 import {
+  defaultWaypointNames,
   escapeXml,
   newMarkerEvent,
   newRouteEvent,
@@ -116,7 +117,16 @@ const toEvents = (features: Feature[], sender: Sender, now: number): CotEvent[] 
       const marker = { ...f, kind: "spot" as const, color: f.color ?? DEFAULT_COLOR };
       return newMarkerEvent(marker, sender, now);
     }
-    if (f.kind === "route") return newRouteEvent(f, sender, now);
+    if (f.kind === "route") {
+      const defaults = defaultWaypointNames(f.name, f.points.length);
+      const route = {
+        ...f,
+        color: DEFAULT_COLOR,
+        points: f.points.map((p) => p.position),
+        waypointNames: f.points.map((p, i) => p.name || (defaults[i] ?? "")),
+      };
+      return newRouteEvent(route, sender, now);
+    }
     const style: ShapeStyle = {
       name: f.name,
       remarks: f.remarks,
