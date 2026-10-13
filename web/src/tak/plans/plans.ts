@@ -1,7 +1,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { useSyncExternalStore } from "react";
 import { publish } from "../commands.ts";
-import type { CotEvent } from "../cot.ts";
+import { type CotEvent, toChange } from "../cot.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
 
 /**
@@ -158,29 +158,48 @@ export const publishPlan = async (plan: Plan): Promise<{ sent: number; kept: num
   return { sent, kept: kept.length };
 };
 
+const escapeXml = (s: string) =>
+  s
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
+/**
+ * A zip path segment from a uid. Uids come from TAK or imported files, and a
+ * receiver extracting `../` or `/` would write outside the package.
+ */
+export const safeZipName = (s: string) =>
+  s.replace(/[^A-Za-z0-9._-]/g, "_").replace(/\.{2,}|^\./g, "_") || "_";
+
 /** The plan as an ATAK data package: one CoT file per item, importable in ATAK or another browser. */
 export const exportPlan = (plan: Plan): Blob => {
   const files: Record<string, Uint8Array> = {};
   const contents = plan.entries
-    .map(({ event }) => {
-      const entry = `${event.uid}/${event.uid}.cot`;
+    .map(({ event }, i) => {
+      const dir = `${i}-${safeZipName(event.uid)}`;
+      const entry = `${dir}/${dir}.cot`;
       files[entry] = strToU8(serializeCot(event));
-      return `<Content ignore="false" zipEntry="${entry}"><Parameter name="uid" value="${event.uid}"/></Content>`;
+      return `<Content ignore="false" zipEntry="${escapeXml(entry)}"><Parameter name="uid" value="${escapeXml(event.uid)}"/></Content>`;
     })
     .join("");
-  const name = plan.name.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
   files["MANIFEST/manifest.xml"] = strToU8(
-    `<MissionPackageManifest version="2"><Configuration><Parameter name="uid" value="${plan.id}"/><Parameter name="name" value="${name}"/></Configuration><Contents>${contents}</Contents></MissionPackageManifest>`,
+    `<MissionPackageManifest version="2"><Configuration><Parameter name="uid" value="${escapeXml(plan.id)}"/><Parameter name="name" value="${escapeXml(plan.name)}"/></Configuration><Contents>${contents}</Contents></MissionPackageManifest>`,
   );
   return new Blob([zipSync(files).slice()], { type: "application/zip" });
 };
 
-/** A plan from a data package (ours or ATAK's): every CoT file in it becomes a draft. */
+/**
+ * A plan from a data package (ours or ATAK's). Only map items become drafts:
+ * a package from elsewhere must not be able to make the user publish deletes
+ * or other control messages under their own name.
+ */
 export const importPlan = async (file: File): Promise<Plan> => {
   const files = unzipSync(new Uint8Array(await file.arrayBuffer()));
   const events = Object.entries(files)
     .filter(([path]) => path.toLowerCase().endsWith(".cot"))
-    .flatMap(([, bytes]) => parseCotXml(strFromU8(bytes)));
+    .flatMap(([, bytes]) => parseCotXml(strFromU8(bytes)))
+    .filter((event) => toChange(event)?.kind === "upsert");
   const plan = createPlan(file.name.replace(/\.zip$/i, ""));
   return save({ ...plan, entries: events.map((event) => ({ event })) });
 };

@@ -1,6 +1,7 @@
 import { zipSync } from "fflate";
 import type { CotEvent, TakItem } from "./cot.ts";
 import { labelOf } from "./items.ts";
+import { safeZipName } from "./plans/plans.ts";
 import { publicContentUrl, TakRequestError, takBaseUrl } from "./rest.ts";
 import { sendCot } from "./session.ts";
 
@@ -35,7 +36,7 @@ export const attachmentPackage = (
   photo: Uint8Array,
 ): Uint8Array => {
   // ATAK files the photo under its name alone, so the directory only has to be unique.
-  const zipEntry = `${crypto.randomUUID()}/${fileName}`;
+  const zipEntry = `${crypto.randomUUID()}/${safeZipName(fileName)}`;
   const manifest = new TextEncoder().encode(attachmentManifest(item, fileName, zipEntry));
   return zipSync({ "MANIFEST/manifest.xml": manifest, [zipEntry]: photo }, { level: 0 });
 };

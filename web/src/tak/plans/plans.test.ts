@@ -31,8 +31,35 @@ test("a plan exports as an ATAK data package and imports back as the same drafts
   addToPlan(plan, { event });
   const exported = exportPlan({ ...plan, entries: [{ event }] });
   const files = unzipSync(new Uint8Array(await exported.arrayBuffer()));
-  expect(Object.keys(files).sort()).toEqual(["MANIFEST/manifest.xml", "draft-1/draft-1.cot"]);
+  expect(Object.keys(files).sort()).toEqual(["0-draft-1/0-draft-1.cot", "MANIFEST/manifest.xml"]);
   const imported = await importPlan(new File([await exported.arrayBuffer()], "Hyökkäys.zip"));
   expect(imported.name).toBe("Hyökkäys");
   expect(imported.entries.map((e) => e.event)).toEqual([event]);
+});
+
+test("hostile uids and names can't escape the package or break its manifest", async () => {
+  const evil = { ...event, uid: '../../evil" x="1' };
+  const plan = createPlan('A "plan" <x>');
+  const files = unzipSync(
+    new Uint8Array(await exportPlan({ ...plan, entries: [{ event: evil }] }).arrayBuffer()),
+  );
+  expect(Object.keys(files).every((path) => !path.includes("..") && !path.startsWith("/"))).toBe(
+    true,
+  );
+  const manifest = new TextDecoder().decode(files["MANIFEST/manifest.xml"]);
+  expect(manifest).toContain('value="../../evil&quot; x=&quot;1"');
+  expect(manifest).toContain('value="A &quot;plan&quot; &lt;x&gt;"');
+});
+
+test("importing keeps map items and drops deletes and other control messages", async () => {
+  const del: CotEvent = {
+    ...event,
+    uid: "del-1",
+    type: "t-x-d-d",
+    detail: '<link uid="victim" relation="none"/>',
+  };
+  const plan = createPlan("mixed");
+  const blob = exportPlan({ ...plan, entries: [{ event }, { event: del }] });
+  const imported = await importPlan(new File([await blob.arrayBuffer()], "mixed.zip"));
+  expect(imported.entries.map((e) => e.event.uid)).toEqual(["draft-1"]);
 });
