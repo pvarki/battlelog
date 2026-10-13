@@ -71,7 +71,7 @@ const devTak = (mode: string) => {
   const cert = readFileSync(env.TAK_CERT_PATH as string);
   // The callsign TAK will see: the test certificate's CN.
   const callsign = /CN=([^,\n]+)/.exec(new X509Certificate(cert).subject)?.[1] ?? "";
-  return { proxy: takProxy(env, cert), callsign };
+  return { proxy: takProxy(env, cert), callsign, publicUrl: env.TAK_PROXY_TARGET };
 };
 
 export default defineConfig(({ command, mode }) => {
@@ -81,6 +81,7 @@ export default defineConfig(({ command, mode }) => {
       ? {
           "import.meta.env.VITE_TAK_URL": JSON.stringify("/tak"),
           "import.meta.env.VITE_TAK_CALLSIGN": JSON.stringify(tak.callsign),
+          "import.meta.env.VITE_TAK_PUBLIC_URL": JSON.stringify(tak.publicUrl),
         }
       : {},
     plugins: [

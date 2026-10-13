@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { CotEvent, TakItem } from "./cot.ts";
 import { childNamed } from "./protocol/cot-event.ts";
-import { fetchLatestCot } from "./rest.ts";
+import { fetchLatestCot, publicContentUrl, uploadFile } from "./rest.ts";
 import { sendCot } from "./session.ts";
 
 /**
@@ -106,4 +106,26 @@ export const publish = async (event: CotEvent) => {
   } catch {
     setWrite(event.uid, "unconfirmed");
   }
+};
+
+/**
+ * Uploads a photo to TAK and adds its download link to the item's remarks,
+ * which every TAK client shows. Throws when the upload fails, so nothing is
+ * sent for a photo TAK doesn't have.
+ */
+export const attachPhotoLink = async (item: TakItem, photo: File, callsign: string) => {
+  setWrite(item.uid, "sending");
+  let hash: string;
+  try {
+    hash = await uploadFile(photo, photo.name || "photo.jpg", `BattleLog-${callsign}`);
+  } catch (err) {
+    setWrite(item.uid, "failed");
+    throw err;
+  }
+  const line = `Photo: ${publicContentUrl(hash)}`;
+  await publish(
+    editEvent(item, (detail) =>
+      setRemarks(detail, item.remarks ? `${item.remarks}\n${line}` : line),
+    ),
+  );
 };

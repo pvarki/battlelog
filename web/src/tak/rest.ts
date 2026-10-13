@@ -44,3 +44,38 @@ export const fetchLatestCot = async (
   signal?: AbortSignal,
 ): Promise<CotEvent | undefined> =>
   parseCotXml(await takGetText(`/Marti/api/cot/xml/${encodeURIComponent(uid)}`, signal))[0];
+
+/** Where this browser downloads an uploaded file. */
+export const contentUrl = (hash: string) =>
+  `${takBaseUrl()}/Marti/sync/content?hash=${encodeURIComponent(hash)}`;
+
+/**
+ * TAK's address as other TAK clients reach it. Same as ours in a deployment;
+ * in local dev ours is the /tak proxy, which means nothing to an ATAK phone.
+ */
+const takPublicUrl = (): string => import.meta.env.VITE_TAK_PUBLIC_URL || takBaseUrl();
+
+/** A download link to write into CoT, where other clients will read it. */
+export const publicContentUrl = (hash: string) =>
+  `${takPublicUrl()}/Marti/sync/content?hash=${encodeURIComponent(hash)}`;
+
+/** Stores a file on TAK Server and returns its content hash. */
+export const uploadFile = async (file: Blob, name: string, creatorUid: string): Promise<string> => {
+  const query = new URLSearchParams({ name, keywords: "battlelog", creatorUid });
+  const res = await fetch(`${takBaseUrl()}/Marti/sync/upload?${query}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  if (!res.ok) throw new TakRequestError("/Marti/sync/upload", res.status);
+  const { Hash } = (await res.json()) as { Hash?: string };
+  if (!Hash) throw new Error("TAK upload returned no hash");
+  return Hash;
+};
+
+const CONTENT_URL = /\/Marti\/sync\/content\?hash=([0-9a-f]{64})/gi;
+
+/** TAK-stored files linked from a text, e.g. photos in remarks, as this browser fetches them. */
+export const contentLinks = (text: string | undefined): string[] =>
+  [...(text ?? "").matchAll(CONTENT_URL)].map((m) => contentUrl(m[1] as string));

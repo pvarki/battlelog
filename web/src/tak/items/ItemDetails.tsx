@@ -1,9 +1,11 @@
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Button,
   CopyButton,
   Group,
+  Image,
   ScrollArea,
   Stack,
   Text,
@@ -30,7 +32,9 @@ import {
   type UnitStatus,
   unitStatusOf,
 } from "../items.ts";
+import { contentLinks } from "../rest.ts";
 import { useNow } from "../use-now.ts";
+import { AttachPhoto } from "./AttachPhoto.tsx";
 import { EditItem } from "./EditItem.tsx";
 
 type Props = {
@@ -38,6 +42,8 @@ type Props = {
   coordFormat: CoordFormat;
   /** Why the item can't be changed from here, or undefined when it can. */
   readOnlyReason: string | undefined;
+  /** The user's callsign, which uploads are credited to. */
+  callsign: string | null | undefined;
   /** Names of the missions (Data Sync) that hold this item. */
   missions: string[];
   onCenter: () => void;
@@ -62,13 +68,14 @@ const WRITE_BADGE: Record<WriteState, { label: string; color: string }> = {
   sending: { label: "Sending…", color: "gray" },
   confirmed: { label: "Saved to TAK", color: "success" },
   unconfirmed: { label: "Not confirmed by TAK", color: "warning" },
-  failed: { label: "Not sent: no TAK connection", color: "danger" },
+  failed: { label: "Not sent to TAK", color: "danger" },
 };
 
 export const ItemDetails = ({
   item,
   coordFormat,
   readOnlyReason,
+  callsign,
   missions,
   onCenter,
   onClose,
@@ -76,6 +83,7 @@ export const ItemDetails = ({
   const now = useNow(10_000);
   const [editing, setEditing] = useState<false | { status?: UnitStatus }>(false);
   const write = useWrites().get(item.uid);
+  const photos = contentLinks(item.remarks);
   const isUnit = item.type.startsWith("a-") && !item.team;
   const status2525 = isUnit ? unitStatusOf(sidcOf(item) ?? "") : undefined;
   const status = statusOf(item, now);
@@ -178,7 +186,27 @@ export const ItemDetails = ({
           {item.creator && <Field label="Placed by">{item.creator}</Field>}
           {item.remarks && (
             <Field label="Remarks">
-              <span style={{ whiteSpace: "pre-wrap" }}>{item.remarks}</span>
+              <span style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                {item.remarks}
+              </span>
+            </Field>
+          )}
+          {photos.length > 0 && (
+            <Field label="Photos">
+              <Group gap={6}>
+                {photos.map((url) => (
+                  <Anchor key={url} href={url} target="_blank" rel="noreferrer">
+                    <Image
+                      src={url}
+                      alt={`Photo of ${labelOf(item)}`}
+                      w={72}
+                      h={72}
+                      radius="sm"
+                      fit="cover"
+                    />
+                  </Anchor>
+                ))}
+              </Group>
             </Field>
           )}
           {item.battery !== undefined && <Field label="Battery">{item.battery} %</Field>}
@@ -211,6 +239,9 @@ export const ItemDetails = ({
             >
               Mark destroyed
             </Button>
+          )}
+          {callsign && !readOnlyReason && (
+            <AttachPhoto item={item} callsign={callsign} disabled={write === "sending"} />
           )}
           <Group gap="xs" grow>
             <Tooltip label={readOnlyReason} disabled={!readOnlyReason} withArrow>

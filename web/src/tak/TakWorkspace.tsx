@@ -214,6 +214,7 @@ export const TakWorkspace = () => {
       coordFormat={settings.coordFormat}
       missions={missionsOf(selected.uid)}
       readOnlyReason={readOnlyReason(selected)}
+      callsign={callsign}
       onCenter={() => flyTo(anchorOf(selected))}
       onClose={() => setSelectedUid(undefined)}
     />
