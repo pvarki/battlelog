@@ -201,14 +201,17 @@
   display: none;
 }
 
-.maplibregl-popup-content {
+/* Scoped under .tak-map to outrank maplibre-gl.css, which loads after this file. */
+.tak-map .maplibregl-popup-content {
   padding: 3px 8px;
-  background: var(--mantine-color-dark-6);
-  color: var(--mantine-color-dark-0);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.75);
+  box-shadow: none;
+  color: #ffffff;
   font-size: 12px;
   font-weight: 600;
 }
 
-.maplibregl-popup-tip {
+.tak-map .maplibregl-popup-tip {
   display: none;
 }
