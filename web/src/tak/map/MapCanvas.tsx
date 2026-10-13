@@ -15,6 +15,7 @@ import { type Category, labelOf } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
 import { toSources } from "./layers.ts";
+import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
 type Props = {
   items: TakItem[];
@@ -32,7 +33,14 @@ const VIEW_KEY = "battlelog.tak.view";
 const FINLAND = { center: [25.5, 64] as [number, number], zoom: 4.5, bearing: 0 };
 // Fading depends on the clock as well as on data: re-evaluate even when nothing arrives.
 const FADE_CHECK_MS = 30_000;
-const INTERACTIVE_LAYERS = ["tak-points", "tak-shape-lines", "tak-shape-fills"];
+const INTERACTIVE_LAYERS = [
+  "tak-points",
+  "tak-shape-lines",
+  "tak-shape-fills",
+  "tak-tactical-labels",
+  "tak-tactical-lines",
+  "tak-tactical-fills",
+];
 const ACCENT = "#8abbff";
 // Roughly where a town fills the screen and names stop overlapping.
 const LABEL_MIN_ZOOM = 11;
@@ -97,6 +105,14 @@ const addItemLayers = (map: MapLibreMap) => {
     id: "tak-selected-shape",
     type: "line",
     source: "tak-shapes",
+    filter: ["==", ["get", "uid"], ""],
+    paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
+  });
+  addTacticalLayers(map);
+  map.addLayer({
+    id: "tak-selected-tactical",
+    type: "line",
+    source: "tak-tactical",
     filter: ["==", ["get", "uid"], ""],
     paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
   });
@@ -204,9 +220,14 @@ export const MapCanvas = ({
   useEffect(() => {
     if (!map) return;
     // ponytail: full setData per notify (≤4/s); switch to updateData diffs if large pictures stutter.
-    const { points, shapes } = toSources(map, items, hidden, now);
-    (map.getSource("tak-points") as GeoJSONSource).setData(points);
-    (map.getSource("tak-shapes") as GeoJSONSource).setData(shapes);
+    const draw = () => {
+      const { points, shapes, tactical } = toSources(map, items, hidden, now);
+      (map.getSource("tak-points") as GeoJSONSource).setData(points);
+      (map.getSource("tak-shapes") as GeoJSONSource).setData(shapes);
+      (map.getSource("tak-tactical") as GeoJSONSource).setData(tactical);
+    };
+    draw();
+    return onTacticalRendered(draw);
   }, [map, items, hidden, now]);
 
   useEffect(() => {
@@ -214,6 +235,7 @@ export const MapCanvas = ({
     const filter = ["==", ["get", "uid"], selectedUid ?? ""] as FilterSpecification;
     map.setFilter("tak-selected-point", filter);
     map.setFilter("tak-selected-shape", filter);
+    map.setFilter("tak-selected-tactical", filter);
   }, [map, selectedUid]);
 
   return <div ref={container} className="tak-map" aria-label="TAK map" role="application" />;

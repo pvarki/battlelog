@@ -3,8 +3,9 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import type { Position, TakItem } from "../cot.ts";
 import { type Category, categoryOf, hasPosition, statusOf } from "../items.ts";
 import { iconsFor } from "./symbols.ts";
+import { tacticalFeatures } from "./tactical.ts";
 
-/** Items as the two GeoJSON sources the map draws: icons for points, lines and areas for shapes. */
+/** Items as the GeoJSON sources the map draws: icons for points, lines and areas for shapes, tactical graphics. */
 
 const EARTH_RADIUS_M = 6_371_008.8;
 const CIRCLE_STEPS = 64;
@@ -86,12 +87,18 @@ export const toSources = (
   items: TakItem[],
   hidden: ReadonlySet<Category>,
   now: number,
-): { points: FeatureCollection; shapes: FeatureCollection } => {
+): { points: FeatureCollection; shapes: FeatureCollection; tactical: FeatureCollection } => {
   const points: Feature[] = [];
   const shapes: Feature[] = [];
+  const tactical: Feature[] = [];
   for (const item of items) {
     if (hidden.has(categoryOf(item)) || !hasPosition(item)) continue;
     const faded = statusOf(item, now) !== "online";
+    const graphic = tacticalFeatures(map, item, faded);
+    if (graphic) {
+      tactical.push(...graphic);
+      continue;
+    }
     const shape = shapeFeature(item, faded);
     if (shape) shapes.push(shape);
     else points.push(pointFeature(map, item, faded));
@@ -99,5 +106,6 @@ export const toSources = (
   return {
     points: { type: "FeatureCollection", features: points },
     shapes: { type: "FeatureCollection", features: shapes },
+    tactical: { type: "FeatureCollection", features: tactical },
   };
 };

@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@armyc2.c5isr.renderer/mil-sym-ts-web": "2.10.7",
     "@fontsource-variable/inter": "^5.3.0",
     "@mantine/core": "^9.5.1",
     "@mantine/dates": "^9.5.1",
