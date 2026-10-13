@@ -108,11 +108,19 @@ test("ATAK's wildcard SIDCs map to the graphic that fits the drawing", () => {
 });
 
 test("a main supply route renders in the drawing's colour with its name", () => {
-  const features = renderGraphic(R, MSR) ?? [];
+  const features = renderGraphic(R, { ...MSR, labelsOn: true }) ?? [];
   const lines = features.filter((f) => f.geometry.type === "MultiLineString");
   expect(lines.length).toBeGreaterThan(0);
   expect(lines[0]?.properties).toMatchObject({ stroke: "#FF8000", strokeWidth: 3 });
   expect(features.map((f) => f.properties?.label)).toContain("MSR Claude test line");
+});
+
+test("the name follows the drawing's label switch", () => {
+  const labels = (renderGraphic(R, { ...MSR, labelsOn: false }) ?? []).map(
+    (f) => f.properties?.label,
+  );
+  expect(labels).toContain("MSR");
+  expect(labels).not.toContain("MSR Claude test line");
 });
 
 test("an area graphic keeps the drawn area and its fill pattern", () => {

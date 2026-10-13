@@ -118,7 +118,9 @@ export const renderGraphic = (R: Renderer, item: TakItem): Feature[] | undefined
   if (!code) return undefined;
   const { width, height, bbox } = viewport(controlPoints(shape));
   const modifiers = new Map<string, string>();
-  if (item.callsign) modifiers.set(R.Modifiers.T_UNIQUE_DESIGNATION_1, item.callsign);
+  // The name follows the drawing's label switch like every other line label.
+  if (item.callsign && item.labelsOn)
+    modifiers.set(R.Modifiers.T_UNIQUE_DESIGNATION_1, item.callsign);
   const attributes = new Map<string, string>();
   if (item.stroke) attributes.set(R.MilStdAttributes.LineColor, item.stroke.color);
   if (item.strokeWidth) attributes.set(R.MilStdAttributes.LineWidth, String(item.strokeWidth));
@@ -153,28 +155,44 @@ export const renderGraphic = (R: Renderer, item: TakItem): Feature[] | undefined
 };
 
 let renderer: Promise<Renderer> | undefined;
-// Insertion order is recency: hits are re-inserted, the oldest go first. null = renders plain.
+// null = renders plain. Entries drawn in the latest redraw are never evicted, so a
+// picture bigger than the cap can't evict and re-render its own graphics forever.
 const graphics = new Map<string, Feature[] | null>();
+const drawn = new Set<string>();
 const pending = new Set<string>();
 const listeners = new Set<() => void>();
 // ponytail: decoded images are never evicted; renderer patterns and icons are a small fixed set.
-const imageIds = new Map<string, string>();
+const imageIds = new Map<string, Promise<string>>();
 const decoded = new Map<string, HTMLImageElement>();
 
 const keyOf = (item: TakItem) =>
-  [item.sidc, item.callsign, item.stroke?.color, item.strokeWidth, JSON.stringify(item.geometry)]
+  [
+    item.sidc,
+    item.labelsOn && item.callsign,
+    item.stroke?.color,
+    item.strokeWidth,
+    item.fill?.color,
+    item.fill?.opacity,
+    JSON.stringify(item.geometry),
+  ]
     .map(String)
     .join("|");
 
-const loadImage = async (uri: string): Promise<string> => {
-  const known = imageIds.get(uri);
-  if (known) return known;
+const decodeImage = async (uri: string, id: string): Promise<string> => {
   const image = new Image();
   image.src = uri;
   await image.decode();
-  const id = `tak-tactical-image-${imageIds.size}`;
-  imageIds.set(uri, id);
   decoded.set(id, image);
+  return id;
+};
+
+/** One decode per data URI, even when several renders need it at once. */
+const loadImage = (uri: string): Promise<string> => {
+  let id = imageIds.get(uri);
+  if (!id) {
+    id = decodeImage(uri, `tak-tactical-image-${imageIds.size}`);
+    imageIds.set(uri, id);
+  }
   return id;
 };
 
@@ -189,10 +207,12 @@ const withImageIds = (features: Feature[]) =>
     }),
   );
 
-const remember = (key: string, graphic: Feature[] | null) => {
-  graphics.delete(key);
-  graphics.set(key, graphic);
-  if (graphics.size > MAX_CACHED) graphics.delete(graphics.keys().next().value as string);
+/** Call after each redraw: forgets graphics that are no longer on the map once over the cap. */
+export const pruneTactical = () => {
+  if (graphics.size > MAX_CACHED) {
+    for (const key of graphics.keys()) if (!drawn.has(key)) graphics.delete(key);
+  }
+  drawn.clear();
 };
 
 const prepare = async (key: string, item: TakItem) => {
@@ -200,16 +220,24 @@ const prepare = async (key: string, item: TakItem) => {
   try {
     renderer ??= import("@armyc2.c5isr.renderer/mil-sym-ts-web");
     const features = renderGraphic(await renderer, item);
-    remember(key, features ? await withImageIds(features) : null);
+    graphics.set(key, features ? await withImageIds(features) : null);
   } catch (err) {
     console.error("Tactical graphic failed to render", err);
     // Stays plain until the drawing changes; a failed chunk load is retried then.
     renderer = undefined;
-    remember(key, null);
+    graphics.set(key, null);
   } finally {
     pending.delete(key);
-    for (const listener of listeners) listener();
+    notifyTimer ??= setTimeout(notify, NOTIFY_DELAY_MS);
   }
+};
+
+// A burst of new drawings finishes rendering one by one; redraw once per batch.
+const NOTIFY_DELAY_MS = 250;
+let notifyTimer: ReturnType<typeof setTimeout> | undefined;
+const notify = () => {
+  notifyTimer = undefined;
+  for (const listener of listeners) listener();
 };
 
 /** Calls back whenever a graphic finished rendering, so the map can redraw. */
@@ -260,7 +288,11 @@ const register = (map: MapLibreMap, p: Properties): Properties => {
  * no graphic, one that doesn't fit, or not rendered yet (the map hears from
  * onTacticalRendered when it is).
  */
-export const tacticalFeatures = (map: MapLibreMap, item: TakItem): Feature[] | undefined => {
+export const tacticalFeatures = (
+  map: MapLibreMap,
+  item: TakItem,
+  bearing: number,
+): Feature[] | undefined => {
   if (!item.sidc || item.geometry.type === "Point") return undefined;
   const key = keyOf(item);
   const graphic = graphics.get(key);
@@ -268,11 +300,17 @@ export const tacticalFeatures = (map: MapLibreMap, item: TakItem): Feature[] | u
     if (!pending.has(key)) void prepare(key, item);
     return undefined;
   }
-  remember(key, graphic);
-  return graphic?.map((f) => ({
-    ...f,
-    properties: { ...register(map, f.properties as Properties), uid: item.uid },
-  }));
+  drawn.add(key);
+  return graphic?.map((f) => {
+    const p = register(map, f.properties as Properties);
+    if (typeof p.label !== "string") return { ...f, properties: { ...p, uid: item.uid } };
+    // Upright on screen: the label turns with the map, so correct for its bearing.
+    const turned = upright(Number(p.angle) - bearing, String(p.anchor));
+    return {
+      ...f,
+      properties: { ...p, angle: turned.angle + bearing, anchor: turned.anchor, uid: item.uid },
+    };
+  });
 };
 
 /** Source and layers for the graphics, drawn over plain shapes and under points. */

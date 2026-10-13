@@ -151,6 +151,7 @@ const addItemLayers = (map: MapLibreMap) => {
     layout: {
       ...overlapping,
       "icon-image": ["get", "icon"],
+      "icon-offset": ["get", "offset"],
       "icon-rotate": ["get", "rotate"],
       "icon-rotation-alignment": "map",
     },
@@ -212,6 +213,7 @@ export const MapCanvas = ({
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap>();
   const now = useNow(FADE_CHECK_MS);
+  const [bearing, setBearing] = useState(0);
   const itemsByUid = useRef(new Map<string, TakItem>());
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
   const callbacks = useRef({ onSelect, onCursor, onReady });
@@ -237,9 +239,11 @@ export const MapCanvas = ({
     m.on("load", () => {
       addItemLayers(m);
       setMap(m);
+      setBearing(m.getBearing());
       callbacks.current.onReady(m);
     });
     m.on("moveend", () => saveView(m));
+    m.on("rotateend", () => setBearing(m.getBearing()));
     m.on("click", (e) => callbacks.current.onSelect(uidAt(e)));
     m.on("mousemove", (e) => {
       callbacks.current.onCursor([e.lngLat.lng, e.lngLat.lat]);
@@ -276,7 +280,7 @@ export const MapCanvas = ({
     if (!map) return;
     // ponytail: full setData per notify (≤4/s); switch to updateData diffs if large pictures stutter.
     const draw = () => {
-      const sources = toSources(map, items, hidden, now);
+      const sources = toSources(map, items, hidden, now, bearing);
       for (const name of ITEM_SOURCES) {
         (map.getSource(`tak-${name}`) as GeoJSONSource).setData(sources[name]);
       }
@@ -284,7 +288,7 @@ export const MapCanvas = ({
     draw();
     // Graphics render asynchronously the first time; redraw when they're ready.
     return onTacticalRendered(draw);
-  }, [map, items, hidden, now]);
+  }, [map, items, hidden, now, bearing]);
 
   useEffect(() => {
     if (!map) return;

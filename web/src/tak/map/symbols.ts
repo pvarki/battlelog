@@ -26,8 +26,13 @@ const LABEL_PAD_X = 4;
 const LABEL_PAD_Y = 2;
 const DOT_RADIUS = 7;
 
-// ponytail: images are never evicted; fine for thousands of distinct looks, add LRU if drones churn callsigns.
+// ponytail: icons are never evicted; fine for thousands of distinct looks. Labels are pruned (see pruneLabels).
 const registered = new Map<string, MapImage>();
+// Measurement labels change text as their items move, so unused ones must go.
+const usedLabels = new Set<string>();
+// A counter, not the map size: pruned labels must not hand their id to a new image.
+let nextId = 0;
+const MAX_LABELS = 3000;
 
 const pixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);
 
@@ -51,7 +56,7 @@ const register = (map: MapLibreMap, key: string, draw: () => Art): MapImage => {
   const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
   ctx.scale(ratio, ratio);
   art.paint(ctx);
-  const id = existing?.id ?? `tak-img-${registered.size}`;
+  const id = existing?.id ?? `tak-img-${nextId++}`;
   map.addImage(id, ctx.getImageData(0, 0, canvas.width, canvas.height), { pixelRatio: ratio });
   // MapLibre centres an image on its point; this shift puts the anchor there instead.
   const image: MapImage = {
@@ -212,8 +217,10 @@ export const labelImage = (
   map: MapLibreMap,
   text: string,
   style: LabelStyle = "marker",
-): MapImage =>
-  register(map, `label|${style}|${text}`, () => {
+): MapImage => {
+  const key = `label|${style}|${text}`;
+  usedLabels.add(key);
+  return register(map, key, () => {
     const measure = document.createElement("canvas").getContext("2d") as CanvasRenderingContext2D;
     measure.font = LABEL_FONT[style];
     const size = Number.parseInt(LABEL_FONT[style].split(" ")[1] ?? "13", 10);
@@ -234,3 +241,18 @@ export const labelImage = (
       },
     };
   });
+};
+
+/** Call after each redraw: removes label images no longer on the map once there are many. */
+export const pruneLabels = (map: MapLibreMap) => {
+  const labels = [...registered.keys()].filter((key) => key.startsWith("label|"));
+  if (labels.length > MAX_LABELS) {
+    for (const key of labels) {
+      if (usedLabels.has(key)) continue;
+      const image = registered.get(key);
+      if (image && map.hasImage(image.id)) map.removeImage(image.id);
+      registered.delete(key);
+    }
+  }
+  usedLabels.clear();
+};

@@ -9,9 +9,10 @@ import {
   type LabelStyle,
   labelImage,
   type MapImage,
+  pruneLabels,
   referenceDot,
 } from "./symbols.ts";
-import { tacticalFeatures } from "./tactical.ts";
+import { pruneTactical, tacticalFeatures } from "./tactical.ts";
 
 /**
  * Items as the GeoJSON sources the map draws, following ATAK's conventions:
@@ -67,14 +68,16 @@ export const formatDistance = (metres: number): string =>
     ? `${Math.round(metres)} m`
     : `${(metres / 1000).toFixed(metres < 10_000 ? 2 : 1)} km`;
 
-/** Screen-ish angle of a segment, turned so text along it never reads upside down. */
-const textAngle = ([lon1, lat1]: Position, [lon2, lat2]: Position) => {
+/**
+ * Rotation for text along a segment on a map turned to `bearing`, flipped so
+ * it never reads upside down on screen.
+ */
+const textAngle = ([lon1, lat1]: Position, [lon2, lat2]: Position, bearing: number) => {
   const east = (lon2 - lon1) * Math.cos(((lat1 + lat2) / 2) * RAD);
   const north = lat2 - lat1;
-  const angle = -Math.atan2(north, east) / RAD;
-  if (angle > 90) return angle - 180;
-  if (angle < -90) return angle + 180;
-  return angle;
+  const onScreen = ((((-Math.atan2(north, east) / RAD - bearing + 540) % 360) + 360) % 360) - 180;
+  const upright = onScreen > 90 ? onScreen - 180 : onScreen < -90 ? onScreen + 180 : onScreen;
+  return upright + bearing;
 };
 
 const midpoint = ([lon1, lat1]: Position, [lon2, lat2]: Position): Position => [
@@ -124,6 +127,8 @@ export const toSources = (
   items: TakItem[],
   hidden: ReadonlySet<string>,
   now: number,
+  /** The map's rotation, so line labels stay readable when it turns. */
+  bearing: number,
 ): Sources => {
   const points: Feature[] = [];
   const shapes: Feature[] = [];
@@ -159,7 +164,7 @@ export const toSources = (
       point(midpoint(from, to), {
         uid,
         icon: labelImage(map, text, style).id,
-        rotate: textAngle(from, to),
+        rotate: textAngle(from, to, bearing),
       }),
     );
 
@@ -172,7 +177,7 @@ export const toSources = (
     const stroke = item.stroke?.color ?? (item.rangeBearing ? RANGE_BEARING_COLOR : DEFAULT_STROKE);
     const g = item.geometry;
 
-    const graphic = g.type === "Point" ? undefined : tacticalFeatures(map, item);
+    const graphic = g.type === "Point" ? undefined : tacticalFeatures(map, item, bearing);
     if (graphic) {
       tactical.push(...graphic);
       continue;
@@ -252,7 +257,7 @@ export const toSources = (
 
     if (!line || line.length < 2) continue;
     if (item.rangeBearing) {
-      const { range, bearing, northRef } = item.rangeBearing;
+      const { range, bearing: heading, northRef } = item.rangeBearing;
       const [from, to] = [line[0] as Position, line[1] as Position];
       const arrow = bearing >= 180 ? "←" : "→";
       alongLine(
@@ -280,6 +285,8 @@ export const toSources = (
     type: "FeatureCollection",
     features,
   });
+  pruneTactical();
+  pruneLabels(map);
   return {
     points: collection(points),
     shapes: collection(shapes),
