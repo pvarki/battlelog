@@ -42,6 +42,7 @@ import {
   newShapeEvent,
   type ShapeStyle,
 } from "./drawing/new-items.ts";
+import { cotTypeOf, sidcOf } from "./drawing/symbol-catalogue.ts";
 import { TacticalGraphicDialog } from "./drawing/TacticalGraphicDialog.tsx";
 import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-graphics.ts";
 import { type Drawn, useDrawing } from "./drawing/useDrawing.ts";
@@ -363,26 +364,44 @@ export const TakWorkspace = ({
       : undefined;
   const [chosenStyle, setChosenStyle] = useState<ShapeStyle>();
   /** The shape being drawn as it will look once saved. */
-  const previewOf = (sketch: Drawn | undefined): TakItem[] => {
+  const previewOf = (sketch: Drawn | undefined, cursor: Position | undefined): TakItem[] => {
     const shape = drawing.drawn ?? sketch;
-    const event = drawing.graphic
-      ? pointsOf(shape).length > 1
-        ? tacticalEvent(pointsOf(shape), "preview")
-        : undefined
-      : shape && shape.kind !== "marker" && shape.kind !== "route"
-        ? newShapeEvent(
-            shape,
-            (drawing.drawn && chosenStyle) || {
-              ...PREVIEW_STYLE,
-              name: nameFor(KIND_NAME[shape.kind]),
-            },
-            sender,
-            Date.now(),
-            "preview",
-          )
-        : undefined;
+    // A symbol chosen before placing rides under the pointer until the click.
+    const placing = drawing.tool === "marker" && !drawing.drawn ? drawing.symbol : undefined;
+    const event = placing
+      ? cursor &&
+        newMarkerEvent(
+          {
+            position: cursor,
+            name: "",
+            remarks: "",
+            kind: "symbol",
+            color: "",
+            symbol: { sidc: sidcOf(placing), type: cotTypeOf(placing) },
+          },
+          sender,
+          Date.now(),
+          "preview",
+        )
+      : drawing.graphic
+        ? pointsOf(shape).length > 1
+          ? tacticalEvent(pointsOf(shape), "preview")
+          : undefined
+        : shape && shape.kind !== "marker" && shape.kind !== "route"
+          ? newShapeEvent(
+              shape,
+              (drawing.drawn && chosenStyle) || {
+                ...PREVIEW_STYLE,
+                name: nameFor(KIND_NAME[shape.kind]),
+              },
+              sender,
+              Date.now(),
+              "preview",
+            )
+          : undefined;
     const change = event && toChange(event);
-    return change?.kind === "upsert" ? [change.item] : [];
+    if (change?.kind !== "upsert") return [];
+    return [placing ? { ...change.item, hideLabel: true } : change.item];
   };
   const newItemDialog = drawing.drawn && (
     <NewItemDialog

@@ -11,13 +11,13 @@ import {
   ScaleControl,
 } from "maplibre-gl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { TakItem } from "../cot.ts";
+import type { Position, TakItem } from "../cot.ts";
 import type { Drawn, Sketch } from "../drawing/useDrawing.ts";
 import { labelOf } from "../items.ts";
 import type { MapView } from "../tools.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
-import { setCursor } from "./cursor.ts";
+import { setCursor, useCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
 import { toSources } from "./layers.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
@@ -25,7 +25,10 @@ import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 type Props = {
   items: TakItem[];
   /** What's being drawn, in its final look, on its own layers: the pointer moving it redraws only that. */
-  preview?: { sketch: Sketch; build: (sketch: Drawn | undefined) => TakItem[] };
+  preview?: {
+    sketch: Sketch;
+    build: (sketch: Drawn | undefined, cursor: Position | undefined) => TakItem[];
+  };
   /** Breadcrumb trails, from `trackFeatures`. */
   tracks: FeatureCollection;
   hidden: ReadonlySet<string>;
@@ -448,7 +451,7 @@ const PreviewLayer = ({
   build,
 }: { map: MapLibreMap; bearing: number } & NonNullable<Props["preview"]>) => {
   const shape = useSyncExternalStore(sketch.subscribe, sketch.get);
-  const items = build(shape);
+  const items = build(shape, useCursor());
   useEffect(() => {
     const draw = () => {
       const sources = toSources(map, items, NO_GROUPS_HIDDEN, Date.now(), bearing, false);
