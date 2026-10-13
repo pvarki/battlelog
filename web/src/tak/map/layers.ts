@@ -1,7 +1,8 @@
 import type { Feature, FeatureCollection } from "geojson";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { Position, TakItem } from "../cot.ts";
-import { type Category, categoryOf, hasPosition, labelOf, statusOf } from "../items.ts";
+import { hasPosition, labelOf, statusOf } from "../items.ts";
+import { groupOf, isHidden } from "../overlays.ts";
 import {
   arrowhead,
   iconFor,
@@ -35,14 +36,18 @@ const DEFAULT_STROKE = "#ffffff";
 const RANGE_BEARING_COLOR = "#ff0000";
 const LABEL_GAP = 2;
 // Drawn last = on top: people over units over markers.
-const DRAW_ORDER: Record<Category, number> = {
-  drawings: 0,
-  markers: 1,
-  other: 2,
-  friendly: 3,
-  hostile: 4,
-  users: 5,
-};
+const DRAW_ORDER = [
+  "shapes",
+  "navigation",
+  "other",
+  "markers/spot",
+  "markers/unknown",
+  "markers/neutral",
+  "markers/friendly",
+  "markers/hostile",
+  "markers/team",
+  "alerts",
+];
 
 const RAD = Math.PI / 180;
 
@@ -114,7 +119,7 @@ const point = (coordinates: Position, properties: Record<string, unknown>): Feat
 export const toSources = (
   map: MapLibreMap,
   items: TakItem[],
-  hidden: ReadonlySet<Category>,
+  hidden: ReadonlySet<string>,
   now: number,
 ): Sources => {
   const points: Feature[] = [];
@@ -155,7 +160,8 @@ export const toSources = (
     );
 
   for (const item of items) {
-    if (hidden.has(categoryOf(item)) || !hasPosition(item)) continue;
+    const group = groupOf(item);
+    if (isHidden(group, hidden) || !hasPosition(item)) continue;
     const { uid } = item;
     const stale = statusOf(item, now) !== "online";
     const name = labelOf(item);
@@ -164,7 +170,7 @@ export const toSources = (
 
     if (g.type === "Point" && !item.ellipse) {
       const image = iconFor(map, item, stale);
-      icon(uid, g.coordinates, image, DRAW_ORDER[categoryOf(item)]);
+      icon(uid, g.coordinates, image, DRAW_ORDER.indexOf(group.slice(0, 2).join("/")));
       if (!item.hideLabel) nameUnder(uid, g.coordinates, name, image);
       if (item.footprint) {
         shapes.push({

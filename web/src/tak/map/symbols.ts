@@ -1,7 +1,7 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
 import ms from "milsymbol";
 import type { TakItem } from "../cot.ts";
-import { categoryOf, sidcOf, teamColor } from "../items.ts";
+import { sidcOf, teamColor } from "../items.ts";
 
 /**
  * Map images (icons and label boxes) are drawn once per look on a canvas and
@@ -171,7 +171,7 @@ const SPOT_MAP = "COT_MAPPING_SPOTMAP";
  * icon set those fall back to the 2525 symbol for the item's type.
  */
 export const iconFor = (map: MapLibreMap, item: TakItem, stale: boolean): MapImage => {
-  if (categoryOf(item) === "users") {
+  if (item.team) {
     const color = stale ? STALE_TEAM_COLOR : teamColor(item.team);
     return register(map, `user|${color}|${item.role}`, () => roleArt(color, item.role));
   }
