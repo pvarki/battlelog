@@ -1,0 +1,237 @@
+import {
+  Button,
+  ColorSwatch,
+  Group,
+  Modal,
+  SegmentedControl,
+  Select,
+  Slider,
+  Stack,
+  Switch,
+  Text,
+  Textarea,
+  TextInput,
+  UnstyledButton,
+} from "@mantine/core";
+import { useState } from "react";
+import type { StrokeStyle } from "../cot.ts";
+import { formatDistance } from "../map/layers.ts";
+import type { NewMarker, ShapeStyle } from "./new-items.ts";
+import type { Drawn } from "./useDrawing.ts";
+
+/** ATAK's drawing palette. */
+const COLORS = [
+  "#ffffff",
+  "#ffff00",
+  "#ff7700",
+  "#ff0000",
+  "#ff00ff",
+  "#0000ff",
+  "#00ffff",
+  "#00ff00",
+  "#000000",
+];
+
+const MARKER_KINDS: { value: NewMarker["kind"]; label: string }[] = [
+  { value: "spot", label: "Spot" },
+  { value: "h", label: "Hostile" },
+  { value: "f", label: "Friendly" },
+  { value: "n", label: "Neutral" },
+  { value: "u", label: "Unknown" },
+];
+
+const KIND_LABEL = {
+  marker: "Marker",
+  line: "Line",
+  polygon: "Area",
+  rectangle: "Rectangle",
+  circle: "Circle",
+};
+
+const Palette = ({ value, onChange }: { value: string; onChange: (color: string) => void }) => (
+  <Group gap={6} role="radiogroup" aria-label="Colour">
+    {COLORS.map((color) => (
+      <UnstyledButton
+        key={color}
+        role="radio"
+        aria-checked={value === color}
+        aria-label={color}
+        onClick={() => onChange(color)}
+      >
+        <ColorSwatch
+          color={color}
+          size={22}
+          style={{ outline: value === color ? "2px solid #8abbff" : undefined, outlineOffset: 2 }}
+        />
+      </UnstyledButton>
+    ))}
+  </Group>
+);
+
+type Props = {
+  drawn: Drawn;
+  defaultName: string;
+  onCancel: () => void;
+  onSaveShape: (style: ShapeStyle) => void;
+  onSaveMarker: (marker: Omit<NewMarker, "position">) => void;
+};
+
+/** Name and style for what was just drawn, then it goes to TAK. */
+export const NewItemDialog = ({
+  drawn,
+  defaultName,
+  onCancel,
+  onSaveShape,
+  onSaveMarker,
+}: Props) => {
+  const [name, setName] = useState(defaultName);
+  const [remarks, setRemarks] = useState("");
+  const [color, setColor] = useState("#ffff00");
+  const [strokeStyle, setStrokeStyle] = useState<StrokeStyle>("solid");
+  const [strokeWeight, setStrokeWeight] = useState(3);
+  const [fillOpacity, setFillOpacity] = useState(0.25);
+  const [labelsOn, setLabelsOn] = useState(drawn.kind === "circle");
+  const [sidc, setSidc] = useState("");
+  const [markerKind, setMarkerKind] = useState<NewMarker["kind"]>("spot");
+  const isMarker = drawn.kind === "marker";
+  const closed = drawn.kind !== "marker" && drawn.kind !== "line";
+
+  const save = () => {
+    if (isMarker) onSaveMarker({ name: name.trim(), remarks, kind: markerKind, color });
+    else
+      onSaveShape({
+        name: name.trim(),
+        remarks,
+        stroke: color,
+        strokeWeight,
+        strokeStyle,
+        fillOpacity: closed ? fillOpacity : 0,
+        labelsOn,
+        sidc: sidc.trim() || undefined,
+      });
+  };
+
+  return (
+    <Modal opened onClose={onCancel} title={`New ${KIND_LABEL[drawn.kind].toLowerCase()}`} centered>
+      <Stack
+        gap="sm"
+        component="form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
+        {drawn.kind === "circle" && (
+          <Text fz="xs" c="dimmed">
+            Radius {formatDistance(drawn.radius)}
+          </Text>
+        )}
+        <TextInput
+          size="xs"
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.currentTarget.value)}
+          data-autofocus
+        />
+        {isMarker && (
+          <SegmentedControl
+            size="xs"
+            data={MARKER_KINDS}
+            value={markerKind}
+            onChange={(v) => setMarkerKind(v as NewMarker["kind"])}
+          />
+        )}
+        {(!isMarker || markerKind === "spot") && (
+          <div>
+            <Text fz="xs" fw={500} mb={4}>
+              Colour
+            </Text>
+            <Palette value={color} onChange={setColor} />
+          </div>
+        )}
+        {!isMarker && (
+          <>
+            <Group grow>
+              <Select
+                size="xs"
+                label="Line"
+                data={[
+                  { value: "solid", label: "Solid" },
+                  { value: "dashed", label: "Dashed" },
+                  { value: "dotted", label: "Dotted" },
+                  { value: "outlined", label: "Outlined" },
+                ]}
+                value={strokeStyle}
+                onChange={(v) => v && setStrokeStyle(v as StrokeStyle)}
+                allowDeselect={false}
+                comboboxProps={{ withinPortal: true }}
+              />
+              <div>
+                <Text fz="xs" fw={500} mb={10}>
+                  Width {strokeWeight}
+                </Text>
+                <Slider
+                  size="xs"
+                  min={1}
+                  max={8}
+                  step={1}
+                  value={strokeWeight}
+                  onChange={setStrokeWeight}
+                  label={null}
+                  aria-label="Line width"
+                />
+              </div>
+            </Group>
+            {closed && (
+              <div>
+                <Text fz="xs" fw={500} mb={10}>
+                  Fill {Math.round(fillOpacity * 100)} %
+                </Text>
+                <Slider
+                  size="xs"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={fillOpacity}
+                  onChange={setFillOpacity}
+                  label={null}
+                  aria-label="Fill opacity"
+                />
+              </div>
+            )}
+            <Switch
+              size="xs"
+              label="Show name and measurements"
+              checked={labelsOn}
+              onChange={(e) => setLabelsOn(e.currentTarget.checked)}
+            />
+            <TextInput
+              size="xs"
+              label="Tactical graphic code (optional)"
+              description="2525C code as ATAK uses it, e.g. G*G*GLB---****X for a boundary"
+              value={sidc}
+              onChange={(e) => setSidc(e.currentTarget.value.toUpperCase())}
+            />
+          </>
+        )}
+        <Textarea
+          size="xs"
+          label="Remarks"
+          autosize
+          minRows={2}
+          maxRows={6}
+          value={remarks}
+          onChange={(e) => setRemarks(e.currentTarget.value)}
+        />
+        <Group justify="flex-end" gap="xs">
+          <Button size="xs" variant="default" onClick={onCancel}>
+            Discard
+          </Button>
+          <Button size="xs" type="submit" disabled={!name.trim()}>
+            Save to TAK
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+};

@@ -13,8 +13,13 @@ import { IconAlertTriangle, IconFolders, IconList, IconStack2 } from "@tabler/ic
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "../dashboard/mobile.ts";
+import { publish } from "./commands.ts";
 import type { Position, TakItem } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
+import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
+import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
+import { newMarkerEvent, newShapeEvent } from "./drawing/new-items.ts";
+import { useDrawing } from "./drawing/useDrawing.ts";
 import { useCallsign } from "./identity.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
@@ -118,6 +123,8 @@ export const TakWorkspace = () => {
   const missions = useMissions();
   const items = withMissionItems(liveItems, missions, settings.shownMissions);
   const mapRef = useRef<MapLibreMap>(undefined);
+  const [map, setMap] = useState<MapLibreMap>();
+  const drawing = useDrawing(map);
   const searchRef = useRef<HTMLInputElement>(null);
   const missionItem = (uid: string) => {
     for (const contents of missions.contents.values()) {
@@ -140,6 +147,39 @@ export const TakWorkspace = () => {
       ),
     ),
   ].sort();
+  const drawReason = !callsign
+    ? "No callsign: open BattleLog from the deploy app to draw on TAK"
+    : status.connection !== "live"
+      ? "Not connected to TAK"
+      : undefined;
+  const sender = { uid: `BattleLog-${callsign}`, callsign: callsign ?? "" };
+  const nameFor = (label: string) =>
+    `${label} ${liveItems.filter((i) => i.callsign?.startsWith(`${label} `)).length + 1}`;
+  const newItemDialog = drawing.drawn && (
+    <NewItemDialog
+      drawn={drawing.drawn}
+      defaultName={nameFor(
+        {
+          marker: "Marker",
+          line: "Line",
+          polygon: "Area",
+          rectangle: "Rectangle",
+          circle: "Circle",
+        }[drawing.drawn.kind],
+      )}
+      onCancel={drawing.clear}
+      onSaveShape={(style) => {
+        if (drawing.drawn && drawing.drawn.kind !== "marker")
+          void publish(newShapeEvent(drawing.drawn, style, sender));
+        drawing.clear();
+      }}
+      onSaveMarker={(marker) => {
+        if (drawing.drawn?.kind === "marker")
+          void publish(newMarkerEvent({ ...marker, position: drawing.drawn.position }, sender));
+        drawing.clear();
+      }}
+    />
+  );
   const callsignOf = (uid: string) => liveItems.find((i) => i.uid === uid)?.callsign;
   const missionsOf = (uid: string) =>
     (missions.missions ?? []).filter((m) => m.itemUids.includes(uid)).map((m) => m.name);
@@ -160,7 +200,8 @@ export const TakWorkspace = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (selectedUid) setSelectedUid(undefined);
+        if (drawing.tool && !drawing.drawn) drawing.clear();
+        else if (selectedUid) setSelectedUid(undefined);
         else setDrawer(null);
         return;
       }
@@ -263,10 +304,13 @@ export const TakWorkspace = () => {
           basemap={settings.basemap}
           dim={settings.dim}
           selectedUid={selectedUid}
-          onSelect={setSelectedUid}
+          onSelect={(uid) => {
+            if (!drawing.tool) setSelectedUid(uid);
+          }}
           onCursor={setCursor}
-          onReady={(map) => {
-            mapRef.current = map;
+          onReady={(ready) => {
+            mapRef.current = ready;
+            setMap(ready);
           }}
         />
         <div className="tak-search-slot">
@@ -278,6 +322,7 @@ export const TakWorkspace = () => {
             onGoTo={flyTo}
           />
         </div>
+        <DrawToolbar tool={drawing.tool} onChoose={drawing.choose} disabledReason={drawReason} />
         <ConnectionBanner status={status} />
       </div>
 
@@ -310,6 +355,7 @@ export const TakWorkspace = () => {
         </>
       )}
 
+      {newItemDialog}
       <StatusBar
         status={status}
         callsign={callsign}

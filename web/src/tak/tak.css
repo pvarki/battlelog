@@ -215,3 +215,12 @@
 .tak-map .maplibregl-popup-tip {
   display: none;
 }
+
+.tak-draw-toolbar {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: calc(100% - 20px);
+}

@@ -33,6 +33,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-grid-layout": "^2.2.4",
+    "terra-draw": "1.34.0",
+    "terra-draw-maplibre-gl-adapter": "1.4.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
