@@ -123,17 +123,16 @@ export const toSources = (
   const lineLabels: Feature[] = [];
   const decorations: Feature[] = [];
 
-  const icon = (uid: string, at: Position, image: MapImage, faded: boolean, order: number) =>
-    points.push(point(at, { uid, faded, icon: image.id, offset: image.offset, order }));
+  const icon = (uid: string, at: Position, image: MapImage, order: number) =>
+    points.push(point(at, { uid, icon: image.id, offset: image.offset, order }));
 
   /** A name centred under an icon, as ATAK draws marker labels. */
-  const nameUnder = (uid: string, at: Position, text: string, under: MapImage, faded: boolean) => {
+  const nameUnder = (uid: string, at: Position, text: string, under: MapImage) => {
     const label = labelImage(map, text);
     const iconBottom = under.height / 2 + under.offset[1];
     markerLabels.push(
       point(at, {
         uid,
-        faded,
         icon: label.id,
         offset: [0, iconBottom + LABEL_GAP + label.height / 2],
       }),
@@ -158,15 +157,15 @@ export const toSources = (
   for (const item of items) {
     if (hidden.has(categoryOf(item)) || !hasPosition(item)) continue;
     const { uid } = item;
-    const faded = statusOf(item, now) !== "online";
+    const stale = statusOf(item, now) !== "online";
     const name = labelOf(item);
     const stroke = item.stroke?.color ?? (item.rangeBearing ? RANGE_BEARING_COLOR : DEFAULT_STROKE);
     const g = item.geometry;
 
     if (g.type === "Point" && !item.ellipse) {
-      const image = iconFor(map, item);
-      icon(uid, g.coordinates, image, faded, DRAW_ORDER[categoryOf(item)]);
-      if (!item.hideLabel) nameUnder(uid, g.coordinates, name, image, faded);
+      const image = iconFor(map, item, stale);
+      icon(uid, g.coordinates, image, DRAW_ORDER[categoryOf(item)]);
+      if (!item.hideLabel) nameUnder(uid, g.coordinates, name, image);
       if (item.footprint) {
         shapes.push({
           type: "Feature",
@@ -215,8 +214,8 @@ export const toSources = (
     if (ring) {
       const centre = g.type === "Point" ? g.coordinates : centreOf(ring);
       const dot = referenceDot(map, stroke);
-      icon(uid, centre, dot, faded, -1);
-      nameUnder(uid, centre, name, dot, faded);
+      icon(uid, centre, dot, -1);
+      nameUnder(uid, centre, name, dot);
       if (item.labelsOn && item.ellipse) {
         const { major, minor } = item.ellipse;
         const text =
@@ -256,8 +255,8 @@ export const toSources = (
     }
     for (const waypoint of item.waypoints ?? []) {
       const dot = referenceDot(map, stroke);
-      icon(uid, waypoint.position, dot, faded, -1);
-      nameUnder(uid, waypoint.position, waypoint.name, dot, faded);
+      icon(uid, waypoint.position, dot, -1);
+      nameUnder(uid, waypoint.position, waypoint.name, dot);
     }
   }
 

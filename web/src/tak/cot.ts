@@ -31,6 +31,8 @@ export type TakItem = {
   device?: string;
   /** 2525 symbol code from `__milsym`, when the sender chose one. */
   sidc?: string;
+  /** ATAK icon-set path from `<usericon iconsetpath>`. */
+  iconPath?: string;
   /** Metres per second and degrees true. */
   speed?: number;
   course?: number;
@@ -212,6 +214,7 @@ export const toChange = (event: CotEvent): TakChange | null => {
     battery: num(attr("status", "battery")),
     device: device || undefined,
     sidc: attr("__milsym", "id")?.replaceAll("*", "-"),
+    iconPath: attr("usericon", "iconsetpath"),
     speed: num(attr("track", "speed")),
     course: num(attr("track", "course")),
     creator: parent?.getAttribute("parent_callsign") ?? undefined,

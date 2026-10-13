@@ -18,7 +18,7 @@ import { sendTestMarker } from "./dev-test-write.ts";
 import { useCallsign } from "./identity.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
-import { anchorOf } from "./items.ts";
+import { anchorOf, hasPosition } from "./items.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
 import { SearchBox } from "./SearchBox.tsx";
@@ -101,7 +101,7 @@ export const TakWorkspace = () => {
 
   const pick = (item: TakItem) => {
     setSelectedUid(item.uid);
-    flyTo(anchorOf(item));
+    if (hasPosition(item)) flyTo(anchorOf(item));
     if (isMobile) setDrawer(null);
   };
 

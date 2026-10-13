@@ -18,6 +18,7 @@ import {
   anchorOf,
   describeType,
   formatAge,
+  hasPosition,
   labelOf,
   STATUS_LABEL,
   shortDevice,
@@ -93,29 +94,33 @@ export const ItemDetails = ({ item, coordFormat, onCenter, onClose }: Props) => 
 
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         <Stack gap="sm">
-          <Field label={item.geometry.type === "Point" ? "Position" : "First point"}>
-            <Group gap={4} wrap="nowrap">
-              <span className="tak-mono">{coordinate}</span>
-              <CopyButton value={coordinate}>
-                {({ copied, copy }) => (
-                  <Tooltip label={copied ? "Copied" : "Copy coordinate"} withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      size="sm"
-                      onClick={copy}
-                      aria-label="Copy coordinate"
-                    >
-                      {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </CopyButton>
-            </Group>
-            <Text fz="xs" c="dimmed" className="tak-mono">
-              {secondary}
-            </Text>
-          </Field>
+          {hasPosition(item) ? (
+            <Field label={item.geometry.type === "Point" ? "Position" : "First point"}>
+              <Group gap={4} wrap="nowrap">
+                <span className="tak-mono">{coordinate}</span>
+                <CopyButton value={coordinate}>
+                  {({ copied, copy }) => (
+                    <Tooltip label={copied ? "Copied" : "Copy coordinate"} withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        onClick={copy}
+                        aria-label="Copy coordinate"
+                      >
+                        {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </CopyButton>
+              </Group>
+              <Text fz="xs" c="dimmed" className="tak-mono">
+                {secondary}
+              </Text>
+            </Field>
+          ) : (
+            <Field label="Position">No position fix</Field>
+          )}
           {item.hae !== undefined && <Field label="Altitude (HAE)">{Math.round(item.hae)} m</Field>}
           {item.speed !== undefined && item.speed > 0 && (
             <Field label="Speed and course">
@@ -159,6 +164,7 @@ export const ItemDetails = ({ item, coordFormat, onCenter, onClose }: Props) => 
         size="xs"
         leftSection={<IconCurrentLocation size={14} />}
         onClick={onCenter}
+        disabled={!hasPosition(item)}
       >
         Center on map
       </Button>

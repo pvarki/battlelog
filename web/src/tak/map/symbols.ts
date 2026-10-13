@@ -64,7 +64,11 @@ const register = (map: MapLibreMap, key: string, draw: () => Art): MapImage => {
   return image;
 };
 
-const milsymbolArt = (sidc: string): Art => {
+// ATAK tints stale markers grey: team members flat grey, everything else darkened.
+const STALE_TEAM_COLOR = "#808080";
+const STALE_FILTER = "grayscale(1) brightness(0.55)";
+
+const milsymbolArt = (sidc: string, stale: boolean): Art => {
   let symbol = new ms.Symbol(sidc, { size: 22 });
   if (!symbol.isValid()) symbol = new ms.Symbol("SUGP-----------", { size: 22 });
   const { width, height } = symbol.getSize();
@@ -75,7 +79,10 @@ const milsymbolArt = (sidc: string): Art => {
     height,
     ax: x,
     ay: y,
-    paint: (ctx) => ctx.drawImage(canvas, 0, 0, width, height),
+    paint: (ctx) => {
+      if (stale) ctx.filter = STALE_FILTER;
+      ctx.drawImage(canvas, 0, 0, width, height);
+    },
   };
 };
 
@@ -98,15 +105,79 @@ const dotArt = (color: string, radius = DOT_RADIUS): Art => {
   };
 };
 
-/** The icon for an item's point, drawn on first use. */
-export const iconFor = (map: MapLibreMap, item: TakItem): MapImage => {
+/**
+ * A team member's marker in their team colour, shaped by role the way ATAK
+ * distinguishes them (our own drawings, not ATAK's icons).
+ */
+const roleArt = (color: string, role: string | undefined): Art => {
+  const size = 22;
+  const c = size / 2;
+  const r = 8;
+  return {
+    width: size,
+    height: size,
+    ax: c,
+    ay: c,
+    paint: (ctx) => {
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "#111418";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (role === "HQ") ctx.rect(c - r, c - r, r * 2, r * 2);
+      else if (role === "Forward Observer") {
+        ctx.moveTo(c, c - r - 1);
+        ctx.lineTo(c + r + 1, c + r);
+        ctx.lineTo(c - r - 1, c + r);
+        ctx.closePath();
+      } else ctx.arc(c, c, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#111418";
+      ctx.fillStyle = "#111418";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (role === "Team Lead") ctx.arc(c, c, 3, 0, Math.PI * 2);
+      if (role === "Medic") {
+        ctx.moveTo(c, c - 5);
+        ctx.lineTo(c, c + 5);
+        ctx.moveTo(c - 5, c);
+        ctx.lineTo(c + 5, c);
+      }
+      if (role === "Sniper") {
+        ctx.moveTo(c, c - r);
+        ctx.lineTo(c, c + r);
+        ctx.moveTo(c - r, c);
+        ctx.lineTo(c + r, c);
+      }
+      ctx.stroke();
+      if (role === "Team Lead") ctx.fill();
+      const letter = role === "RTO" ? "R" : role === "K9" ? "K9" : undefined;
+      if (letter) {
+        ctx.font = "700 9px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(letter, c, c + 0.5);
+      }
+    },
+  };
+};
+
+// ponytail: SPOTMAP "…/LABEL" (text only, no icon) draws a dot; handle it if senders use it.
+const SPOT_MAP = "COT_MAPPING_SPOTMAP";
+
+/**
+ * The icon for an item's point, drawn on first use. Icon-set images (ATAK
+ * `usericon` paths) aren't available to a browser, so like ATAK without the
+ * icon set those fall back to the 2525 symbol for the item's type.
+ */
+export const iconFor = (map: MapLibreMap, item: TakItem, stale: boolean): MapImage => {
   if (categoryOf(item) === "users") {
-    const color = teamColor(item.team);
-    return register(map, `user|${color}`, () => dotArt(color));
+    const color = stale ? STALE_TEAM_COLOR : teamColor(item.team);
+    return register(map, `user|${color}|${item.role}`, () => roleArt(color, item.role));
   }
-  const sidc = sidcOf(item);
-  if (sidc) return register(map, `sidc|${sidc}`, () => milsymbolArt(sidc));
-  const color = item.stroke?.color ?? "#fbb360";
+  const sidc = item.iconPath?.startsWith(SPOT_MAP) ? undefined : sidcOf(item);
+  if (sidc) return register(map, `sidc|${sidc}|${stale}`, () => milsymbolArt(sidc, stale));
+  const color = stale ? STALE_TEAM_COLOR : (item.stroke?.color ?? "#fbb360");
   return register(map, `dot|${color}`, () => dotArt(color));
 };
 

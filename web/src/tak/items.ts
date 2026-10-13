@@ -56,22 +56,22 @@ export const anchorOf = (item: TakItem): Position => {
 
 export const labelOf = (item: TakItem): string => item.callsign ?? item.uid;
 
-/** ATAK's team colours. */
+/** ATAK's team colours, as its team markers are tinted. */
 const TEAM_COLOR: Record<string, string> = {
   White: "#ffffff",
   Yellow: "#ffff00",
-  Orange: "#ff8000",
+  Orange: "#ff7700",
   Magenta: "#ff00ff",
   Red: "#ff0000",
-  Maroon: "#800000",
-  Purple: "#800080",
-  "Dark Blue": "#00008b",
+  Maroon: "#7f0000",
+  Purple: "#7f007f",
+  "Dark Blue": "#00007f",
   Blue: "#0000ff",
   Cyan: "#00ffff",
-  Teal: "#008080",
+  Teal: "#007f7f",
   Green: "#00ff00",
-  "Dark Green": "#006400",
-  Brown: "#a52a2a",
+  "Dark Green": "#007f00",
+  Brown: "#a0714f",
 };
 
 export const teamColor = (team: string | undefined): string =>

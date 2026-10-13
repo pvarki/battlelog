@@ -86,7 +86,6 @@ const DASHES: ExpressionSpecification = [
 const addItemLayers = (map: MapLibreMap) => {
   const empty = { type: "FeatureCollection" as const, features: [] };
   for (const name of ITEM_SOURCES) map.addSource(`tak-${name}`, { type: "geojson", data: empty });
-  const faded: ExpressionSpecification = ["case", ["get", "faded"], 0.45, 1];
   const overlapping = { "icon-allow-overlap": true, "icon-ignore-placement": true } as const;
   map.addLayer({
     id: "tak-shape-fills",
@@ -164,7 +163,6 @@ const addItemLayers = (map: MapLibreMap) => {
       "icon-offset": ["get", "offset"],
       "symbol-sort-key": ["get", "order"],
     },
-    paint: { "icon-opacity": faded },
   });
   map.addLayer({
     id: "tak-marker-labels",
@@ -172,7 +170,6 @@ const addItemLayers = (map: MapLibreMap) => {
     source: "tak-markerLabels",
     minzoom: MARKER_LABEL_MIN_ZOOM,
     layout: { ...overlapping, "icon-image": ["get", "icon"], "icon-offset": ["get", "offset"] },
-    paint: { "icon-opacity": faded },
   });
 };
 
