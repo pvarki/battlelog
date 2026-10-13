@@ -9,6 +9,8 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { TacticalGraphicPicker } from "./TacticalGraphicPicker.tsx";
+import { hintFor, type TacticalGraphic } from "./tactical-graphics.ts";
 import { TOOLS, type Tool } from "./useDrawing.ts";
 
 const ICONS = {
@@ -30,6 +32,8 @@ const HINT: Record<Tool, string> = {
 type Props = {
   tool: Tool | undefined;
   onChoose: (tool: Tool | undefined) => void;
+  graphic: TacticalGraphic | undefined;
+  onChooseGraphic: (graphic: TacticalGraphic | undefined) => void;
   /** Why drawing is unavailable, or undefined when it is. */
   disabledReason: string | undefined;
   /** The plan new items go into; undefined = Live, straight to TAK. */
@@ -44,6 +48,8 @@ type Props = {
 export const DrawToolbar = ({
   tool,
   onChoose,
+  graphic,
+  onChooseGraphic,
   disabledReason,
   planName,
   measuring,
@@ -70,18 +76,23 @@ export const DrawToolbar = ({
           <Tooltip key={id} label={disabledReason} disabled={!disabledReason} withArrow>
             <Button
               size="compact-xs"
-              variant={tool === id ? "filled" : "subtle"}
-              color={tool === id ? "primary" : "gray"}
+              variant={tool === id && !graphic ? "filled" : "subtle"}
+              color={tool === id && !graphic ? "primary" : "gray"}
               leftSection={<Icon size={14} />}
-              aria-pressed={tool === id}
+              aria-pressed={tool === id && !graphic}
               disabled={!!disabledReason}
-              onClick={() => onChoose(tool === id ? undefined : id)}
+              onClick={() => onChoose(tool === id && !graphic ? undefined : id)}
             >
               {TOOLS[id].label}
             </Button>
           </Tooltip>
         );
       })}
+      <TacticalGraphicPicker
+        value={graphic}
+        onChange={onChooseGraphic}
+        disabledReason={disabledReason}
+      />
       <Button
         size="compact-xs"
         variant={measuring ? "filled" : "subtle"}
@@ -106,7 +117,7 @@ export const DrawToolbar = ({
     </Group>
     {tool && (
       <Text fz="xs" c="dimmed" px={6} pt={2}>
-        {HINT[tool]}
+        {(graphic && hintFor(graphic)) ?? HINT[tool]}
       </Text>
     )}
     {measuring && children}

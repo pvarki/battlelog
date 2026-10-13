@@ -11,6 +11,7 @@ import {
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import type { Position } from "../cot.ts";
 import type { NewShape } from "./new-items.ts";
+import type { TacticalGraphic } from "./tactical-graphics.ts";
 
 export const TOOLS = {
   marker: { label: "Marker", mode: "point" },
@@ -62,8 +63,13 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
   const draw = useRef<TerraDraw>(undefined);
   const [tool, setTool] = useState<Tool>();
   const [drawn, setDrawn] = useState<Drawn>();
+  const [graphic, setGraphic] = useState<TacticalGraphic>();
+  /** A tactical graphic's shape while it's being drawn, so it can be previewed. */
+  const [sketch, setSketch] = useState<Drawn>();
   const toolRef = useRef(tool);
   toolRef.current = tool;
+  const graphicRef = useRef(graphic);
+  graphicRef.current = graphic;
 
   useEffect(() => {
     if (!map) return;
@@ -78,11 +84,20 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       ],
     });
     terra.start();
+    terra.on("change", (ids) => {
+      const current = toolRef.current;
+      if (!graphicRef.current || !current) return;
+      const geometry = ids
+        .map((id) => terra.getSnapshotFeature(id)?.geometry)
+        .find((g) => g && g.type !== "Point");
+      if (geometry) setSketch(drawnFrom(current, geometry));
+    });
     terra.on("finish", (id) => {
       const feature = terra.getSnapshotFeature(id);
       const current = toolRef.current;
       if (!feature || !current) return;
       setDrawn(drawnFrom(current, feature.geometry));
+      setSketch(undefined);
       // One item at a time: stop drawing while the user names and styles it.
       terra.setMode("static");
     });
@@ -97,15 +112,19 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
     draw.current?.clear();
     draw.current?.setMode("static");
     setDrawn(undefined);
+    setSketch(undefined);
     setTool(undefined);
+    setGraphic(undefined);
   };
 
-  const choose = (next: Tool | undefined) => {
+  const choose = (next: Tool | undefined, nextGraphic?: TacticalGraphic) => {
     draw.current?.clear();
     setDrawn(undefined);
+    setSketch(undefined);
     setTool(next);
+    setGraphic(next && nextGraphic);
     draw.current?.setMode(next ? TOOLS[next].mode : "static");
   };
 
-  return { tool, drawn, choose, clear };
+  return { tool, graphic, drawn, sketch, choose, clear };
 };
