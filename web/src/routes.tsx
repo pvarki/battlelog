@@ -7,10 +7,12 @@ import {
   createRoute,
   type ErrorComponentProps,
   Link,
+  lazyRouteComponent,
   notFound,
   Outlet,
   useNavigate,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useRef } from "react";
 import { z } from "zod";
@@ -23,6 +25,7 @@ import { Placeholder } from "./Placeholder.tsx";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
+import { TakIndicator } from "./tak/TakIndicator.tsx";
 
 // The current page renders full-strength; elsewhere links stay dimmed.
 const NavLink = ({ to, children }: { to: string; children: string }) => (
@@ -107,7 +110,9 @@ const Shell = ({
   // Phones already have their own switchers; the panel is a desktop affordance.
   const isMobile = useIsMobile();
   const [navOpen, setNavOpen] = useLocalStorage({ key: "battlelog.nav-open", defaultValue: true });
-  const hasNav = !!dashboards && !isMobile;
+  // The map needs the width; its own drawers replace the views panel there.
+  const onMap = useRouterState({ select: (s) => s.location.pathname === "/map" });
+  const hasNav = !!dashboards && !isMobile && !onMap;
   return (
     <AppShell
       header={{ height: 48 }}
@@ -133,7 +138,11 @@ const Shell = ({
           </Text>
           <NavLink to="/">Home</NavLink>
           <NavLink to="/events">Event Explorer</NavLink>
-          <ConnectionIndicator />
+          <NavLink to="/map">Map</NavLink>
+          <Group gap="md" ml="auto" wrap="nowrap">
+            <TakIndicator />
+            <ConnectionIndicator />
+          </Group>
         </Group>
       </AppShell.Header>
       {hasNav && (
@@ -286,8 +295,16 @@ export const eventExplorerRoute = createRoute({
   component: EventExplorerPage,
 });
 
+// Lazy: MapLibre is a large chunk that only the map needs.
+export const mapRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/map",
+  component: lazyRouteComponent(() => import("./pages/MapPage.tsx"), "MapPage"),
+});
+
 export const routeTree = rootRoute.addChildren([
   dashboardsRoute,
   dashboardRoute,
   eventExplorerRoute,
+  mapRoute,
 ]);

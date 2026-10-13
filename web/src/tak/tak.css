@@ -1,0 +1,180 @@
+.tak-workspace {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "rail drawer main details"
+    "status status status status";
+  height: calc(100dvh - var(--app-shell-header-height, 48px));
+  background: var(--mantine-color-dark-7);
+}
+
+.tak-rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  border-right: 1px solid var(--mantine-color-dark-4);
+  background: var(--mantine-color-dark-6);
+}
+
+.tak-rail-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 56px;
+  padding: 6px 0;
+  border-radius: 6px;
+  color: var(--mantine-color-dark-2);
+  font-size: 11px;
+}
+
+.tak-rail-button:hover {
+  background: var(--mantine-color-dark-5);
+  color: var(--mantine-color-dark-0);
+}
+
+.tak-rail-button[aria-pressed="true"] {
+  background: var(--mantine-color-dark-5);
+  color: #8abbff;
+}
+
+.tak-drawer,
+.tak-details {
+  min-height: 0;
+  padding: 10px 12px;
+  background: var(--mantine-color-dark-6);
+}
+
+.tak-drawer {
+  grid-area: drawer;
+  width: 320px;
+  border-right: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-details {
+  grid-area: details;
+  width: 340px;
+  border-left: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-main {
+  grid-area: main;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Outranks maplibre-gl.css, which makes every map container position: relative. */
+.tak-main > .tak-map {
+  position: absolute;
+  inset: 0;
+}
+
+.tak-search-slot {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: min(360px, calc(100% - 70px));
+  z-index: 2;
+}
+
+.tak-banner {
+  position: absolute;
+  top: 56px;
+  left: 10px;
+  right: 60px;
+  max-width: 640px;
+  z-index: 2;
+}
+
+.tak-statusbar {
+  grid-area: status;
+  min-height: 26px;
+  padding: 3px 12px;
+  border-top: 1px solid var(--mantine-color-dark-4);
+  background: var(--mantine-color-dark-6);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tak-group-heading {
+  margin: 10px 4px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mantine-color-dark-2);
+}
+
+.tak-group-heading span {
+  font-weight: 400;
+}
+
+.tak-row {
+  display: block;
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: 6px;
+}
+
+.tak-row:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-row[data-selected] {
+  background: var(--mantine-color-dark-5);
+  box-shadow: inset 2px 0 0 #8abbff;
+}
+
+.tak-row[data-faded] {
+  opacity: 0.6;
+}
+
+.tak-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--mantine-color-dark-4);
+  vertical-align: baseline;
+}
+
+.tak-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.tak-workspace[data-mobile] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr auto auto;
+  grid-template-areas:
+    "main"
+    "rail"
+    "status";
+}
+
+.tak-workspace[data-mobile] .tak-rail {
+  flex-direction: row;
+  justify-content: space-around;
+  border-right: 0;
+  border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-workspace[data-mobile] .tak-statusbar > :not(:first-child):not(:nth-child(2)) {
+  display: none;
+}
+
+.maplibregl-popup-content {
+  padding: 3px 8px;
+  background: var(--mantine-color-dark-6);
+  color: var(--mantine-color-dark-0);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.maplibregl-popup-tip {
+  display: none;
+}
