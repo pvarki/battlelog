@@ -13,7 +13,7 @@ type Props = {
   itemCount: number;
 };
 
-const CONNECTION_TEXT = {
+export const CONNECTION_TEXT = {
   idle: "TAK idle",
   connecting: "Connecting to TAK…",
   live: "TAK live",

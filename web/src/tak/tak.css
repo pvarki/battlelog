@@ -305,3 +305,27 @@
   align-self: flex-end;
   background: var(--mantine-color-dark-4);
 }
+
+.tak-workspace[data-wall] .maplibregl-ctrl-top-right,
+.tak-workspace[data-wall] .maplibregl-ctrl-bottom-left {
+  display: none;
+}
+
+.tak-connection-dot {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mantine-color-warning-4);
+}
+
+.tak-connection-dot[data-connection="live"] {
+  background: var(--mantine-color-success-4);
+}
+
+.tak-connection-dot[data-connection="down"] {
+  background: var(--mantine-color-danger-4);
+}

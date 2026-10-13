@@ -64,6 +64,21 @@ export const groupOf = (item: TakItem): string[] => {
 export const isHidden = (path: string[], hidden: ReadonlySet<string>): boolean =>
   path.some((_, i) => hidden.has(path.slice(0, i + 1).join("/")));
 
+/** The hidden set that leaves only the `shown` groups (and what's in them) on the map. */
+export const hiddenExcept = (shown: readonly string[]): Set<string> =>
+  new Set(
+    ORDER.filter(
+      (key) => !shown.some((s) => s === key || s.startsWith(`${key}/`) || key.startsWith(`${s}/`)),
+    ),
+  );
+
+/** "Markers › Friendly › Other", telling apart groups that share a label. */
+export const groupPathLabel = (key: string): string =>
+  key
+    .split("/")
+    .map((name, i, parts) => GROUP_LABEL[parts.slice(0, i + 1).join("/")] ?? name)
+    .join(" › ");
+
 export type Group = {
   key: string;
   label: string;

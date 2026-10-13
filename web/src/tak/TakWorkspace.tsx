@@ -38,6 +38,7 @@ import { useCallsign } from "./identity.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { anchorOf, hasPosition } from "./items.ts";
+import { type Follow, followedItems, positionsOf, useFollow } from "./map/follow.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
@@ -46,7 +47,7 @@ import { type MissionsState, useMissions, useMissionsSync } from "./missions/sto
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { addToPlan, type Plan, usePlans } from "./plans/plans.ts";
 import { SearchBox } from "./SearchBox.tsx";
-import { StatusBar } from "./StatusBar.tsx";
+import { CONNECTION_TEXT, StatusBar } from "./StatusBar.tsx";
 import {
   loadTrack,
   sendCot,
@@ -71,6 +72,7 @@ const DRAWERS = {
 type DrawerId = keyof typeof DRAWERS;
 
 const FOCUS_ZOOM = 14;
+const WALL_SYMBOL_SCALE = 1.5;
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
@@ -150,6 +152,14 @@ type Props = {
   /** Inside a dashboard widget: fills its box and leaves the page's keys alone. */
   embedded?: boolean;
   onMap?: (map: MapLibreMap | undefined) => void;
+  /** "wall": a picture to read from across the room, with no chrome and nothing to click. */
+  display?: "normal" | "wall";
+  /** Overrides this browser's hidden overlay groups. */
+  hiddenGroups?: ReadonlySet<string>;
+  /** Shown besides the missions this browser shows. */
+  missions?: readonly string[];
+  /** Keeps these items in view as they move. */
+  follow?: Follow;
 };
 
 /**
@@ -157,8 +167,18 @@ type Props = {
  * TAK session. The Map page shows all of it; a dashboard widget shows the
  * tools it was configured with.
  */
-export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
-  const has = (tool: TakTool) => !tools || tools.has(tool);
+export const TakWorkspace = ({
+  tools,
+  view,
+  embedded,
+  onMap,
+  display,
+  hiddenGroups,
+  missions: extraMissions = [],
+  follow,
+}: Props) => {
+  const wall = display === "wall";
+  const has = (tool: TakTool) => !wall && (!tools || tools.has(tool));
   const drawers = (Object.keys(DRAWERS) as DrawerId[]).filter(has);
   useTakSession();
   const liveItems = useTakItems();
@@ -167,6 +187,12 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
   const status = useTakStatus();
   const callsign = useCallsign();
   const settings = useMapSettings();
+  const hidden = hiddenGroups ?? settings.hidden;
+  const shownMissions = new Set([
+    ...settings.shownMissions,
+    ...extraMissions,
+    ...(follow?.mission ? [follow.mission] : []),
+  ]);
   const isMobile = useIsMobile();
   const [drawer, setDrawer] = useState<DrawerId | null>(isMobile || !has("items") ? null : "items");
   const [selectedUid, setSelectedUid] = useState<string>();
@@ -174,13 +200,13 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
   const [cursor, setCursor] = useState<Position>();
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
-  useMissionsSync([...settings.shownMissions, ...(browsedMission ? [browsedMission] : [])]);
+  useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])]);
   const missions = useMissions();
   const plans = usePlans();
   // Without the plans tool there's no sign of a plan, so nothing may quietly go into one.
   const activePlan = has("plans") ? plans.plans.find((p) => p.id === plans.activeId) : undefined;
   const items = withDrafts(
-    withMissionItems(liveItems, missions, settings.shownMissions),
+    withMissionItems(liveItems, missions, shownMissions),
     activePlan ? draftItems(activePlan, liveItems).map((d) => d.item) : [],
   );
   /** Where new items and changes go: the active plan, or straight to TAK. */
@@ -192,6 +218,10 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
   const submitLabel = activePlan ? `Add to ${activePlan.name}` : "Save to TAK";
   const mapRef = useRef<MapLibreMap>(undefined);
   const [map, setMap] = useState<MapLibreMap>();
+  const followMissionUids = new Set(
+    missions.missions?.find((m) => m.name === follow?.mission)?.itemUids,
+  );
+  useFollow(map, follow ? positionsOf(followedItems(items, follow, followMissionUids)) : []);
   const drawing = useDrawing(map);
   const measure = useMeasure(map);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -366,7 +396,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
       </LayersDrawer>
     );
 
-  const details = selected && (
+  const details = !wall && selected && (
     <ItemDetails
       key={selected.uid}
       item={selected}
@@ -392,6 +422,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
       className="tak-workspace"
       data-mobile={isMobile || undefined}
       data-embedded={embedded || undefined}
+      data-wall={wall || undefined}
       data-no-rail={drawers.length === 0 || undefined}
     >
       <nav className="tak-rail" aria-label="Map tools" hidden={drawers.length === 0}>
@@ -433,9 +464,9 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
           tracks={trackFeatures(
             settings.showAllTracks ? items : items.filter((i) => trackedUids.has(i.uid)),
             tracks,
-            settings.hidden,
+            hidden,
           )}
-          hidden={settings.hidden}
+          hidden={hidden}
           basemap={settings.basemap}
           dim={settings.dim}
           selectedUid={selectedUid}
@@ -451,6 +482,8 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
             onMap?.(ready);
           }}
           view={view}
+          passive={wall}
+          symbolScale={wall ? WALL_SYMBOL_SCALE : 1}
         />
         {has("search") && (
           <div className="tak-search-slot">
@@ -505,8 +538,17 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
         )}
         <div className="tak-banners">
           <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
-          <ConnectionBanner status={status} />
+          {!wall && <ConnectionBanner status={status} />}
         </div>
+        {wall && (
+          <span
+            className="tak-connection-dot"
+            data-connection={status.connection}
+            role="status"
+            aria-label={CONNECTION_TEXT[status.connection]}
+            title={CONNECTION_TEXT[status.connection]}
+          />
+        )}
       </div>
 
       {!isMobile && details && (
@@ -539,13 +581,15 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
       )}
 
       {newItemDialog}
-      <StatusBar
-        status={status}
-        callsign={callsign}
-        cursor={cursor}
-        coordFormat={settings.coordFormat}
-        itemCount={items.length}
-      />
+      {!wall && (
+        <StatusBar
+          status={status}
+          callsign={callsign}
+          cursor={cursor}
+          coordFormat={settings.coordFormat}
+          itemCount={items.length}
+        />
+      )}
     </div>
   );
 };

@@ -35,6 +35,10 @@ type Props = {
   onReady: (map: MapLibreMap | undefined) => void;
   /** A fixed starting view; the map then doesn't remember where the viewer left it. */
   view?: MapView;
+  /** A wall display: no hover names, and clicks pick nothing. */
+  passive?: boolean;
+  /** Icons and their labels, larger for reading from across a room. */
+  symbolScale?: number;
 };
 
 const VIEW_KEY = "battlelog.tak.view";
@@ -266,6 +270,8 @@ export const MapCanvas = ({
   onCursor,
   onReady,
   view,
+  passive = false,
+  symbolScale = 1,
 }: Props) => {
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap>();
@@ -273,8 +279,8 @@ export const MapCanvas = ({
   const [bearing, setBearing] = useState(0);
   const itemsByUid = useRef(new Map<string, TakItem>());
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
-  const callbacks = useRef({ onPick, onCursor, onReady });
-  callbacks.current = { onPick, onCursor, onReady };
+  const callbacks = useRef({ onPick, onCursor, onReady, passive });
+  callbacks.current = { onPick, onCursor, onReady, passive };
   // The map is created once; pinning a new view applies on the next open.
   const startView = useRef(view);
 
@@ -314,10 +320,12 @@ export const MapCanvas = ({
     });
     if (!startView.current) m.on("moveend", () => saveView(m));
     m.on("rotateend", () => setBearing(m.getBearing()));
-    m.on("click", (e) => callbacks.current.onPick(uidsAt(e), e.point));
+    m.on("click", (e) => {
+      if (!callbacks.current.passive) callbacks.current.onPick(uidsAt(e), e.point);
+    });
     m.on("mousemove", (e) => {
       callbacks.current.onCursor([e.lngLat.lng, e.lngLat.lat]);
-      const uid = uidAt(e);
+      const uid = callbacks.current.passive ? undefined : uidAt(e);
       const item = uid ? itemsByUid.current.get(uid) : undefined;
       m.getCanvas().style.cursor = item ? "pointer" : "";
       if (!item) {
@@ -364,6 +372,14 @@ export const MapCanvas = ({
       offIconsets();
     };
   }, [map, items, hidden, now, bearing]);
+
+  useEffect(() => {
+    if (!map) return;
+    for (const layer of map.getStyle().layers) {
+      if (layer.type === "symbol" && layer.id.startsWith("tak-"))
+        map.setLayoutProperty(layer.id, "icon-size", symbolScale);
+    }
+  }, [map, symbolScale]);
 
   useEffect(() => {
     (map?.getSource("tak-tracks") as GeoJSONSource | undefined)?.setData(tracks);

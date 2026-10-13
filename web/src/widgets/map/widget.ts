@@ -3,7 +3,12 @@ import { lazy } from "react";
 import { z } from "zod";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
+import { GROUP_LABEL } from "../../tak/overlays.ts";
 import { TAK_TOOLS } from "../../tak/tools.ts";
+
+const overlayGroups = z.array(
+  z.string().refine((key) => Object.hasOwn(GROUP_LABEL, key), "Unknown overlay group"),
+);
 
 const configSchema = z
   .object({
@@ -17,6 +22,21 @@ const configSchema = z
         bearing: z.number(),
       })
       .optional(),
+    /** "wall": no chrome or clicks, larger symbols, for a screen across the room. */
+    display: z.enum(["normal", "wall"]).default("normal"),
+    /** Items the map keeps in view as they move. */
+    follow: z
+      .object({
+        callsigns: z.array(z.string()).optional(),
+        mission: z.string().min(1).optional(),
+        groups: overlayGroups.optional(),
+      })
+      .strict()
+      .optional(),
+    /** The overlay groups shown; absent = this browser's layer settings. */
+    groups: overlayGroups.optional(),
+    /** Missions shown on this map besides those this browser shows. */
+    missions: z.array(z.string().min(1)).default([]),
   })
   .strict();
 
@@ -28,7 +48,7 @@ const descriptor: WidgetDescriptor<MapConfig> = {
   name: "Map",
   description: "The TAK picture on a map, with the tools you choose",
   configSchema,
-  defaultConfig: { tools: ["layers", "search"] },
+  defaultConfig: { tools: ["layers", "search"], display: "normal", missions: [] },
   defaultSize: { w: 16, h: 12 },
   minSize: { w: 6, h: 5 },
   View: lazy(() => import("./View.tsx")),

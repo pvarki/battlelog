@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { TakItem } from "./cot.ts";
-import { groupOf, groupTree, isHidden } from "./overlays.ts";
+import { groupOf, groupPathLabel, groupTree, hiddenExcept, isHidden } from "./overlays.ts";
 
 const item = (type: string, extra: { team?: string; callsign?: string } = {}): TakItem => ({
   uid: `${type}-${extra.callsign ?? ""}`,
@@ -56,6 +56,22 @@ test("hiding a group hides everything under it", () => {
   expect(isHidden(path, new Set(["markers"]))).toBe(true);
   expect(isHidden(path, new Set(["markers/friendly/air"]))).toBe(true);
   expect(isHidden(path, new Set(["markers/hostile", "unknown-key"]))).toBe(false);
+});
+
+test("showing only some groups hides the rest, but not what they're in or hold", () => {
+  const hidden = hiddenExcept(["markers/team", "shapes"]);
+  const shown = (type: string, team?: string) => !isHidden(groupOf(item(type, { team })), hidden);
+  expect(shown("a-f-G-U-C", "Cyan")).toBe(true);
+  expect(shown("u-d-f")).toBe(true);
+  expect(shown("a-h-G")).toBe(false);
+  expect(shown("a-f-G-U-C")).toBe(false);
+  expect(shown("t-x-c")).toBe(false);
+  expect(hidden.has("markers")).toBe(false);
+});
+
+test("a group's path label tells apart groups sharing a name", () => {
+  expect(groupPathLabel("markers/friendly/other")).toBe("Markers › Friendly › Other");
+  expect(groupPathLabel("other")).toBe("Other");
 });
 
 test("the tree follows ATAK's order, counts its items and sorts teams by name", () => {
