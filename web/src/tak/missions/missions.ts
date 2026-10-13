@@ -24,8 +24,10 @@ export type Mission = {
   restricted: boolean;
   itemUids: string[];
   files: MissionFile[];
-  /** Newest change to its items or files; contents are refetched only when it moves. */
+  /** Newest change to its items or files. */
   changedAt: number;
+  /** Moves whenever items or files are added or removed; contents are refetched only then. */
+  version: string;
 };
 
 export type MissionLogEntry = { id: string; content: string; creatorUid?: string; time: number };
@@ -84,6 +86,8 @@ export const parseMissionList = (json: unknown): Mission[] => {
         itemUids: m.uids.map((u) => u.data),
         files: m.contents.map((c) => ({ ...c.data, time: c.timestamp })),
         changedAt: Math.max(m.createTime, ...changes),
+        // A removal doesn't move the newest timestamp, but it changes the counts.
+        version: `${m.uids.length}:${m.contents.length}:${Math.max(0, ...changes)}`,
       },
     ];
   });

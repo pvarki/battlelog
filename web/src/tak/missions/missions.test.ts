@@ -57,3 +57,13 @@ test("entries without a name and malformed responses are skipped", () => {
   expect(parseMissionList({})).toEqual([]);
   expect(parseMissionList(null)).toEqual([]);
 });
+
+test("removing an older item still changes the version, so contents are refetched", () => {
+  const [before] = parseMissionList(list);
+  const mission = list.data[0] as { uids: unknown[] };
+  const [after] = parseMissionList({
+    data: [{ ...list.data[0], uids: mission.uids.slice(0, 1) }],
+  });
+  expect(after?.changedAt).toBe(before?.changedAt);
+  expect(after?.version).not.toBe(before?.version);
+});

@@ -11,7 +11,7 @@ import { fetchMissionItems, fetchMissions, isAccessDenied, type Mission } from "
 
 export type MissionContents =
   | { kind: "loading" }
-  | { kind: "loaded"; changedAt: number; items: TakItem[] }
+  | { kind: "loaded"; version: string; items: TakItem[] }
   | { kind: "no-access" }
   | { kind: "failed" };
 
@@ -30,6 +30,7 @@ let wanted = new Set<string>();
 let holders = 0;
 // True from a poll's start until the loop stops, so a quick unmount/remount can't start a second loop.
 let polling = false;
+let timer: ReturnType<typeof setTimeout> | undefined;
 
 const set = (patch: Partial<MissionsState>) => {
   state = { ...state, ...patch };
@@ -42,16 +43,27 @@ const setContents = (name: string, contents: MissionContents) => {
   set({ contents: next });
 };
 
+// The latest request per mission; an older response arriving later is dropped.
+const latestRequest = new Map<string, number>();
+let requests = 0;
+
 const refreshContents = async (mission: Mission) => {
   const current = state.contents.get(mission.name);
+  if (current?.kind === "loaded" && current.version === mission.version) return;
   if (current?.kind === "loading") return;
-  if (current?.kind === "loaded" && current.changedAt === mission.changedAt) return;
+  const request = ++requests;
+  latestRequest.set(mission.name, request);
   if (current?.kind !== "loaded") setContents(mission.name, { kind: "loading" });
   try {
     const items = await fetchMissionItems(mission.name);
-    setContents(mission.name, { kind: "loaded", changedAt: mission.changedAt, items });
+    if (latestRequest.get(mission.name) !== request) return;
+    setContents(mission.name, { kind: "loaded", version: mission.version, items });
   } catch (err) {
-    setContents(mission.name, { kind: isAccessDenied(err) ? "no-access" : "failed" });
+    if (latestRequest.get(mission.name) !== request) return;
+    if (isAccessDenied(err)) setContents(mission.name, { kind: "no-access" });
+    // A failed refresh keeps the items already on the map; the next poll tries again.
+    else if (current?.kind !== "loaded") setContents(mission.name, { kind: "failed" });
+    else console.warn(`TAK mission ${mission.name} refresh failed`, err);
   }
 };
 
@@ -62,14 +74,19 @@ const refreshWanted = () => {
 };
 
 const poll = async () => {
+  timer = undefined;
   try {
-    set({ missions: await fetchMissions(), listFailed: false });
+    const missions = await fetchMissions();
+    // A deleted or renamed mission takes its items off the map with it.
+    const names = new Set(missions.map((m) => m.name));
+    const contents = new Map([...state.contents].filter(([name]) => names.has(name)));
+    set({ missions, listFailed: false, contents });
     refreshWanted();
   } catch (err) {
     console.warn("TAK mission list failed", err);
     set({ listFailed: true });
   }
-  if (holders > 0) setTimeout(() => void poll(), POLL_MS);
+  if (holders > 0) timer = setTimeout(() => void poll(), POLL_MS);
   else polling = false;
 };
 
@@ -85,7 +102,14 @@ export const useMissionsSync = (names: string[]) => {
       void poll();
     }
     return () => {
-      holders--;
+      if (--holders > 0) return;
+      // Nothing holds missions: stop the loop now, not after one more large fetch.
+      wanted = new Set();
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+        polling = false;
+      }
     };
   }, []);
   const key = names.join("\n");

@@ -113,7 +113,8 @@ export const TakWorkspace = () => {
   const [selectedUid, setSelectedUid] = useState<string>();
   const [cursor, setCursor] = useState<Position>();
   const [openMission, setOpenMission] = useState<string>();
-  useMissionsSync([...settings.shownMissions, ...(openMission ? [openMission] : [])]);
+  const browsedMission = drawer === "missions" ? openMission : undefined;
+  useMissionsSync([...settings.shownMissions, ...(browsedMission ? [browsedMission] : [])]);
   const missions = useMissions();
   const items = withMissionItems(liveItems, missions, settings.shownMissions);
   const mapRef = useRef<MapLibreMap>(undefined);
