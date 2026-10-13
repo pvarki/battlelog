@@ -10,6 +10,8 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { SymbolPickerButton } from "./SymbolPicker.tsx";
+import type { SymbolChoice } from "./symbol-catalogue.ts";
 import { TacticalGraphicPicker } from "./TacticalGraphicPicker.tsx";
 import { hintFor, type TacticalGraphic } from "./tactical-graphics.ts";
 import { TOOLS, type Tool } from "./useDrawing.ts";
@@ -32,6 +34,8 @@ const HINT: Record<Tool, string> = {
   route: "Click each checkpoint in order; click the last one again to finish.",
 };
 
+const SYMBOL_HINT = "Click where the symbol goes.";
+
 const EDIT_HINT =
   "Drag the item or its points. On a line, route or area, drag a midpoint to add a point and right-click a point to remove it.";
 
@@ -40,6 +44,8 @@ type Props = {
   onChoose: (tool: Tool | undefined) => void;
   graphic: TacticalGraphic | undefined;
   onChooseGraphic: (graphic: TacticalGraphic | undefined) => void;
+  symbol: SymbolChoice | undefined;
+  onChooseSymbol: (symbol: SymbolChoice) => void;
   /** Why drawing is unavailable, or undefined when it is. */
   disabledReason: string | undefined;
   /** The plan new items go into; undefined = Live, straight to TAK. */
@@ -58,6 +64,8 @@ export const DrawToolbar = ({
   onChoose,
   graphic,
   onChooseGraphic,
+  symbol,
+  onChooseSymbol,
   disabledReason,
   planName,
   measuring,
@@ -90,6 +98,8 @@ export const DrawToolbar = ({
         tool={tool}
         graphic={graphic}
         onChooseGraphic={onChooseGraphic}
+        symbol={symbol}
+        onChooseSymbol={onChooseSymbol}
         onChoose={onChoose}
         disabledReason={disabledReason}
         planName={planName}
@@ -106,6 +116,8 @@ const ToolButtons = ({
   tool,
   graphic,
   onChooseGraphic,
+  symbol,
+  onChooseSymbol,
   onChoose,
   disabledReason,
   planName,
@@ -133,18 +145,23 @@ const ToolButtons = ({
           <Tooltip key={id} label={disabledReason} disabled={!disabledReason} withArrow>
             <Button
               size="compact-xs"
-              variant={tool === id && !graphic ? "filled" : "subtle"}
-              color={tool === id && !graphic ? "primary" : "gray"}
+              variant={tool === id && !graphic && !symbol ? "filled" : "subtle"}
+              color={tool === id && !graphic && !symbol ? "primary" : "gray"}
               leftSection={<Icon size={14} />}
-              aria-pressed={tool === id && !graphic}
+              aria-pressed={tool === id && !graphic && !symbol}
               disabled={!!disabledReason}
-              onClick={() => onChoose(tool === id && !graphic ? undefined : id)}
+              onClick={() => onChoose(tool === id && !graphic && !symbol ? undefined : id)}
             >
               {TOOLS[id].label}
             </Button>
           </Tooltip>
         );
       })}
+      <SymbolPickerButton
+        value={symbol}
+        onChange={onChooseSymbol}
+        disabledReason={disabledReason}
+      />
       <TacticalGraphicPicker
         value={graphic}
         onChange={onChooseGraphic}
@@ -174,7 +191,7 @@ const ToolButtons = ({
     </Group>
     {tool && (
       <Text fz="xs" c="dimmed" px={6} pt={2}>
-        {(graphic && hintFor(graphic)) ?? HINT[tool]}
+        {(graphic && hintFor(graphic)) ?? (symbol ? SYMBOL_HINT : HINT[tool])}
       </Text>
     )}
     {measuring && children}

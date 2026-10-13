@@ -132,6 +132,30 @@ test("icon-set markers: white like ATAK's palette, unknown ground unless the set
   expect(typed.type).toBe("a-n-G-I");
 });
 
+test("a 2525 symbol marker reads back with its code and ATAK's type", () => {
+  const symbol = { sidc: "10061000001211000000", type: "a-h-G-U-C-I" };
+  const event = newMarkerEvent(
+    {
+      position: [22, 60],
+      name: "Vihollisryhmä",
+      remarks: "",
+      color: "#ffffff",
+      kind: "symbol",
+      symbol,
+    },
+    sender,
+    1_000,
+  );
+  expect(event.detail).toContain('<__milsym id="10061000001211000000"/>');
+  expect(event.detail).toContain('<__milicon id="10061000001211000000"/>');
+  expect(parsed(event)).toMatchObject({
+    type: "a-h-G-U-C-I",
+    sidc: "10061000001211000000",
+    callsign: "Vihollisryhmä",
+    stale: 1_000 + 365 * 86_400_000,
+  });
+});
+
 test("a route reads back with its named checkpoints; unnamed points are control points", () => {
   const points: [number, number][] = [
     [22, 60],

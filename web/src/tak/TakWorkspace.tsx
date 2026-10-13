@@ -356,6 +356,7 @@ export const TakWorkspace = ({
       )}
       onCancel={drawing.clear}
       saveLabel={submitLabel}
+      initialSymbol={drawing.symbol}
       onSaveShape={(style) => {
         if (drawing.drawn && drawing.drawn.kind !== "marker" && drawing.drawn.kind !== "route")
           submit(newShapeEvent(drawing.drawn, style, sender));
@@ -650,6 +651,11 @@ export const TakWorkspace = ({
               drawing.choose(tool);
             }}
             graphic={drawing.graphic}
+            symbol={drawing.symbol}
+            onChooseSymbol={(symbol) => {
+              measure.stop();
+              drawing.choose("marker", undefined, symbol);
+            }}
             onChooseGraphic={(graphic) => {
               measure.stop();
               drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
