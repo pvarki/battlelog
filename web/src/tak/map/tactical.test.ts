@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { expect, test } from "vitest";
 import { type CotEvent, type TakItem, toChange } from "../cot.ts";
-import { renderGraphic, symbolFor, toFeatures, upright } from "./tactical.ts";
+import { placementFor, renderGraphic, toFeatures, upright } from "./tactical.ts";
 
 const R = await import("@armyc2.c5isr.renderer/mil-sym-ts-web");
 
@@ -98,12 +98,12 @@ test("renderer output keeps its styling and drops what isn't drawn", () => {
 
 test("ATAK's wildcard SIDCs map to the graphic that fits the drawing", () => {
   const line = MSR.geometry as Extract<TakItem["geometry"], { type: "LineString" }>;
-  expect(symbolFor(R, "G*S*LRM---****X", line)).toBe(symbolFor(R, "G-S-LRM-------X", line));
-  expect(symbolFor(R, "G*S*LRM---****X", line)).toBeDefined();
+  const code = (sidc: string, shape: typeof line) => placementFor(R, sidc, shape)?.code;
+  expect(code("G*S*LRM---****X", line)).toBe(code("G-S-LRM-------X", line));
+  expect(code("G*S*LRM---****X", line)).toBeDefined();
   // An area graphic on a line, and a two-point graphic on four points, stay plain.
-  expect(symbolFor(R, "G*G*AAW---****X", line)).toBeUndefined();
-  expect(symbolFor(R, "G*F*LT----****X", line)).toBeUndefined();
-  expect(renderGraphic(R, HAZARD_ON_RECTANGLE)).toBeUndefined();
+  expect(code("G*G*AAW---****X", line)).toBeUndefined();
+  expect(code("G*F*LT----****X", line)).toBeUndefined();
   expect(renderGraphic(R, { ...MSR, sidc: "G*Z*ZZZZ--****X" })).toBeUndefined();
 });
 
@@ -125,9 +125,34 @@ test("the name follows the drawing's label switch", () => {
 
 test("an area graphic keeps the drawn area and its fill pattern", () => {
   const features = renderGraphic(R, area("G*G*AAW---****X")) ?? [];
-  expect(features[0]?.properties).toEqual({ fill: "#ffffff", fillOpacity: 0 });
+  expect(features[0]?.properties).toEqual({ fill: "#000000", fillOpacity: 0 });
   expect(features.some((f) => String(f.properties?.pattern).startsWith("data:image/svg"))).toBe(
     true,
   );
   expect(features.map((f) => f.properties?.label)).toContain("WFZ");
+});
+
+test("a two-point line graphic on a rectangle runs along its centre line, as in ATAK", () => {
+  const shape = HAZARD_ON_RECTANGLE.geometry as Extract<TakItem["geometry"], { type: "Polygon" }>;
+  const [c0, c1, c2, c3] = shape.coordinates[0] as [number, number][] as [
+    [number, number],
+    [number, number],
+    [number, number],
+    [number, number],
+  ];
+  const mid = (a: [number, number], b: [number, number]) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  expect(placementFor(R, "G*O*HN----****X", shape)?.points).toEqual([mid(c3, c2), mid(c1, c0)]);
+  expect(renderGraphic(R, HAZARD_ON_RECTANGLE)?.length).toBeGreaterThan(1);
+});
+
+test("graphics keep the drawing's colour even with labels off, obstacles included", () => {
+  const line = renderGraphic(R, { ...MSR, labelsOn: false })?.find((f) => f.properties?.stroke);
+  expect(line?.properties?.stroke).toBe("#FF8000");
+  const mined = renderGraphic(R, {
+    ...area("G*M*OFA---****X"),
+    stroke: { color: "#ff0000", opacity: 1 },
+  });
+  expect(
+    mined?.filter((f) => f.properties?.stroke).every((f) => f.properties?.stroke === "#ff0000"),
+  ).toBe(true);
 });

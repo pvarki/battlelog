@@ -25,23 +25,41 @@ const LABEL_FONT = "600 12px 'Inter Variable', Inter, system-ui, sans-serif";
 const LABEL_HEIGHT = 18;
 const LABEL_PADDING = 4;
 
-/** The renderer's control points: a polygon ring without its closing point. */
-const controlPoints = (shape: Shape): Position[] =>
-  shape.type === "LineString"
-    ? (shape.coordinates as Position[])
-    : ((shape.coordinates[0] ?? []) as Position[]).slice(0, -1);
+const midpoint = ([lon1, lat1]: Position, [lon2, lat2]: Position): Position => [
+  (lon1 + lon2) / 2,
+  (lat1 + lat2) / 2,
+];
 
 /**
- * The 2525D code to render, or undefined when the graphic doesn't fit the
- * drawing: ATAK lets a line graphic sit on a rectangle, which stays plain.
+ * The 2525D code and the control points to render it on, or undefined when
+ * the graphic doesn't fit the drawing. Follows ATAK: an area graphic takes the
+ * ring without its closing point; a line graphic on a closed shape follows the
+ * closed outline, except a two-point line on a rectangle, which runs along its
+ * centre line (corner 3–2 midpoint to corner 1–0 midpoint).
  */
-export const symbolFor = (R: Renderer, sidc: string, shape: Shape): string | undefined => {
+export const placementFor = (
+  R: Renderer,
+  sidc: string,
+  shape: Shape,
+): { code: string; points: Position[] } | undefined => {
   const code = sidc.length === 15 ? R.C2DLookup.getInstance().getDCode(sidc) : sidc;
   const info = code ? R.MSLookup.getInstance().getMSLInfo(code) : undefined;
-  if (!info || info.getGeometry() !== RENDERED_AS[shape.type]) return undefined;
-  const points = controlPoints(shape).length;
-  if (points < info.getMinPointCount() || points > info.getMaxPointCount()) return undefined;
-  return code;
+  if (!code || !info) return undefined;
+  const ring = shape.type === "Polygon" ? ((shape.coordinates[0] ?? []) as Position[]) : undefined;
+  let points: Position[];
+  if (info.getGeometry() === "Area") {
+    if (!ring) return undefined;
+    points = ring.slice(0, -1);
+  } else if (info.getGeometry() === "Line") {
+    if (!ring) points = shape.coordinates as Position[];
+    else if (info.getMaxPointCount() === 2 && ring.length === 5) {
+      const [c0, c1, c2, c3] = ring as [Position, Position, Position, Position];
+      points = [midpoint(c3, c2), midpoint(c1, c0)];
+    } else points = ring;
+  } else return undefined;
+  if (points.length < info.getMinPointCount() || points.length > info.getMaxPointCount())
+    return undefined;
+  return { code, points };
 };
 
 /** The drawing's bounding box plus 10 %, as a canvas of the same aspect. */
@@ -114,13 +132,15 @@ export const toFeatures = (rendered: RendererFeature[]): Feature[] =>
 export const renderGraphic = (R: Renderer, item: TakItem): Feature[] | undefined => {
   const shape = item.geometry;
   if (!item.sidc || shape.type === "Point") return undefined;
-  const code = symbolFor(R, item.sidc, shape);
-  if (!code) return undefined;
-  const { width, height, bbox } = viewport(controlPoints(shape));
-  const modifiers = new Map<string, string>();
-  // The name follows the drawing's label switch like every other line label.
-  if (item.callsign && item.labelsOn)
-    modifiers.set(R.Modifiers.T_UNIQUE_DESIGNATION_1, item.callsign);
+  const placement = placementFor(R, item.sidc, shape);
+  if (!placement) return undefined;
+  const { code, points } = placement;
+  const { width, height, bbox } = viewport(points);
+  // The renderer reads the attributes (colours) only when there are modifiers, so
+  // the name is always set, empty when the drawing's label switch is off.
+  const modifiers = new Map<string, string>([
+    [R.Modifiers.T_UNIQUE_DESIGNATION_1, item.labelsOn ? (item.callsign ?? "") : ""],
+  ]);
   const attributes = new Map<string, string>();
   if (item.stroke) attributes.set(R.MilStdAttributes.LineColor, item.stroke.color);
   if (item.strokeWidth) attributes.set(R.MilStdAttributes.LineWidth, String(item.strokeWidth));
@@ -130,9 +150,7 @@ export const renderGraphic = (R: Renderer, item: TakItem): Feature[] | undefined
       "",
       "",
       code,
-      controlPoints(shape)
-        .map(([lon, lat]) => `${lon},${lat}`)
-        .join(" "),
+      points.map(([lon, lat]) => `${lon},${lat}`).join(" "),
       width,
       height,
       bbox,
@@ -143,12 +161,16 @@ export const renderGraphic = (R: Renderer, item: TakItem): Feature[] | undefined
   ) as { type: string; features?: RendererFeature[] };
   if (out.type === "error" || !out.features) return undefined;
   const features = toFeatures(out.features);
+  // The renderer forces 2525D's green on obstacles; ATAK keeps the drawing's colour.
+  if (item.stroke && item.sidc[2] === "M") {
+    for (const f of features) if (f.properties?.stroke) f.properties.stroke = item.stroke.color;
+  }
   if (shape.type === "Polygon") {
-    // The area itself, in the fill the user chose, keeps its inside clickable.
+    // ATAK shows only the graphic, not the drawing's fill; the invisible area keeps its inside clickable.
     features.unshift({
       type: "Feature",
       geometry: shape,
-      properties: { fill: item.fill?.color ?? "#ffffff", fillOpacity: item.fill?.opacity ?? 0 },
+      properties: { fill: "#000000", fillOpacity: 0 },
     });
   }
   return features;
