@@ -1,6 +1,6 @@
 import type { Feature, FeatureCollection } from "geojson";
 import type { Map as MapLibreMap } from "maplibre-gl";
-import type { Position, TakItem } from "../cot.ts";
+import { destination, type Position, type Sensor, type TakItem } from "../cot.ts";
 import { hasPosition, labelOf, statusOf } from "../items.ts";
 import { groupOf, isHidden } from "../overlays.ts";
 import {
@@ -38,6 +38,7 @@ const EARTH_RADIUS_M = 6_371_008.8;
 const CIRCLE_STEPS = 64;
 const DEFAULT_STROKE = "#ffffff";
 const RANGE_BEARING_COLOR = "#ff0000";
+const SPI_LINE = "#cccccc";
 const LABEL_GAP = 2;
 // Drawn last = on top: people over units over markers.
 const DRAW_ORDER = [
@@ -133,6 +134,15 @@ const ellipseRing = (
   return ring;
 };
 
+/** ATAK's sensor field of view: a wedge from the sensor out to its range, centred on its azimuth. */
+export const sensorCone = (origin: Position, { azimuth, fov, range }: Sensor): Position[] => {
+  const steps = Math.max(2, Math.ceil(fov / 5));
+  const arc = Array.from({ length: steps + 1 }, (_, i) =>
+    destination(origin, range, azimuth - fov / 2 + (fov * i) / steps),
+  );
+  return [origin, ...arc, origin];
+};
+
 /** The average of a ring's corners; good enough to place a name inside a drawn area. */
 const centreOf = (ring: Position[]): Position => {
   const corners = ring.slice(0, -1);
@@ -194,6 +204,7 @@ export const toSources = (
       }),
     );
 
+  const byUid = new Map(items.map((item) => [item.uid, item]));
   for (const item of items) {
     const group = groupOf(item);
     if (isHidden(group, hidden) || !hasPosition(item)) continue;
@@ -229,6 +240,40 @@ export const toSources = (
             strokeStyle: "solid",
             fill: stroke,
             fillOpacity: 0.15,
+          },
+        });
+      }
+      // A stale cone would show where the camera no longer looks.
+      if (item.sensor && item.sensor.range > 0 && !stale) {
+        shapes.push({
+          type: "Feature",
+          geometry: { type: "Polygon", coordinates: [sensorCone(g.coordinates, item.sensor)] },
+          properties: {
+            uid,
+            stroke: item.sensor.stroke.color,
+            strokeOpacity: item.sensor.stroke.opacity,
+            strokeWidth: 1,
+            strokeStyle: "solid",
+            fill: item.sensor.fill.color,
+            fillOpacity: item.sensor.fill.opacity,
+          },
+        });
+      }
+      const sensor = item.sensorUid ? byUid.get(item.sensorUid) : undefined;
+      if (sensor?.geometry.type === "Point" && hasPosition(sensor) && !stale) {
+        shapes.push({
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [sensor.geometry.coordinates, g.coordinates],
+          },
+          properties: {
+            uid,
+            stroke: SPI_LINE,
+            strokeOpacity: 1,
+            strokeWidth: 1,
+            strokeStyle: "solid",
+            fillOpacity: 0,
           },
         });
       }

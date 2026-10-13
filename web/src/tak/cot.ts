@@ -54,6 +54,12 @@ export type TakItem = {
   waypoints?: { name: string; position: Position }[];
   /** The area a sensor point of interest covers on the ground. */
   footprint?: Position[];
+  /** For a sensor point of interest (b-m-p-s-p-i): the uid of the sensor looking at it. */
+  sensorUid?: string;
+  /** What a camera on the item sees, drawn as ATAK's field-of-view cone. */
+  sensor?: Sensor;
+  /** A live video feed from the item, as ATAK's `__video` detail announces it. */
+  video?: { url: string; alias?: string };
   /** Range-and-bearing line from the item's point; the geometry runs to its end. */
   rangeBearing?: { range: number; bearing: number; northRef: "T" | "M" | "G" };
   /** An ATAK emergency alert (b-a-*): what kind, and the callsign of who raised it. */
@@ -63,6 +69,18 @@ export type TakItem = {
   /** A change in a plan in this browser, not (yet) on TAK. */
   draft?: true;
   event: CotEvent;
+};
+
+export type Sensor = {
+  /** Degrees true. */
+  azimuth: number;
+  /** Horizontal field of view in degrees. */
+  fov: number;
+  /** Ground range in metres. */
+  range: number;
+  model?: string;
+  fill: TakColor;
+  stroke: TakColor;
 };
 
 export type TakChange =
@@ -83,6 +101,8 @@ const STROKE_STYLES: StrokeStyle[] = ["solid", "dashed", "dotted", "outlined"];
 const EARTH_RADIUS_M = 6_371_008.8;
 const CIRCLE_TYPES = ["u-d-c-c", "u-d-c-e"];
 const UNKNOWN_HAE = 9_999_999;
+const SPI_TYPE = "b-m-p-s-p-i";
+const SENSOR_DEFAULT_STROKE: TakColor = { color: "#cccccc", opacity: 1 };
 
 const num = (value: string | null | undefined): number | undefined => {
   if (value === null || value === undefined || value === "") return undefined;
@@ -150,6 +170,51 @@ const ellipseOf = (type: string, el: Element | undefined): TakItem["ellipse"] =>
     minor: num(el?.getAttribute("minor")) ?? major,
     angle: num(el?.getAttribute("angle")) ?? 0,
   };
+};
+
+const colorChannel = (value: number) =>
+  Math.round(Math.min(Math.max(value, 0), 1) * 255)
+    .toString(16)
+    .padStart(2, "0");
+
+/** As ATAK's SensorDetailHandler: no cone without azimuth, fov and range, or when hideFov is present at all. */
+const sensorOf = (el: Element | undefined): Sensor | undefined => {
+  const get = (name: string) => num(el?.getAttribute(name));
+  const azimuth = get("azimuth");
+  const fov = get("fov");
+  const slantRange = get("range");
+  if (!el || azimuth === undefined || fov === undefined || slantRange === undefined) return;
+  if (el.hasAttribute("hideFov")) return;
+  const [red, green, blue] = ["fovRed", "fovGreen", "fovBlue"].map((c) =>
+    colorChannel(get(c) ?? 1),
+  );
+  return {
+    azimuth,
+    fov,
+    range: slantRange * Math.cos(((get("elevation") ?? 0) * Math.PI) / 180),
+    model: el.getAttribute("model") || undefined,
+    fill: { color: `#${red}${green}${blue}`, opacity: get("fovAlpha") ?? 0.3 },
+    stroke: argbToColor(el.getAttribute("strokeColor")) ?? SENSOR_DEFAULT_STROKE,
+  };
+};
+
+/** As ATAK's ConnectionEntryBase.getURL, without the player options it appends. */
+const connectionUrl = (entry: Element): string | undefined => {
+  const address = entry.getAttribute("address");
+  if (!address) return undefined;
+  const protocol = entry.getAttribute("protocol") ?? "raw";
+  if (protocol === "raw" || address.includes("://")) return address;
+  const port = num(entry.getAttribute("port")) ?? -1;
+  const path = entry.getAttribute("path") ?? "";
+  const separator = path && !path.startsWith("/") && !path.startsWith("?") ? "/" : "";
+  return `${protocol}://${address}${port === -1 ? "" : `:${port}`}${separator}${path}`;
+};
+
+const videoOf = (el: Element | undefined): TakItem["video"] => {
+  if (!el) return undefined;
+  const entry = childNamed(el, "ConnectionEntry");
+  const url = el.getAttribute("url") || (entry && connectionUrl(entry));
+  return url ? { url, alias: entry?.getAttribute("alias") || undefined } : undefined;
 };
 
 const parseDetail = (xml: string): Element | undefined => {
@@ -253,6 +318,9 @@ export const toChange = (event: CotEvent): TakChange | null => {
     tacticalOverlay: type === "u-d-r" && attr("tog", "enabled") === "1" ? true : undefined,
     waypoints: waypoints.length ? waypoints : undefined,
     footprint: new Set(footprint.map(String)).size >= 3 ? footprint : undefined,
+    sensorUid: type === SPI_TYPE ? (parent?.getAttribute("uid") ?? undefined) : undefined,
+    sensor: sensorOf(child("sensor")),
+    video: videoOf(child("__video")),
     rangeBearing,
     emergency: type.startsWith("b-a-")
       ? {

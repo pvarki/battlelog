@@ -211,3 +211,59 @@ test("other items carry no emergency", () => {
   if (change?.kind !== "upsert") throw new Error("expected upsert");
   expect(change.item.emergency).toBeUndefined();
 });
+
+test("a DJI drone from the UAS Tool: sensor cone and video feed", () => {
+  const change = toChange({
+    ...base,
+    type: "a-f-A-M-H-Q",
+    detail:
+      '<contact callsign="UAS-Kilo15"/><sensor elevation="60" vfov="52.3" north="177.8" roll="0.0" range="300" azimuth="357.0" model="Mavic Mini Camera" fov="72.7" type="r-e" version="0.6"/><__video sensor="UAS-Kilo15" spi="UAS-Kilo15.SPI1" url="rtmps://mtx.example:1936/live/uas/Kilo15?user=Kilo15&amp;pass=x"/><link uid="ANDROID-1" type="a-f-G-U-C" relation="p-p"/>',
+  });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  expect(change.item.video).toEqual({
+    url: "rtmps://mtx.example:1936/live/uas/Kilo15?user=Kilo15&pass=x",
+  });
+  expect(change.item.sensor).toMatchObject({
+    azimuth: 357,
+    fov: 72.7,
+    model: "Mavic Mini Camera",
+    fill: { color: "#ffffff", opacity: 0.3 },
+    stroke: { color: "#cccccc", opacity: 1 },
+  });
+  // ATAK draws the ground range: slant range × cos(elevation).
+  expect(change.item.sensor?.range).toBeCloseTo(150);
+});
+
+test("an empty __video and a hidden or incomplete sensor give neither", () => {
+  for (const detail of [
+    '<__video url=""/><sensor azimuth="10" fov="40" range="100" hideFov="false"/>',
+    '<__video/><sensor azimuth="10" fov="40"/>',
+  ]) {
+    const change = toChange({ ...base, detail });
+    if (change?.kind !== "upsert") throw new Error("expected upsert");
+    expect(change.item.video).toBeUndefined();
+    expect(change.item.sensor).toBeUndefined();
+  }
+});
+
+test("a video announced as an ATAK connection entry", () => {
+  const change = toChange({
+    ...base,
+    detail:
+      '<__video><ConnectionEntry protocol="rtsp" address="10.0.0.5" port="8554" path="cam1" alias="Gate cam" uid="v1"/></__video>',
+  });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  expect(change.item.video).toEqual({ url: "rtsp://10.0.0.5:8554/cam1", alias: "Gate cam" });
+});
+
+test("a sensor point of interest knows which sensor looks at it", () => {
+  const change = toChange({
+    ...base,
+    uid: "UAS-Kilo15.1SCCHB5017AS0Q.SPI1",
+    type: "b-m-p-s-p-i",
+    detail:
+      '<contact callsign="UAS-Kilo15.SPI1"/><link uid="1SCCHB5017AS0Q" type="a-f-A-M-H-Q" relation="p-p"/>',
+  });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  expect(change.item.sensorUid).toBe("1SCCHB5017AS0Q");
+});
