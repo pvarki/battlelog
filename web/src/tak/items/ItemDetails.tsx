@@ -44,6 +44,8 @@ type Props = {
   readOnlyReason: string | undefined;
   /** The user's callsign, which uploads are credited to. */
   callsign: string | null | undefined;
+  /** Callsigns of TAK users, for sending photos to chosen people. */
+  contacts: string[];
   /** Names of the missions (Data Sync) that hold this item. */
   missions: string[];
   onCenter: () => void;
@@ -76,6 +78,7 @@ export const ItemDetails = ({
   coordFormat,
   readOnlyReason,
   callsign,
+  contacts,
   missions,
   onCenter,
   onClose,
@@ -241,7 +244,12 @@ export const ItemDetails = ({
             </Button>
           )}
           {callsign && !readOnlyReason && (
-            <AttachPhoto item={item} callsign={callsign} disabled={write === "sending"} />
+            <AttachPhoto
+              item={item}
+              callsign={callsign}
+              contacts={contacts}
+              disabled={write === "sending"}
+            />
           )}
           <Group gap="xs" grow>
             <Tooltip label={readOnlyReason} disabled={!readOnlyReason} withArrow>

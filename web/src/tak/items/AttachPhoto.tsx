@@ -1,17 +1,42 @@
-import { Button, FileButton, Group, Image, Modal, Stack, Text } from "@mantine/core";
+import {
+  Button,
+  Checkbox,
+  FileButton,
+  Group,
+  Image,
+  Modal,
+  MultiSelect,
+  Radio,
+  Stack,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconPhoto } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { attachPhotoLink } from "../commands.ts";
 import type { TakItem } from "../cot.ts";
+import { sendPhotoPackage } from "../datapackage.ts";
 import { labelOf } from "../items.ts";
 
-type Props = { item: TakItem; callsign: string; disabled: boolean };
+type Props = {
+  item: TakItem;
+  callsign: string;
+  /** Callsigns of TAK users a photo can be sent to. */
+  contacts: string[];
+  disabled: boolean;
+};
 
-/** Picks a photo, previews it, and on confirm uploads it to TAK and links it from the item. */
-export const AttachPhoto = ({ item, callsign, disabled }: Props) => {
+/**
+ * Picks a photo and delivers it to TAK in one or both ways: as a link in the
+ * item's remarks (every client shows it) and as an ATAK data package, which
+ * lands in the marker's own attachments on ATAK.
+ */
+export const AttachPhoto = ({ item, callsign, contacts, disabled }: Props) => {
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>();
+  const [link, setLink] = useState(true);
+  const [toAtak, setToAtak] = useState(true);
+  const [audience, setAudience] = useState<"everyone" | "chosen">("everyone");
+  const [chosen, setChosen] = useState<string[]>([]);
   useEffect(() => {
     if (!photo) return;
     const url = URL.createObjectURL(photo);
@@ -19,12 +44,26 @@ export const AttachPhoto = ({ item, callsign, disabled }: Props) => {
     return () => URL.revokeObjectURL(url);
   }, [photo]);
 
-  const attach = () => {
+  const recipients = audience === "everyone" ? [] : chosen;
+  const nothingToDo =
+    (!link && !toAtak) || (toAtak && audience === "chosen" && chosen.length === 0);
+
+  const attach = async () => {
     if (!photo) return;
-    attachPhotoLink(item, photo, callsign).catch((err) =>
-      notifications.show({ color: "red", title: "Photo not attached", message: String(err) }),
-    );
     setPhoto(null);
+    const failed = (what: string) => (err: unknown) =>
+      notifications.show({ color: "red", title: `Photo not ${what}`, message: String(err) });
+    if (link) await attachPhotoLink(item, photo, callsign).catch(failed("linked"));
+    if (toAtak) {
+      await sendPhotoPackage(item, photo, callsign, recipients).then(
+        () =>
+          notifications.show({
+            color: "teal",
+            message: `Photo sent to ${recipients.length ? recipients.join(", ") : "every TAK user"}`,
+          }),
+        failed("sent to ATAK users"),
+      );
+    }
   };
 
   return (
@@ -50,17 +89,49 @@ export const AttachPhoto = ({ item, callsign, disabled }: Props) => {
       >
         <Stack gap="sm">
           {preview && (
-            <Image src={preview} alt="Photo to attach" radius="sm" mah={320} fit="contain" />
+            <Image src={preview} alt="Photo to attach" radius="sm" mah={280} fit="contain" />
           )}
-          <Text fz="sm" c="dimmed">
-            The photo is uploaded to TAK and linked in the item's remarks, so every TAK user can
-            open it.
-          </Text>
+          <Checkbox
+            size="xs"
+            label="Link it in the remarks"
+            description="Every TAK client shows the link; BattleLog shows the photo."
+            checked={link}
+            onChange={(e) => setLink(e.currentTarget.checked)}
+          />
+          <Checkbox
+            size="xs"
+            label="Send it to ATAK users"
+            description="Arrives in the marker's attachments, as when sent from ATAK."
+            checked={toAtak}
+            onChange={(e) => setToAtak(e.currentTarget.checked)}
+          />
+          {toAtak && (
+            <Stack gap="xs" pl="lg">
+              <Radio.Group value={audience} onChange={(v) => setAudience(v as typeof audience)}>
+                <Group gap="md">
+                  <Radio size="xs" value="everyone" label="Everyone" />
+                  <Radio size="xs" value="chosen" label="Chosen users" />
+                </Group>
+              </Radio.Group>
+              {audience === "chosen" && (
+                <MultiSelect
+                  size="xs"
+                  placeholder="Callsigns"
+                  aria-label="Send to"
+                  data={contacts}
+                  value={chosen}
+                  onChange={setChosen}
+                  searchable
+                  comboboxProps={{ withinPortal: true }}
+                />
+              )}
+            </Stack>
+          )}
           <Group justify="flex-end" gap="xs">
             <Button size="xs" variant="default" onClick={() => setPhoto(null)}>
               Cancel
             </Button>
-            <Button size="xs" onClick={attach} data-autofocus>
+            <Button size="xs" onClick={() => void attach()} disabled={nothingToDo} data-autofocus>
               Attach
             </Button>
           </Group>

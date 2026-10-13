@@ -133,6 +133,13 @@ export const TakWorkspace = () => {
     if (!callsign) return "No callsign: open BattleLog from the deploy app to change TAK items";
     if (status.connection !== "live") return "Not connected to TAK";
   };
+  const contacts = [
+    ...new Set(
+      liveItems.flatMap((i) =>
+        i.team && i.callsign && i.callsign !== callsign ? [i.callsign] : [],
+      ),
+    ),
+  ].sort();
   const callsignOf = (uid: string) => liveItems.find((i) => i.uid === uid)?.callsign;
   const missionsOf = (uid: string) =>
     (missions.missions ?? []).filter((m) => m.itemUids.includes(uid)).map((m) => m.name);
@@ -215,6 +222,7 @@ export const TakWorkspace = () => {
       missions={missionsOf(selected.uid)}
       readOnlyReason={readOnlyReason(selected)}
       callsign={callsign}
+      contacts={contacts}
       onCenter={() => flyTo(anchorOf(selected))}
       onClose={() => setSelectedUid(undefined)}
     />
