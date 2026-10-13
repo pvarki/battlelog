@@ -11,20 +11,29 @@ type Props = {
   sendReason: string | undefined;
   /** False when the message couldn't leave this browser. */
   onSend: (text: string, to: ChatRecipient) => boolean;
+  /** The conversation to open on; All Chat Rooms when absent. */
+  initialRoom?: ChatRecipient;
 };
 
 const clock = (time: number) =>
   new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 /** ATAK GeoChat: All Chat Rooms and direct messages to TAK users. */
-export const ChatDrawer = ({ messages, selfUid, contacts, sendReason, onSend }: Props) => {
-  const [room, setRoom] = useState(EVERYONE);
+export const ChatDrawer = ({
+  messages,
+  selfUid,
+  contacts,
+  sendReason,
+  onSend,
+  initialRoom = EVERYONE,
+}: Props) => {
+  const [room, setRoom] = useState(initialRoom);
   const [draft, setDraft] = useState("");
   const [failed, setFailed] = useState(false);
   const viewport = useRef<HTMLDivElement>(null);
 
   const rooms = new Map<string, ChatRecipient>([[EVERYONE.uid, EVERYONE]]);
-  for (const r of [...messages.map((m) => conversationOf(m, selfUid)), ...contacts]) {
+  for (const r of [...messages.map((m) => conversationOf(m, selfUid)), ...contacts, room]) {
     if (!rooms.has(r.uid)) rooms.set(r.uid, r);
   }
   const shown = messages.filter((m) => conversationOf(m, selfUid).uid === room.uid);

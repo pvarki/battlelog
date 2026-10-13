@@ -1,6 +1,7 @@
 import { useLocalStorage } from "@mantine/hooks";
 import type { CoordFormat } from "./coords.ts";
 import type { Basemap } from "./map/basemaps.ts";
+import { DEFAULT_ROLE, DEFAULT_TEAM } from "./position/self-sa.ts";
 
 /** Per-viewer map preferences, remembered in this browser only. */
 export const useMapSettings = () => {
@@ -33,6 +34,18 @@ export const useMapSettings = () => {
     setShownMissionList((list) =>
       list.includes(name) ? list.filter((n) => n !== name) : [...list, name],
     );
+  const [sharePosition, setSharePosition] = useLocalStorage({
+    key: "battlelog.tak.sharePosition",
+    defaultValue: false,
+  });
+  const [team, setTeam] = useLocalStorage({
+    key: "battlelog.tak.team",
+    defaultValue: DEFAULT_TEAM,
+  });
+  const [role, setRole] = useLocalStorage({
+    key: "battlelog.tak.role",
+    defaultValue: DEFAULT_ROLE,
+  });
   return {
     coordFormat,
     setCoordFormat,
@@ -46,6 +59,12 @@ export const useMapSettings = () => {
     toggleGroup,
     shownMissions,
     toggleMission,
+    sharePosition,
+    setSharePosition,
+    team,
+    setTeam,
+    role,
+    setRole,
   };
 };
 
