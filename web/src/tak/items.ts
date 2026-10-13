@@ -52,6 +52,8 @@ const TEAM_COLOR: Record<string, string> = {
   Brown: "#a0714f",
 };
 
+export const TEAMS = Object.keys(TEAM_COLOR);
+
 export const teamColor = (team: string | undefined): string =>
   (team && TEAM_COLOR[team]) || "#00ffff";
 

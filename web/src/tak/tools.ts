@@ -7,6 +7,7 @@ export const TAK_TOOLS = [
   "draw",
   "search",
   "chat",
+  "contacts",
 ] as const;
 
 export type TakTool = (typeof TAK_TOOLS)[number];
@@ -19,6 +20,7 @@ export const TOOL_LABEL: Record<TakTool, string> = {
   draw: "Drawing",
   search: "Search",
   chat: "Chat",
+  contacts: "Contacts",
 };
 
 export type MapView = { center: [number, number]; zoom: number; bearing: number };

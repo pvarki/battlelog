@@ -1,5 +1,6 @@
 import "./tak.css";
 import {
+  ActionIcon,
   Alert,
   Button,
   CloseButton,
@@ -11,8 +12,10 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import {
+  IconAddressBook,
   IconAlertTriangle,
   IconClipboardList,
+  IconCurrentLocation,
   IconFolders,
   IconList,
   IconMessage,
@@ -22,9 +25,10 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
-import { newChatEvent } from "./chat/chat.ts";
+import { type ChatRecipient, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
 import { publish } from "./commands.ts";
+import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
 import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
 import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
@@ -45,6 +49,8 @@ import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { addToPlan, type Plan, usePlans } from "./plans/plans.ts";
+import { OwnPositionPanel } from "./position/OwnPositionPanel.tsx";
+import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { StatusBar } from "./StatusBar.tsx";
 import {
@@ -66,6 +72,7 @@ const DRAWERS = {
   plans: { label: "Plans", Icon: IconClipboardList, key: "3" },
   layers: { label: "Layers", Icon: IconStack2, key: "4" },
   chat: { label: "Chat", Icon: IconMessage, key: "5" },
+  contacts: { label: "Contacts", Icon: IconAddressBook, key: "6" },
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
@@ -231,6 +238,14 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
   useEffect(() => {
     if (drawer === "chat") setChatReadCount(chatMessages.length);
   }, [drawer, chatMessages.length]);
+  const [chatWith, setChatWith] = useState<ChatRecipient>();
+  const ownPosition = useOwnPosition(
+    map,
+    // Only where the switch is in reach: no sharing a user can't see or stop.
+    has("contacts") && settings.sharePosition && callsign
+      ? { ...sender, team: settings.team, role: settings.role }
+      : undefined,
+  );
   const chatContacts = liveItems
     .flatMap((i) =>
       i.team && i.callsign && i.callsign !== callsign ? [{ uid: i.uid, callsign: i.callsign }] : [],
@@ -286,7 +301,10 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
     void loadTrack(uid);
   };
 
-  const toggleDrawer = (id: DrawerId) => setDrawer((open) => (open === id ? null : id));
+  const toggleDrawer = (id: DrawerId) => {
+    setChatWith(undefined);
+    setDrawer((open) => (open === id ? null : id));
+  };
 
   useEffect(() => {
     if (embedded) return;
@@ -320,7 +338,27 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
         contacts={chatContacts}
         sendReason={drawReason}
         onSend={(text, to) => sendCot(newChatEvent(text, to, sender))}
+        initialRoom={chatWith}
       />
+    ) : id === "contacts" ? (
+      <ContactsDrawer
+        contacts={liveItems.filter((i) => i.team && i.uid !== sender.uid)}
+        map={map}
+        ownPosition={ownPosition.fix?.position}
+        onCenter={pick}
+        onChat={(contact) => {
+          setChatWith({ uid: contact.uid, callsign: contact.callsign ?? contact.uid });
+          setDrawer("chat");
+        }}
+      >
+        <OwnPositionPanel
+          settings={settings}
+          shareReason={
+            callsign ? undefined : "No callsign: open BattleLog from the deploy app to share"
+          }
+          error={ownPosition.error}
+        />
+      </ContactsDrawer>
     ) : id === "plans" ? (
       <PlansDrawer
         state={plans}
@@ -429,7 +467,7 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
 
       <div className="tak-main">
         <MapCanvas
-          items={items}
+          items={ownPosition.fix ? items.filter((i) => i.uid !== sender.uid) : items}
           tracks={trackFeatures(
             settings.showAllTracks ? items : items.filter((i) => trackedUids.has(i.uid)),
             tracks,
@@ -463,6 +501,17 @@ export const TakWorkspace = ({ tools, view, embedded, onMap }: Props) => {
             />
           </div>
         )}
+        <ActionIcon
+          className="tak-locate"
+          variant="default"
+          size="md"
+          aria-label="Locate me"
+          title="Locate me (shown only to you)"
+          aria-pressed={ownPosition.locating}
+          onClick={ownPosition.toggleLocate}
+        >
+          <IconCurrentLocation size={18} />
+        </ActionIcon>
         {chooser && (
           <PickChooser
             items={chooser.uids.flatMap((uid) => items.find((i) => i.uid === uid) ?? [])}

@@ -305,3 +305,24 @@
   align-self: flex-end;
   background: var(--mantine-color-dark-4);
 }
+
+/* Under MapLibre's zoom and compass buttons. */
+.tak-locate {
+  position: absolute;
+  top: 110px;
+  right: 10px;
+  z-index: 2;
+}
+
+.tak-locate[aria-pressed="true"] {
+  color: #8abbff;
+}
+
+/* ATAK's self marker: an arrow unlike any team member's dot. */
+.tak-self-marker svg {
+  fill: #8abbff;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.8));
+}
