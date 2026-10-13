@@ -15,7 +15,9 @@ import {
 } from "@mantine/core";
 import { useState } from "react";
 import type { StrokeStyle } from "../cot.ts";
+import { useIconsets } from "../map/iconsets.ts";
 import { formatDistance } from "../map/layers.ts";
+import { IconsetPicker } from "./IconsetPicker.tsx";
 import type { NewMarker, ShapeStyle } from "./new-items.ts";
 import type { Drawn } from "./useDrawing.ts";
 
@@ -39,6 +41,7 @@ const MARKER_KINDS: { value: NewMarker["kind"]; label: string }[] = [
   { value: "n", label: "Neutral" },
   { value: "u", label: "Unknown" },
 ];
+const ICON_KIND = { value: "icon" as const, label: "Icon" };
 
 const KIND_LABEL = {
   marker: "Marker",
@@ -95,11 +98,14 @@ export const NewItemDialog = ({
   const [labelsOn, setLabelsOn] = useState(drawn.kind === "circle");
   const [sidc, setSidc] = useState("");
   const [markerKind, setMarkerKind] = useState<NewMarker["kind"]>("spot");
+  const [icon, setIcon] = useState<NewMarker["icon"]>();
+  const hasIconsets = useIconsets().sets.length > 0;
   const isMarker = drawn.kind === "marker";
   const closed = drawn.kind !== "marker" && drawn.kind !== "line";
+  const missingIcon = isMarker && markerKind === "icon" && !icon;
 
   const save = () => {
-    if (isMarker) onSaveMarker({ name: name.trim(), remarks, kind: markerKind, color });
+    if (isMarker) onSaveMarker({ name: name.trim(), remarks, kind: markerKind, color, icon });
     else
       onSaveShape({
         name: name.trim(),
@@ -138,10 +144,13 @@ export const NewItemDialog = ({
         {isMarker && (
           <SegmentedControl
             size="xs"
-            data={MARKER_KINDS}
+            data={hasIconsets ? [...MARKER_KINDS, ICON_KIND] : MARKER_KINDS}
             value={markerKind}
             onChange={(v) => setMarkerKind(v as NewMarker["kind"])}
           />
+        )}
+        {isMarker && markerKind === "icon" && (
+          <IconsetPicker value={icon?.path} onChange={setIcon} />
         )}
         {(!isMarker || markerKind === "spot") && (
           <div>
@@ -229,7 +238,7 @@ export const NewItemDialog = ({
           <Button size="xs" variant="default" onClick={onCancel}>
             Discard
           </Button>
-          <Button size="xs" type="submit" disabled={!name.trim()}>
+          <Button size="xs" type="submit" disabled={!name.trim() || missingIcon}>
             {saveLabel}
           </Button>
         </Group>

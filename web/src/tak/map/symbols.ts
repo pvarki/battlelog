@@ -2,6 +2,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import ms from "milsymbol";
 import type { TakItem } from "../cot.ts";
 import { sidcOf, teamColor } from "../items.ts";
+import { type IconsetImage, iconsetImage } from "./iconsets.ts";
 
 /**
  * Map images (icons and label boxes) are drawn once per look on a canvas and
@@ -167,18 +168,52 @@ const roleArt = (color: string, role: string | undefined): Art => {
   };
 };
 
+// ATAK normalises icon-set icons to this square unless the set says skipResize.
+const ICONSET_ICON_SIZE = 32;
+const WHITE = "#ffffff";
+
+/** ATAK multiplies an icon-set icon by the marker's colour; white leaves it as drawn. */
+const iconsetArt = ({ bitmap, natural }: IconsetImage, color: string, stale: boolean): Art => {
+  const width = natural ? bitmap.width : ICONSET_ICON_SIZE;
+  const height = natural ? bitmap.height : ICONSET_ICON_SIZE;
+  return {
+    width,
+    height,
+    ax: width / 2,
+    ay: height / 2,
+    paint: (ctx) => {
+      if (stale) ctx.filter = STALE_FILTER;
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      ctx.filter = "none";
+      if (color === WHITE) return;
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, width, height);
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.drawImage(bitmap, 0, 0, width, height);
+    },
+  };
+};
+
 // ponytail: SPOTMAP "…/LABEL" (text only, no icon) draws a dot; handle it if senders use it.
 const SPOT_MAP = "COT_MAPPING_SPOTMAP";
 
 /**
- * The icon for an item's point, drawn on first use. Icon-set images (ATAK
- * `usericon` paths) aren't available to a browser, so like ATAK without the
- * icon set those fall back to the 2525 symbol for the item's type.
+ * The icon for an item's point, drawn on first use. ATAK `usericon` paths
+ * draw from an imported icon set; until one is (or if none has the icon),
+ * they fall back like ATAK without the set to the 2525 symbol for the type.
  */
 export const iconFor = (map: MapLibreMap, item: TakItem, stale: boolean): MapImage => {
   if (item.team) {
     const color = stale ? STALE_TEAM_COLOR : teamColor(item.team);
     return register(map, `user|${color}|${item.role}`, () => roleArt(color, item.role));
+  }
+  const iconset = item.iconPath ? iconsetImage(item.iconPath) : undefined;
+  if (iconset) {
+    const color = item.stroke?.color ?? WHITE;
+    return register(map, `iconset|${iconset.key}|${color}|${stale}`, () =>
+      iconsetArt(iconset, color, stale),
+    );
   }
   const sidc = item.iconPath?.startsWith(SPOT_MAP) ? undefined : sidcOf(item);
   if (sidc) return register(map, `sidc|${sidc}|${stale}`, () => milsymbolArt(sidc, stale));

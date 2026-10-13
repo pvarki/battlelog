@@ -14,6 +14,7 @@ import type { Position, TakItem } from "../cot.ts";
 import { labelOf } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
+import { onIconsetsChanged } from "./iconsets.ts";
 import { toSources } from "./layers.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
@@ -324,8 +325,13 @@ export const MapCanvas = ({
       }
     };
     draw();
-    // Graphics render asynchronously the first time; redraw when they're ready.
-    return onTacticalRendered(draw);
+    // Graphics and icon-set icons load asynchronously the first time; redraw when they're ready.
+    const offTactical = onTacticalRendered(draw);
+    const offIconsets = onIconsetsChanged(draw);
+    return () => {
+      offTactical();
+      offIconsets();
+    };
   }, [map, items, hidden, now, bearing]);
 
   useEffect(() => {
