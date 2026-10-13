@@ -57,7 +57,7 @@ export const DrawToolbar = ({
   children,
 }: Props) => (
   <Paper className="tak-draw-toolbar" shadow="sm" p={4} withBorder>
-    <Group gap={4} wrap="nowrap">
+    <Group gap={4} justify="center">
       <Badge
         size="sm"
         variant={planName ? "filled" : "outline"}

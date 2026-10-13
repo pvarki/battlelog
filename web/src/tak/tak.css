@@ -254,6 +254,11 @@
   transform: translateX(-50%);
   z-index: 2;
   max-width: calc(100% - 20px);
+  width: max-content;
+}
+
+.tak-draw-toolbar .mantine-Group-root > * {
+  flex-shrink: 0;
 }
 
 .tak-chooser {
