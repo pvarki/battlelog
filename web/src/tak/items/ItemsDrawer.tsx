@@ -1,24 +1,32 @@
-import { Badge, Group, ScrollArea, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
-import { IconSearch } from "@tabler/icons-react";
-import { useState } from "react";
-import type { TakItem } from "../cot.ts";
 import {
-  CATEGORIES,
-  type Category,
-  categoryOf,
-  describeType,
-  formatAge,
-  labelOf,
-  STATUS_LABEL,
-  statusOf,
-  teamColor,
-} from "../items.ts";
+  ActionIcon,
+  Badge,
+  Group,
+  ScrollArea,
+  Stack,
+  Text,
+  TextInput,
+  UnstyledButton,
+} from "@mantine/core";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconEye,
+  IconEyeOff,
+  IconSearch,
+} from "@tabler/icons-react";
+import { type ReactNode, useState } from "react";
+import type { TakItem } from "../cot.ts";
+import { describeType, formatAge, labelOf, STATUS_LABEL, statusOf, teamColor } from "../items.ts";
+import { groupTree, type Group as OverlayGroup } from "../overlays.ts";
 import { useNow } from "../use-now.ts";
 
 type Props = {
   items: TakItem[];
   selectedUid: string | undefined;
   onPick: (item: TakItem) => void;
+  hidden: ReadonlySet<string>;
+  onToggleGroup: (key: string) => void;
 };
 
 const matches = (item: TakItem, query: string) => {
@@ -84,17 +92,72 @@ const Row = ({
   );
 };
 
-/** Every item, grouped by category: the keyboard route to anything on the map. */
-export const ItemsDrawer = ({ items, selectedUid, onPick }: Props) => {
+/** Every item in ATAK's overlay groups: the keyboard route to anything on the map, and what it shows. */
+export const ItemsDrawer = ({ items, selectedUid, onPick, hidden, onToggleGroup }: Props) => {
   const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const now = useNow(10_000);
-  const visible = items.filter((i) => matches(i, query));
-  const groups = (Object.keys(CATEGORIES) as Category[])
-    .map((category) => ({
-      category,
-      items: visible.filter((i) => categoryOf(i) === category).sort(byName),
-    }))
-    .filter((g) => g.items.length > 0);
+  const filtering = query.trim() !== "";
+  const groups = groupTree(items.filter((i) => matches(i, query)));
+
+  const toggleCollapsed = (key: string) =>
+    setCollapsed((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+
+  const renderGroup = (group: OverlayGroup, parentHidden: boolean): ReactNode => {
+    const ownHidden = hidden.has(group.key);
+    const open = filtering || !collapsed.has(group.key);
+    return (
+      <section
+        key={group.key}
+        className="tak-group"
+        aria-label={group.label}
+        data-hidden={(ownHidden && !parentHidden) || undefined}
+      >
+        <div className="tak-group-header">
+          <UnstyledButton
+            className="tak-group-toggle"
+            aria-expanded={open}
+            disabled={filtering}
+            onClick={() => toggleCollapsed(group.key)}
+          >
+            {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+            {group.key.startsWith("markers/team/") && (
+              <span className="tak-swatch" style={{ background: teamColor(group.label) }} />
+            )}
+            {group.label} <span className="tak-group-count">{group.count}</span>
+          </UnstyledButton>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="sm"
+            aria-label={`Hide ${group.label}`}
+            aria-pressed={ownHidden}
+            onClick={() => onToggleGroup(group.key)}
+          >
+            {ownHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+          </ActionIcon>
+        </div>
+        {open && (
+          <div className="tak-group-body">
+            {group.children.map((child) => renderGroup(child, ownHidden || parentHidden))}
+            {group.items.sort(byName).map((item) => (
+              <Row
+                key={item.uid}
+                item={item}
+                now={now}
+                selected={item.uid === selectedUid}
+                onPick={() => onPick(item)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   return (
     <Stack gap="xs" h="100%">
@@ -114,22 +177,7 @@ export const ItemsDrawer = ({ items, selectedUid, onPick }: Props) => {
               : "No items match the filter."}
           </Text>
         ) : (
-          groups.map(({ category, items: rows }) => (
-            <section key={category} aria-label={CATEGORIES[category]}>
-              <Text className="tak-group-heading">
-                {CATEGORIES[category]} <span>{rows.length}</span>
-              </Text>
-              {rows.map((item) => (
-                <Row
-                  key={item.uid}
-                  item={item}
-                  now={now}
-                  selected={item.uid === selectedUid}
-                  onPick={() => onPick(item)}
-                />
-              ))}
-            </section>
-          ))
+          groups.map((group) => renderGroup(group, false))
         )}
       </ScrollArea>
     </Stack>

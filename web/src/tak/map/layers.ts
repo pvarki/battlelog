@@ -1,7 +1,8 @@
 import type { Feature, FeatureCollection } from "geojson";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { Position, TakItem } from "../cot.ts";
-import { type Category, categoryOf, hasPosition, statusOf } from "../items.ts";
+import { hasPosition, statusOf } from "../items.ts";
+import { groupOf, isHidden } from "../overlays.ts";
 import { iconsFor } from "./symbols.ts";
 
 /** Items as the two GeoJSON sources the map draws: icons for points, lines and areas for shapes. */
@@ -9,14 +10,18 @@ import { iconsFor } from "./symbols.ts";
 const EARTH_RADIUS_M = 6_371_008.8;
 const CIRCLE_STEPS = 64;
 // Drawn last = on top: people over units over markers.
-const DRAW_ORDER: Record<Category, number> = {
-  drawings: 0,
-  markers: 1,
-  other: 2,
-  friendly: 3,
-  hostile: 4,
-  users: 5,
-};
+const DRAW_ORDER = [
+  "shapes",
+  "navigation",
+  "other",
+  "markers/spot",
+  "markers/unknown",
+  "markers/neutral",
+  "markers/friendly",
+  "markers/hostile",
+  "markers/team",
+  "alerts",
+];
 
 /**
  * An ellipse as a polygon: `major` and `minor` are semi-axes in metres, `angle`
@@ -76,7 +81,7 @@ const pointFeature = (map: MapLibreMap, item: TakItem, faded: boolean): Feature 
       offset: labelled.offset,
       bareIcon: bare.id,
       bareOffset: bare.offset,
-      order: DRAW_ORDER[categoryOf(item)],
+      order: DRAW_ORDER.indexOf(groupOf(item).slice(0, 2).join("/")),
     },
   };
 };
@@ -84,13 +89,13 @@ const pointFeature = (map: MapLibreMap, item: TakItem, faded: boolean): Feature 
 export const toSources = (
   map: MapLibreMap,
   items: TakItem[],
-  hidden: ReadonlySet<Category>,
+  hidden: ReadonlySet<string>,
   now: number,
 ): { points: FeatureCollection; shapes: FeatureCollection } => {
   const points: Feature[] = [];
   const shapes: Feature[] = [];
   for (const item of items) {
-    if (hidden.has(categoryOf(item)) || !hasPosition(item)) continue;
+    if (isHidden(groupOf(item), hidden) || !hasPosition(item)) continue;
     const faded = statusOf(item, now) !== "online";
     const shape = shapeFeature(item, faded);
     if (shape) shapes.push(shape);

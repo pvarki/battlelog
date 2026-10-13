@@ -109,8 +109,42 @@
   color: var(--mantine-color-dark-2);
 }
 
-.tak-group-heading span {
+.tak-group-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tak-group-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 3px 4px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mantine-color-dark-2);
+}
+
+.tak-group-toggle:hover:not(:disabled) {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-group-count {
   font-weight: 400;
+}
+
+.tak-group-body {
+  padding-left: 10px;
+}
+
+.tak-group[data-hidden] {
+  opacity: 0.5;
 }
 
 .tak-row {

@@ -1,7 +1,7 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
 import ms from "milsymbol";
 import type { TakItem } from "../cot.ts";
-import { categoryOf, labelOf, sidcOf, teamColor } from "../items.ts";
+import { labelOf, sidcOf, teamColor } from "../items.ts";
 
 /**
  * Map icons are drawn once per look (symbol + label + colour) and registered
@@ -92,7 +92,7 @@ const dotArt = (color: string) => {
 };
 
 const lookOf = (item: TakItem, label: string) => {
-  if (categoryOf(item) === "users")
+  if (item.team)
     return { key: `user|${item.team}|${label}`, art: () => dotArt(teamColor(item.team)) };
   const sidc = sidcOf(item);
   if (sidc) return { key: `sidc|${sidc}|${label}`, art: () => milsymbolArt(sidc) };
@@ -121,6 +121,6 @@ const register = (map: MapLibreMap, item: TakItem, label: string): Icon => {
  */
 export const iconsFor = (map: MapLibreMap, item: TakItem): { labelled: Icon; bare: Icon } => {
   const labelled = register(map, item, labelOf(item));
-  const bare = categoryOf(item) === "users" ? labelled : register(map, item, "");
+  const bare = item.team ? labelled : register(map, item, "");
   return { labelled, bare };
 };

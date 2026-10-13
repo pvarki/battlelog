@@ -1,32 +1,5 @@
 import type { Position, TakItem } from "./cot.ts";
 
-/** How items are grouped in lists and switched on and off on the map. */
-export const CATEGORIES = {
-  users: "TAK users",
-  hostile: "Hostile",
-  friendly: "Friendly units",
-  other: "Other units",
-  markers: "Markers",
-  drawings: "Drawings",
-} as const;
-
-export type Category = keyof typeof CATEGORIES;
-
-const HOSTILE = new Set(["h", "s", "j", "k"]);
-const FRIENDLY = new Set(["f", "a"]);
-
-export const categoryOf = (item: TakItem): Category => {
-  const t = item.type;
-  if (t.startsWith("u-d-") || t === "b-m-r") return "drawings";
-  if (t.startsWith("b-")) return "markers";
-  // ATAK/WinTAK users announce a team; units placed on the map don't.
-  if (item.team) return "users";
-  const affiliation = t.split("-")[1] ?? "";
-  if (HOSTILE.has(affiliation)) return "hostile";
-  if (FRIENDLY.has(affiliation)) return "friendly";
-  return "other";
-};
-
 export type ItemStatus = "online" | "stale" | "offline";
 
 export const statusOf = (item: TakItem, now: number): ItemStatus => {
@@ -142,7 +115,7 @@ const OTHER_TYPE_NAME: [prefix: string, name: string][] = [
 /** Plain-language name for an item's type, e.g. `a-h-G` → "Hostile ground unit". */
 export const describeType = (item: TakItem): string => {
   const t = item.type;
-  if (categoryOf(item) === "users") return "TAK user";
+  if (item.team) return "TAK user";
   if (t.startsWith("a-")) {
     const [, affiliation = "", dimension = ""] = t.split("-");
     const where = DIMENSION_NAME[dimension];

@@ -129,9 +129,15 @@ export const TakWorkspace = () => {
 
   const drawerContent = (id: DrawerId) =>
     id === "items" ? (
-      <ItemsDrawer items={items} selectedUid={selectedUid} onPick={pick} />
+      <ItemsDrawer
+        items={items}
+        selectedUid={selectedUid}
+        onPick={pick}
+        hidden={settings.hidden}
+        onToggleGroup={settings.toggleGroup}
+      />
     ) : (
-      <LayersDrawer items={items} settings={settings}>
+      <LayersDrawer settings={settings}>
         {import.meta.env.DEV && callsign && (
           <Button
             size="xs"

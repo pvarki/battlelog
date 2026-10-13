@@ -11,14 +11,14 @@ import {
 } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import type { Position, TakItem } from "../cot.ts";
-import { type Category, labelOf } from "../items.ts";
+import { labelOf } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
 import { toSources } from "./layers.ts";
 
 type Props = {
   items: TakItem[];
-  hidden: ReadonlySet<Category>;
+  hidden: ReadonlySet<string>;
   basemap: Basemap;
   /** Night use: the bright MML maps glare next to a dark UI. */
   dim: boolean;
