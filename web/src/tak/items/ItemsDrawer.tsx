@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Badge,
+  Button,
   Group,
   ScrollArea,
   Stack,
@@ -11,14 +12,17 @@ import {
 import {
   IconChevronDown,
   IconChevronRight,
+  IconDownload,
   IconEye,
   IconEyeOff,
   IconSearch,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import type { TakItem } from "../cot.ts";
+import { download } from "../download.ts";
 import { describeType, formatAge, labelOf, STATUS_LABEL, statusOf, teamColor } from "../items.ts";
-import { groupTree, type Group as OverlayGroup } from "../overlays.ts";
+import { groupOf, groupTree, isHidden, type Group as OverlayGroup } from "../overlays.ts";
+import { kmlBlob } from "../plans/overlay-files.ts";
 import { useNow } from "../use-now.ts";
 
 type Props = {
@@ -98,7 +102,9 @@ export const ItemsDrawer = ({ items, selectedUid, onPick, hidden, onToggleGroup 
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const now = useNow(10_000);
   const filtering = query.trim() !== "";
-  const groups = groupTree(items.filter((i) => matches(i, query)));
+  const listed = items.filter((i) => matches(i, query));
+  const groups = groupTree(listed);
+  const shown = listed.filter((i) => !isHidden(groupOf(i), hidden));
 
   const toggleCollapsed = (key: string) =>
     setCollapsed((keys) => {
@@ -180,6 +186,16 @@ export const ItemsDrawer = ({ items, selectedUid, onPick, hidden, onToggleGroup 
           groups.map((group) => renderGroup(group, false))
         )}
       </ScrollArea>
+      <Button
+        size="xs"
+        variant="default"
+        leftSection={<IconDownload size={14} />}
+        disabled={shown.length === 0}
+        title="The items listed, without hidden groups"
+        onClick={() => download(kmlBlob("TAK overlays", shown), "tak-overlays.kml")}
+      >
+        Export {shown.length} as KML
+      </Button>
     </Stack>
   );
 };

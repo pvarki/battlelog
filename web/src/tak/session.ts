@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { receiveChat } from "./chat/store.ts";
 import { type CotEvent, toChange } from "./cot.ts";
+import { receiveFileShare } from "./inbox/store.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
 import { fetchArchive, fetchHistory, takBaseUrl } from "./rest.ts";
 import { createTakStore, DAY_MS } from "./store.ts";
@@ -90,7 +91,8 @@ const connect = () => {
   ws.onmessage = (e: MessageEvent<ArrayBuffer>) => {
     const { events, error } = decodeTakMessages(new Uint8Array(e.data));
     if (error) console.warn("TAK message unreadable", error);
-    events.forEach(applyEvent);
+    // Only live: a replayed announcement would re-offer a package already handled.
+    for (const event of events) if (!receiveFileShare(event)) applyEvent(event);
     setStatus({ lastMessageAt: Date.now() });
   };
   ws.onclose = () => {

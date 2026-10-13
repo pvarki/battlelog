@@ -14,12 +14,17 @@ import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
 import type { TakItem } from "../cot.ts";
+import { download } from "../download.ts";
+import type { Sender } from "../drawing/new-items.ts";
+import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { useNow } from "../use-now.ts";
+import { kmlBlob } from "./overlay-files.ts";
 import {
   createPlan,
   deletePlan,
   exportPlan,
+  IMPORT_ACCEPT,
   importPlan,
   type Plan,
   type PlansState,
@@ -37,15 +42,8 @@ type Props = {
   onPick: (item: TakItem) => void;
   /** Why publishing is unavailable, or undefined when it is. */
   publishReason: string | undefined;
-};
-
-const download = (blob: Blob, name: string) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
+  /** Named as the creator of drawings imported from KML or GPX. */
+  sender: Sender;
 };
 
 const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: () => void }) => {
@@ -149,6 +147,23 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
         <Button
           size="xs"
           variant="default"
+          leftSection={<IconDownload size={14} />}
+          onClick={() =>
+            download(
+              kmlBlob(
+                plan.name,
+                drafts.map((d) => d.item),
+              ),
+              `${plan.name}.kml`,
+            )
+          }
+          disabled={drafts.length === 0}
+        >
+          KML
+        </Button>
+        <Button
+          size="xs"
+          variant="default"
           color="danger"
           leftSection={<IconTrash size={14} />}
           onClick={() => deletePlan(plan)}
@@ -184,10 +199,10 @@ export const PlansDrawer = (props: Props) => {
           New plan
         </Button>
         <FileButton
-          accept=".zip,application/zip"
+          accept={IMPORT_ACCEPT}
           onChange={(file) =>
             file &&
-            importPlan(file).then(
+            importPlan(file, props.sender).then(
               (plan) => setOpenId(plan.id),
               (err) =>
                 notifications.show({
@@ -206,6 +221,7 @@ export const PlansDrawer = (props: Props) => {
         </FileButton>
       </Group>
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+        <InboxSection onOpenPlan={setOpenId} />
         {props.state.plans.length === 0 ? (
           <Text fz="sm" c="dimmed" p="xs">
             No plans. A plan collects drawings and changes in this browser and publishes them to TAK
