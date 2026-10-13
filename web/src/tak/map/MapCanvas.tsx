@@ -34,8 +34,8 @@ const FINLAND = { center: [25.5, 64] as [number, number], zoom: 4.5, bearing: 0 
 const FADE_CHECK_MS = 30_000;
 const INTERACTIVE_LAYERS = ["tak-points", "tak-shape-lines", "tak-shape-fills"];
 const ACCENT = "#8abbff";
-// Roughly where a town fills the screen and names stop overlapping.
-const LABEL_MIN_ZOOM = 11;
+// ATAK hides marker names beyond 10 m per pixel, about zoom 12 at Finnish latitudes.
+const MARKER_LABEL_MIN_ZOOM = 12;
 
 const savedView = () => {
   try {
@@ -70,17 +70,37 @@ const showBasemap = (map: MapLibreMap, basemap: Basemap) => {
   map.addLayer({ id: "basemap", type: "raster", source: "basemap" }, firstItemLayer);
 };
 
+const ITEM_SOURCES = ["points", "shapes", "markerLabels", "lineLabels", "decorations"] as const;
+
+// ATAK's dash patterns (6 on / 10 off, 2 on / 14 off) in line-width units for a typical 3–4 px line.
+const DASHES: ExpressionSpecification = [
+  "match",
+  ["get", "strokeStyle"],
+  "dashed",
+  ["literal", [4, 6]],
+  "dotted",
+  ["literal", [1, 4]],
+  ["literal", [1, 0]],
+];
+
 const addItemLayers = (map: MapLibreMap) => {
   const empty = { type: "FeatureCollection" as const, features: [] };
-  map.addSource("tak-shapes", { type: "geojson", data: empty });
-  map.addSource("tak-points", { type: "geojson", data: empty });
+  for (const name of ITEM_SOURCES) map.addSource(`tak-${name}`, { type: "geojson", data: empty });
   const faded: ExpressionSpecification = ["case", ["get", "faded"], 0.45, 1];
+  const overlapping = { "icon-allow-overlap": true, "icon-ignore-placement": true } as const;
   map.addLayer({
     id: "tak-shape-fills",
     type: "fill",
     source: "tak-shapes",
     filter: ["==", ["geometry-type"], "Polygon"],
-    paint: { "fill-color": ["get", "fill"], "fill-opacity": ["*", ["get", "fillOpacity"], faded] },
+    paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fillOpacity"] },
+  });
+  map.addLayer({
+    id: "tak-shape-casings",
+    type: "line",
+    source: "tak-shapes",
+    filter: ["==", ["get", "strokeStyle"], "outlined"],
+    paint: { "line-color": "#000000", "line-width": ["+", ["get", "strokeWidth"], 2] },
   });
   map.addLayer({
     id: "tak-shape-lines",
@@ -89,8 +109,8 @@ const addItemLayers = (map: MapLibreMap) => {
     paint: {
       "line-color": ["get", "stroke"],
       "line-width": ["get", "strokeWidth"],
-      "line-opacity": ["*", ["get", "strokeOpacity"], faded],
-      "line-dasharray": ["case", ["get", "faded"], ["literal", [2, 2]], ["literal", [1, 0]]],
+      "line-opacity": ["get", "strokeOpacity"],
+      "line-dasharray": DASHES,
     },
   });
   map.addLayer({
@@ -99,6 +119,28 @@ const addItemLayers = (map: MapLibreMap) => {
     source: "tak-shapes",
     filter: ["==", ["get", "uid"], ""],
     paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
+  });
+  map.addLayer({
+    id: "tak-decorations",
+    type: "symbol",
+    source: "tak-decorations",
+    layout: {
+      ...overlapping,
+      "icon-image": ["get", "icon"],
+      "icon-rotate": ["get", "rotate"],
+      "icon-rotation-alignment": "map",
+    },
+  });
+  map.addLayer({
+    id: "tak-line-labels",
+    type: "symbol",
+    source: "tak-lineLabels",
+    layout: {
+      ...overlapping,
+      "icon-image": ["get", "icon"],
+      "icon-rotate": ["get", "rotate"],
+      "icon-rotation-alignment": "map",
+    },
   });
   map.addLayer({
     id: "tak-selected-point",
@@ -117,12 +159,19 @@ const addItemLayers = (map: MapLibreMap) => {
     type: "symbol",
     source: "tak-points",
     layout: {
-      "icon-image": ["step", ["zoom"], ["get", "bareIcon"], LABEL_MIN_ZOOM, ["get", "icon"]],
-      "icon-offset": ["step", ["zoom"], ["get", "bareOffset"], LABEL_MIN_ZOOM, ["get", "offset"]],
-      "icon-allow-overlap": true,
-      "icon-ignore-placement": true,
+      ...overlapping,
+      "icon-image": ["get", "icon"],
+      "icon-offset": ["get", "offset"],
       "symbol-sort-key": ["get", "order"],
     },
+    paint: { "icon-opacity": faded },
+  });
+  map.addLayer({
+    id: "tak-marker-labels",
+    type: "symbol",
+    source: "tak-markerLabels",
+    minzoom: MARKER_LABEL_MIN_ZOOM,
+    layout: { ...overlapping, "icon-image": ["get", "icon"], "icon-offset": ["get", "offset"] },
     paint: { "icon-opacity": faded },
   });
 };
@@ -204,9 +253,10 @@ export const MapCanvas = ({
   useEffect(() => {
     if (!map) return;
     // ponytail: full setData per notify (≤4/s); switch to updateData diffs if large pictures stutter.
-    const { points, shapes } = toSources(map, items, hidden, now);
-    (map.getSource("tak-points") as GeoJSONSource).setData(points);
-    (map.getSource("tak-shapes") as GeoJSONSource).setData(shapes);
+    const sources = toSources(map, items, hidden, now);
+    for (const name of ITEM_SOURCES) {
+      (map.getSource(`tak-${name}`) as GeoJSONSource).setData(sources[name]);
+    }
   }, [map, items, hidden, now]);
 
   useEffect(() => {

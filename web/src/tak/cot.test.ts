@@ -98,3 +98,74 @@ test("an ellipse keeps both axes and its angle", () => {
 test("an impossible timestamp is rejected, so it can't block the uid forever", () => {
   expect(toChange({ ...base, time: Number.POSITIVE_INFINITY })).toBeNull();
 });
+
+const upsert = (event: Partial<CotEvent>) => {
+  const change = toChange({ ...base, ...event });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  return change.item;
+};
+
+test("ATAK line style and label switch", () => {
+  const item = upsert({
+    type: "u-d-f",
+    detail:
+      '<link point="60,25"/><link point="60,26"/><strokeStyle value="dashed"/><labels_on value="true"/>',
+  });
+  expect(item).toMatchObject({ strokeStyle: "dashed", labelsOn: true });
+  expect(upsert({ type: "u-d-f", detail: '<labels_on value="false"/>' }).labelsOn).toBe(false);
+});
+
+test("circles label their radius unless told not to", () => {
+  const circle = '<shape><ellipse major="100" minor="100" angle="0"/></shape>';
+  expect(upsert({ type: "u-d-c-c", detail: circle }).labelsOn).toBe(true);
+  expect(upsert({ type: "u-d-c-c", detail: `${circle}<labels_on value="false"/>` }).labelsOn).toBe(
+    false,
+  );
+});
+
+test("two points that meet are a line, not a closed shape", () => {
+  const item = upsert({ type: "u-d-f", detail: '<link point="60,25"/><link point="60,25"/>' });
+  expect(item.geometry.type).toBe("LineString");
+});
+
+test("a route keeps its named waypoints and its link_attr colour", () => {
+  const item = upsert({
+    type: "b-m-r",
+    detail:
+      '<link type="b-m-p-w" callsign="Polku – start" point="60.1,25.1"/><link type="b-m-p-c" callsign="" point="60.2,25.2"/><link type="b-m-p-w" callsign="VDO" point="60.3,25.3"/><link_attr color="-16711936" stroke="4"/>',
+  });
+  expect(item.geometry.type).toBe("LineString");
+  expect(item.waypoints).toEqual([
+    { name: "Polku – start", position: [25.1, 60.1] },
+    { name: "VDO", position: [25.3, 60.3] },
+  ]);
+  expect(item.stroke?.color).toBe("#00ff00");
+  expect(item.strokeWidth).toBe(4);
+});
+
+test("a sensor point keeps its ground footprint; a collapsed one is dropped", () => {
+  const vertex = (lat: number, lon: number) => `<vertex lat="${lat}" lon="${lon}" hae="0"/>`;
+  const shape = (v: string) => `<shape><polyline closed="true">${v}</polyline></shape>`;
+  const spread = upsert({
+    type: "b-m-p-s-p-i",
+    detail: shape(vertex(60, 25) + vertex(60, 25.1) + vertex(60.1, 25.1)),
+  });
+  expect(spread.footprint).toHaveLength(3);
+  const collapsed = upsert({ type: "b-m-p-s-p-i", detail: shape(vertex(60, 25).repeat(4)) });
+  expect(collapsed.footprint).toBeUndefined();
+});
+
+test("range and bearing runs from its point to the computed end", () => {
+  const item = upsert({
+    type: "u-rb-a",
+    lat: 60,
+    lon: 25,
+    detail: '<range value="1000"/><bearing value="90"/><northRef value="0"/>',
+  });
+  expect(item.rangeBearing).toEqual({ range: 1000, bearing: 90, northRef: "T" });
+  if (item.geometry.type !== "LineString") throw new Error("expected a line");
+  const [, end] = item.geometry.coordinates;
+  expect(end?.[1]).toBeCloseTo(60, 3);
+  expect(end?.[0]).toBeGreaterThan(25.017);
+  expect(end?.[0]).toBeLessThan(25.019);
+});
