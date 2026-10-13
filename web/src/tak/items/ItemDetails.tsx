@@ -33,12 +33,14 @@ import {
   type UnitStatus,
   unitStatusOf,
 } from "../items.ts";
+import { formatDistance } from "../map/layers.ts";
 import { AddToMission } from "../missions/AddToMission.tsx";
 import type { Mission } from "../missions/missions.ts";
 import { contentLinks } from "../rest.ts";
 import { useNow } from "../use-now.ts";
 import { AttachPhoto } from "./AttachPhoto.tsx";
 import { EditItem } from "./EditItem.tsx";
+import { VideoFeed } from "./VideoFeed.tsx";
 
 type Props = {
   item: TakItem;
@@ -204,6 +206,18 @@ export const ItemDetails = ({
               {item.ellipse.major === item.ellipse.minor
                 ? `${Math.round(item.ellipse.major)} m radius`
                 : `${Math.round(item.ellipse.major)} × ${Math.round(item.ellipse.minor)} m, ${Math.round(item.ellipse.angle)}°`}
+            </Field>
+          )}
+          {item.video && (
+            <Field label={item.video.alias ? `Video · ${item.video.alias}` : "Video"}>
+              <VideoFeed video={item.video} />
+            </Field>
+          )}
+          {item.sensor && (
+            <Field label="Sensor">
+              {item.sensor.model ? `${item.sensor.model} · ` : ""}
+              {Math.round(item.sensor.azimuth)}° · {Math.round(item.sensor.fov)}° wide ·{" "}
+              {formatDistance(item.sensor.range)}
             </Field>
           )}
           <Field label="Last update">

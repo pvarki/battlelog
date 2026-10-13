@@ -30,7 +30,7 @@ const StreamsView = ({ config, onConfigure }: WidgetViewProps<StreamsConfig>) =>
   return <Player key={`${type}:${url}`} url={url} type={type} />;
 };
 
-const Player = ({ url, type }: { url: string; type: Exclude<SourceType, "auto"> }) => {
+export const Player = ({ url, type }: { url: string; type: Exclude<SourceType, "auto"> }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   // Bumping attempt re-runs the player effect (and remounts the mjpeg <img>).

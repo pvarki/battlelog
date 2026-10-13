@@ -1,5 +1,23 @@
 import { expect, test } from "vitest";
-import { formatDistance } from "./layers.ts";
+import { formatDistance, sensorCone } from "./layers.ts";
+
+test("a sensor cone is a closed wedge from the sensor, its edges fov apart around the azimuth", () => {
+  const origin: [number, number] = [25, 60];
+  const cone = sensorCone(origin, {
+    azimuth: 90,
+    fov: 60,
+    range: 1000,
+    fill: { color: "#ffffff", opacity: 0.3 },
+    stroke: { color: "#cccccc", opacity: 1 },
+  });
+  expect(cone[0]).toEqual(origin);
+  expect(cone.at(-1)).toEqual(origin);
+  const [left, right] = [cone[1] as [number, number], cone.at(-2) as [number, number]];
+  // Edges at 60° and 120°: both east of the sensor, near-mirrored across its latitude.
+  expect(left[0]).toBeGreaterThan(25);
+  expect(left[1] - 60).toBeGreaterThan(0);
+  expect(left[1] - 60).toBeCloseTo(60 - right[1], 4);
+});
 
 test("distances read like ATAK's measurement labels", () => {
   expect(formatDistance(250.4)).toBe("250 m");

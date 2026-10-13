@@ -28,6 +28,9 @@ export const detectSourceType = (url: string): Exclude<SourceType, "auto"> => {
   return "video";
 };
 
+/** Browsers only fetch http(s); RTSP, RTMP, UDP and SRT need a native player or a gateway. */
+export const isBrowserPlayable = (url: string): boolean => /^https?:\/\//i.test(url.trim());
+
 export const resolveType = (
   config: Pick<StreamsConfig, "url" | "sourceType">,
 ): Exclude<SourceType, "auto"> =>
