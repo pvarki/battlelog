@@ -228,6 +228,10 @@ const withImageIds = (features: Feature[]) =>
     }),
   );
 
+/** Whether the item's graphic is ready (or known to render plain), so a redraw would change nothing for it. */
+export const tacticalReady = (item: TakItem) =>
+  !item.sidc || item.geometry.type === "Point" || graphics.has(keyOf(item));
+
 /** Call after each redraw: forgets graphics that are no longer on the map once over the cap. */
 export const pruneTactical = () => {
   if (graphics.size > MAX_CACHED) {
@@ -257,7 +261,11 @@ const prepare = async (key: string, item: TakItem) => {
     graphics.set(key, null);
   } finally {
     pending.delete(key);
-    if (!notifyTimer) notifyTimer = setTimeout(notify, NOTIFY_DELAY_MS);
+    // The last of a batch (or a lone preview while drawing) shows at once.
+    if (pending.size === 0) {
+      clearTimeout(notifyTimer);
+      notify();
+    } else if (!notifyTimer) notifyTimer = setTimeout(notify, NOTIFY_DELAY_MS);
   }
 };
 
@@ -335,30 +343,30 @@ export const tacticalFeatures = (
 };
 
 /** Source and layers for the graphics, drawn over plain shapes and under points. */
-export const addTacticalLayers = (map: MapLibreMap) => {
-  map.addSource("tak-tactical", {
+export const addTacticalLayers = (map: MapLibreMap, prefix: string) => {
+  map.addSource(`${prefix}-tactical`, {
     type: "geojson",
     data: { type: "FeatureCollection", features: [] },
   });
   const isArea: FilterSpecification = ["==", ["geometry-type"], "Polygon"];
   map.addLayer({
-    id: "tak-tactical-fills",
+    id: `${prefix}-tactical-fills`,
     type: "fill",
-    source: "tak-tactical",
+    source: `${prefix}-tactical`,
     filter: ["all", isArea, ["has", "fill"]],
     paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fillOpacity"] },
   });
   map.addLayer({
-    id: "tak-tactical-patterns",
+    id: `${prefix}-tactical-patterns`,
     type: "fill",
-    source: "tak-tactical",
+    source: `${prefix}-tactical`,
     filter: ["all", isArea, ["has", "pattern"]],
     paint: { "fill-pattern": ["get", "pattern"] },
   });
   map.addLayer({
-    id: "tak-tactical-lines",
+    id: `${prefix}-tactical-lines`,
     type: "line",
-    source: "tak-tactical",
+    source: `${prefix}-tactical`,
     filter: ["has", "stroke"],
     paint: {
       "line-color": ["get", "stroke"],
@@ -368,9 +376,9 @@ export const addTacticalLayers = (map: MapLibreMap) => {
     },
   });
   map.addLayer({
-    id: "tak-tactical-labels",
+    id: `${prefix}-tactical-labels`,
     type: "symbol",
-    source: "tak-tactical",
+    source: `${prefix}-tactical`,
     filter: ["has", "icon"],
     layout: {
       "icon-image": ["get", "icon"],

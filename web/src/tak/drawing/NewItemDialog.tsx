@@ -13,7 +13,7 @@ import {
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StrokeStyle } from "../cot.ts";
 import { useIconsets } from "../map/iconsets.ts";
 import { formatDistance } from "../map/layers.ts";
@@ -85,6 +85,8 @@ type Props = {
   onSaveMarker: (marker: Omit<NewMarker, "position">) => void;
   onSaveRoute: (route: Omit<NewRoute, "points">) => void;
   saveLabel: string;
+  /** Hears the shape's style as it is chosen, so the map can show the result before saving. */
+  onStyle?: (style: ShapeStyle) => void;
 };
 
 /** Name and style for what was just drawn, then it goes to TAK. */
@@ -96,6 +98,7 @@ export const NewItemDialog = ({
   onSaveMarker,
   onSaveRoute,
   saveLabel,
+  onStyle,
 }: Props) => {
   const [name, setName] = useState(defaultName);
   const [remarks, setRemarks] = useState("");
@@ -116,20 +119,25 @@ export const NewItemDialog = ({
   const closed = drawn.kind !== "marker" && drawn.kind !== "line" && !isRoute;
   const missingIcon = isMarker && markerKind === "icon" && !icon;
 
+  const shapeStyle = (): ShapeStyle => ({
+    name: name.trim(),
+    remarks,
+    stroke: color,
+    strokeWeight,
+    strokeStyle,
+    fillOpacity: closed ? fillOpacity : 0,
+    labelsOn,
+    sidc: sidc.trim() || undefined,
+  });
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-announce only when a styled field changes
+  useEffect(() => {
+    if (!isMarker && !isRoute) onStyle?.(shapeStyle());
+  }, [onStyle, name, color, strokeWeight, strokeStyle, fillOpacity, labelsOn, sidc]);
+
   const save = () => {
     if (isMarker) onSaveMarker({ name: name.trim(), remarks, kind: markerKind, color, icon });
     else if (isRoute) onSaveRoute({ name: name.trim(), remarks, color, waypointNames });
-    else
-      onSaveShape({
-        name: name.trim(),
-        remarks,
-        stroke: color,
-        strokeWeight,
-        strokeStyle,
-        fillOpacity: closed ? fillOpacity : 0,
-        labelsOn,
-        sidc: sidc.trim() || undefined,
-      });
+    else onSaveShape(shapeStyle());
   };
 
   return (

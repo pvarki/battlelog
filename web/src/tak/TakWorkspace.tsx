@@ -40,10 +40,11 @@ import {
   newRangeBearingEvent,
   newRouteEvent,
   newShapeEvent,
+  type ShapeStyle,
 } from "./drawing/new-items.ts";
 import { TacticalGraphicDialog } from "./drawing/TacticalGraphicDialog.tsx";
 import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-graphics.ts";
-import { useDrawing } from "./drawing/useDrawing.ts";
+import { type Drawn, useDrawing } from "./drawing/useDrawing.ts";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { useCallsign } from "./identity.ts";
@@ -88,6 +89,26 @@ const DRAWERS = {
 type DrawerId = keyof typeof DRAWERS;
 
 const FOCUS_ZOOM = 14;
+
+const KIND_NAME: Record<Drawn["kind"], string> = {
+  marker: "Marker",
+  line: "Line",
+  polygon: "Area",
+  rectangle: "Rectangle",
+  circle: "Circle",
+  route: "Route",
+};
+
+/** How a shape looks while it's being drawn: the new-item dialog's defaults. */
+const PREVIEW_STYLE: ShapeStyle = {
+  name: "",
+  remarks: "",
+  stroke: "#ffff00",
+  strokeWeight: 3,
+  strokeStyle: "solid",
+  fillOpacity: 0.25,
+  labelsOn: false,
+};
 const WALL_SYMBOL_SCALE = 1.5;
 
 const isTyping = (target: EventTarget | null) =>
@@ -119,6 +140,17 @@ type Draft = { item: TakItem; conflict: boolean; deleted: boolean };
  * A plan's drafts as map items, named so they can't be mistaken for what TAK
  * has. A staged delete shows the item it removes, or what the delete names.
  */
+// One item per stored draft, so re-rendering doesn't hand the map "new" items that changed nothing.
+const draftItemCache = new WeakMap<CotEvent, TakItem>();
+const draftItemOf = (event: CotEvent, item: TakItem) => {
+  let cached = draftItemCache.get(event);
+  if (!cached) {
+    cached = { ...item, draft: true };
+    draftItemCache.set(event, cached);
+  }
+  return cached;
+};
+
 const draftItems = (plan: Plan, live: TakItem[]): Draft[] =>
   plan.entries.flatMap(({ event, basedOn }): Draft[] => {
     const change = toChange(event);
@@ -126,7 +158,7 @@ const draftItems = (plan: Plan, live: TakItem[]): Draft[] =>
     const current = live.find((i) => i.uid === event.uid);
     const conflict = basedOn !== undefined && !!current && current.time > basedOn;
     if (change.kind === "upsert")
-      return [{ item: { ...change.item, draft: true }, conflict, deleted: false }];
+      return [{ item: draftItemOf(event, change.item), conflict, deleted: false }];
     const item: TakItem = current ?? {
       uid: event.uid,
       type: event.type,
@@ -235,7 +267,6 @@ export const TakWorkspace = ({
   const drawer = chosenDrawer && drawers.includes(chosenDrawer) ? chosenDrawer : null;
   const [selectedUid, setSelectedUid] = useState<string>();
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
-  const [cursor, setCursor] = useState<Position>();
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
   useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])]);
@@ -324,37 +355,41 @@ export const TakWorkspace = ({
   const nameFor = (label: string) =>
     `${label} ${liveItems.filter((i) => i.callsign?.startsWith(`${label} `)).length + 1}`;
   const [tacticalLook, setTacticalLook] = useState<TacticalLook>();
-  const tacticalShape = drawing.drawn ?? drawing.sketch;
-  const tacticalPoints = tacticalShape && "points" in tacticalShape ? tacticalShape.points : [];
-  const tacticalEvent = (uid?: string) =>
+  const pointsOf = (shape: Drawn | undefined) => (shape && "points" in shape ? shape.points : []);
+  const tacticalPoints = pointsOf(drawing.drawn);
+  const tacticalEvent = (points: Position[], uid?: string) =>
     drawing.graphic && tacticalLook
-      ? newTacticalGraphicEvent(
-          drawing.graphic,
-          tacticalPoints,
-          tacticalLook,
-          sender,
-          Date.now(),
-          uid,
-        )
+      ? newTacticalGraphicEvent(drawing.graphic, points, tacticalLook, sender, Date.now(), uid)
       : undefined;
-  const previewEvent = tacticalPoints.length > 1 ? tacticalEvent("tactical-preview") : undefined;
-  const preview = previewEvent && toChange(previewEvent);
-  const mapItems =
-    preview?.kind === "upsert" ? [...items, { ...preview.item, draft: true as const }] : items;
+  const [chosenStyle, setChosenStyle] = useState<ShapeStyle>();
+  /** The shape being drawn as it will look once saved. */
+  const previewOf = (sketch: Drawn | undefined): TakItem[] => {
+    const shape = drawing.drawn ?? sketch;
+    const event = drawing.graphic
+      ? pointsOf(shape).length > 1
+        ? tacticalEvent(pointsOf(shape), "preview")
+        : undefined
+      : shape && shape.kind !== "marker" && shape.kind !== "route"
+        ? newShapeEvent(
+            shape,
+            (drawing.drawn && chosenStyle) || {
+              ...PREVIEW_STYLE,
+              name: nameFor(KIND_NAME[shape.kind]),
+            },
+            sender,
+            Date.now(),
+            "preview",
+          )
+        : undefined;
+    const change = event && toChange(event);
+    return change?.kind === "upsert" ? [change.item] : [];
+  };
   const newItemDialog = drawing.drawn && (
     <NewItemDialog
       drawn={drawing.drawn}
-      defaultName={nameFor(
-        {
-          marker: "Marker",
-          line: "Line",
-          polygon: "Area",
-          rectangle: "Rectangle",
-          circle: "Circle",
-          route: "Route",
-        }[drawing.drawn.kind],
-      )}
+      defaultName={nameFor(KIND_NAME[drawing.drawn.kind])}
       onCancel={drawing.clear}
+      onStyle={setChosenStyle}
       saveLabel={submitLabel}
       onSaveShape={(style) => {
         if (drawing.drawn && drawing.drawn.kind !== "marker" && drawing.drawn.kind !== "route")
@@ -382,7 +417,7 @@ export const TakWorkspace = ({
       onCancel={drawing.clear}
       saveLabel={submitLabel}
       onSave={() => {
-        const event = tacticalEvent();
+        const event = tacticalEvent(tacticalPoints);
         if (event) submit(event);
         drawing.clear();
       }}
@@ -582,7 +617,8 @@ export const TakWorkspace = ({
 
       <div className="tak-main">
         <MapCanvas
-          items={mapItems.filter(
+          preview={{ sketch: drawing.sketch, build: previewOf }}
+          items={items.filter(
             (i) => !(ownPosition.fix && i.uid === sender.uid) && i.uid !== drawing.editing?.uid,
           )}
           tracks={trackFeatures(
@@ -599,7 +635,6 @@ export const TakWorkspace = ({
             setChooser(uids.length > 1 ? { uids, at } : undefined);
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
           }}
-          onCursor={setCursor}
           onReady={(ready) => {
             mapRef.current = ready;
             setMap(ready);
@@ -744,7 +779,6 @@ export const TakWorkspace = ({
         <StatusBar
           status={status}
           callsign={callsign}
-          cursor={cursor}
           coordFormat={settings.coordFormat}
           itemCount={items.length}
         />

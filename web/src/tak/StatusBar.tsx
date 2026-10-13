@@ -1,14 +1,13 @@
 import { Group, Text } from "@mantine/core";
 import { type CoordFormat, formatCoord } from "./coords.ts";
-import type { Position } from "./cot.ts";
 import { formatAge } from "./items.ts";
+import { useCursor } from "./map/cursor.ts";
 import type { TakStatus } from "./session.ts";
 import { useNow } from "./use-now.ts";
 
 type Props = {
   status: TakStatus;
   callsign: string | null | undefined;
-  cursor: Position | undefined;
   coordFormat: CoordFormat;
   itemCount: number;
 };
@@ -21,8 +20,9 @@ export const CONNECTION_TEXT = {
 };
 
 /** The freshness line operators glance at: where the cursor is, and how current the picture is. */
-export const StatusBar = ({ status, callsign, cursor, coordFormat, itemCount }: Props) => {
+export const StatusBar = ({ status, callsign, coordFormat, itemCount }: Props) => {
   const now = useNow(1000);
+  const cursor = useCursor();
 
   return (
     <Group className="tak-statusbar" gap="lg" wrap="nowrap" role="status">

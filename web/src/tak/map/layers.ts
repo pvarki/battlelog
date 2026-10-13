@@ -12,7 +12,7 @@ import {
   pruneLabels,
   referenceDot,
 } from "./symbols.ts";
-import { pruneTactical, tacticalFeatures } from "./tactical.ts";
+import { pruneTactical, tacticalFeatures, tacticalReady } from "./tactical.ts";
 
 /**
  * Items as the GeoJSON sources the map draws, following ATAK's conventions:
@@ -32,6 +32,8 @@ export type Sources = {
   decorations: FeatureCollection;
   /** MIL-STD-2525 tactical graphics, rendered from drawings that carry a symbol code. */
   tactical: FeatureCollection;
+  /** Some graphic is still rendering: drawn plain for now, onTacticalRendered tells when it's ready. */
+  graphicsPending: boolean;
 };
 
 const EARTH_RADIUS_M = 6_371_008.8;
@@ -163,6 +165,8 @@ export const toSources = (
   now: number,
   /** The map's rotation, so line labels stay readable when it turns. */
   bearing: number,
+  /** Off for the drawing preview: its few items say nothing about which cached images the picture still uses. */
+  prune = true,
 ): Sources => {
   const points: Feature[] = [];
   const shapes: Feature[] = [];
@@ -170,6 +174,7 @@ export const toSources = (
   const lineLabels: Feature[] = [];
   const decorations: Feature[] = [];
   const tactical: Feature[] = [];
+  let graphicsPending = false;
 
   // Set per item below; drafts get a dashed outline so they can't pass for what TAK has.
   let draft = false;
@@ -216,6 +221,7 @@ export const toSources = (
     const g = item.geometry;
 
     const graphic = g.type === "Point" ? undefined : tacticalFeatures(map, item, bearing);
+    if (!graphic && !tacticalReady(item)) graphicsPending = true;
     if (graphic) {
       tactical.push(...graphic);
       continue;
@@ -380,8 +386,10 @@ export const toSources = (
     type: "FeatureCollection",
     features,
   });
-  pruneTactical();
-  pruneLabels(map);
+  if (prune) {
+    pruneTactical();
+    pruneLabels(map);
+  }
   return {
     points: collection(points),
     shapes: collection(shapes),
@@ -389,5 +397,6 @@ export const toSources = (
     lineLabels: collection(lineLabels),
     decorations: collection(decorations),
     tactical: collection(tactical),
+    graphicsPending,
   };
 };

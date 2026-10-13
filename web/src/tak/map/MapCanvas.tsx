@@ -10,18 +10,22 @@ import {
   Popup,
   ScaleControl,
 } from "maplibre-gl";
-import { useEffect, useRef, useState } from "react";
-import type { Position, TakItem } from "../cot.ts";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { TakItem } from "../cot.ts";
+import type { Drawn, Sketch } from "../drawing/useDrawing.ts";
 import { labelOf } from "../items.ts";
 import type { MapView } from "../tools.ts";
 import { useNow } from "../use-now.ts";
 import { BASEMAPS, type Basemap } from "./basemaps.ts";
+import { setCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
 import { toSources } from "./layers.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
 type Props = {
   items: TakItem[];
+  /** What's being drawn, in its final look, on its own layers: the pointer moving it redraws only that. */
+  preview?: { sketch: Sketch; build: (sketch: Drawn | undefined) => TakItem[] };
   /** Breadcrumb trails, from `trackFeatures`. */
   tracks: FeatureCollection;
   hidden: ReadonlySet<string>;
@@ -31,7 +35,6 @@ type Props = {
   selectedUid: string | undefined;
   /** Every item under a click, topmost first, and where on the map it was. */
   onPick: (uids: string[], at: { x: number; y: number }) => void;
-  onCursor: (position: Position | undefined) => void;
   onReady: (map: MapLibreMap | undefined) => void;
   /** A fixed starting view; the map then doesn't remember where the viewer left it. */
   view?: MapView;
@@ -42,6 +45,9 @@ type Props = {
 };
 
 const VIEW_KEY = "battlelog.tak.view";
+
+const sameMembers = <T,>(a: readonly T[], b: readonly T[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
 const FINLAND = { center: [25.5, 64] as [number, number], zoom: 4.5, bearing: 0 };
 // Fading depends on the clock as well as on data: re-evaluate even when nothing arrives.
 const FADE_CHECK_MS = 30_000;
@@ -112,56 +118,9 @@ const DASHES: ExpressionSpecification = [
   ["literal", [1, 0]],
 ];
 
-const addItemLayers = (map: MapLibreMap) => {
-  const empty = { type: "FeatureCollection" as const, features: [] };
-  for (const name of ITEM_SOURCES) {
-    if (name !== "tactical") map.addSource(`tak-${name}`, { type: "geojson", data: empty });
-  }
-  const overlapping = { "icon-allow-overlap": true, "icon-ignore-placement": true } as const;
-  map.addLayer({
-    id: "tak-shape-fills",
-    type: "fill",
-    source: "tak-shapes",
-    filter: ["==", ["geometry-type"], "Polygon"],
-    paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fillOpacity"] },
-  });
-  map.addLayer({
-    id: "tak-draft-shapes",
-    type: "line",
-    source: "tak-shapes",
-    filter: ["==", ["get", "draft"], true],
-    paint: {
-      "line-color": ACCENT,
-      "line-width": ["+", ["get", "strokeWidth"], 6],
-      "line-opacity": 0.7,
-      "line-dasharray": ["literal", [1, 1]],
-    },
-  });
-  map.addLayer({
-    id: "tak-shape-casings",
-    type: "line",
-    source: "tak-shapes",
-    filter: ["==", ["get", "strokeStyle"], "outlined"],
-    paint: { "line-color": "#000000", "line-width": ["+", ["get", "strokeWidth"], 2] },
-  });
-  map.addLayer({
-    id: "tak-shape-lines",
-    type: "line",
-    source: "tak-shapes",
-    paint: {
-      "line-color": ["get", "stroke"],
-      "line-width": ["get", "strokeWidth"],
-      "line-opacity": ["get", "strokeOpacity"],
-      "line-dasharray": DASHES,
-    },
-  });
-  map.addLayer({
-    id: "tak-selected-shape",
-    type: "line",
-    source: "tak-shapes",
-    filter: ["==", ["get", "uid"], ""],
-    paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
-  });
+const empty = { type: "FeatureCollection" as const, features: [] };
+
+const addTrackLayers = (map: MapLibreMap) => {
   map.addSource("tak-tracks", { type: "geojson", data: empty });
   map.addLayer({
     id: "tak-track-lines",
@@ -182,18 +141,71 @@ const addItemLayers = (map: MapLibreMap) => {
       "circle-stroke-width": 0.5,
     },
   });
-  addTacticalLayers(map);
+};
+
+/** The item layers over sources named `${prefix}-…`: "tak" for the picture, "tak-preview" for what's being drawn. */
+const addItemLayers = (map: MapLibreMap, prefix: string) => {
+  for (const name of ITEM_SOURCES) {
+    if (name !== "tactical") map.addSource(`${prefix}-${name}`, { type: "geojson", data: empty });
+  }
+  const overlapping = { "icon-allow-overlap": true, "icon-ignore-placement": true } as const;
   map.addLayer({
-    id: "tak-selected-tactical",
+    id: `${prefix}-shape-fills`,
+    type: "fill",
+    source: `${prefix}-shapes`,
+    filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fillOpacity"] },
+  });
+  map.addLayer({
+    id: `${prefix}-draft-shapes`,
     type: "line",
-    source: "tak-tactical",
+    source: `${prefix}-shapes`,
+    filter: ["==", ["get", "draft"], true],
+    paint: {
+      "line-color": ACCENT,
+      "line-width": ["+", ["get", "strokeWidth"], 6],
+      "line-opacity": 0.7,
+      "line-dasharray": ["literal", [1, 1]],
+    },
+  });
+  map.addLayer({
+    id: `${prefix}-shape-casings`,
+    type: "line",
+    source: `${prefix}-shapes`,
+    filter: ["==", ["get", "strokeStyle"], "outlined"],
+    paint: { "line-color": "#000000", "line-width": ["+", ["get", "strokeWidth"], 2] },
+  });
+  map.addLayer({
+    id: `${prefix}-shape-lines`,
+    type: "line",
+    source: `${prefix}-shapes`,
+    paint: {
+      "line-color": ["get", "stroke"],
+      "line-width": ["get", "strokeWidth"],
+      "line-opacity": ["get", "strokeOpacity"],
+      "line-dasharray": DASHES,
+    },
+  });
+  map.addLayer({
+    id: `${prefix}-selected-shape`,
+    type: "line",
+    source: `${prefix}-shapes`,
+    filter: ["==", ["get", "uid"], ""],
+    paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
+  });
+  if (prefix === "tak") addTrackLayers(map);
+  addTacticalLayers(map, prefix);
+  map.addLayer({
+    id: `${prefix}-selected-tactical`,
+    type: "line",
+    source: `${prefix}-tactical`,
     filter: ["==", ["get", "uid"], ""],
     paint: { "line-color": ACCENT, "line-width": 6, "line-opacity": 0.6 },
   });
   map.addLayer({
-    id: "tak-decorations",
+    id: `${prefix}-decorations`,
     type: "symbol",
-    source: "tak-decorations",
+    source: `${prefix}-decorations`,
     layout: {
       ...overlapping,
       "icon-image": ["get", "icon"],
@@ -203,9 +215,9 @@ const addItemLayers = (map: MapLibreMap) => {
     },
   });
   map.addLayer({
-    id: "tak-line-labels",
+    id: `${prefix}-line-labels`,
     type: "symbol",
-    source: "tak-lineLabels",
+    source: `${prefix}-lineLabels`,
     layout: {
       ...overlapping,
       "icon-image": ["get", "icon"],
@@ -214,9 +226,9 @@ const addItemLayers = (map: MapLibreMap) => {
     },
   });
   map.addLayer({
-    id: "tak-draft-points",
+    id: `${prefix}-draft-points`,
     type: "circle",
-    source: "tak-points",
+    source: `${prefix}-points`,
     filter: ["==", ["get", "draft"], true],
     paint: {
       "circle-radius": 15,
@@ -227,9 +239,9 @@ const addItemLayers = (map: MapLibreMap) => {
     },
   });
   map.addLayer({
-    id: "tak-selected-point",
+    id: `${prefix}-selected-point`,
     type: "circle",
-    source: "tak-points",
+    source: `${prefix}-points`,
     filter: ["==", ["get", "uid"], ""],
     paint: {
       "circle-radius": 18,
@@ -239,9 +251,9 @@ const addItemLayers = (map: MapLibreMap) => {
     },
   });
   map.addLayer({
-    id: "tak-points",
+    id: `${prefix}-points`,
     type: "symbol",
-    source: "tak-points",
+    source: `${prefix}-points`,
     layout: {
       ...overlapping,
       "icon-image": ["get", "icon"],
@@ -250,9 +262,9 @@ const addItemLayers = (map: MapLibreMap) => {
     },
   });
   map.addLayer({
-    id: "tak-marker-labels",
+    id: `${prefix}-marker-labels`,
     type: "symbol",
-    source: "tak-markerLabels",
+    source: `${prefix}-markerLabels`,
     minzoom: MARKER_LABEL_MIN_ZOOM,
     layout: { ...overlapping, "icon-image": ["get", "icon"], "icon-offset": ["get", "offset"] },
   });
@@ -261,13 +273,13 @@ const addItemLayers = (map: MapLibreMap) => {
 /** The MapLibre map: basemap, TAK items, selection, hover names and the cursor position. */
 export const MapCanvas = ({
   items,
+  preview,
   tracks,
   hidden,
   basemap,
   dim,
   selectedUid,
   onPick,
-  onCursor,
   onReady,
   view,
   passive = false,
@@ -279,8 +291,8 @@ export const MapCanvas = ({
   const [bearing, setBearing] = useState(0);
   const itemsByUid = useRef(new Map<string, TakItem>());
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
-  const callbacks = useRef({ onPick, onCursor, onReady, passive });
-  callbacks.current = { onPick, onCursor, onReady, passive };
+  const callbacks = useRef({ onPick, onReady, passive });
+  callbacks.current = { onPick, onReady, passive };
   // The map is created once; pinning a new view applies on the next open.
   const startView = useRef(view);
 
@@ -313,7 +325,8 @@ export const MapCanvas = ({
     const uidAt = (e: MapMouseEvent) => uidsAt(e)[0];
 
     m.on("load", () => {
-      addItemLayers(m);
+      addItemLayers(m, "tak");
+      addItemLayers(m, "tak-preview");
       setMap(m);
       setBearing(m.getBearing());
       callbacks.current.onReady(m);
@@ -324,7 +337,7 @@ export const MapCanvas = ({
       if (!callbacks.current.passive) callbacks.current.onPick(uidsAt(e), e.point);
     });
     m.on("mousemove", (e) => {
-      callbacks.current.onCursor([e.lngLat.lng, e.lngLat.lat]);
+      setCursor([e.lngLat.lng, e.lngLat.lat]);
       const uid = callbacks.current.passive ? undefined : uidAt(e);
       const item = uid ? itemsByUid.current.get(uid) : undefined;
       m.getCanvas().style.cursor = item ? "pointer" : "";
@@ -337,7 +350,7 @@ export const MapCanvas = ({
       hover.setLngLat(e.lngLat).setDOMContent(label).addTo(m);
     });
     m.on("mouseout", () => {
-      callbacks.current.onCursor(undefined);
+      setCursor(undefined);
       hover.remove();
     });
 
@@ -354,18 +367,39 @@ export const MapCanvas = ({
     map.setPaintProperty("basemap", "raster-saturation", dim ? -0.4 : 0);
   }, [map, basemap, dim]);
 
+  // What the picture was last drawn from. Every upload makes MapLibre's worker re-tile the
+  // whole picture, so a render that changed nothing on the map must not reach it.
+  const drawnFrom = useRef<{
+    items: TakItem[];
+    hidden: ReadonlySet<string>;
+    now: number;
+    bearing: number;
+  }>(undefined);
+  const awaitingGraphics = useRef(false);
+
   useEffect(() => {
     if (!map) return;
-    // ponytail: full setData per notify (≤4/s); switch to updateData diffs if large pictures stutter.
+    // ponytail: full setData per change (≤4/s); switch to updateData diffs if large pictures stutter.
     const draw = () => {
       const sources = toSources(map, items, hidden, now, bearing);
       for (const name of ITEM_SOURCES) {
         (map.getSource(`tak-${name}`) as GeoJSONSource).setData(sources[name]);
       }
+      drawnFrom.current = { items, hidden, now, bearing };
+      awaitingGraphics.current = sources.graphicsPending;
     };
-    draw();
+    const last = drawnFrom.current;
+    const unchanged =
+      last &&
+      last.now === now &&
+      last.bearing === bearing &&
+      sameMembers(last.items, items) &&
+      sameMembers([...last.hidden], [...hidden]);
+    if (!unchanged) draw();
     // Graphics and icon-set icons load asynchronously the first time; redraw when they're ready.
-    const offTactical = onTacticalRendered(draw);
+    const offTactical = onTacticalRendered(() => {
+      if (awaitingGraphics.current) draw();
+    });
     const offIconsets = onIconsetsChanged(draw);
     return () => {
       offTactical();
@@ -381,8 +415,12 @@ export const MapCanvas = ({
     }
   }, [map, symbolScale]);
 
+  const drawnTracks = useRef("");
   useEffect(() => {
-    (map?.getSource("tak-tracks") as GeoJSONSource | undefined)?.setData(tracks);
+    const json = JSON.stringify(tracks);
+    if (!map || json === drawnTracks.current) return;
+    drawnTracks.current = json;
+    (map.getSource("tak-tracks") as GeoJSONSource).setData(tracks);
   }, [map, tracks]);
 
   useEffect(() => {
@@ -393,5 +431,35 @@ export const MapCanvas = ({
     map.setFilter("tak-selected-tactical", filter);
   }, [map, selectedUid]);
 
-  return <div ref={container} className="tak-map" aria-label="TAK map" role="application" />;
+  return (
+    <>
+      <div ref={container} className="tak-map" aria-label="TAK map" role="application" />
+      {map && preview && <PreviewLayer map={map} bearing={bearing} {...preview} />}
+    </>
+  );
+};
+
+const NO_GROUPS_HIDDEN = new Set<string>();
+
+const PreviewLayer = ({
+  map,
+  bearing,
+  sketch,
+  build,
+}: { map: MapLibreMap; bearing: number } & NonNullable<Props["preview"]>) => {
+  const shape = useSyncExternalStore(sketch.subscribe, sketch.get);
+  const items = build(shape);
+  useEffect(() => {
+    const draw = () => {
+      const sources = toSources(map, items, NO_GROUPS_HIDDEN, Date.now(), bearing, false);
+      // Until its graphic is rendered, keep showing the last one rather than flicker to a plain line.
+      if (sources.graphicsPending) return;
+      for (const name of ITEM_SOURCES) {
+        (map.getSource(`tak-preview-${name}`) as GeoJSONSource).setData(sources[name]);
+      }
+    };
+    draw();
+    return onTacticalRendered(draw);
+  }, [map, items, bearing]);
+  return null;
 };

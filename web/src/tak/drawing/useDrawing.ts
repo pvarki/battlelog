@@ -94,6 +94,39 @@ const selectFlags = (tool: Tool, item: TakItem) => {
   };
 };
 
+const GUIDE_STYLE = {
+  fillColor: ACCENT,
+  fillOpacity: 0,
+  outlineColor: ACCENT,
+  outlineWidth: 1,
+} as const;
+
+/**
+ * The shape under the pointer while it's being drawn. A store, not state: it
+ * changes on every pointer move, and only the preview layer should hear it.
+ */
+export type Sketch = {
+  get: () => Drawn | undefined;
+  set: (shape: Drawn | undefined) => void;
+  subscribe: (listener: () => void) => () => void;
+};
+
+const createSketch = (): Sketch => {
+  let shape: Drawn | undefined;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => shape,
+    set: (next) => {
+      shape = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+};
+
 /**
  * Drawing on the map with terra-draw: pick a tool, draw, and get back what was
  * drawn; the sketch stays on the map until `clear` (after save or cancel).
@@ -105,7 +138,7 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
   const [drawn, setDrawn] = useState<Drawn>();
   const [graphic, setGraphic] = useState<TacticalGraphic>();
   /** A tactical graphic's shape while it's being drawn, so it can be previewed. */
-  const [sketch, setSketch] = useState<Drawn>();
+  const [sketch] = useState(createSketch);
   const [editing, setEditing] = useState<{ item: TakItem; tool: Tool; featureId: string }>();
   const toolRef = useRef(tool);
   toolRef.current = tool;
@@ -118,10 +151,11 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       adapter: new TerraDrawMapLibreGLAdapter({ map }),
       modes: [
         new TerraDrawPointMode({ styles: { pointColor: ACCENT } }),
-        new TerraDrawLineStringMode({ styles: { lineStringColor: ACCENT } }),
-        new TerraDrawPolygonMode({ styles: { fillColor: ACCENT, outlineColor: ACCENT } }),
-        new TerraDrawRectangleMode({ styles: { fillColor: ACCENT, outlineColor: ACCENT } }),
-        new TerraDrawCircleMode({ styles: { fillColor: ACCENT, outlineColor: ACCENT } }),
+        // Thin guides only: the preview layer shows the shape as it will look.
+        new TerraDrawLineStringMode({ styles: { lineStringColor: ACCENT, lineStringWidth: 1 } }),
+        new TerraDrawPolygonMode({ styles: { ...GUIDE_STYLE } }),
+        new TerraDrawRectangleMode({ styles: { ...GUIDE_STYLE } }),
+        new TerraDrawCircleMode({ styles: { ...GUIDE_STYLE } }),
         new TerraDrawSelectMode({
           // Only the item being edited is on the layer, and Save or Cancel ends the edit.
           allowManualSelection: false,
@@ -133,18 +167,18 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
     terra.start();
     terra.on("change", (ids) => {
       const current = toolRef.current;
-      if (!graphicRef.current || !current) return;
+      if (!current) return;
       const geometry = ids
         .map((id) => terra.getSnapshotFeature(id)?.geometry)
         .find((g) => g && g.type !== "Point");
-      if (geometry) setSketch(drawnFrom(current, geometry));
+      if (geometry) sketch.set(drawnFrom(current, geometry));
     });
     terra.on("finish", (id, context) => {
       const feature = terra.getSnapshotFeature(id);
       const current = toolRef.current;
       if (context.action !== "draw" || !feature || !current) return;
       setDrawn(drawnFrom(current, feature.geometry));
-      setSketch(undefined);
+      sketch.set(undefined);
       // One item at a time: stop drawing while the user names and styles it.
       terra.setMode("static");
     });
@@ -153,13 +187,13 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       terra.stop();
       draw.current = undefined;
     };
-  }, [map]);
+  }, [map, sketch]);
 
   const clear = () => {
     draw.current?.clear();
     draw.current?.setMode("static");
     setDrawn(undefined);
-    setSketch(undefined);
+    sketch.set(undefined);
     setTool(undefined);
     setGraphic(undefined);
     setEditing(undefined);
@@ -168,7 +202,7 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
   const choose = (next: Tool | undefined, nextGraphic?: TacticalGraphic) => {
     draw.current?.clear();
     setDrawn(undefined);
-    setSketch(undefined);
+    sketch.set(undefined);
     setEditing(undefined);
     setTool(next);
     setGraphic(next && nextGraphic);
