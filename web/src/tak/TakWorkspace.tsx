@@ -279,6 +279,7 @@ export const TakWorkspace = () => {
         selectedUid={selectedUid}
         onPick={pick}
         callsignOf={callsignOf}
+        clientUid={callsign ? sender.uid : undefined}
       />
     ) : id === "items" ? (
       <ItemsDrawer
@@ -311,6 +312,8 @@ export const TakWorkspace = () => {
       item={selected}
       coordFormat={settings.coordFormat}
       missions={missionsOf(selected.uid)}
+      allMissions={missions.missions ?? []}
+      clientUid={callsign ? sender.uid : undefined}
       readOnlyReason={readOnlyReason(selected)}
       callsign={callsign}
       contacts={contacts}

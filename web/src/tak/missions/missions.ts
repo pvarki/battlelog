@@ -93,7 +93,7 @@ export const parseMissionList = (json: unknown): Mission[] => {
   });
 };
 
-const missionPath = (name: string) => `/Marti/api/missions/${encodeURIComponent(name)}`;
+export const missionPath = (name: string) => `/Marti/api/missions/${encodeURIComponent(name)}`;
 
 export const fetchMissions = async (signal?: AbortSignal) =>
   parseMissionList(JSON.parse((await takGetText("/Marti/api/missions", signal)) || "{}"));
