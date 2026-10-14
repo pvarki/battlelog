@@ -1,6 +1,7 @@
 import { useLocalStorage } from "@mantine/hooks";
 import type { CoordFormat } from "./coords.ts";
-import type { Basemap } from "./map/basemaps.ts";
+import { DEFAULT_BASEMAP } from "./map/basemaps.ts";
+import type { CustomSource } from "./map/custom-sources.ts";
 import { DEFAULT_ROLE, DEFAULT_TEAM } from "./position/self-sa.ts";
 
 /** Per-viewer map preferences, remembered in this browser only. */
@@ -9,9 +10,21 @@ export const useMapSettings = () => {
     key: "battlelog.tak.coordFormat",
     defaultValue: "mgrs",
   });
-  const [basemap, setBasemap] = useLocalStorage<Basemap>({
+  const [basemap, setBasemap] = useLocalStorage<string>({
     key: "battlelog.tak.basemap",
-    defaultValue: "topographic",
+    defaultValue: DEFAULT_BASEMAP,
+  });
+  const [overlay, setOverlay] = useLocalStorage<string | null>({
+    key: "battlelog.tak.overlay",
+    defaultValue: null,
+  });
+  const [overlayOpacity, setOverlayOpacity] = useLocalStorage({
+    key: "battlelog.tak.overlayOpacity",
+    defaultValue: 0.6,
+  });
+  const [customSources, setCustomSources] = useLocalStorage<CustomSource[]>({
+    key: "battlelog.tak.mapSources",
+    defaultValue: [],
   });
   const [dim, setDim] = useLocalStorage({ key: "battlelog.tak.dim", defaultValue: false });
   const [showAllTracks, setShowAllTracks] = useLocalStorage({
@@ -51,6 +64,12 @@ export const useMapSettings = () => {
     setCoordFormat,
     basemap,
     setBasemap,
+    overlay,
+    setOverlay,
+    overlayOpacity,
+    setOverlayOpacity,
+    customSources,
+    setCustomSources,
     dim,
     setDim,
     showAllTracks,

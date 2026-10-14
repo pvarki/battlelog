@@ -29,6 +29,7 @@
     "matrix-js-sdk": "^43.0.0",
     "mgrs": "^2.2.0",
     "milsymbol": "^3.0.4",
+    "pmtiles": "4.5.0",
     "proj4": "^2.22.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

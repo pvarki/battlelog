@@ -16,7 +16,7 @@ import type { Drawn, Sketch } from "../drawing/useDrawing.ts";
 import { labelOf } from "../items.ts";
 import type { MapView } from "../tools.ts";
 import { useNow } from "../use-now.ts";
-import { BASEMAPS, type Basemap } from "./basemaps.ts";
+import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
 import { toSources } from "./layers.ts";
@@ -34,7 +34,9 @@ type Props = {
   /** Breadcrumb trails, from `trackFeatures`. */
   tracks: FeatureCollection;
   hidden: ReadonlySet<string>;
-  basemap: Basemap;
+  basemap: MapSource;
+  /** A second map drawn see-through over the background, like orthophoto over topographic. */
+  overlay?: { source: MapSource; opacity: number };
   /** Night use: the bright MML maps glare next to a dark UI. */
   dim: boolean;
   selectedUid: string | undefined;
@@ -90,17 +92,22 @@ const saveView = (map: MapLibreMap) => {
   }
 };
 
-const shownBasemap = new WeakMap<MapLibreMap, Basemap>();
+const shownRasters = new WeakMap<MapLibreMap, Map<string, string>>();
 
-const showBasemap = (map: MapLibreMap, basemap: Basemap) => {
-  if (shownBasemap.get(map) === basemap) return;
-  shownBasemap.set(map, basemap);
-  const { tiles, attribution, maxzoom } = BASEMAPS[basemap];
-  if (map.getLayer("basemap")) map.removeLayer("basemap");
-  if (map.getSource("basemap")) map.removeSource("basemap");
-  map.addSource("basemap", { type: "raster", tiles: [tiles], tileSize: 256, attribution, maxzoom });
-  const firstItemLayer = map.getStyle().layers.find((l) => l.id.startsWith("tak-"))?.id;
-  map.addLayer({ id: "basemap", type: "raster", source: "basemap" }, firstItemLayer);
+/** Puts `source` on the raster layer `id` (or takes it off), keeping basemap below overlay below the rest. */
+const showRaster = (map: MapLibreMap, id: "basemap" | "overlay", source: MapSource | undefined) => {
+  const shown = shownRasters.get(map) ?? new Map<string, string>();
+  shownRasters.set(map, shown);
+  const key = source ? JSON.stringify(source.spec) : "";
+  if (shown.get(id) === key) return;
+  shown.set(id, key);
+  if (map.getLayer(id)) map.removeLayer(id);
+  if (map.getSource(id)) map.removeSource(id);
+  if (!source) return;
+  map.addSource(id, source.spec);
+  const layers = map.getStyle().layers.map((l) => l.id);
+  const below = id === "basemap" ? layers[0] : layers[layers.indexOf("basemap") + 1];
+  map.addLayer({ id, type: "raster", source: id }, below);
 };
 
 const ITEM_SOURCES = [
@@ -283,6 +290,7 @@ export const MapCanvas = ({
   tracks,
   hidden,
   basemap,
+  overlay,
   dim,
   selectedUid,
   onPick,
@@ -368,10 +376,15 @@ export const MapCanvas = ({
 
   useEffect(() => {
     if (!map) return;
-    showBasemap(map, basemap);
-    map.setPaintProperty("basemap", "raster-brightness-max", dim ? 0.55 : 1);
-    map.setPaintProperty("basemap", "raster-saturation", dim ? -0.4 : 0);
-  }, [map, basemap, dim]);
+    showRaster(map, "basemap", basemap);
+    showRaster(map, "overlay", overlay?.source);
+    for (const id of ["basemap", "overlay"]) {
+      if (!map.getLayer(id)) continue;
+      map.setPaintProperty(id, "raster-brightness-max", dim ? 0.55 : 1);
+      map.setPaintProperty(id, "raster-saturation", dim ? -0.4 : 0);
+    }
+    if (overlay) map.setPaintProperty("overlay", "raster-opacity", overlay.opacity);
+  }, [map, basemap, overlay, dim]);
 
   // What the picture was last drawn from. Every upload makes MapLibre's worker re-tile the
   // whole picture, so a render that changed nothing on the map must not reach it.

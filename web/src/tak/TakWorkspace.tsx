@@ -53,6 +53,7 @@ import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { anchorOf, hasPosition, labelOf } from "./items.ts";
+import { DEFAULT_BASEMAP, type MapSource, useMapSources } from "./map/basemaps.ts";
 import { createCursor } from "./map/cursor.ts";
 import { type Follow, followedItems, positionsOf, useFollow } from "./map/follow.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
@@ -255,6 +256,10 @@ export const TakWorkspace = ({
   const status = useTakStatus();
   const callsign = useCallsign();
   const settings = useMapSettings();
+  const mapSources = useMapSources(settings.customSources);
+  const sourceById = (id: string | null) => mapSources.find((s) => s.id === id);
+  const basemap = sourceById(settings.basemap) ?? (sourceById(DEFAULT_BASEMAP) as MapSource);
+  const overlaySource = sourceById(settings.overlay);
   const hidden = hiddenGroups ?? settings.hidden;
   const shownMissions = new Set([
     ...settings.shownMissions,
@@ -556,7 +561,7 @@ export const TakWorkspace = ({
         onToggleGroup={settings.toggleGroup}
       />
     ) : (
-      <LayersDrawer settings={settings}>
+      <LayersDrawer settings={settings} sources={mapSources}>
         {import.meta.env.DEV && callsign && (
           <Button
             size="xs"
@@ -650,7 +655,8 @@ export const TakWorkspace = ({
             hidden,
           )}
           hidden={hidden}
-          basemap={settings.basemap}
+          basemap={basemap}
+          overlay={overlaySource && { source: overlaySource, opacity: settings.overlayOpacity }}
           dim={settings.dim}
           selectedUid={selectedUid}
           onPick={(uids, at) => {

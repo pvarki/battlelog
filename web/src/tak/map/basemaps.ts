@@ -1,3 +1,7 @@
+import type { RasterSourceSpecification } from "maplibre-gl";
+import { type CustomSource, toMapSource } from "./custom-sources.ts";
+import { useOfflineMaps } from "./offline-maps.ts";
+
 /**
  * Background maps. Each is a raster tile source, so offline use later means
  * adding a source that reads cached or downloaded tiles; the map code stays.
@@ -17,6 +21,15 @@ const mmlWmts = (layer: string, format: "png" | "jpg") =>
 const kapsiWms = (layer: string) =>
   `https://tiles.kartat.kapsi.fi/${layer}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${layer}&STYLES=&SRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg`;
 
+/** A raster map: a background, or an overlay drawn over one. */
+export type MapSource = {
+  id: string;
+  label: string;
+  spec: RasterSourceSpecification;
+  /** Added in this browser, so the viewer may remove it. */
+  origin: "builtin" | "custom" | "offline";
+};
+
 const mml = (label: string, wmtsLayer: string, format: "png" | "jpg", kapsiLayer: string) => ({
   label,
   tiles: MML_KEY ? mmlWmts(wmtsLayer, format) : kapsiWms(kapsiLayer),
@@ -24,7 +37,7 @@ const mml = (label: string, wmtsLayer: string, format: "png" | "jpg", kapsiLayer
   maxzoom: 19,
 });
 
-export const BASEMAPS = {
+const BASEMAPS = {
   topographic: mml("MML topographic", "maastokartta", "png", "peruskartta"),
   background: mml("MML background", "taustakartta", "png", "taustakartta"),
   // ponytail: ortokuva's WMTS format (jpg) is unverified without a key; check on first keyed run.
@@ -37,4 +50,20 @@ export const BASEMAPS = {
   },
 };
 
-export type Basemap = keyof typeof BASEMAPS;
+export const BUILTIN_SOURCES: MapSource[] = Object.entries(BASEMAPS).map(
+  ([id, { label, tiles, attribution, maxzoom }]) => ({
+    id,
+    label,
+    spec: { type: "raster", tiles: [tiles], tileSize: 256, attribution, maxzoom },
+    origin: "builtin",
+  }),
+);
+
+export const DEFAULT_BASEMAP = "topographic";
+
+/** Every map this viewer can choose: built in, added by URL, and offline files. */
+export const useMapSources = (custom: CustomSource[]): MapSource[] => [
+  ...BUILTIN_SOURCES,
+  ...custom.map(toMapSource),
+  ...useOfflineMaps(),
+];
