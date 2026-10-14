@@ -1,3 +1,5 @@
+import proj4 from "proj4";
+import { TM35FIN } from "../coords.ts";
 import { type CotEvent, destination, type Position, type TakColor, type TakItem } from "../cot.ts";
 import {
   defaultWaypointNames,
@@ -10,10 +12,10 @@ import {
 } from "../drawing/new-items.ts";
 
 /**
- * KML and GPX overlays to and from ATAK drawings: placemarks and waypoints
- * become spot markers, lines and tracks u-d-f lines, polygons closed u-d-f
- * shapes and GPX routes b-m-r routes, keeping names, descriptions and KML
- * colours.
+ * KML, GPX and GeoJSON overlays as ATAK drawings, and KML from them:
+ * placemarks, waypoints and points become spot markers, lines and tracks
+ * u-d-f lines, polygons closed u-d-f shapes and GPX routes b-m-r routes,
+ * keeping names, descriptions and colours.
  */
 
 const MAX_FEATURES = 10_000;
@@ -225,6 +227,140 @@ export const gpxToEvents = (xml: string, sender: Sender, now = Date.now()): CotE
       : [];
   });
   return toEvents([...waypoints, ...tracks, ...routes], sender, now);
+};
+
+type GeoJsonGeometry = { type?: unknown; coordinates?: unknown; geometries?: unknown };
+type GeoJsonFeature = { geometry?: GeoJsonGeometry | null; properties?: unknown };
+type Project = (xy: [number, number]) => number[];
+
+const NAME_PROPERTIES = ["name", "title", "Name", "NAME", "label"];
+/** simplestyle-spec's fill opacity when a feature sets a fill colour alone. */
+const SIMPLESTYLE_FILL_OPACITY = 0.6;
+const WGS84_EPSG = new Set(["4326", "4258", "CRS84"]);
+
+/** The legacy `crs` member; RFC 7946 GeoJSON is always WGS84. */
+const crsProjection = (crs: unknown): Project => {
+  const name = (crs as { properties?: { name?: unknown } } | undefined)?.properties?.name;
+  if (typeof name !== "string") return (xy) => xy;
+  const code = name.match(/(\d+|CRS84)$/)?.[1] ?? "";
+  if (WGS84_EPSG.has(code)) return (xy) => xy;
+  if (code === "3067") return (xy) => proj4(TM35FIN, "WGS84", xy);
+  throw new Error(`Unsupported coordinate system ${name}; export the file as WGS84`);
+};
+
+const hexColor = (value: unknown): string | undefined => {
+  const hex = typeof value === "string" ? value.replace(/^#/, "").toLowerCase() : "";
+  if (/^[0-9a-f]{6}$/.test(hex)) return `#${hex}`;
+  if (/^[0-9a-f]{3}$/.test(hex)) return `#${[...hex].map((c) => c + c).join("")}`;
+  return undefined;
+};
+
+const simplestyle = (props: Record<string, unknown>): KmlStyle => {
+  const line = hexColor(props.stroke);
+  const fill = hexColor(props.fill);
+  const fillOpacity = Number(props["fill-opacity"] ?? SIMPLESTYLE_FILL_OPACITY);
+  const filled = fill !== undefined || props["fill-opacity"] !== undefined;
+  const icon = hexColor(props["marker-color"]);
+  return {
+    icon: icon ? { color: icon, opacity: 1 } : undefined,
+    line: line ? { color: line, opacity: 1 } : undefined,
+    width: Number(props["stroke-width"]) || undefined,
+    fill:
+      filled && Number.isFinite(fillOpacity)
+        ? { color: fill ?? line ?? DEFAULT_COLOR, opacity: Math.min(Math.max(fillOpacity, 0), 1) }
+        : undefined,
+  };
+};
+
+const geoJsonFeatures = (root: unknown): GeoJsonFeature[] => {
+  const { type, features } = (root ?? {}) as { type?: unknown; features?: unknown };
+  if (type === "FeatureCollection" && Array.isArray(features)) return features;
+  if (type === "Feature") return [root as GeoJsonFeature];
+  if (typeof type === "string") return [{ geometry: root as GeoJsonGeometry }];
+  throw new Error("Not a GeoJSON file");
+};
+
+const geometryFeatures = (
+  geometry: GeoJsonGeometry | null | undefined,
+  project: Project,
+  base: { name: string; remarks: string; style: KmlStyle },
+): Feature[] => {
+  const position = (c: unknown): Position[] => {
+    const lonLat = Array.isArray(c) && c.length >= 2 ? project([Number(c[0]), Number(c[1])]) : [];
+    return isPosition(lonLat) ? [lonLat.slice(0, 2) as Position] : [];
+  };
+  const positions = (c: unknown) => (Array.isArray(c) ? c.flatMap(position) : []);
+  const list = (c: unknown): unknown[] => (Array.isArray(c) ? c : []);
+  const marker = (p: Position): Feature => ({
+    kind: "marker",
+    ...base,
+    position: p,
+    color: base.style.icon?.color,
+  });
+  const line = (c: unknown): Feature[] => {
+    const points = positions(c);
+    return points.length >= 2 ? [{ kind: "line", ...base, points }] : [];
+  };
+  // Holes are dropped: ATAK shapes are single rings.
+  const polygon = (rings: unknown): Feature[] => {
+    const points = openRing(positions(list(rings)[0]));
+    return points.length >= 3 ? [{ kind: "polygon", ...base, points }] : [];
+  };
+  const { coordinates } = geometry ?? {};
+  switch (geometry?.type) {
+    case "Point":
+      return position(coordinates).map(marker);
+    case "MultiPoint":
+      return positions(coordinates).map(marker);
+    case "LineString":
+      return line(coordinates);
+    case "MultiLineString":
+      return list(coordinates).flatMap(line);
+    case "Polygon":
+      return polygon(coordinates);
+    case "MultiPolygon":
+      return list(coordinates).flatMap(polygon);
+    case "GeometryCollection":
+      return list(geometry.geometries).flatMap((g) =>
+        geometryFeatures(g as GeoJsonGeometry, project, base),
+      );
+    default:
+      return [];
+  }
+};
+
+/**
+ * GeoJSON features as ATAK drawings, named from the usual name properties and
+ * styled by the simplestyle-spec properties ATAK can show.
+ */
+export const geojsonToEvents = (
+  geojson: string | object,
+  sender: Sender,
+  now = Date.now(),
+): CotEvent[] => {
+  let root: unknown = geojson;
+  if (typeof geojson === "string") {
+    try {
+      root = JSON.parse(geojson);
+    } catch {
+      throw new Error("Not a readable file");
+    }
+  }
+  const project = crsProjection((root as { crs?: unknown } | null)?.crs);
+  const features = geoJsonFeatures(root).flatMap((feature) => {
+    const props = (feature?.properties ?? {}) as Record<string, unknown>;
+    const name = NAME_PROPERTIES.map((key) => props[key]).find(
+      (value) => (typeof value === "string" && value.trim()) || typeof value === "number",
+    );
+    const description = typeof props.description === "string" ? props.description : "";
+    const base = {
+      name: String(name ?? "").trim(),
+      remarks: plainText(description.trim()),
+      style: simplestyle(props),
+    };
+    return geometryFeatures(feature?.geometry, project, base);
+  });
+  return toEvents(features, sender, now);
 };
 
 const ellipseRing = (item: TakItem, { major, minor, angle }: NonNullable<TakItem["ellipse"]>) => {

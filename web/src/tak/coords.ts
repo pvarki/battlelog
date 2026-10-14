@@ -12,7 +12,7 @@ export const COORD_FORMATS = {
 
 export type CoordFormat = keyof typeof COORD_FORMATS;
 
-const TM35FIN = "+proj=utm +zone=35 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs";
+export const TM35FIN = "+proj=utm +zone=35 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs";
 
 /** `35V LG 85650 72345`, grouped like ATAK. Undefined beyond 80°S–84°N, where MGRS hands over to UPS. */
 const formatMgrs = (position: Position): string | undefined => {
