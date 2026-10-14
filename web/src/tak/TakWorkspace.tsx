@@ -14,6 +14,7 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import {
   IconAddressBook,
+  IconChecklist,
   IconClipboardList,
   IconCurrentLocation,
   IconFolders,
@@ -33,6 +34,7 @@ import { useIsMobile } from "../viewport.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
 import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
+import { ChecklistsDrawer } from "./checklists/ChecklistsDrawer.tsx";
 import { deleteEvent } from "./commands.ts";
 import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
 import { recipientGroups } from "./contacts/SendTo.tsx";
@@ -104,7 +106,8 @@ const DRAWERS = {
   layers: { label: "Layers", Icon: IconStack2, key: "4" },
   chat: { label: "Chat", Icon: IconMessage, key: "5" },
   contacts: { label: "Contacts", Icon: IconAddressBook, key: "6" },
-  settings: { label: "Settings", Icon: IconSettings, key: "7" },
+  checklists: { label: "Checklists", Icon: IconChecklist, key: "7" },
+  settings: { label: "Settings", Icon: IconSettings, key: "8" },
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
@@ -501,6 +504,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         missions={missions.missions ?? []}
         clientUid={writerUid}
       />
+    ) : id === "checklists" ? (
+      <ChecklistsDrawer writer={callsign ? sender : undefined} />
     ) : id === "missions" ? (
       <MissionsDrawer
         state={missions}
