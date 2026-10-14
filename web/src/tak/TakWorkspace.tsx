@@ -330,13 +330,17 @@ export const TakWorkspace = ({
   const drawer = chosenDrawer && drawers.includes(chosenDrawer) ? chosenDrawer : null;
   const [selectedUid, setSelectedUidState] = useState<string>();
   const [selectedEventId, setSelectedEventId] = useState<string>();
+  // A selection made in another widget is highlighted, not opened: details would hide the map it's shown on.
+  const [selectedOutside, setSelectedOutside] = useState(false);
   /** Selecting a TAK item lets go of any selected event, and back. */
   const setSelectedUid = (uid: string | undefined) => {
     setSelectedUidState(uid);
+    setSelectedOutside(false);
     if (uid) setSelectedEventId(undefined);
   };
   const selectEvent = (eventId: string | undefined) => {
     setSelectedEventId(eventId);
+    setSelectedOutside(false);
     if (eventId) setSelectedUidState(undefined);
   };
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
@@ -754,6 +758,7 @@ export const TakWorkspace = ({
     lastOutside.current = outsideKey;
     setSelectedUidState(selection.tak);
     setSelectedEventId(selection.tak ? undefined : selection.event);
+    setSelectedOutside(true);
     if (!centreOnSelection) return;
     const item = selection.tak && currentItem(selection.tak);
     if (item) centreOn(item);
@@ -936,7 +941,7 @@ export const TakWorkspace = ({
     />
   );
 
-  const eventDetails = !wall && !selected && selectedEvent && (
+  const eventDetails = !wall && !selectedOutside && !selected && selectedEvent && (
     <EventDetails
       key={selectedEvent.eventId}
       event={selectedEvent}
@@ -954,7 +959,7 @@ export const TakWorkspace = ({
     />
   );
 
-  const details = !wall && selected && (
+  const details = !wall && !selectedOutside && selected && (
     <ItemDetails
       key={selected.uid}
       item={selected}
