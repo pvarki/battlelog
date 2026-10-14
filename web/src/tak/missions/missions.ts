@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { type TakItem, toChange } from "../cot.ts";
-import { parseCotXml } from "../protocol/cot-xml.ts";
-import { fetchLatestCot, TakRequestError, takBaseUrl, takGetText } from "../rest.ts";
+import {
+  fetchLatestCot,
+  parseCotXmlInSlices,
+  TakRequestError,
+  takBaseUrl,
+  takGetText,
+} from "../rest.ts";
+import { inSlices } from "../slices.ts";
 
 /** TAK missions (ATAK's Data Sync): shared folders of map items, files and a log. */
 
@@ -195,11 +201,21 @@ export const fetchInvitedMissions = async (clientUid: string, signal?: AbortSign
   );
 
 /** The mission's map items; TAK refuses (403) restricted missions we're not part of. */
-export const fetchMissionItems = async (name: string, signal?: AbortSignal): Promise<TakItem[]> =>
-  parseCotXml(await takGetText(`${missionPath(name)}/cot`, signal)).flatMap((event) => {
-    const change = toChange(event);
-    return change?.kind === "upsert" ? [change.item] : [];
-  });
+export const fetchMissionItems = async (name: string, signal?: AbortSignal): Promise<TakItem[]> => {
+  const events = await parseCotXmlInSlices(await takGetText(`${missionPath(name)}/cot`, signal));
+  const items: TakItem[] = [];
+  await inSlices(
+    events,
+    (slice) => {
+      for (const event of slice) {
+        const change = toChange(event);
+        if (change?.kind === "upsert") items.push(change.item);
+      }
+    },
+    signal,
+  );
+  return items;
+};
 
 /** One mission item as TAK now has it; undefined when TAK has no map item for the uid. */
 export const fetchMissionItem = async (uid: string): Promise<TakItem | undefined> => {

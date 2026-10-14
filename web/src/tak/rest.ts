@@ -1,6 +1,7 @@
 import { pvarkiDeployment } from "../deployment.ts";
 import type { CotEvent } from "./protocol/cot-event.ts";
-import { parseCotXml } from "./protocol/cot-xml.ts";
+import { cotXmlPieces, parseCotXml } from "./protocol/cot-xml.ts";
+import { SLICE_SIZE, yieldToMain } from "./slices.ts";
 
 /**
  * Where TAK Server's REST API and WebSocket live. The browser talks to TAK
@@ -96,6 +97,24 @@ export const takSend = async (
 };
 
 /** CoT events TAK archived between `start` and `end`; TAK caps the window at 24 h. */
+/** `parseCotXml` a slice at a time: thousands of events parsed in one go block the page. */
+export const parseCotXmlInSlices = async (xml: string, options?: { strict?: boolean }) => {
+  // A wrapper opened but never closed is a cut-off download, which strict parsing must report.
+  if (options?.strict && /<events\b(?![^>]*\/>)[^>]*>/.test(xml) && !/<\/events>\s*$/.test(xml))
+    throw new Error("TAK sent CoT XML that doesn't parse");
+  const events: CotEvent[] = [];
+  for (const [i, piece] of cotXmlPieces(xml, SLICE_SIZE).entries()) {
+    if (i > 0) await yieldToMain();
+    try {
+      events.push(...parseCotXml(piece, { strict: true }));
+    } catch {
+      // Cut in the wrong place, e.g. "</event>" inside CDATA: read it whole, as before slicing.
+      return parseCotXml(xml, options);
+    }
+  }
+  return events;
+};
+
 export const fetchArchive = async (start: Date, end: Date, signal?: AbortSignal) => {
   // Drawings and deletes are only returned with isFiltered=false.
   const query = new URLSearchParams({
@@ -103,9 +122,8 @@ export const fetchArchive = async (start: Date, end: Date, signal?: AbortSignal)
     end: end.toISOString(),
     isFiltered: "false",
   });
-  return parseCotXml(await takGetText(`/Marti/api/cot/sa?${query}`, signal, MAX_HISTORY_BYTES), {
-    strict: true,
-  });
+  const xml = await takGetText(`/Marti/api/cot/sa?${query}`, signal, MAX_HISTORY_BYTES);
+  return parseCotXmlInSlices(xml, { strict: true });
 };
 
 /** The latest stored copy of one item, or undefined when TAK has none. */

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { expect, test } from "vitest";
 import type { CotEvent } from "./cot-event.ts";
-import { parseCotXml } from "./cot-xml.ts";
+import { cotXmlPieces, parseCotXml } from "./cot-xml.ts";
 import { decodeTakMessages, encodeTakMessage } from "./takproto.ts";
 
 const marker: CotEvent = {
@@ -47,6 +47,18 @@ test("archive XML with several events and declarations", () => {
   expect(events[0]?.lat).toBe(60.1);
   expect(events[0]?.time).toBe(Date.parse("2026-10-13T10:00:00Z"));
   expect(events[0]?.detail).toBe('<contact callsign="KETTU23a"/><custom x="1"><nested/></custom>');
+});
+
+test("an archive cut into pieces parses to the same events, wrapper and declarations dropped", () => {
+  const event = (uid: string) =>
+    `<event version="2.0" uid="${uid}" type="a-f-G" how="m-g" time="2026-10-13T10:00:00Z" start="2026-10-13T10:00:00Z" stale="2026-10-13T10:05:00Z"><point lat="60" lon="25" hae="0" ce="0" le="0"/><detail><remarks>&lt;/event&gt; is text</remarks></detail></event>`;
+  const xml = `<?xml version="1.0"?><events>${["a", "b", "c", "d", "e"].map(event).join("")}</events>`;
+  const pieces = cotXmlPieces(xml, 2);
+  expect(pieces).toHaveLength(3);
+  const events = pieces.flatMap((piece) => parseCotXml(piece, { strict: true }));
+  expect(events).toEqual(parseCotXml(xml, { strict: true }));
+  expect(events.map((e) => e.uid)).toEqual(["a", "b", "c", "d", "e"]);
+  expect(cotXmlPieces("<events/>", 2)).toEqual([]);
 });
 
 test("malformed XML yields no events", () => {

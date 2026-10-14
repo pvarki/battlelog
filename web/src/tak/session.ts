@@ -14,6 +14,7 @@ import {
 import { newPresenceEvent, SELF_TYPE, type SelfIdentity } from "./position/self-sa.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
 import { fetchArchive, fetchHistory, takBaseUrl } from "./rest.ts";
+import { inSlices } from "./slices.ts";
 import { createTakStore, DAY_MS } from "./store.ts";
 import { TRACK_MAX_AGE_MS, trackPointOf } from "./tracks.ts";
 
@@ -183,7 +184,8 @@ const backfill = async (signal: AbortSignal) => {
     try {
       const events = await fetchArchive(new Date(from), new Date(to), signal);
       if (signal.aborted) return;
-      events.forEach(applyEvent);
+      await inSlices(events, (slice) => slice.forEach(applyEvent), signal);
+      if (signal.aborted) return;
       syncedThrough = to;
       await save(to);
     } catch (err) {

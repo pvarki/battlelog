@@ -48,6 +48,22 @@ export const parseCotXml = (xml: string, { strict = false } = {}): CotEvent[] =>
   });
 };
 
+/**
+ * An archive's events, `size` to a piece, each piece a document `parseCotXml`
+ * reads: a day's archive parsed in one go blocks the page for seconds. A
+ * misplaced cut only makes a piece fail to parse, which strict parsing reports.
+ */
+export const cotXmlPieces = (xml: string, size: number): string[] => {
+  const events = xml
+    .replace(/<\?xml[^?]*\?>/g, "")
+    .replace(/<\/?events\b[^>]*>/g, "")
+    .split(/(?<=<\/event>)/)
+    .filter((piece) => piece.trim());
+  const pieces: string[] = [];
+  for (let i = 0; i < events.length; i += size) pieces.push(events.slice(i, i + size).join(""));
+  return pieces;
+};
+
 const attr = (value: string | number) =>
   String(value)
     .replaceAll("&", "&amp;")

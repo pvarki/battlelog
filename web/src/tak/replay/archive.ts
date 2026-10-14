@@ -1,5 +1,6 @@
 import { type TakChange, toChange } from "../cot.ts";
 import { fetchArchive } from "../rest.ts";
+import { inSlices } from "../slices.ts";
 import { archiveChunks, changeTime, mergeChanges, REPLAY_MAX_CHANGES } from "./replay.ts";
 
 // Events stored just before the last fetch can reach the archive a little late.
@@ -39,7 +40,13 @@ export const loadReplayChanges = async (
   for (const [i, [from, to]] of chunks.entries()) {
     onProgress(i / chunks.length);
     const events = await fetchArchive(new Date(from), new Date(to), signal);
-    fetched = fetched.concat(events.flatMap((event) => toChange(event) ?? []));
+    await inSlices(
+      events,
+      (slice) => {
+        fetched = fetched.concat(slice.flatMap((event) => toChange(event) ?? []));
+      },
+      signal,
+    );
     if (fetched.length >= REPLAY_MAX_CHANGES) {
       stoppedAt = from;
       break;
