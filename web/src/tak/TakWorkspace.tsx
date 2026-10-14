@@ -27,7 +27,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
-import { type ChatRecipient, newChatEvent } from "./chat/chat.ts";
+import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
 import { deleteEvent, publish } from "./commands.ts";
 import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
@@ -446,7 +446,7 @@ export const TakWorkspace = ({
   useEffect(() => {
     if (drawer === "chat" && newestChat > chatReadAt) setChatReadAt(newestChat);
   }, [drawer, newestChat, chatReadAt, setChatReadAt]);
-  const [chatWith, setChatWith] = useState<ChatRecipient>();
+  const [chatWith, setChatWith] = useState<ChatRoom>();
   const sharing = has("contacts") && settings.sharePosition && !!callsign;
   useEffect(() => {
     const self = takSender(callsign);
@@ -467,7 +467,9 @@ export const TakWorkspace = ({
   };
   const chatContacts = liveItems
     .flatMap((i) =>
-      i.team && i.callsign && i.callsign !== callsign ? [{ uid: i.uid, callsign: i.callsign }] : [],
+      i.team && i.callsign && i.callsign !== callsign
+        ? [{ uid: i.uid, callsign: i.callsign, team: i.team }]
+        : [],
     )
     .sort((a, b) => a.callsign.localeCompare(b.callsign));
   const nameFor = (label: string) =>
@@ -683,7 +685,8 @@ export const TakWorkspace = ({
         selfUid={sender.uid}
         contacts={chatContacts}
         sendReason={sendReason}
-        onSend={(text, to) => sendCot(newChatEvent(text, to, sender))}
+        team={settings.team}
+        onSend={(text, room) => sendCot(newChatEvent(text, room, sender))}
         initialRoom={chatWith}
       />
     ) : id === "contacts" ? (
@@ -693,7 +696,7 @@ export const TakWorkspace = ({
         ownPosition={ownPosition.fix?.position}
         onCenter={pick}
         onChat={(contact) => {
-          setChatWith({ uid: contact.uid, callsign: contact.callsign ?? contact.uid });
+          setChatWith(directRoom(contact.uid, contact.callsign ?? contact.uid));
           setDrawer("chat");
         }}
       >

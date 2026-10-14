@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { CotEvent } from "../cot.ts";
 import { loadSavedChat, saveChatMessage } from "../picture-cache.ts";
-import { type ChatMessage, parseChat } from "./chat.ts";
+import { ALL_CHAT_ROOMS, type ChatKind, type ChatMessage, parseChat } from "./chat.ts";
 
 /**
  * Chat seen in this tab, oldest first: what arrived and what we sent. TAK
@@ -35,7 +35,10 @@ export const receiveChat = (event: CotEvent): boolean => {
 
 /** Puts back the chat kept in this browser, alongside anything that arrived meanwhile. */
 export const restoreChat = async () => {
-  add(await loadSavedChat().catch(() => []));
+  const saved = await loadSavedChat().catch(() => []);
+  // Saved before chat had team and group rooms: everything was All Chat Rooms or direct.
+  const kindOf = (m: ChatMessage): ChatKind => (m.roomId === ALL_CHAT_ROOMS ? "all" : "direct");
+  add(saved.map((m) => ({ ...m, kind: m.kind ?? kindOf(m) })));
 };
 
 export const useChatMessages = (): ChatMessage[] =>
