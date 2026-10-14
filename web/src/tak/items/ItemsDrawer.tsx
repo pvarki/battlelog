@@ -54,9 +54,12 @@ const matches = (item: TakItem, query: string) => {
   );
 };
 
+// Rendering thousands of rows at once freezes the page for over a second.
+const GROUP_ROWS = 100;
+
+const collator = new Intl.Collator(undefined, { numeric: true });
 const byName = (a: TakItem, b: TakItem) =>
-  (a.team ?? "").localeCompare(b.team ?? "") ||
-  labelOf(a).localeCompare(labelOf(b), undefined, { numeric: true });
+  collator.compare(a.team ?? "", b.team ?? "") || collator.compare(labelOf(a), labelOf(b));
 
 /** Stale or disconnected; nothing while online. */
 export const StatusBadge = ({ status }: { status: ItemStatus }) =>
@@ -131,6 +134,7 @@ export const ItemsDrawer = ({
 }: Props) => {
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [listedInFull, setListedInFull] = useState<ReadonlySet<string>>(new Set());
   const now = useNow(10_000);
   const filtering = query.trim() !== "";
   const listed = items.filter((i) => matches(i, query));
@@ -147,6 +151,8 @@ export const ItemsDrawer = ({
   const renderGroup = (group: OverlayGroup, parentHidden: boolean): ReactNode => {
     const ownHidden = hidden.has(group.key);
     const open = filtering || !collapsed.has(group.key);
+    const rows = group.items.sort(byName);
+    const cut = listedInFull.has(group.key) ? rows.length : GROUP_ROWS;
     return (
       <section
         key={group.key}
@@ -170,7 +176,7 @@ export const ItemsDrawer = ({
           <ActionIcon
             variant="subtle"
             color="gray"
-            size="md"
+            size="sm"
             aria-label={`Show ${group.label} on the map`}
             aria-pressed={!ownHidden}
             title={ownHidden ? "Not on the map" : "Shown on the map"}
@@ -182,7 +188,7 @@ export const ItemsDrawer = ({
         {open && (
           <div className="tak-group-body">
             {group.children.map((child) => renderGroup(child, ownHidden || parentHidden))}
-            {group.items.sort(byName).map((item) => (
+            {rows.slice(0, cut).map((item) => (
               <ItemRow
                 key={item.uid}
                 item={item}
@@ -191,6 +197,16 @@ export const ItemsDrawer = ({
                 onPick={(e) => (e.shiftKey && onToggleGrouped ? onToggleGrouped : onPick)(item)}
               />
             ))}
+            {rows.length > cut && (
+              <Button
+                size="xs"
+                variant="default"
+                my={4}
+                onClick={() => setListedInFull((keys) => new Set(keys).add(group.key))}
+              >
+                Show all {rows.length}
+              </Button>
+            )}
           </div>
         )}
       </section>

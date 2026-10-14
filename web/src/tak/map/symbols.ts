@@ -83,7 +83,8 @@ const register = (map: MapLibreMap, key: string, draw: () => Art): MapImage => {
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(art.width * ratio);
   canvas.height = Math.ceil(art.height * ratio);
-  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+  // CPU-backed: reading a GPU canvas back for every label stalls the page on a busy picture.
+  const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
   ctx.scale(ratio, ratio);
   art.paint(ctx);
   const id = existing?.id ?? `tak-img-${nextId++}`;

@@ -297,7 +297,7 @@ export const onTacticalRendered = (listener: () => void): (() => void) => {
 const labelImage = (text: string) => {
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
   ctx.font = LABEL_FONT;
   const width = Math.ceil(ctx.measureText(text).width) + 2 * LABEL_PADDING;
   canvas.width = width * ratio;
