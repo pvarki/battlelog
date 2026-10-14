@@ -157,7 +157,7 @@ export const ChatDrawer = ({
         <Stack gap={6}>
           {shown.length === 0 && (
             <Text fz="xs" c="dimmed">
-              No messages since this page was opened.
+              No messages in this room in the last eight days.
             </Text>
           )}
           {shown.map((m) => (

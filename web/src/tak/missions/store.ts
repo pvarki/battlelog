@@ -141,6 +141,8 @@ const refreshWanted = () => {
   }
 };
 
+const unavailable = new Set<string>();
+
 /**
  * TAK's list and the invite-only missions it leaves out: those this client is
  * invited to, wanted, or named in `also`, each fetched by name.
@@ -152,11 +154,20 @@ const fetchAll = async (also: string[]) => {
   ]);
   const listedNames = new Set(listed.map((m) => m.name));
   const wanted = [...wantedBy.values()].flatMap((names) => [...names]);
+  // A mission gone or closed to us stays wanted (it's still shown in saved settings) but isn't
+  // asked for again every poll; a fresh invitation or a write naming it asks again.
+  const retried = new Set([...invitations, ...also]);
   const hidden = [...new Set([...invitations, ...wanted, ...also])].filter(
-    (name) => !listedNames.has(name),
+    (name) => !listedNames.has(name) && (!unavailable.has(name) || retried.has(name)),
   );
   const fetched = await Promise.all(
-    hidden.map((name) => fetchMission(name).catch(() => undefined)),
+    hidden.map(async (name) => {
+      const mission = await fetchMission(name).catch(() => null);
+      // null: a transient failure, tried again; undefined: TAK says it's gone or closed.
+      if (mission === undefined) unavailable.add(name);
+      else if (mission) unavailable.delete(name);
+      return mission ?? undefined;
+    }),
   );
   const missions = [...listed, ...fetched.filter((m): m is Mission => !!m)];
   return { missions, invitations };

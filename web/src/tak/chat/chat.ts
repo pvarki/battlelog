@@ -207,10 +207,9 @@ export const chatRooms = ({
   /** Groups made in this browser. */
   groups: ChatRoom[];
 }): ChatRoom[] => {
-  const callsigns = new Map<string, string>([
-    ...messages.map((m): [string, string] => [m.senderUid, m.senderCallsign]),
-    ...contacts.map((c): [string, string] => [c.uid, c.callsign]),
-  ]);
+  // Members are addressed by their callsign as it is now, or by uid when they aren't on the
+  // picture: a saved or overheard callsign may since belong to someone else.
+  const callsigns = new Map(contacts.map((c) => [c.uid, c.callsign]));
   // A group's newest message has its current members.
   const newestFirst = messages.toReversed().map((m) => roomOf(m, selfUid));
   const contactRooms = contacts.map((c) => directRoom(c.uid, c.callsign));
@@ -221,7 +220,7 @@ export const chatRooms = ({
   const membersOf = (room: ChatRoom): ChatMember[] =>
     room.kind === "team"
       ? contacts.filter((c) => c.team === room.id).map(({ uid, callsign }) => ({ uid, callsign }))
-      : room.members.map((m) => ({ uid: m.uid, callsign: m.callsign ?? callsigns.get(m.uid) }));
+      : room.members.map((m) => ({ uid: m.uid, callsign: callsigns.get(m.uid) }));
   return [...rooms.values()]
     .map((room) => ({ ...room, members: membersOf(room) }))
     .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));

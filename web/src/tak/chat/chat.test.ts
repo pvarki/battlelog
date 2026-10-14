@@ -165,8 +165,10 @@ test("rooms are listed by kind, delivering to whom they reach now", () => {
     "direct:KARHU",
   ]);
   expect(rooms[1]?.members).toEqual([{ uid: "ANDROID-2", callsign: "SUSI" }]);
+  // KETTU spoke in the group but isn't on the picture now: addressed by uid, since the
+  // callsign may have passed to someone else.
   expect(rooms[3]?.members).toEqual([
-    { uid: "ANDROID-1", callsign: "KETTU" },
+    { uid: "ANDROID-1", callsign: undefined },
     { uid: "ANDROID-9", callsign: undefined },
   ]);
 });

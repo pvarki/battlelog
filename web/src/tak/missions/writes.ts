@@ -182,16 +182,21 @@ export const useSubscriptions = (): ReadonlyMap<string, Subscription | null> =>
   );
 
 /** Asks TAK whether this client uid is subscribed; its answer holds the token and role. */
-export const loadSubscription = (name: string, clientUid: string): Promise<Subscription | null> => {
+export const loadSubscription = (
+  name: string,
+  clientUid: string,
+  /** Ask TAK again: another owner may have changed this client's role since. */
+  { fresh = false } = {},
+): Promise<Subscription | null> => {
   const known = subscriptions.get(name);
-  if (known !== undefined) return Promise.resolve(known);
+  if (known !== undefined && !fresh) return Promise.resolve(known);
   let pending = inFlight.get(name);
   if (!pending) {
     pending = takGetText(subscriptionPath(name, clientUid))
       .then((text) => {
         // A subscribe or unsubscribe while this was in flight knows better.
         const settled = subscriptions.get(name);
-        if (settled !== undefined) return settled;
+        if (settled !== undefined && settled !== known) return settled;
         const subscription = text ? (parseSubscription(JSON.parse(text)) ?? null) : null;
         setSubscription(name, subscription);
         return subscription;
@@ -267,6 +272,17 @@ const writeAsSubscriber = async (
 };
 
 const OWNERS_ONLY = "only owners can do that";
+
+/**
+ * Owner actions check the role with TAK first: the one cached when the mission
+ * opened may be stale, and TAK itself lets any subscriber delete a mission.
+ */
+const writeAsOwner = async (name: string, clientUid: string, write: TakWrite) => {
+  const subscription = await loadSubscription(name, clientUid, { fresh: true });
+  if (subscription?.role && subscription.role !== "MISSION_OWNER")
+    throw new Error(`TAK refused: ${OWNERS_ONLY} in ${name}.`);
+  return writeAsSubscriber(name, clientUid, write, OWNERS_ONLY);
+};
 
 /** The mission as TAK now has it; throws when it no longer exists. */
 const readBack = async (name: string): Promise<Mission> => {
@@ -350,7 +366,11 @@ export const addLogEntry = async (name: string, content: string, clientUid: stri
   await writeAsSubscriber(name, clientUid, logEntryRequest(name, content, clientUid));
 };
 
-export const deleteMission = async (name: string, clientUid: string) => {
+export const deleteMission = async (mission: Mission, clientUid: string) => {
+  const { name } = mission;
+  const subscription = await loadSubscription(name, clientUid, { fresh: true });
+  if (!canDelete(mission, clientUid, subscription?.role))
+    throw new Error(`Only the creator or an owner can delete ${name}.`);
   await takSend(deleteMissionRequest(name, clientUid));
   if ((await refreshMissions()).some((m) => m.name === name)) throw unconfirmed("the deletion");
   setSubscription(name, null);
@@ -362,7 +382,7 @@ export const setRole = async (
   role: MissionRole,
   clientUid: string,
 ) => {
-  await writeAsSubscriber(name, clientUid, setRoleRequest(name, member, role), OWNERS_ONLY);
+  await writeAsOwner(name, clientUid, setRoleRequest(name, member, role));
 };
 
 export const invite = async (
@@ -373,7 +393,7 @@ export const invite = async (
   clientUid: string,
 ) => {
   const request = inviteRequest(name, type, invitee, role, clientUid);
-  await writeAsSubscriber(name, clientUid, request, OWNERS_ONLY);
+  await writeAsOwner(name, clientUid, request);
 };
 
 export const uninvite = async (
@@ -383,7 +403,7 @@ export const uninvite = async (
   clientUid: string,
 ) => {
   const request = uninviteRequest(name, type, invitee, clientUid);
-  await writeAsSubscriber(name, clientUid, request, OWNERS_ONLY);
+  await writeAsOwner(name, clientUid, request);
 };
 
 /** Sets or, without `password`, removes the mission's password. */
@@ -395,6 +415,6 @@ export const setPassword = async (
   const request = password
     ? setPasswordRequest(name, password, clientUid)
     : removePasswordRequest(name, clientUid);
-  await writeAsSubscriber(name, clientUid, request, OWNERS_ONLY);
+  await writeAsOwner(name, clientUid, request);
   if ((await readBack(name)).passwordProtected !== !!password) throw unconfirmed("the password");
 };

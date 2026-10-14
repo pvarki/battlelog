@@ -545,7 +545,8 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
   const writable = !!clientUid && subscribed && canWriteAs(role);
   const canWrite = writable && !busy;
   useEffect(() => {
-    if (clientUid) void loadSubscription(mission.name, clientUid).catch(() => undefined);
+    if (clientUid)
+      void loadSubscription(mission.name, clientUid, { fresh: true }).catch(() => undefined);
   }, [mission.name, clientUid]);
   const contents = props.state.contents.get(mission.name);
   const creator =
@@ -630,9 +631,9 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                   mission={mission}
                   disabled={busy}
                   onDelete={() =>
-                    void run("Mission not deleted", () =>
-                      deleteMission(mission.name, clientUid),
-                    ).then((ok) => ok && props.onOpen(undefined))
+                    void run("Mission not deleted", () => deleteMission(mission, clientUid)).then(
+                      (ok) => ok && props.onOpen(undefined),
+                    )
                   }
                 />
               )}
