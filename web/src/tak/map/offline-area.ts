@@ -12,6 +12,7 @@ export type Bounds = [west: number, south: number, east: number, north: number];
 /** More than this is a job for an offline map file, not the browser cache. */
 export const MAX_AREA_TILES = 3000;
 const PARALLEL = 6;
+const TILE_ACCEPT = "image/webp,*/*";
 const HALF_WORLD_M = 20_037_508.342789244;
 
 const tileX = (lon: number, z: number) => Math.floor(((lon + 180) / 360) * 2 ** z);
@@ -90,7 +91,11 @@ export const saveArea = async (
       const i = next++;
       const template = templates[i % templates.length] as string;
       try {
-        const res = await fetch(tileUrl(template, tiles[i] as Tile, scheme), { signal });
+        // The same request MapLibre makes, so the service worker files it with the map's tiles.
+        const res = await fetch(tileUrl(template, tiles[i] as Tile, scheme), {
+          signal,
+          headers: { accept: TILE_ACCEPT },
+        });
         if (!res.ok) failed++;
       } catch {
         if (!signal.aborted) failed++;

@@ -118,10 +118,10 @@ export default defineConfig(({ command, mode }) => {
           // Map tiles seen once stay available offline; "Save this area" fills the same cache.
           runtimeCaching: [
             {
-              urlPattern: ({ url, sameOrigin }) =>
-                !sameOrigin &&
-                (/\/\d+\/\d+\/\d+(\.\w+)?$/.test(url.pathname) ||
-                  /[?&](bbox|quadkey)=/i.test(url.search)),
+              // MapLibre asks for every map image as image/*, whatever the URL looks like.
+              urlPattern: ({ request }) =>
+                request.destination === "image" ||
+                !!request.headers.get("accept")?.startsWith("image/"),
               handler: "CacheFirst",
               options: {
                 cacheName: "map-tiles",

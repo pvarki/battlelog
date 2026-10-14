@@ -200,13 +200,17 @@ const ellipseOf = (type: string, el: Element | undefined): TakItem["ellipse"] =>
 };
 
 /** ATAK writes one `<ellipse>` per ring inside `<shape>`. */
+// Ring counts arrive from anyone on TAK; past this they're noise, and unbounded they'd hang the map.
+const MAX_RINGS = 50;
+
 const rangeRingsOf = (type: string, shape: Element | undefined): number[] | undefined => {
   if (type !== RANGE_RINGS_TYPE || !shape) return undefined;
   const radii = Array.from(shape.children)
     .filter((el) => el.tagName === "ellipse")
     .flatMap((el) => num(el.getAttribute("major")) ?? [])
     .filter((radius) => radius > 0)
-    .sort((a, b) => a - b);
+    .sort((a, b) => a - b)
+    .slice(0, MAX_RINGS);
   return radii.length ? radii : undefined;
 };
 
@@ -228,7 +232,7 @@ const bullseyeOf = (type: string, el: Element | undefined): Bullseye | undefined
     edgeToCenter: flag("edgeToCenter"),
     rings:
       showRings && spacing && spacing > 0 && count && count >= 1
-        ? { spacing: spacing * toMetres, count: Math.floor(count) }
+        ? { spacing: spacing * toMetres, count: Math.min(Math.floor(count), MAX_RINGS) }
         : undefined,
   };
 };

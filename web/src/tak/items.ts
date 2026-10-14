@@ -46,14 +46,23 @@ export const extentOf = (item: TakItem): [Position, Position] | undefined => {
         ? g.coordinates
         : g.coordinates.flat();
   if (g.type === "Point" && radius <= 0) return undefined;
-  const points = vertices.flatMap((p) =>
-    radius > 0 ? [0, 90, 180, 270].map((bearing) => destination(p, radius, bearing)) : [p],
-  );
-  const lons = points.map(([lon]) => lon);
-  const lats = points.map(([, lat]) => lat);
+  let [west, south, east, north] = [Infinity, Infinity, -Infinity, -Infinity];
+  // A loop, not Math.min(...): an imported route can have more vertices than a call takes arguments.
+  for (const vertex of vertices) {
+    const points =
+      radius > 0
+        ? [0, 90, 180, 270].map((bearing) => destination(vertex, radius, bearing))
+        : [vertex];
+    for (const [lon, lat] of points) {
+      west = Math.min(west, lon);
+      east = Math.max(east, lon);
+      south = Math.min(south, lat);
+      north = Math.max(north, lat);
+    }
+  }
   return [
-    [Math.min(...lons), Math.min(...lats)],
-    [Math.max(...lons), Math.max(...lats)],
+    [west, south],
+    [east, north],
   ];
 };
 

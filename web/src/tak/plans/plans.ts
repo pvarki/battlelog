@@ -166,6 +166,10 @@ export const addToPlan = (stale: Plan, entry: PlanEntry) => {
   });
 };
 
+/** The plan's draft for `uid` as stored now, not as the last render saw it. */
+export const draftOf = (stale: Plan, uid: string): PlanEntry | undefined =>
+  latest(stale).entries.find((e) => e.event.uid === uid);
+
 export const removeFromPlan = (stale: Plan, uid: string) => {
   const plan = latest(stale);
   save({ ...plan, entries: plan.entries.filter((e) => e.event.uid !== uid) });

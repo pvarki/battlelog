@@ -1,6 +1,7 @@
 import { deleteEvent, editEvent } from "./commands.ts";
 import { type CotEvent, type TakItem, toChange } from "./cot.ts";
 import { labelOf } from "./items.ts";
+import type { PlanEntry } from "./plans/plans.ts";
 
 /**
  * Undo for changes made in this session. TAK keeps no history, so undoing
@@ -13,11 +14,12 @@ export const UNDO_DEPTH = 50;
 /**
  * What one action wrote, each write beside its item as it was before; no
  * `before` for an item it created. `planId` is the plan the writes went into,
- * absent when they went straight to TAK.
+ * absent when they went straight to TAK; then `draft` is that plan's entry
+ * for the item before the write (null: it had none), which undo puts back.
  */
 export type UndoStep = {
   planId?: string;
-  changes: { before: TakItem | undefined; after: CotEvent }[];
+  changes: { before: TakItem | undefined; after: CotEvent; draft?: PlanEntry | null }[];
 };
 
 export const withStep = (steps: readonly UndoStep[], step: UndoStep): UndoStep[] =>

@@ -71,7 +71,7 @@ import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
 import { useMissionSubscriptions } from "./missions/writes.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
-import { addToPlan, type Plan, removeFromPlan, usePlans } from "./plans/plans.ts";
+import { addToPlan, draftOf, type Plan, removeFromPlan, usePlans } from "./plans/plans.ts";
 import { OwnPositionPanel } from "./position/OwnPositionPanel.tsx";
 import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
@@ -84,6 +84,7 @@ import {
   sendCot,
   setTakPresence,
   type TakStatus,
+  takStore,
   useTakItems,
   useTakSession,
   useTakStatus,
@@ -326,7 +327,16 @@ export const TakWorkspace = ({
   /** Sends one action's writes and remembers how to take them back. */
   const submitAll = (events: CotEvent[]) => {
     if (events.length === 0 || replaying) return;
-    const changes = events.map((after) => ({ before: currentItem(after.uid), after }));
+    // From the store and the stored plan: two quick changes would both see the last render's state.
+    const changes = events.map((after) => {
+      const draft = activePlan ? (draftOf(activePlan, after.uid) ?? null) : undefined;
+      const drafted = draft && toChange(draft.event);
+      const before =
+        (drafted?.kind === "upsert" ? drafted.item : undefined) ??
+        takStore.get(after.uid) ??
+        missionItem(after.uid);
+      return { before, after, draft };
+    });
     setUndoSteps((steps) => withStep(steps, { planId: activePlan?.id, changes }));
     for (const event of events) send(event);
   };
@@ -372,6 +382,15 @@ export const TakWorkspace = ({
   const undo = () => {
     if (!latestStep || undoReason) return;
     setUndoSteps(undoSteps.slice(0, -1));
+    if (latestStep.planId && activePlan) {
+      // A plan's undo puts its drafts back as they were; re-staging old versions would publish them.
+      for (const { before, after, draft } of latestStep.changes) {
+        if (before && !canChange(before)) continue;
+        if (draft) addToPlan(activePlan, draft);
+        else removeFromPlan(activePlan, after.uid);
+      }
+      return;
+    }
     for (const event of undoEvents(latestStep, canChange)) send(event);
   };
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
@@ -410,6 +429,8 @@ export const TakWorkspace = ({
       : undefined;
   const drawReason = replayReason ?? sendReason;
   const sender = takSender(callsign);
+  // Mission, plan and group controls write to TAK directly: none of them while replaying.
+  const writerUid = callsign && !replaying ? sender.uid : undefined;
   const chatMessages = useChatMessages();
   // Remembered across reloads now that chat is: a restored message read yesterday stays read.
   const [chatReadAt, setChatReadAt] = useLocalStorage({
@@ -692,7 +713,7 @@ export const TakWorkspace = ({
         sender={sender}
         contacts={contacts}
         missions={missions.missions ?? []}
-        clientUid={callsign ? sender.uid : undefined}
+        clientUid={writerUid}
       />
     ) : id === "missions" ? (
       <MissionsDrawer
@@ -704,7 +725,7 @@ export const TakWorkspace = ({
         selectedUid={selectedUid}
         onPick={pick}
         callsignOf={callsignOf}
-        clientUid={callsign ? sender.uid : undefined}
+        clientUid={writerUid}
       />
     ) : id === "items" ? (
       <ItemsDrawer
@@ -722,7 +743,7 @@ export const TakWorkspace = ({
         sources={mapSources}
         map={map}
         basemap={basemap}
-        clientUid={callsign ? sender.uid : undefined}
+        clientUid={writerUid}
       >
         {import.meta.env.DEV && callsign && (
           <Button
@@ -755,7 +776,7 @@ export const TakWorkspace = ({
       coordFormat={settings.coordFormat}
       missions={missionsOf(selected.uid)}
       allMissions={missions.missions ?? []}
-      clientUid={callsign && !replaying ? sender.uid : undefined}
+      clientUid={writerUid}
       readOnlyReason={readOnlyReason(selected)}
       callsign={callsign}
       contacts={contacts}

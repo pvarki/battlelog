@@ -19,13 +19,57 @@ export class TakRequestError extends Error {
   }
 }
 
-/** GET a Marti path as text. TAK answers 404 for "nothing in range", which reads as "". */
-export const takGetText = async (path: string, signal?: AbortSignal): Promise<string> => {
+/** The body, read only until it passes `max` bytes: a missing or false Content-Length can't make us buffer more. */
+export const readCapped = async (
+  res: Response,
+  max: number,
+  tooLarge: () => Error,
+): Promise<Uint8Array<ArrayBuffer>> => {
+  const reader = res.body?.getReader();
+  if (!reader) return new Uint8Array(0);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return bytes;
+};
+
+/**
+ * GET a Marti path as text. TAK answers 404 for "nothing in range", which
+ * reads as "". With `maxBytes` a larger answer is refused before it's all in memory.
+ */
+export const takGetText = async (
+  path: string,
+  signal?: AbortSignal,
+  maxBytes?: number,
+): Promise<string> => {
   const res = await fetch(`${takBaseUrl()}${path}`, { credentials: "include", signal });
   if (res.status === 404) return "";
   if (!res.ok) throw new TakRequestError(path, res.status);
-  return res.text();
+  if (maxBytes === undefined) return res.text();
+  const tooLarge = () =>
+    new Error(
+      `TAK's answer is over ${Math.round(maxBytes / 1_048_576)} MB; ask for less at a time`,
+    );
+  return new TextDecoder().decode(await readCapped(res, maxBytes, tooLarge));
 };
+
+// A busy server's day of history or a week of one unit's fixes; parsing more would exhaust the tab.
+const MAX_HISTORY_BYTES = 64 * 1_048_576;
 
 export type TakWrite = {
   method: "PUT" | "POST" | "DELETE";
@@ -59,7 +103,9 @@ export const fetchArchive = async (start: Date, end: Date, signal?: AbortSignal)
     end: end.toISOString(),
     isFiltered: "false",
   });
-  return parseCotXml(await takGetText(`/Marti/api/cot/sa?${query}`, signal), { strict: true });
+  return parseCotXml(await takGetText(`/Marti/api/cot/sa?${query}`, signal, MAX_HISTORY_BYTES), {
+    strict: true,
+  });
 };
 
 /** The latest stored copy of one item, or undefined when TAK has none. */
@@ -75,6 +121,7 @@ export const fetchHistory = async (uid: string, seconds: number, signal?: AbortS
     await takGetText(
       `/Marti/api/cot/xml/${encodeURIComponent(uid)}/all?secago=${Math.round(seconds)}`,
       signal,
+      MAX_HISTORY_BYTES,
     ),
   );
 
