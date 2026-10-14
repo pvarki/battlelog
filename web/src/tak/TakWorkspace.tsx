@@ -580,6 +580,8 @@ export const TakWorkspace = ({
       <LayersDrawer
         settings={settings}
         sources={mapSources}
+        map={map}
+        basemap={basemap}
         clientUid={callsign ? sender.uid : undefined}
       >
         {import.meta.env.DEV && callsign && (

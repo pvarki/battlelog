@@ -115,6 +115,25 @@ export default defineConfig(({ command, mode }) => {
           // The tactical graphics renderer (C5Ren, 7.4 MB) must work offline like the map.
           maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           navigateFallbackDenylist: [/^\/(api|uploads|rmapi|healthz|openapi\.json)/],
+          // Map tiles seen once stay available offline; "Save this area" fills the same cache.
+          runtimeCaching: [
+            {
+              urlPattern: ({ url, sameOrigin }) =>
+                !sameOrigin &&
+                (/\/\d+\/\d+\/\d+(\.\w+)?$/.test(url.pathname) ||
+                  /[?&](bbox|quadkey)=/i.test(url.search)),
+              handler: "CacheFirst",
+              options: {
+                cacheName: "map-tiles",
+                expiration: {
+                  maxEntries: 20_000,
+                  maxAgeSeconds: 60 * 60 * 24 * 60,
+                  purgeOnQuotaError: true,
+                },
+                cacheableResponse: { statuses: [200] },
+              },
+            },
+          ],
         },
       }),
     ],

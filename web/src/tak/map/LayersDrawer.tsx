@@ -1,5 +1,6 @@
 import { ActionIcon, Group, Radio, Select, Slider, Stack, Switch, Text } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import type { ReactNode } from "react";
 import { COORD_FORMATS, type CoordFormat } from "../coords.ts";
 import { setPictureSaving } from "../session.ts";
@@ -9,10 +10,14 @@ import { GroupsSection } from "./GroupsSection.tsx";
 import { IconsetsSection } from "./IconsetsSection.tsx";
 import { MapSourcesSection } from "./MapSourcesSection.tsx";
 import { removeOfflineMap } from "./offline-maps.ts";
+import { SaveAreaSection } from "./SaveAreaSection.tsx";
 
 type Props = {
   settings: MapSettings;
   sources: MapSource[];
+  /** The map on screen and its background, for saving the visible area offline. */
+  map?: MapLibreMap;
+  basemap: MapSource;
   /** This connection's uid on TAK; undefined without a callsign. */
   clientUid: string | undefined;
   /** Developer tools; only passed in dev builds. */
@@ -23,7 +28,7 @@ const Heading = ({ children }: { children: ReactNode }) => (
   <Text className="tak-group-heading">{children}</Text>
 );
 
-export const LayersDrawer = ({ settings, sources, clientUid, children }: Props) => {
+export const LayersDrawer = ({ settings, sources, map, basemap, clientUid, children }: Props) => {
   const remove = (source: MapSource) => {
     if (settings.basemap === source.id) settings.setBasemap(DEFAULT_BASEMAP);
     if (settings.overlay === source.id) settings.setOverlay(null);
@@ -132,6 +137,8 @@ export const LayersDrawer = ({ settings, sources, clientUid, children }: Props) 
       />
 
       <GroupsSection clientUid={clientUid} />
+
+      <SaveAreaSection map={map} source={basemap} />
 
       <MapSourcesSection settings={settings} />
 
