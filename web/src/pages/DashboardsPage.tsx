@@ -62,7 +62,7 @@ const LatestActivity = () => {
         ) : (
           <>
             {failed && <StaleNotice />}
-            <FeedTable columns={ACTIVITY_COLUMNS} events={events} arrived={arrived} />
+            <FeedTable columns={ACTIVITY_COLUMNS} events={events} arrived={arrived} relativeTime />
           </>
         )}
       </Box>

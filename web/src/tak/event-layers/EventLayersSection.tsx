@@ -90,7 +90,7 @@ export const EventLayersSection = ({ layers, shown, onToggle, truncated }: Props
               aria-label={`Edit layer ${layer.definition.name}`}
               onClick={() => setEditing({ layer })}
             >
-              <IconPencil size={14} />
+              <IconPencil size={16} />
             </ActionIcon>
           </Group>
         ))
@@ -223,7 +223,7 @@ const LayerDialog = ({
           />
         )}
         {problem && (
-          <Alert color="red" variant="light">
+          <Alert color="danger" variant="light">
             {problem}
           </Alert>
         )}
@@ -232,7 +232,7 @@ const LayerDialog = ({
             <Button
               size="xs"
               variant={confirmDelete ? "filled" : "subtle"}
-              color="red"
+              color="danger"
               loading={saving}
               onClick={() =>
                 confirmDelete ? void run(() => deleteLayer(layer)) : setConfirmDelete(true)

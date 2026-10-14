@@ -31,6 +31,8 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { api, dashboardsApi } from "../api.ts";
+import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
 import { LayoutThumbnail } from "./LayoutThumbnail.tsx";
 import {
@@ -113,6 +115,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<DashboardResponse | null>(null);
 
   const templates = all.filter((d) => d.isTemplate);
   const shownTemplates = templates.filter((t) => matchesQuery(t, templateQuery));
@@ -262,13 +265,10 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
     });
   };
 
-  const remove = (d: DashboardResponse) => {
-    const kind = d.isTemplate ? "template" : "view";
-    if (!window.confirm(`Delete ${kind} "${d.name}"? This cannot be undone.`)) return;
+  const remove = (d: DashboardResponse) =>
     void mutate("Delete", () =>
       dashboardsApi.dashboards[":dashboardId"].$delete({ param: { dashboardId: d.id } }),
     );
-  };
 
   const duplicate = (source: DashboardResponse) =>
     mutate("Duplicate", () =>
@@ -313,17 +313,18 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
       json = await exportJsonWithCurrentDocuments(d);
     } catch {
       notifications.show({
-        color: "red",
+        color: "danger",
         message: "Couldn't copy JSON — one of the widget documents could not be loaded",
       });
       return;
     }
 
     navigator.clipboard.writeText(json).then(
-      () => notifications.show({ color: "teal", message: `Copied “${d.name}” JSON to clipboard` }),
+      () =>
+        notifications.show({ color: "success", message: `Copied “${d.name}” JSON to clipboard` }),
       () =>
         notifications.show({
-          color: "red",
+          color: "danger",
           message: "Clipboard unavailable — use Download JSON instead",
         }),
     );
@@ -362,7 +363,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
           aria-label={`Actions for ${d.name}`}
           title="Actions"
         >
-          <IconDots size={16} stroke={1.5} />
+          <IconDots size={16} />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
@@ -371,21 +372,21 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
             {/* Templates are keyed by name for seeding, so renaming one would
                 let the next boot re-seed it as a second template. */}
             <Menu.Item
-              leftSection={<IconPencil size={16} stroke={1.5} />}
+              leftSection={<IconPencil size={14} />}
               disabled={busy}
               onClick={() => openEdit(d)}
             >
               Name & description…
             </Menu.Item>
             <Menu.Item
-              leftSection={<IconStar size={16} stroke={1.5} />}
+              leftSection={<IconStar size={14} />}
               disabled={busy}
               onClick={() => openSaveTemplate(d)}
             >
               Save as template…
             </Menu.Item>
             <Menu.Item
-              leftSection={<IconCopy size={16} stroke={1.5} />}
+              leftSection={<IconCopy size={14} />}
               disabled={busy}
               onClick={() => duplicate(d)}
             >
@@ -395,7 +396,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
         )}
         {d.isTemplate && (
           <Menu.Item
-            leftSection={<IconPencil size={16} stroke={1.5} />}
+            leftSection={<IconPencil size={14} />}
             onClick={() =>
               navigate({
                 to: "/d/$dashboardId",
@@ -406,24 +407,18 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
             Edit template
           </Menu.Item>
         )}
-        <Menu.Item
-          leftSection={<IconDownload size={16} stroke={1.5} />}
-          onClick={() => download(d)}
-        >
+        <Menu.Item leftSection={<IconDownload size={14} />} onClick={() => download(d)}>
           Download JSON
         </Menu.Item>
-        <Menu.Item
-          leftSection={<IconClipboardCopy size={16} stroke={1.5} />}
-          onClick={() => copy(d)}
-        >
+        <Menu.Item leftSection={<IconClipboardCopy size={14} />} onClick={() => copy(d)}>
           Copy JSON
         </Menu.Item>
         <Menu.Divider />
         <Menu.Item
-          color="red"
-          leftSection={<IconTrash size={16} stroke={1.5} />}
+          color="danger"
+          leftSection={<IconTrash size={14} />}
           disabled={busy}
-          onClick={() => remove(d)}
+          onClick={() => setPendingDelete(d)}
         >
           Delete{d.isTemplate ? " template" : ""}
         </Menu.Item>
@@ -453,7 +448,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
           title="New view"
           loading={creating}
         >
-          <IconPlus size={16} stroke={1.5} />
+          <IconPlus size={16} />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
@@ -463,15 +458,12 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
                     growing with the number of them. */}
         {templates.length > 0 && <Menu.Item onClick={openFromTemplate}>From template…</Menu.Item>}
         <Menu.Divider />
-        <Menu.Item
-          leftSection={<IconFileImport size={16} stroke={1.5} />}
-          onClick={() => setImportOpen(true)}
-        >
+        <Menu.Item leftSection={<IconFileImport size={14} />} onClick={() => setImportOpen(true)}>
           Import from JSON…
         </Menu.Item>
         {templates.length > 0 && (
           <Menu.Item
-            leftSection={<IconStar size={16} stroke={1.5} />}
+            leftSection={<IconStar size={14} />}
             onClick={() => {
               setTemplateQuery("");
               setTemplatesOpen(true);
@@ -485,7 +477,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
   );
 
   const errorText = error && !target && (
-    <Text c="red.4" fz="xs" role="status">
+    <Text c="danger.4" fz="xs" role="status">
       {error}
     </Text>
   );
@@ -509,7 +501,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
                 <TextInput
                   mt="xs"
                   placeholder="Search templates"
-                  leftSection={<IconSearch size={16} stroke={1.5} />}
+                  leftSection={<IconSearch size={16} />}
                   value={templateQuery}
                   onChange={(e) => setTemplateQuery(e.currentTarget.value)}
                 />
@@ -538,9 +530,10 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
                     </Radio.Card>
                   ))}
                   {shownTemplates.length === 0 && (
-                    <Text fz="xs" c="dimmed">
-                      No template matches “{templateQuery}”.
-                    </Text>
+                    <Placeholder
+                      title="No matching template"
+                      detail={`No template name or description contains “${templateQuery}”.`}
+                    />
                   )}
                 </Stack>
               </Box>
@@ -566,7 +559,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
             onChange={(e) => setForm({ ...form, description: e.currentTarget.value })}
           />
           {error && (
-            <Text c="red.4" fz="sm" role="status">
+            <Text c="danger.4" fz="sm" role="status">
               {error}
             </Text>
           )}
@@ -597,16 +590,17 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
           {searchable && (
             <TextInput
               placeholder="Search templates"
-              leftSection={<IconSearch size={16} stroke={1.5} />}
+              leftSection={<IconSearch size={16} />}
               value={templateQuery}
               onChange={(e) => setTemplateQuery(e.currentTarget.value)}
             />
           )}
           {shownTemplates.map(row)}
           {shownTemplates.length === 0 && (
-            <Text fz="xs" c="dimmed">
-              No template matches “{templateQuery}”.
-            </Text>
+            <Placeholder
+              title="No matching template"
+              detail={`No template name or description contains “${templateQuery}”.`}
+            />
           )}
         </Stack>
       </Modal>
@@ -627,7 +621,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
               }}
             >
               {(props) => (
-                <Button variant="light" {...props}>
+                <Button variant="default" {...props}>
                   Choose file…
                 </Button>
               )}
@@ -642,7 +636,7 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
             onChange={(e) => setImportText(e.currentTarget.value)}
           />
           {importError && (
-            <Text c="red.4" fz="sm" role="status">
+            <Text c="danger.4" fz="sm" role="status">
               {importError}
             </Text>
           )}
@@ -653,6 +647,16 @@ export const useDashboardManager = (all: DashboardResponse[]) => {
           </Group>
         </Stack>
       </Modal>
+
+      <ConfirmDialog
+        opened={pendingDelete !== null}
+        title={`Delete ${pendingDelete?.isTemplate ? "template" : "view"} "${pendingDelete?.name}"?`}
+        confirmLabel="Delete"
+        onConfirm={() => pendingDelete && remove(pendingDelete)}
+        onClose={() => setPendingDelete(null)}
+      >
+        This cannot be undone.
+      </ConfirmDialog>
     </>
   );
 

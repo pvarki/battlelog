@@ -1,5 +1,6 @@
-import { Button, Group, Loader, PasswordInput, Select, Text, TextInput } from "@mantine/core";
+import { Box, Button, Group, Loader, PasswordInput, Select, Text, TextInput } from "@mantine/core";
 import { useEffect, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { MissionsDrawerProps } from "./MissionsDrawer.tsx";
 import {
   fetchInvitations,
@@ -112,8 +113,7 @@ const PasswordControls = ({
       {mission.passwordProtected && (
         <Button
           size="xs"
-          variant="subtle"
-          color="gray"
+          variant="default"
           disabled={disabled}
           onClick={() => void onSet(undefined)}
         >
@@ -165,9 +165,9 @@ export const MissionMembers = ({
       )}
       {members === undefined && <Loader size="xs" m="xs" />}
       {members === "failed" && (
-        <Text fz="xs" c="dimmed" p="xs">
-          Couldn't load the members.
-        </Text>
+        <Box py="md">
+          <Placeholder title="Couldn't load the members" detail="Open the feed again to retry." />
+        </Box>
       )}
       {Array.isArray(members) &&
         members.map((member) => {

@@ -1,10 +1,21 @@
 // Reads SDK rooms, which mutate in place — see View.tsx.
 "use no memo";
 
-import { Button, Group, Paper, SegmentedControl, Select, Stack, Switch, Text } from "@mantine/core";
+import {
+  Button,
+  Group,
+  Input,
+  Paper,
+  SegmentedControl,
+  Select,
+  Stack,
+  Switch,
+  Text,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import type { MatrixClient, Room } from "matrix-js-sdk";
 import { useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import { signIn, signOut, useChatStatus, useRoomListChanges } from "./matrix.ts";
@@ -64,7 +75,7 @@ const Invite = ({
       }
     } catch (err) {
       notifications.show({
-        color: "red",
+        color: "danger",
         title: `Couldn't ${kind} the invite to ${room.name}`,
         message: err instanceof Error ? err.message : String(err),
       });
@@ -122,9 +133,7 @@ const Invites = ({
   if (invites.length === 0) return null;
   return (
     <Stack gap={4}>
-      <Text fz="sm" fw={500}>
-        Invites
-      </Text>
+      <SectionHeading>Invites</SectionHeading>
       {invites.map((room) => (
         <Invite key={room.roomId} client={client} room={room} onJoined={onJoined} />
       ))}
@@ -184,10 +193,7 @@ const ChatConfigForm = ({ config, onChange }: WidgetConfigProps<ChatConfig>) => 
           checked={config.compact === true}
           onChange={(e) => onChange({ ...config, compact: e.currentTarget.checked })}
         />
-        <Stack gap={4}>
-          <Text fz="sm" fw={500}>
-            Text size
-          </Text>
+        <Input.Wrapper label="Text size">
           <SegmentedControl
             size="xs"
             data={[
@@ -201,7 +207,7 @@ const ChatConfigForm = ({ config, onChange }: WidgetConfigProps<ChatConfig>) => 
               onChange({ ...config, textSize: value as NonNullable<ChatConfig["textSize"]> })
             }
           />
-        </Stack>
+        </Input.Wrapper>
         <Select
           label="Notify"
           description="Sound, and a desktop notification while BattleLog is in the background"
@@ -234,9 +240,7 @@ const ChatConfigForm = ({ config, onChange }: WidgetConfigProps<ChatConfig>) => 
             }}
           />
           <Stack gap={2} mt="xs">
-            <Text fz="sm" fw={500}>
-              Matrix account
-            </Text>
+            <SectionHeading>Matrix account</SectionHeading>
             <Text fz="xs" c="dimmed">
               Signed in as {status.client.getUserId()}. Shared by every chat widget in this browser.
             </Text>

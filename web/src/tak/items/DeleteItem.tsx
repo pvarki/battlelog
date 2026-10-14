@@ -1,6 +1,7 @@
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Button } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { deleteEvent } from "../commands.ts";
 import type { CotEvent, TakItem } from "../cot.ts";
 import { labelOf } from "../items.ts";
@@ -25,34 +26,16 @@ export const DeleteItem = ({ item, onSubmit }: Props) => {
       >
         Delete
       </Button>
-      <Modal
+      <ConfirmDialog
         opened={confirming}
         onClose={() => setConfirming(false)}
         title={`Delete ${labelOf(item)}?`}
-        centered
+        confirmLabel="Delete"
+        onConfirm={() => onSubmit(deleteEvent(item))}
       >
-        <Stack gap="sm">
-          <Text fz="sm">
-            It is removed from the map of every TAK user. With a plan active, that happens when the
-            plan is published.
-          </Text>
-          <Group justify="flex-end" gap="xs">
-            <Button size="xs" variant="default" onClick={() => setConfirming(false)} data-autofocus>
-              Cancel
-            </Button>
-            <Button
-              size="xs"
-              color="danger"
-              onClick={() => {
-                setConfirming(false);
-                onSubmit(deleteEvent(item));
-              }}
-            >
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        It is removed from the map of every TAK user. With a plan active, that happens when the plan
+        is published.
+      </ConfirmDialog>
     </>
   );
 };

@@ -47,7 +47,7 @@ export const LayersDrawer = ({ settings, sources, map, basemap, eventLayers }: P
                     aria-label={`Remove map ${source.label}`}
                     onClick={() => remove(source)}
                   >
-                    <IconTrash size={14} />
+                    <IconTrash size={16} />
                   </ActionIcon>
                 )}
               </Group>

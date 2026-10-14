@@ -49,7 +49,7 @@ export const RemoveButton = ({
     disabled={disabled}
     onClick={onClick}
   >
-    <IconX size={14} />
+    <IconX size={16} />
   </ActionIcon>
 );
 

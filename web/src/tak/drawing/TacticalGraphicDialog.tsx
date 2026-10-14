@@ -82,7 +82,7 @@ export const TacticalGraphicDialog = ({
           onChange={(e) => onChange({ ...value, remarks: e.currentTarget.value })}
         />
         {problem && (
-          <Text fz="xs" c="red">
+          <Text fz="xs" c="danger.4">
             {problem}: discard and draw it again.
           </Text>
         )}

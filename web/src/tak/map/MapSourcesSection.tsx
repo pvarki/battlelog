@@ -9,7 +9,7 @@ import { addOfflineMap } from "./offline-maps.ts";
 
 const failed = (title: string) => (err: unknown) =>
   notifications.show({
-    color: "red",
+    color: "danger",
     title,
     message: err instanceof Error ? err.message : String(err),
   });
@@ -53,7 +53,7 @@ export const MapSourcesSection = ({ settings }: { settings: MapSettings }) => {
     addOfflineMap(file)
       .then((source) => {
         settings.setBasemap(source.id);
-        notifications.show({ color: "teal", message: `Offline map ${source.label} added` });
+        notifications.show({ color: "success", message: `Offline map ${source.label} added` });
       }, failed("Couldn't add offline map"))
       .finally(() => setStoring(false));
   };

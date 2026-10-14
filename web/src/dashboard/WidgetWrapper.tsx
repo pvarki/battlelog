@@ -160,7 +160,7 @@ export const WidgetWrapper = ({
             <Menu position="bottom-end" onOpen={() => setPrintScope(readPrintScope())}>
               <Menu.Target>
                 <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
-                  <IconDots size={16} stroke={1.5} />
+                  <IconDots size={16} />
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
@@ -171,7 +171,7 @@ export const WidgetWrapper = ({
                   Reset size
                 </Menu.Item>
                 <Menu.Divider />
-                <Menu.Item color="red" onClick={onRemove}>
+                <Menu.Item color="danger" onClick={onRemove}>
                   Delete
                 </Menu.Item>
               </Menu.Dropdown>

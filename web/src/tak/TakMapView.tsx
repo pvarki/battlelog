@@ -10,6 +10,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { answerPick, cancelPick, usePickRequest } from "../map-pick.ts";
+import { useNow } from "../use-now.ts";
 import type { Position, TakItem } from "./cot.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { EventLayerFeeds } from "./event-layers/EventLayerFeeds.tsx";
@@ -39,7 +40,6 @@ import {
 import { useMapSettings } from "./settings.ts";
 import { type MapView, viewParam } from "./tools.ts";
 import { trackFeatures } from "./tracks.ts";
-import { useNow } from "./use-now.ts";
 import { type Selection, useCentreWhenReady, useSelection } from "./use-selection.ts";
 import { SelectionCard } from "./view/SelectionCard.tsx";
 import { ViewLayers } from "./view/ViewLayers.tsx";

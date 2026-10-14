@@ -190,7 +190,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
 
   const locateMe = () => {
     if (!navigator.geolocation) {
-      notifications.show({ color: "red", message: "This browser can't share your location" });
+      notifications.show({ color: "danger", message: "This browser can't share your location" });
       return;
     }
     const request = withdrawPick.current;
@@ -199,7 +199,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
       ({ coords }) => {
         if (withdrawPick.current === request) answerPick([coords.longitude, coords.latitude]);
       },
-      () => notifications.show({ color: "red", message: "Could not get your location" }),
+      () => notifications.show({ color: "danger", message: "Could not get your location" }),
     );
   };
 
@@ -327,7 +327,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
         <Stack gap="xs">
           <Button
             size="xs"
-            variant="light"
+            variant="default"
             leftSection={<IconCurrentLocation size={14} />}
             style={{ alignSelf: "flex-start" }}
             onClick={locateMe}
@@ -358,7 +358,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
               </Button>
               <Button
                 size="compact-xs"
-                variant="subtle"
+                variant="default"
                 onClick={() => {
                   setOffered(null);
                   clearSelection();
@@ -375,7 +375,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
           </Text>
         )}
         {failedWriteBacks.length > 0 && (
-          <Alert p="xs" color="orange" title="Linked events not updated">
+          <Alert p="xs" color="warning" title="Linked events not updated">
             {failedWriteBacks.map(({ pending, submitted }) => (
               <Text key={submitted.eventId} fz="xs">
                 “{submitted.label}” was saved, but {pending.map((w) => w.label).join(", ")} couldn't
@@ -385,6 +385,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
             <Group gap="xs" mt="xs">
               <Button
                 size="compact-xs"
+                variant="default"
                 onClick={async () => {
                   const results = await Promise.all(
                     failedWriteBacks.map((f) => runWriteBacks(f.pending, f.submitted)),
@@ -398,7 +399,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
               </Button>
               <Button
                 size="compact-xs"
-                variant="subtle"
+                variant="default"
                 onClick={() => {
                   dismissals.current++;
                   setFailedWriteBacks([]);
@@ -434,7 +435,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
         </Stack>
         <Group justify="space-between" wrap="nowrap">
           <Text
-            c={status === "error" ? "red.4" : "dimmed"}
+            c={status === "error" ? "danger.4" : "dimmed"}
             fz="xs"
             style={{ minWidth: 0 }}
             role="status"
@@ -443,7 +444,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
           </Text>
           <Group gap="xs" wrap="nowrap">
             {editing && (
-              <Button size="xs" variant="subtle" onClick={cancelEdit}>
+              <Button size="xs" variant="default" onClick={cancelEdit}>
                 Cancel
               </Button>
             )}
@@ -584,7 +585,7 @@ const FieldInput = ({
           {!field.hideNowButton && (
             <Button
               size="compact-xs"
-              variant="light"
+              variant="default"
               style={{ alignSelf: "flex-start" }}
               onClick={() => onChange(datetimeLocalValue())}
             >

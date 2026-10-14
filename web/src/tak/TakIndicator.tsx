@@ -20,7 +20,7 @@ export const TakIndicator = () => {
   useEffect(() => {
     // A lost connection already shows on the map and in the status bar; only the return is news.
     if (connection === "live" && previous.current === "down" && everConnected) {
-      notifications.show({ color: "teal", message: "TAK reconnected" });
+      notifications.show({ color: "success", message: "TAK reconnected" });
     }
     previous.current = connection;
   }, [connection, everConnected]);

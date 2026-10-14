@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type EventResponse } from "../../api.ts";
-import { useNow } from "../use-now.ts";
+import { useNow } from "../../use-now.ts";
 import type { LayerEvents } from "./EventLayerFeeds.tsx";
 import { featureCollection, layerFeatures } from "./layers.ts";
 import { useEventLayers } from "./store.ts";

@@ -104,7 +104,7 @@ const SetUpModal = ({ client, onClose }: { client: MatrixClient; onClose: () => 
           onChange={(e) => setSaved(e.currentTarget.checked)}
         />
         {error && (
-          <Alert color="red" variant="light">
+          <Alert color="danger" variant="light">
             {error}
           </Alert>
         )}
@@ -147,7 +147,7 @@ const VerifyModal = ({ client, onClose }: { client: MatrixClient; onClose: () =>
           (such as Element on your phone) or your recovery key.
         </Text>
         <Button
-          variant="light"
+          variant="default"
           disabled={busy}
           onClick={() => void run(() => verifyWithOtherSession(client))}
         >
@@ -176,7 +176,7 @@ const VerifyModal = ({ client, onClose }: { client: MatrixClient; onClose: () =>
           </Group>
         </form>
         {error && (
-          <Alert color="red" variant="light">
+          <Alert color="danger" variant="light">
             {error}
           </Alert>
         )}
@@ -214,17 +214,17 @@ export const EncryptionBanner = ({
         px="sm"
         py={short ? 2 : 6}
         wrap="nowrap"
-        bg="rgba(250, 176, 5, 0.1)"
+        bg="var(--mantine-color-warning-light)"
         style={{ borderBottom: "1px solid var(--mantine-color-dark-4)" }}
       >
-        <IconShieldExclamation size={16} color="var(--mantine-color-yellow-5)" />
+        <IconShieldExclamation size={16} color="var(--mantine-color-warning-4)" />
         <Text fz="xs" flex={1} miw={0} truncate>
           {!short &&
             (isNew
               ? "Set up a recovery key to keep your message history"
               : "Older messages are locked on this device")}
         </Text>
-        <Button size="compact-xs" variant="light" color="yellow" onClick={() => setOpen(true)}>
+        <Button size="compact-xs" variant="light" color="warning" onClick={() => setOpen(true)}>
           {isNew ? "Set up" : "Unlock"}
         </Button>
       </Group>
@@ -315,7 +315,9 @@ const VerificationBody = ({ request }: { request: VerificationRequest }) => {
         <Stack gap="sm">
           <Text fz="sm">Verification was cancelled. You can start again from the chat widget.</Text>
           <Group justify="flex-end">
-            <Button onClick={close}>Close</Button>
+            <Button variant="default" onClick={close}>
+              Close
+            </Button>
           </Group>
         </Stack>
       );
@@ -324,11 +326,13 @@ const VerificationBody = ({ request }: { request: VerificationRequest }) => {
   if (startError) {
     return (
       <Stack gap="sm">
-        <Alert color="red" variant="light">
+        <Alert color="danger" variant="light">
           Couldn't start emoji verification: {startError}
         </Alert>
         <Group justify="flex-end">
-          <Button onClick={retry}>Try again</Button>
+          <Button variant="default" onClick={retry}>
+            Try again
+          </Button>
         </Group>
       </Stack>
     );
@@ -357,7 +361,7 @@ const VerificationBody = ({ request }: { request: VerificationRequest }) => {
         </Text>
       )}
       <Group justify="flex-end">
-        <Button variant="default" color="red" onClick={() => sas.mismatch()}>
+        <Button variant="default" color="danger" onClick={() => sas.mismatch()}>
           They don't match
         </Button>
         <Button

@@ -1,9 +1,11 @@
-import { ActionIcon, Group, ScrollArea, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Box, Group, ScrollArea, Stack, Text, TextInput } from "@mantine/core";
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { formatAge } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
 import type { Position, TakItem } from "../cot.ts";
 import { formatBearing } from "../drawing/measure.ts";
 import { bearing, distance, formatDistance } from "../geo.ts";
@@ -16,7 +18,6 @@ import {
   statusOf,
   teamColor,
 } from "../items.ts";
-import { useNow } from "../use-now.ts";
 
 type Props = {
   /** TAK users other than this one. */
@@ -162,11 +163,19 @@ export const ContactsDrawer = ({
       </Text>
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         {teams.length === 0 && (
-          <Text fz="sm" c="dimmed" p="xs">
-            {contacts.length === 0
-              ? "No TAK users on the picture yet."
-              : "No contacts match the filter."}
-          </Text>
+          <Box py="md">
+            {contacts.length === 0 ? (
+              <Placeholder
+                title="No TAK users on the picture yet"
+                detail="Users appear here as their devices report in to TAK."
+              />
+            ) : (
+              <Placeholder
+                title="No contacts match the filter"
+                detail="Change or clear the filter."
+              />
+            )}
+          </Box>
         )}
         {teams.map((team) => (
           <section key={team} className="tak-group" aria-label={team}>

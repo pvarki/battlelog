@@ -135,10 +135,10 @@ export const LogItemDialog = ({
           </Alert>
         )}
         <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>
+          <Button size="xs" variant="default" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" loading={sending} disabled={!header.trim()}>
+          <Button size="xs" type="submit" loading={sending} disabled={!header.trim()}>
             Log
           </Button>
         </Group>

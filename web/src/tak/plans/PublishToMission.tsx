@@ -62,7 +62,7 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
       notifications.show(
         kept
           ? {
-              color: "orange",
+              color: "warning",
               title: `${plan.entries.length - kept} of ${plan.entries.length} published into ${name}`,
               message: [
                 unconfirmed > 0 && `${unconfirmed} not confirmed by TAK.`,
@@ -73,7 +73,7 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
                 .filter(Boolean)
                 .join(" "),
             }
-          : { color: "teal", message: `Plan published into ${name}: ${sent} items sent to TAK` },
+          : { color: "success", message: `Plan published into ${name}: ${sent} items sent to TAK` },
       );
     } catch (err) {
       notifyFailure(`Plan not published into ${name}`)(err);

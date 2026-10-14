@@ -43,13 +43,13 @@ export const AttachPhoto = ({ item, callsign, contacts, disabled }: Props) => {
     if (!photo) return;
     setPhoto(null);
     const failed = (what: string) => (err: unknown) =>
-      notifications.show({ color: "red", title: `Photo not ${what}`, message: String(err) });
+      notifications.show({ color: "danger", title: `Photo not ${what}`, message: String(err) });
     if (link) await attachPhotoLink(item, photo, callsign).catch(failed("linked"));
     if (toAtak) {
       await sendPhotoPackage(item, photo, callsign, recipients).then(
         () =>
           notifications.show({
-            color: "teal",
+            color: "success",
             message: `Photo sent to ${recipients.length ? recipients.join(", ") : "every TAK user"}`,
           }),
         failed("sent to ATAK users"),

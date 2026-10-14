@@ -25,7 +25,7 @@ export const VideoFeed = ({ video }: { video: NonNullable<TakItem["video"]> }) =
       )}
       {playable ? (
         <Button
-          variant="light"
+          variant="default"
           size="xs"
           leftSection={watching ? <IconPlayerStop size={14} /> : <IconPlayerPlay size={14} />}
           onClick={() => setWatching(!watching)}
@@ -51,7 +51,7 @@ export const VideoFeed = ({ video }: { video: NonNullable<TakItem["video"]> }) =
                 onClick={copy}
                 aria-label="Copy video URL"
               >
-                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
               </ActionIcon>
             </Tooltip>
           )}

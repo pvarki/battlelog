@@ -63,11 +63,11 @@ export const SendTo = ({ what, contacts, note, disabledReason, onSend }: Props) 
     setSending(true);
     try {
       await onSend(chosen);
-      notifications.show({ color: "teal", message: `${what} sent to ${chosen.join(", ")}` });
+      notifications.show({ color: "success", message: `${what} sent to ${chosen.join(", ")}` });
       setOpened(false);
       setChosen([]);
     } catch (err) {
-      notifications.show({ color: "red", title: `${what} not sent`, message: String(err) });
+      notifications.show({ color: "danger", title: `${what} not sent`, message: String(err) });
     } finally {
       setSending(false);
     }

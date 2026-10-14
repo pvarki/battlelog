@@ -9,7 +9,7 @@ import { IconCloudOff } from "@tabler/icons-react";
  */
 export const StaleNotice = () => (
   <Group gap={6} px="xs" py={2} c="warning.4" wrap="nowrap">
-    <IconCloudOff size={14} stroke={1.5} />
+    <IconCloudOff size={14} />
     <Text fz="xs">Couldn't refresh — showing last known events</Text>
   </Group>
 );

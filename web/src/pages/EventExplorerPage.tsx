@@ -215,7 +215,7 @@ export const EventExplorerPage = () => {
     <Button
       size="xs"
       variant="default"
-      leftSection={<IconFilter size={14} stroke={1.5} />}
+      leftSection={<IconFilter size={14} />}
       onClick={openFilters}
     >
       Filters{drawerCount ? ` · ${drawerCount}` : ""}
@@ -229,7 +229,7 @@ export const EventExplorerPage = () => {
       style={isMobile ? { flex: 1 } : undefined}
       placeholder="Header contains…"
       aria-label="Search event headers"
-      leftSection={<IconSearch size={14} stroke={1.5} />}
+      leftSection={<IconSearch size={14} />}
       value={searchInput}
       onChange={(e) => onSearchChange(e.currentTarget.value)}
     />

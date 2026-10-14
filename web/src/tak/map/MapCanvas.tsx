@@ -11,12 +11,12 @@ import {
 } from "maplibre-gl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ACCENT } from "../../theme.ts";
+import { useNow } from "../../use-now.ts";
 import type { Position, TakItem } from "../cot.ts";
 import type { Drawn, Sketch } from "../drawing/useDrawing.ts";
 import type { EventFeature } from "../event-layers/layers.ts";
 import { labelOf } from "../items.ts";
 import type { MapView } from "../tools.ts";
-import { useNow } from "../use-now.ts";
 import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
 import { addEventLayers, eventsAt } from "./event-layers.ts";

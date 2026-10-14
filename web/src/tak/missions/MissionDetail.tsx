@@ -2,11 +2,11 @@ import {
   ActionIcon,
   Anchor,
   Badge,
+  Box,
   Button,
   FileButton,
   Group,
   Loader,
-  Modal,
   PasswordInput,
   ScrollArea,
   Stack,
@@ -15,10 +15,12 @@ import {
 } from "@mantine/core";
 import { IconArrowLeft, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge, formatDate } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { labelOf } from "../items.ts";
-import { useNow } from "../use-now.ts";
 import { MissionFamily } from "./MissionFamily.tsx";
 import { MissionLog, NewLogEntry } from "./MissionLog.tsx";
 import { MissionMembers } from "./MissionMembers.tsx";
@@ -68,34 +70,16 @@ const DeleteMission = ({
       >
         Delete feed
       </Button>
-      <Modal
+      <ConfirmDialog
         opened={confirming}
         onClose={() => setConfirming(false)}
         title={`Delete ${mission.name}?`}
-        centered
+        confirmLabel="Delete"
+        onConfirm={onDelete}
       >
-        <Stack gap="sm">
-          <Text fz="sm">
-            The feed is removed from TAK for every user, with its list of items, files and log. The
-            map items themselves stay.
-          </Text>
-          <Group justify="flex-end" gap="xs">
-            <Button size="xs" variant="default" onClick={() => setConfirming(false)} data-autofocus>
-              Cancel
-            </Button>
-            <Button
-              size="xs"
-              color="danger"
-              onClick={() => {
-                setConfirming(false);
-                onDelete();
-              }}
-            >
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        The feed is removed from TAK for every user, with its list of items, files and log. The map
+        items themselves stay.
+      </ConfirmDialog>
     </>
   );
 };
@@ -236,18 +220,24 @@ export const MissionDetail = ({
             title={`Items ${contents?.kind === "loaded" ? contents.items.length : mission.itemUids.length}`}
           >
             {contents?.kind === "no-access" && (
-              <Text fz="xs" c="dimmed" p="xs">
-                TAK didn't let you read this feed
-                {mission.passwordProtected || mission.inviteOnly
-                  ? " (password or invitation needed)"
-                  : ""}
-                .
-              </Text>
+              <Box py="md">
+                <Placeholder
+                  title="TAK didn't let you read this feed"
+                  detail={
+                    mission.passwordProtected || mission.inviteOnly
+                      ? "Password or invitation needed."
+                      : "Your TAK user has no access to it."
+                  }
+                />
+              </Box>
             )}
             {contents?.kind === "failed" && (
-              <Text fz="xs" c="dimmed" p="xs">
-                Couldn't load the items.
-              </Text>
+              <Box py="md">
+                <Placeholder
+                  title="Couldn't load the items"
+                  detail="They are fetched again automatically."
+                />
+              </Box>
             )}
             {(contents === undefined || contents.kind === "loading") && <Loader size="xs" m="xs" />}
             {contents?.kind === "loaded" && contents.items.length < mission.itemUids.length && (
@@ -326,7 +316,7 @@ export const MissionDetail = ({
                   <Button
                     {...fileProps}
                     size="xs"
-                    variant="subtle"
+                    variant="default"
                     leftSection={<IconUpload size={14} />}
                     disabled={!canWrite}
                   >

@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Badge,
+  Box,
   Button,
   Group,
   ScrollArea,
@@ -18,7 +19,9 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { type MouseEvent, type ReactNode, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
 import {
@@ -31,7 +34,6 @@ import {
 } from "../items.ts";
 import { groupOf, groupTree, isHidden, type Group as OverlayGroup } from "../overlays.ts";
 import { kmlBlob } from "../plans/overlay-files.ts";
-import { useNow } from "../use-now.ts";
 
 type Props = {
   items: TakItem[];
@@ -207,11 +209,16 @@ export const ItemsDrawer = ({
       />
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         {groups.length === 0 ? (
-          <Text fz="sm" c="dimmed" p="xs">
-            {items.length === 0
-              ? "Nothing on the TAK picture yet. Items appear here as TAK users report in and markers are placed."
-              : "No items match the filter."}
-          </Text>
+          <Box py="md">
+            {items.length === 0 ? (
+              <Placeholder
+                title="Nothing on the TAK picture yet"
+                detail="Items appear here as TAK users report in and markers are placed."
+              />
+            ) : (
+              <Placeholder title="No items match the filter" detail="Change or clear the filter." />
+            )}
+          </Box>
         ) : (
           groups.map((group) => renderGroup(group, false))
         )}

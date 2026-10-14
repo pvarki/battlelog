@@ -1,6 +1,7 @@
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Button, Group, Text } from "@mantine/core";
 import { IconArrowsMove, IconTrash, IconX } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 
 type Props = {
   count: number;
@@ -78,36 +79,18 @@ export const SelectionPanel = (props: Props) => {
       <Text fz="xs" c="dimmed" px={6} pt={2}>
         {hintFor(props)}
       </Text>
-      <Modal
+      <ConfirmDialog
         opened={confirming}
         onClose={() => setConfirming(false)}
         title={`Delete ${deletable} items?`}
-        centered
+        confirmLabel="Delete"
+        onConfirm={onDelete}
       >
-        <Stack gap="sm">
-          <Text fz="sm">
-            {planName
-              ? `They are removed from the map of every TAK user when plan ${planName} is published.`
-              : "They are removed from the map of every TAK user."}{" "}
-            Undo sends them back.
-          </Text>
-          <Group justify="flex-end" gap="xs">
-            <Button size="xs" variant="default" onClick={() => setConfirming(false)} data-autofocus>
-              Cancel
-            </Button>
-            <Button
-              size="xs"
-              color="danger"
-              onClick={() => {
-                setConfirming(false);
-                onDelete();
-              }}
-            >
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        {planName
+          ? `They are removed from the map of every TAK user when plan ${planName} is published.`
+          : "They are removed from the map of every TAK user."}{" "}
+        Undo sends them back.
+      </ConfirmDialog>
     </>
   );
 };

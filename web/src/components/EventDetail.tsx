@@ -53,7 +53,7 @@ export const EventDetail = ({
         </Code>
       </div>
     )}
-    <Button variant="light" size="xs" style={{ alignSelf: "flex-start" }} onClick={onShowHistory}>
+    <Button variant="default" size="xs" style={{ alignSelf: "flex-start" }} onClick={onShowHistory}>
       Show all versions of this event
     </Button>
   </Stack>

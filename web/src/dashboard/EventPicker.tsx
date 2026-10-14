@@ -17,6 +17,7 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { IconAlertTriangle, IconSearch } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { api, type EventResponse } from "../api.ts";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { isUuid } from "../events/event-filters.ts";
 import { formatShortDateTime } from "../time.ts";
 
@@ -130,7 +131,7 @@ const PickerDialog = ({
         <TextInput
           data-autofocus
           placeholder="Search headers"
-          leftSection={<IconSearch size={16} stroke={1.5} />}
+          leftSection={<IconSearch size={16} />}
           value={search}
           onChange={(e) => setSearch(e.currentTarget.value)}
         />
@@ -142,9 +143,12 @@ const PickerDialog = ({
         <Box mah="50vh" style={{ overflowY: "auto" }}>
           <Stack gap="xs">
             {failed && (
-              <Text fz="sm" c="red.4" role="status">
-                Couldn't load events.
-              </Text>
+              <Box role="status">
+                <Placeholder
+                  title="Couldn't load events"
+                  detail="The search request failed. Paste an event id below, or close and try again."
+                />
+              </Box>
             )}
             {!rows && !failed && <Loader size="sm" />}
             {rows?.map((row) => (
@@ -160,9 +164,10 @@ const PickerDialog = ({
               </UnstyledButton>
             ))}
             {rows?.length === 0 && (
-              <Text fz="sm" c="dimmed">
-                No matching events.
-              </Text>
+              <Placeholder
+                title="No matching events"
+                detail="No event header matches this search."
+              />
             )}
           </Stack>
         </Box>
@@ -219,8 +224,8 @@ export const EventPicker = ({
           ) : (
             <Alert
               p="xs"
-              color="yellow"
-              icon={<IconAlertTriangle size={16} stroke={1.5} />}
+              color="warning"
+              icon={<IconAlertTriangle size={16} />}
               title={linked.state === "missing" ? "Event not found" : "Couldn't load event"}
             >
               <Text fz="xs" ff="monospace">
@@ -231,7 +236,7 @@ export const EventPicker = ({
           <Group gap="xs">
             <Button
               size="compact-xs"
-              variant="light"
+              variant="default"
               aria-label={
                 linked.state === "found" && value
                   ? `Change ${label}: ${linked.row.header}`

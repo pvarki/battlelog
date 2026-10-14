@@ -68,20 +68,20 @@ const ConnectionIndicator = () => {
   useEffect(() => {
     if (state === "down" && previous.current !== "down") {
       notifications.show({
-        color: "red",
+        color: "danger",
         title: "Event stream down",
         message: "Live updates are not arriving — data shown may be stale.",
         autoClose: 8000,
       });
     } else if (state === "live" && previous.current === "down") {
-      notifications.show({ color: "teal", message: "Event stream reconnected" });
+      notifications.show({ color: "success", message: "Event stream reconnected" });
     }
     previous.current = state;
   }, [state]);
 
   return (
     <Group gap={4} ml="auto" c={c} title={`Event stream: ${label}`} role="status">
-      <Icon size={16} stroke={1.5} />
+      <Icon size={16} />
       {/* Icon-only on phones: a label wraps the 48px header onto the page. */}
       <Text fz="xs" c={state === "live" ? "dark.0" : undefined} visibleFrom="sm">
         {state === "live" ? "Log" : `Log ${label.toLowerCase()}`}

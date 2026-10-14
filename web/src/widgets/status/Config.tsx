@@ -1,4 +1,5 @@
-import { Button, Divider, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
+import { Button, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { EventPicker } from "../../dashboard/EventPicker.tsx";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
@@ -151,7 +152,8 @@ const GroupEditor = ({
             />
           ))}
           <Button
-            variant="light"
+            size="xs"
+            variant="default"
             onClick={() =>
               onChange({
                 ...group,
@@ -189,10 +191,10 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
 
   return (
     <Stack>
-      <Divider label="General" labelPosition="left" />
+      <SectionHeading>General</SectionHeading>
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
 
-      <Divider label="Statuses" labelPosition="left" />
+      <SectionHeading>Statuses</SectionHeading>
       {config.statuses.map((row, index) => (
         <ItemCard
           key={row.id}
@@ -291,7 +293,8 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
       ))}
 
       <Button
-        variant="light"
+        size="xs"
+        variant="default"
         onClick={() =>
           setRows([
             ...config.statuses,

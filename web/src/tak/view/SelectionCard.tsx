@@ -141,7 +141,11 @@ export const SelectionCard = ({
       kicker={describeType(item)}
       title={labelOf(item)}
       badge={
-        <Badge size="sm" variant="outline" color={status === "online" ? "success" : "warning"}>
+        <Badge
+          size="xs"
+          variant="outline"
+          color={status === "online" ? "success" : status === "stale" ? "warning" : "gray"}
+        >
           {STATUS_LABEL[status]} · {formatAge(now - item.time)}
         </Badge>
       }

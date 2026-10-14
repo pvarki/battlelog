@@ -29,13 +29,13 @@ Dependencies point down this list; a lower system never imports a higher one.
 | `event-binding/` | Event queries (`filter.ts`), data paths, bound cells and versioned field writes. |
 | `components/` | UI pieces several systems use (`Placeholder`, `SectionHeading`, `ConfirmDialog`, `StaleNotice`, `EventDetail`). |
 | `events/`, `api.ts` | BattleLog events: the SSE stream, offline cache, explorer filters; the typed API client (API types come from the server's schemas, never redeclared). |
-| `map-pick.ts`, `viewport.ts`, `form-utils.ts`, `media/` | Small shared pieces: pick-on-map requests, the mobile breakpoint, config-form text, the video player. |
+| `map-pick.ts`, `viewport.ts`, `form-utils.ts`, `time.ts`, `use-now.ts`, `media/` | Small shared pieces: pick-on-map requests, the mobile breakpoint, config-form text, house time formats and a ticking clock, the video player. |
 
 ## UI conventions
 
 One look across pages, dashboards, widgets and the Map page:
 
-- **Headings** over a group of fields or rows: `SectionHeading` (`components/`). Not `Divider` labels, bold `Text` or ad-hoc uppercase.
+- **Headings** over a group of fields or rows: `SectionHeading` (`components/`). Not `Divider` labels, bold `Text` or ad-hoc uppercase. A long settings form may fold its sections in an `Accordion`.
 - **Colour by meaning**: `danger`, `warning`, `success` (and `accent` for links/selection). Never `red`, `yellow`, `orange`, `green`, `blue` or raw hex in UI code; hex is for data (team and map colours).
 - **Confirming** something destructive: `ConfirmDialog` (`components/`). Never `window.confirm`.
 - **Empty and failure states**: `Placeholder` (`components/`), saying what's missing and why.

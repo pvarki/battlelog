@@ -110,11 +110,17 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Even
       <Center h="100%" p="sm">
         <Stack gap={4} align="center">
           {pill}
-          <Text c="dimmed" fz="xs" ta="center">
-            {failed
-              ? "Could not load events — new ones will still arrive on the live stream."
-              : "No matching events"}
-          </Text>
+          {failed ? (
+            <Placeholder
+              title="Couldn't load events"
+              detail="New ones will still arrive on the live stream."
+            />
+          ) : (
+            <Placeholder
+              title="No matching events"
+              detail="Nothing in the log matches this table's query."
+            />
+          )}
         </Stack>
       </Center>
     );
@@ -160,14 +166,14 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Even
     <Box h="100%" style={{ position: "relative" }}>
       {config.allowFiltering && anyFilter && (
         <ActionIcon
-          variant="light"
-          color="accent"
+          variant="subtle"
+          color="gray"
           size="sm"
           aria-label="Clear all filters"
           onClick={() => setFilters({})}
           style={{ position: "absolute", top: 6, right: 6, zIndex: 3 }}
         >
-          <IconFilterOff size={14} />
+          <IconFilterOff size={16} />
         </ActionIcon>
       )}
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
@@ -232,9 +238,12 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Even
           </Table.Tbody>
         </Table>
         {rows.length === 0 && (
-          <Text c="dimmed" fz="xs" ta="center" mt="sm">
-            No rows match the filters
-          </Text>
+          <Box py="md">
+            <Placeholder
+              title="No matching rows"
+              detail="Clear a column filter to see the hidden rows."
+            />
+          </Box>
         )}
       </Box>
     </Box>

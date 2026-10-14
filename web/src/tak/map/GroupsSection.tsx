@@ -41,7 +41,7 @@ export const GroupsSection = ({ clientUid }: { clientUid: string | undefined }) 
       refetchTakHistory();
     } catch (err) {
       notifications.show({
-        color: "red",
+        color: "danger",
         title: "Couldn't change TAK groups",
         message: describe(err),
       });
@@ -54,7 +54,7 @@ export const GroupsSection = ({ clientUid }: { clientUid: string | undefined }) 
     <Stack gap={6}>
       <SectionHeading>TAK groups</SectionHeading>
       {loadError ? (
-        <Text fz="xs" c="red">
+        <Text fz="xs" c="danger.4">
           Couldn't load your TAK groups: {loadError}
         </Text>
       ) : !groups ? (

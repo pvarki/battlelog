@@ -184,9 +184,14 @@ const GroupRows = ({
   if (!events) return <Loader size="xs" ml={16} />;
   if (events.length === 0) {
     return (
-      <Text c="dimmed" fz="xs" pl={16}>
-        {failed ? "Could not load events" : "No matching events"}
-      </Text>
+      <Placeholder
+        title={failed ? "Couldn't load events" : "No matching events"}
+        detail={
+          failed
+            ? "New ones will still arrive on the live stream."
+            : "Nothing in the log matches this group's query."
+        }
+      />
     );
   }
   const sorted = [...events].sort((a, b) => a.header.localeCompare(b.header));

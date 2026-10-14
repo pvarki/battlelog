@@ -79,13 +79,13 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
                 aria-label="Remove data filter"
                 onClick={() => setDataFilters(dataFilters.filter((x) => x.id !== f.id))}
               >
-                <IconX size={18} stroke={1.5} />
+                <IconX size={14} />
               </ActionIcon>
             </Group>
           ))}
           <Button
             size="compact-xs"
-            variant="light"
+            variant="default"
             disabled={dataFilters.length >= 10}
             onClick={() =>
               setDataFilters([...dataFilters, { id: crypto.randomUUID(), path: "", value: "" }])
@@ -204,7 +204,8 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
       ))}
 
       <Button
-        variant="light"
+        size="xs"
+        variant="default"
         disabled={config.columns.length >= 20}
         onClick={() =>
           setColumns([

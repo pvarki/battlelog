@@ -2,9 +2,9 @@ import { Alert, Button, Group, Stack, Text } from "@mantine/core";
 import { IconUrgent } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { formatAge } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
 import { activeEmergencies } from "../items.ts";
-import { useNow } from "../use-now.ts";
 import { useEmergencyPulse } from "./useEmergencyPulse.ts";
 
 const AGE_REFRESH_MS = 10_000;
@@ -26,7 +26,7 @@ export const EmergencyBanner = ({
   if (emergencies.length === 0) return null;
   return (
     <Alert
-      color="red"
+      color="danger"
       variant="filled"
       icon={<IconUrgent size={20} />}
       title={emergencies.length > 1 ? `${emergencies.length} emergencies` : "Emergency"}
@@ -42,7 +42,12 @@ export const EmergencyBanner = ({
               </Text>
             </Text>
             {onCenter && (
-              <Button size="compact-xs" variant="white" color="red" onClick={() => onCenter(item)}>
+              <Button
+                size="compact-xs"
+                variant="white"
+                color="danger"
+                onClick={() => onCenter(item)}
+              >
                 Center
               </Button>
             )}

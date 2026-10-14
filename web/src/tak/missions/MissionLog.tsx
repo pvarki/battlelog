@@ -1,5 +1,6 @@
-import { Button, Group, Loader, Text, Textarea } from "@mantine/core";
+import { Box, Button, Group, Loader, Text, Textarea } from "@mantine/core";
 import { useEffect, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatDateTime } from "../../time.ts";
 import type { MissionsDrawerProps } from "./MissionsDrawer.tsx";
 import { fetchMissionLog, type MissionLogEntry } from "./missions.ts";
@@ -23,15 +24,15 @@ export const MissionLog = ({
   if (entries === undefined) return <Loader size="xs" m="xs" />;
   if (entries === "failed")
     return (
-      <Text fz="xs" c="dimmed" p="xs">
-        Couldn't load the log.
-      </Text>
+      <Box py="md">
+        <Placeholder title="Couldn't load the log" detail="Open the feed again to retry." />
+      </Box>
     );
   if (entries.length === 0)
     return (
-      <Text fz="xs" c="dimmed" p="xs">
-        No log entries.
-      </Text>
+      <Box py="md">
+        <Placeholder title="No log entries" detail="Nobody has written to this feed's log yet." />
+      </Box>
     );
   return entries.map((entry) => (
     <div key={entry.id} className="tak-row">

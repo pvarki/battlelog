@@ -348,7 +348,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     );
     if (!slot) {
       notifications.show({
-        color: "red",
+        color: "danger",
         title: "No room on this view",
         message: "Remove or resize a widget to make space.",
       });
@@ -476,7 +476,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
                 disabled={!canUndo}
                 onClick={() => jump(-1)}
               >
-                <IconArrowBackUp size={18} stroke={1.5} />
+                <IconArrowBackUp size={16} />
               </ActionIcon>
               <ActionIcon
                 variant="default"
@@ -486,7 +486,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
                 disabled={!canRedo}
                 onClick={() => jump(1)}
               >
-                <IconArrowForwardUp size={18} stroke={1.5} />
+                <IconArrowForwardUp size={16} />
               </ActionIcon>
             </>
           )}
@@ -495,7 +495,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
             // each one turns that into a round-trip per widget.
             <Menu position="bottom-end" closeOnItemClick={false}>
               <Menu.Target>
-                <Button variant="light">Add widget</Button>
+                <Button variant="default">Add widget</Button>
               </Menu.Target>
               <Menu.Dropdown>
                 {[...registry.values()].map((d) => (

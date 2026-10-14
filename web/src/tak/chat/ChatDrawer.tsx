@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Box,
   Button,
   Group,
   Modal,
@@ -14,6 +15,7 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { IconUsersPlus } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatClockTime } from "../../time.ts";
 import { RecipientPicker, recipientGroups } from "../contacts/SendTo.tsx";
 import {
@@ -138,8 +140,13 @@ export const ChatDrawer = ({
           searchable
         />
         <Tooltip label="New group" withArrow>
-          <ActionIcon variant="default" aria-label="New group" onClick={() => setCreating(true)}>
-            <IconUsersPlus size={14} />
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            aria-label="New group"
+            onClick={() => setCreating(true)}
+          >
+            <IconUsersPlus size={16} />
           </ActionIcon>
         </Tooltip>
       </Group>
@@ -156,9 +163,12 @@ export const ChatDrawer = ({
       <ScrollArea viewportRef={viewport} style={{ flex: 1 }}>
         <Stack gap={6}>
           {shown.length === 0 && (
-            <Text fz="xs" c="dimmed">
-              No messages in this room in the last eight days.
-            </Text>
+            <Box py="md">
+              <Placeholder
+                title="No messages"
+                detail="Nothing in this room in the last eight days."
+              />
+            </Box>
           )}
           {shown.map((m) => (
             <div
@@ -177,7 +187,7 @@ export const ChatDrawer = ({
         </Stack>
       </ScrollArea>
       {failed && (
-        <Text fz="xs" c="red">
+        <Text fz="xs" c="danger.4">
           Not sent: not connected to TAK.
         </Text>
       )}

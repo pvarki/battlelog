@@ -234,7 +234,7 @@ const ToolButtons = ({
                   variant={active ? "filled" : "subtle"}
                   color={active ? "primary" : "gray"}
                   leftSection={<Icon size={14} />}
-                  rightSection={<IconChevronDown size={12} />}
+                  rightSection={<IconChevronDown size={14} />}
                   disabled={!!disabledReason}
                   title={disabledReason}
                 >
@@ -292,7 +292,7 @@ const ToolButtons = ({
             variant={measuring || lassoing || isMenuTool(tool) ? "filled" : "subtle"}
             color={measuring || lassoing || isMenuTool(tool) ? "primary" : "gray"}
             leftSection={<IconTools size={14} />}
-            rightSection={<IconChevronDown size={12} />}
+            rightSection={<IconChevronDown size={14} />}
           >
             Tools
           </Button>

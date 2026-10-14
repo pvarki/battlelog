@@ -30,7 +30,7 @@ export const SaveAreaSection = ({
     );
     if (plan.tiles.length === 0) {
       notifications.show({
-        color: "yellow",
+        color: "warning",
         message: "Zoom in further: this area is too large to save.",
       });
       return;

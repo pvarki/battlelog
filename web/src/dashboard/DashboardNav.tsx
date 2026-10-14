@@ -7,7 +7,6 @@ import {
   ScrollArea,
   SegmentedControl,
   Stack,
-  Text,
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
@@ -16,6 +15,7 @@ import { IconFolder, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-
 import { Link, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import type { DashboardResponse } from "../api.ts";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { buildTree, type TreeNode } from "./tree.ts";
 import { useDashboardManager } from "./useDashboardManager.tsx";
 
@@ -80,12 +80,12 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
             className="nav-reveal"
             data-favorite={favorite || undefined}
             variant="subtle"
-            color={favorite ? "yellow" : "gray"}
+            color={favorite ? "warning" : "gray"}
             size="sm"
             aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
             onClick={() => toggleFavorite(id)}
           >
-            {favorite ? <IconStarFilled size={14} /> : <IconStar size={14} stroke={1.5} />}
+            {favorite ? <IconStarFilled size={14} /> : <IconStar size={14} />}
           </ActionIcon>
         </Group>
       </Box>
@@ -97,7 +97,7 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
       <NavLink
         key={node.path}
         label={node.name}
-        leftSection={<IconFolder size={16} stroke={1.5} />}
+        leftSection={<IconFolder size={16} />}
         defaultOpened={contains(node, dashboardId)}
         childrenOffset="sm"
         py={4}
@@ -109,11 +109,11 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
       renderItem(byId.get(node.id) as DashboardResponse, node.name)
     );
 
-  const emptyText = q
-    ? "No matches."
+  const empty = q
+    ? { title: "No matching views", detail: "No view name contains this search." }
     : filter === "favorites"
-      ? "Star a view to pin it here."
-      : "No views yet.";
+      ? { title: "No favorites", detail: "Star a view to pin it here." }
+      : { title: "No views yet", detail: "Create one with the + button above." };
 
   return (
     <Stack gap="xs" h="100%" p="xs">
@@ -134,7 +134,7 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
           size="xs"
           placeholder="Search"
           aria-label="Search views"
-          leftSection={<IconSearch size={14} stroke={1.5} />}
+          leftSection={<IconSearch size={14} />}
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
           onKeyDown={(e) => e.key === "Escape" && setQuery("")}
@@ -148,9 +148,7 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
       {errorText}
       <ScrollArea flex={1}>
         {views.length === 0 ? (
-          <Text fz="xs" c="dimmed" p="xs">
-            {emptyText}
-          </Text>
+          <Placeholder {...empty} />
         ) : q || filter === "favorites" ? (
           // Flat, with the folder path as a subtitle: a search match deep in a
           // collapsed folder would be invisible, and favorites are a shortlist.

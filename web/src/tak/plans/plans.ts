@@ -85,7 +85,7 @@ const write = async (plan: Plan | { id: string; deleted: true }) => {
 const persist = (plan: Plan | { id: string; deleted: true }) =>
   write(plan).catch((err: unknown) =>
     notifications.show({
-      color: "red",
+      color: "danger",
       title: "Plan not saved in this browser",
       message: `It will be lost on reload; export it to keep it. (${String(err)})`,
     }),

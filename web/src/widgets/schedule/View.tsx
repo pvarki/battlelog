@@ -13,8 +13,10 @@ import {
 import { DateTimePicker, TimePicker } from "@mantine/dates";
 import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
+import { formatClockTime, formatDate } from "../../time.ts";
 import {
   formatDelta,
   nextTarget,
@@ -24,17 +26,7 @@ import {
   widgetDocument,
 } from "./widget.ts";
 
-const formatTarget = (iso: string): string =>
-  new Intl.DateTimeFormat("fi-FI", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
-
-const formatTime = (date: Date): string =>
-  new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" }).format(date);
+const formatTarget = (iso: string): string => `${formatDate(iso)} ${formatClockTime(iso)}`;
 
 const TimerRow = ({
   timer,
@@ -59,7 +51,9 @@ const TimerRow = ({
           </Text>
         ) : null}
         <Text c="dimmed" fz="xs">
-          {timer.recurring ? `Joka päivä klo ${formatTime(target)}` : formatTarget(timer.target)}
+          {timer.recurring
+            ? `Joka päivä klo ${formatClockTime(target.getTime())}`
+            : formatTarget(timer.target)}
         </Text>
       </Stack>
       <Group gap="xs" wrap="nowrap">
@@ -73,7 +67,7 @@ const TimerRow = ({
           aria-label={`Remove ${timer.label}`}
           onClick={onRemove}
         >
-          <IconX size={14} stroke={1.5} />
+          <IconX size={14} />
         </ActionIcon>
       </Group>
     </Group>
@@ -152,9 +146,10 @@ const ScheduleView = ({
     <Stack h="100%" gap="xs" p="xs">
       <Stack gap={6} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {timers.length === 0 && status !== "loading" ? (
-          <Text c="dimmed" fz="sm">
-            No timers yet.
-          </Text>
+          <Placeholder
+            title="No timers"
+            detail="Add a timer to count down to a deadline or a daily time."
+          />
         ) : (
           timers.map((t) => (
             <TimerRow key={t.id} timer={t} now={now} onRemove={() => remove(t.id)} />
@@ -163,7 +158,7 @@ const ScheduleView = ({
       </Stack>
       <Button
         size="xs"
-        variant="light"
+        variant="default"
         disabled={status === "loading" || status === "unavailable"}
         onClick={() => setOpened(true)}
       >
@@ -239,7 +234,7 @@ const ScheduleView = ({
                 ? "Target is in the past."
                 : " "}
           </Text>
-          <Button disabled={!valid} onClick={add}>
+          <Button size="xs" disabled={!valid} onClick={add}>
             Add
           </Button>
         </Stack>

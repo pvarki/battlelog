@@ -2,7 +2,6 @@ import {
   ActionIcon,
   Button,
   Checkbox,
-  Divider,
   Group,
   Menu,
   SegmentedControl,
@@ -13,6 +12,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -86,9 +86,7 @@ const EventSelectEditor = ({
     });
   return (
     <Stack gap={4}>
-      <Text fz="xs" fw={500}>
-        Options: events matching
-      </Text>
+      <SectionHeading>Options: events matching</SectionHeading>
       <QueryEditor query={select} onChange={onChange} />
       <FieldInput
         label="Option label"
@@ -104,9 +102,7 @@ const EventSelectEditor = ({
         value={select.emptyText}
         onChange={(e) => onChange({ ...select, emptyText: e.currentTarget.value })}
       />
-      <Text fz="xs" fw={500} mt={4}>
-        On submit, update the picked event
-      </Text>
+      <SectionHeading>On submit, update the picked event</SectionHeading>
       {select.writeBack.map((rule) => (
         <Group key={rule.id} gap={6} wrap="nowrap" align="flex-end">
           <FieldInput
@@ -143,13 +139,13 @@ const EventSelectEditor = ({
               onChange({ ...select, writeBack: select.writeBack.filter((r) => r.id !== rule.id) })
             }
           >
-            <IconX size={14} stroke={1.5} />
+            <IconX size={14} />
           </ActionIcon>
         </Group>
       ))}
       <Button
         size="compact-xs"
-        variant="subtle"
+        variant="default"
         onClick={() =>
           onChange({
             ...select,
@@ -177,7 +173,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
 
   return (
     <Stack>
-      <Divider label="General" labelPosition="left" />
+      <SectionHeading>General</SectionHeading>
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
       <TextInput
         label="Report type"
@@ -203,7 +199,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
         onChange={(e) => onChange({ ...config, allowEdit: e.currentTarget.checked || undefined })}
       />
 
-      <Divider label="Fields" labelPosition="left" />
+      <SectionHeading>Fields</SectionHeading>
       {config.fields.map((field, index) => (
         <ItemCard
           key={field.id}
@@ -379,7 +375,9 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
 
       <Menu position="bottom-start">
         <Menu.Target>
-          <Button variant="light">Add field</Button>
+          <Button size="xs" variant="default">
+            Add field
+          </Button>
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Item

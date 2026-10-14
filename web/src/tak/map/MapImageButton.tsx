@@ -10,7 +10,7 @@ const fileStamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, 
 
 const imageFailed = (err: unknown) =>
   notifications.show({
-    color: "red",
+    color: "danger",
     title: "Couldn't make the map image",
     message: err instanceof Error ? err.message : String(err),
   });

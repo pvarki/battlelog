@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Box,
   Button,
   Group,
   Loader,
@@ -12,10 +13,11 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { IconEye, IconEyeOff, IconListTree, IconLock } from "@tabler/icons-react";
 import { useEffect } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
 import { count } from "../items.ts";
-import { useNow } from "../use-now.ts";
 import { missionTree, useMissionParents } from "./hierarchy.ts";
 import { MissionDetail } from "./MissionDetail.tsx";
 import type { Mission } from "./missions.ts";
@@ -69,17 +71,23 @@ const MissionList = ({ view, ...props }: MissionsDrawerProps & { view: ListView 
   const parents = useMissionParents(missions?.map((m) => m.name) ?? [], view === "tree");
   if (missions === null)
     return listFailed ? (
-      <Text fz="sm" c="dimmed" p="xs">
-        Couldn't load Data Sync feeds from TAK.
-      </Text>
+      <Box py="md">
+        <Placeholder
+          title="Couldn't load Data Sync feeds from TAK"
+          detail="The list is fetched again automatically."
+        />
+      </Box>
     ) : (
       <Loader size="xs" m="xs" />
     );
   if (missions.length === 0)
     return (
-      <Text fz="sm" c="dimmed" p="xs">
-        No Data Sync feeds on this TAK server yet.
-      </Text>
+      <Box py="md">
+        <Placeholder
+          title="No Data Sync feeds yet"
+          detail="This TAK server has none; New feed creates one."
+        />
+      </Box>
     );
   const rows =
     view === "tree"
@@ -163,6 +171,7 @@ const MyInvitations = ({
           </Text>
           <Button
             size="xs"
+            variant="default"
             disabled={busy}
             onClick={() =>
               void run(`Couldn't join ${name}`, () => join(name)).then((ok) => ok && onOpen(name))

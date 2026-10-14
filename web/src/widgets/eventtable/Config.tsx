@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -124,9 +125,7 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
         />
       </Group>
 
-      <Text fz="sm" fw={600}>
-        Columns
-      </Text>
+      <SectionHeading>Columns</SectionHeading>
       {config.columns.map((col, index) => (
         <ItemCard
           key={col.id}
@@ -209,7 +208,8 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
         </ItemCard>
       ))}
       <Button
-        variant="light"
+        size="xs"
+        variant="default"
         onClick={() =>
           setColumns([
             ...config.columns,

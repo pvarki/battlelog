@@ -28,7 +28,7 @@ export const sendTestMarker = async ([lon, lat]: Position, callsign: string) => 
     detail: `<contact callsign="${escapeXml(`${callsign} test`)}"/><color argb="-256"/><remarks>BattleLog write test</remarks><archive/>`,
   };
   if (!sendCot(event)) {
-    notifications.show({ color: "red", message: "Not connected to TAK" });
+    notifications.show({ color: "danger", message: "Not connected to TAK" });
     return;
   }
   await new Promise((resolve) => setTimeout(resolve, VERIFY_DELAY_MS));
@@ -36,12 +36,12 @@ export const sendTestMarker = async ([lon, lat]: Position, callsign: string) => 
     const stored = await fetchLatestCot(event.uid);
     notifications.show(
       stored
-        ? { color: "teal", title: "TAK stored the test marker", message: event.uid }
-        : { color: "red", title: "TAK did not store the test marker", message: event.uid },
+        ? { color: "success", title: "TAK stored the test marker", message: event.uid }
+        : { color: "danger", title: "TAK did not store the test marker", message: event.uid },
     );
   } catch (err) {
     notifications.show({
-      color: "red",
+      color: "danger",
       title: "Couldn't verify the test marker",
       message: String(err),
     });

@@ -1,5 +1,15 @@
-import { ActionIcon, Anchor, Badge, Button, Group, Stack, Table, Text, Title } from "@mantine/core";
-import { IconCurrentLocation, IconExternalLink, IconX } from "@tabler/icons-react";
+import {
+  Anchor,
+  Badge,
+  Button,
+  CloseButton,
+  Group,
+  Stack,
+  Table,
+  Text,
+  Title,
+} from "@mantine/core";
+import { IconCurrentLocation, IconExternalLink } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import type { EventResponse } from "../../api.ts";
 import { formatDateTime } from "../../time.ts";
@@ -52,9 +62,7 @@ export const EventDetails = ({
             {event.header}
           </Title>
         </div>
-        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Close details">
-          <IconX size={16} />
-        </ActionIcon>
+        <CloseButton size="sm" onClick={onClose} aria-label="Close details" />
       </Group>
 
       <Group gap="xs">

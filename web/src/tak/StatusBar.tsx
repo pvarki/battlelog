@@ -1,9 +1,9 @@
 import { Group, Text } from "@mantine/core";
 import { formatAge } from "../time.ts";
+import { useNow } from "../use-now.ts";
 import { type CoordFormat, formatCoord } from "./coords.ts";
 import { type Cursor, useCursor } from "./map/cursor.ts";
 import type { TakStatus } from "./session.ts";
-import { useNow } from "./use-now.ts";
 
 type Props = {
   cursor: Cursor;

@@ -3,6 +3,7 @@ import {
   Anchor,
   Badge,
   Button,
+  CloseButton,
   CopyButton,
   Divider,
   Group,
@@ -29,6 +30,7 @@ import {
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { formatAge, formatDateTime } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
 import { useWrites, type WriteState } from "../commands.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import { type CoordFormat, formatCoord } from "../coords.ts";
@@ -53,7 +55,6 @@ import { AddToMission } from "../missions/AddToMission.tsx";
 import type { Mission } from "../missions/missions.ts";
 import { contentLinks } from "../rest.ts";
 import { sendItem } from "../send.ts";
-import { useNow } from "../use-now.ts";
 import { AttachPhoto } from "./AttachPhoto.tsx";
 import { DeleteItem } from "./DeleteItem.tsx";
 import { EditItem } from "./EditItem.tsx";
@@ -170,9 +171,7 @@ export const ItemDetails = ({
             {labelOf(item)}
           </Title>
         </div>
-        <ActionIcon variant="subtle" color="gray" onClick={onClose} aria-label="Close details">
-          <IconX size={16} />
-        </ActionIcon>
+        <CloseButton size="sm" onClick={onClose} aria-label="Close details" />
       </Group>
 
       <Group gap="xs">
@@ -258,7 +257,7 @@ export const ItemDetails = ({
                         onClick={copy}
                         aria-label="Copy coordinate"
                       >
-                        {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                        {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
                       </ActionIcon>
                     </Tooltip>
                   )}
@@ -402,7 +401,7 @@ export const ItemDetails = ({
                   variant="subtle"
                   color="gray"
                   size="xs"
-                  rightSection={<IconChevronDown size={12} />}
+                  rightSection={<IconChevronDown size={14} />}
                 >
                   More
                 </Button>
@@ -424,7 +423,7 @@ export const ItemDetails = ({
                       leftSection={<IconDownload size={14} />}
                       onClick={() =>
                         void exportTrack(item, format).catch((err: Error) =>
-                          notifications.show({ color: "yellow", message: err.message }),
+                          notifications.show({ color: "warning", message: err.message }),
                         )
                       }
                     >

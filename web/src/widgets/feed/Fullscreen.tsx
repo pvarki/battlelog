@@ -10,13 +10,13 @@ import {
   Modal,
   SimpleGrid,
   TagsInput,
-  Text,
   TextInput,
 } from "@mantine/core";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { EventResponse } from "../../api.ts";
 import { EventDetail } from "../../components/EventDetail.tsx";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { StaleNotice } from "../../components/StaleNotice.tsx";
 import { type FilterExtras, matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { useLiveEvents } from "../../events/live-events.ts";
@@ -151,7 +151,7 @@ const FeedFullscreen = ({
           />
         </SimpleGrid>
         <Group justify="flex-end" mt="xs">
-          <Button variant="subtle" size="xs" onClick={() => setFilters(EMPTY)}>
+          <Button variant="default" size="xs" onClick={() => setFilters(EMPTY)}>
             Reset extra filters
           </Button>
         </Group>
@@ -172,11 +172,12 @@ const FeedFullscreen = ({
           <Loader size="sm" />
         </Center>
       ) : failed && events.length === 0 ? (
-        <Center h={200}>
-          <Text c="dimmed" fz="sm">
-            Could not load events — new ones will still arrive on the live stream.
-          </Text>
-        </Center>
+        <Box h={200}>
+          <Placeholder
+            title="Couldn't load events"
+            detail="New ones will still arrive on the live stream."
+          />
+        </Box>
       ) : (
         <Box style={{ overflowX: "auto" }}>
           {failed && <StaleNotice />}

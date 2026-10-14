@@ -40,7 +40,7 @@ const PackageRow = ({ pkg, detail, unavailable, onDismiss, onOpenPlan }: RowProp
       });
       if (planId) onOpenPlan(planId);
     } catch (err) {
-      notifications.show({ color: "red", title: "Couldn't import", message: String(err) });
+      notifications.show({ color: "danger", title: "Couldn't import", message: String(err) });
     } finally {
       setBusy(false);
     }
@@ -72,7 +72,7 @@ const PackageRow = ({ pkg, detail, unavailable, onDismiss, onOpenPlan }: RowProp
             aria-label={`Dismiss ${pkg.name}`}
             onClick={onDismiss}
           >
-            <IconX size={14} />
+            <IconX size={16} />
           </ActionIcon>
         )}
       </Group>

@@ -1,10 +1,10 @@
 import {
   ActionIcon,
   Badge,
+  Box,
   Button,
   FileButton,
   Group,
-  Modal,
   ScrollArea,
   Stack,
   Text,
@@ -15,7 +15,10 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
@@ -25,7 +28,6 @@ import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { count } from "../items.ts";
 import type { Mission } from "../missions/missions.ts";
 import { sendPlan } from "../send.ts";
-import { useNow } from "../use-now.ts";
 import { kmlBlob } from "./overlay-files.ts";
 import { PublishToMission } from "./PublishToMission.tsx";
 import {
@@ -74,11 +76,11 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
     notifications.show(
       kept
         ? {
-            color: "orange",
+            color: "warning",
             title: `${sent} sent, ${kept} not confirmed`,
             message: "Those stay in the plan; publish again to retry.",
           }
-        : { color: "teal", message: `Plan published: ${sent} items sent to TAK` },
+        : { color: "success", message: `Plan published: ${sent} items sent to TAK` },
     );
   };
 
@@ -116,9 +118,12 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
       )}
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         {drafts.length === 0 ? (
-          <Text fz="sm" c="dimmed" p="xs">
-            Empty. Turn on "Draw and edit into this plan", then draw or edit items.
-          </Text>
+          <Box py="md">
+            <Placeholder
+              title="Empty plan"
+              detail='Turn on "Draw and edit into this plan", then draw or edit items.'
+            />
+          </Box>
         ) : (
           drafts.map(({ item, conflict, deleted }) => (
             <Group key={item.uid} gap={4} wrap="nowrap">
@@ -153,7 +158,7 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
                 aria-label={`Remove ${item.callsign ?? item.uid} from the plan`}
                 onClick={() => removeFromPlan(plan, item.uid)}
               >
-                <IconTrash size={14} />
+                <IconTrash size={16} />
               </ActionIcon>
             </Group>
           ))
@@ -236,27 +241,17 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
       >
         Discard plan
       </Button>
-      <Modal
+      <ConfirmDialog
         opened={discarding}
         onClose={() => setDiscarding(false)}
         title={`Discard ${plan.name}?`}
+        confirmLabel="Discard"
+        onConfirm={() => deletePlan(plan)}
       >
-        <Stack gap="sm">
-          <Text fz="sm">
-            {drafts.length === 0
-              ? "The plan is empty."
-              : `Its ${drafts.length} draft${drafts.length === 1 ? "" : "s"} exist only in this browser and can't be recovered.`}
-          </Text>
-          <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={() => setDiscarding(false)}>
-              Keep
-            </Button>
-            <Button color="danger" onClick={() => deletePlan(plan)}>
-              Discard
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        {drafts.length === 0
+          ? "The plan is empty."
+          : `Its ${drafts.length} draft${drafts.length === 1 ? "" : "s"} exist only in this browser and can't be recovered.`}
+      </ConfirmDialog>
     </Stack>
   );
 };
@@ -282,7 +277,7 @@ export const PlansDrawer = (props: Props) => {
               (plan) => setOpenId(plan.id),
               (err) =>
                 notifications.show({
-                  color: "red",
+                  color: "danger",
                   title: "Couldn't import",
                   message: String(err),
                 }),
@@ -309,10 +304,12 @@ export const PlansDrawer = (props: Props) => {
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         <InboxSection onOpenPlan={setOpenId} />
         {props.state.plans.length === 0 ? (
-          <Text fz="sm" c="dimmed" p="xs">
-            No plans. A plan collects drawings and changes in this browser and publishes them to TAK
-            together; export one as a data package to move it to another computer or ATAK.
-          </Text>
+          <Box py="md">
+            <Placeholder
+              title="No plans"
+              detail="A plan collects drawings and changes in this browser and publishes them to TAK together; export one as a data package to move it to another computer or ATAK."
+            />
+          </Box>
         ) : (
           props.state.plans.map((plan) => (
             <UnstyledButton key={plan.id} className="tak-row" onClick={() => setOpenId(plan.id)}>

@@ -13,12 +13,12 @@ export const IconsetsSection = () => {
     importIconset(file).then(
       (iconset) =>
         notifications.show({
-          color: "teal",
+          color: "success",
           message: `Icon set ${iconset.name} imported: ${iconset.icons.length} icons`,
         }),
       (err) =>
         notifications.show({
-          color: "red",
+          color: "danger",
           title: "Couldn't import icon set",
           message: err instanceof Error ? err.message : String(err),
         }),
@@ -47,7 +47,7 @@ export const IconsetsSection = () => {
             aria-label={`Remove icon set ${set.name}`}
             onClick={() => void removeIconset(set.uid)}
           >
-            <IconTrash size={14} />
+            <IconTrash size={16} />
           </ActionIcon>
         </Group>
       ))}
