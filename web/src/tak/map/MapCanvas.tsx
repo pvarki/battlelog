@@ -52,6 +52,8 @@ type Props = {
   passive?: boolean;
   /** Icons and their labels, larger for reading from across a room. */
   symbolScale?: number;
+  /** The moment shown when replaying history, which staleness is judged at; undefined when live. */
+  replayAt?: number;
 };
 
 const VIEW_KEY = "battlelog.tak.view";
@@ -354,10 +356,12 @@ export const MapCanvas = ({
   view,
   passive = false,
   symbolScale = 1,
+  replayAt,
 }: Props) => {
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap>();
-  const now = useNow(FADE_CHECK_MS);
+  const liveNow = useNow(FADE_CHECK_MS);
+  const now = replayAt ?? liveNow;
   const [bearing, setBearing] = useState(0);
   const itemsByUid = useRef(new Map<string, TakItem>());
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
