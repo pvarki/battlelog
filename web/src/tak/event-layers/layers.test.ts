@@ -66,18 +66,18 @@ describe("layerFetch", () => {
     expect(fetch?.query).toMatchObject({
       types: "sighting",
       located: "true",
-      createdAtFrom: "2026-10-13T12:00:00.000Z",
+      occurredFrom: "2026-10-13T12:00:00.000Z",
     });
   });
 
   test("replay reaches back as far as the replay does", () => {
     const fetch = layerFetch(layer().definition.query, 1, NOW, 6 * HOUR);
-    expect(fetch?.query).toMatchObject({ createdAtFrom: "2026-10-14T05:00:00.000Z" });
+    expect(fetch?.query).toMatchObject({ occurredFrom: "2026-10-14T05:00:00.000Z" });
   });
 
   test("no window, no time limit; no type, no fetch", () => {
     expect(layerFetch(layer().definition.query, undefined, NOW)?.query).not.toHaveProperty(
-      "createdAtFrom",
+      "occurredFrom",
     );
     expect(layerFetch({ types: "", tags: "", dataFilters: [] }, 24, NOW)).toBeUndefined();
   });

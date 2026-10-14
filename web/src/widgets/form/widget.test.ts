@@ -383,5 +383,10 @@ test("a TAK item pick leaves Coordinates alone unless the field asks for it", ()
   expect(takPickValues(takForm, { ...takField, takSetsLocation: undefined }, link, point)).toEqual({
     i: link,
   });
-  expect(takPickValues(takForm, takField, link, undefined)).toEqual({ i: link });
+});
+
+test("a TAK item without a position clears the last item's Coordinates; clearing the item keeps them", () => {
+  const values = takPickValues(takForm, takField, link, undefined);
+  expect(values).toHaveProperty("p", undefined);
+  expect(takPickValues(takForm, takField, undefined, undefined)).not.toHaveProperty("p");
 });

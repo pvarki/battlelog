@@ -71,7 +71,7 @@ export const colorHex = (color: StatusColor) => DEFAULT_THEME.colors[color][5];
 export const eventMoment = (event: EventResponse) => Date.parse(event.eventTime ?? event.createdAt);
 
 /**
- * What to fetch for a layer: its query, located events only, logged since
+ * What to fetch for a layer: its query, located events only, that happened since
  * the window opened. Rounded down to the hour so the query (and its fetch)
  * changes hourly, not every render; {@link inWindow} cuts exactly.
  * Replaying reaches back as far as the replay does.
@@ -92,8 +92,7 @@ export const layerFetch = (
   const fetchQuery = {
     ...queryFor(filter),
     located: "true",
-    // Logged time, not event time: the server's event-time filter drops events without one.
-    ...(from === undefined ? {} : { createdAtFrom: new Date(from).toISOString() }),
+    ...(from === undefined ? {} : { occurredFrom: new Date(from).toISOString() }),
   } as LiveEventsOptions["query"];
   return {
     query: fetchQuery,

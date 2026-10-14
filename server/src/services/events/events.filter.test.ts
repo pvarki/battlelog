@@ -111,6 +111,10 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
     ["data object at path matches nothing", { data: { unit: "alpha" } }],
     ["data conditions AND together", { data: { status: "inside", pax: "13" } }],
     ["located only", { located: true }],
+    [
+      "occurred from, logged time standing in",
+      { occurredFrom: new Date(t0.getTime() + 2 * hour).toISOString() },
+    ],
     ["linked TAK item", { takUid: "ANDROID-1" }],
     ["unknown TAK item matches nothing", { takUid: "ANDROID-2" }],
   ])("%s", async (_name, f) => {

@@ -27,7 +27,13 @@ const MapWidgetView = ({ config, editMode, updateConfig }: WidgetViewProps<MapCo
         follow={config.follow}
         eventLayers={config.eventLayers}
         selection={{ event, tak }}
-        onSelect={(next) => navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })}
+        // An event picked here keeps the TAK selection that widgets following it narrow to.
+        onSelect={(next) =>
+          navigate({
+            search: (prev) => (next.event ? { ...prev, event: next.event } : { ...prev, ...next }),
+            replace: true,
+          })
+        }
         centreOnSelection={config.centreOnSelection ?? true}
       />
       {editMode && map && (

@@ -23,7 +23,7 @@ import { onIconsetsChanged } from "./iconsets.ts";
 import { type ScreenPoint, uidsInOutline } from "./lasso.ts";
 import { LABEL_ZOOM_FILTER, toSources } from "./layers.ts";
 import { mgrsGrid } from "./mgrs-grid.ts";
-import { labelImage } from "./symbols.ts";
+import { keptLabelImage, labelImage } from "./symbols.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
 type Props = {
@@ -727,7 +727,7 @@ export const MapCanvas = ({
       ...(events ?? empty),
       features: (events?.features ?? []).map((f) => ({
         ...f,
-        properties: { ...f.properties, icon: labelImage(map, f.properties.label).id },
+        properties: { ...f.properties, icon: keptLabelImage(map, f.properties.label).id },
       })),
     };
     (map.getSource("bl-events") as GeoJSONSource).setData(withIcons);

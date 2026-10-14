@@ -262,27 +262,33 @@ export const labelImage = (
 ): MapImage => {
   const key = `label|${style}|${text}`;
   usedLabels.add(key);
-  return register(map, key, () => {
-    const measure = document.createElement("canvas").getContext("2d") as CanvasRenderingContext2D;
-    measure.font = LABEL_FONT[style];
-    const size = Number.parseInt(LABEL_FONT[style].split(" ")[1] ?? "13", 10);
-    const width = Math.ceil(measure.measureText(text).width) + LABEL_PAD_X * 2;
-    const height = size + LABEL_PAD_Y * 2 + 2;
-    return {
-      width,
-      height,
-      ax: width / 2,
-      ay: height / 2,
-      paint: (ctx) => {
-        ctx.fillStyle = LABEL_BOX[style];
-        ctx.fillRect(0, 0, width, height);
-        ctx.font = LABEL_FONT[style];
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(text, LABEL_PAD_X, height / 2 + 1);
-      },
-    };
-  });
+  return register(map, key, () => labelArt(text, style));
+};
+
+/** A label kept for good: the TAK picture's redraws prune only their own. */
+export const keptLabelImage = (map: MapLibreMap, text: string): MapImage =>
+  register(map, `kept-label|${text}`, () => labelArt(text, "marker"));
+
+const labelArt = (text: string, style: LabelStyle): Art => {
+  const measure = document.createElement("canvas").getContext("2d") as CanvasRenderingContext2D;
+  measure.font = LABEL_FONT[style];
+  const size = Number.parseInt(LABEL_FONT[style].split(" ")[1] ?? "13", 10);
+  const width = Math.ceil(measure.measureText(text).width) + LABEL_PAD_X * 2;
+  const height = size + LABEL_PAD_Y * 2 + 2;
+  return {
+    width,
+    height,
+    ax: width / 2,
+    ay: height / 2,
+    paint: (ctx) => {
+      ctx.fillStyle = LABEL_BOX[style];
+      ctx.fillRect(0, 0, width, height);
+      ctx.font = LABEL_FONT[style];
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(text, LABEL_PAD_X, height / 2 + 1);
+    },
+  };
 };
 
 /** Call after each redraw: removes label images no longer on the map once there are many. */

@@ -192,8 +192,12 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
       notifications.show({ color: "red", message: "This browser can't share your location" });
       return;
     }
+    const request = withdrawPick.current;
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => answerPick([coords.longitude, coords.latitude]),
+      // A fix arriving after this pick ended mustn't answer the next one.
+      ({ coords }) => {
+        if (withdrawPick.current === request) answerPick([coords.longitude, coords.latitude]);
+      },
       () => notifications.show({ color: "red", message: "Could not get your location" }),
     );
   };

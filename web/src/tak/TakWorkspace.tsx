@@ -767,25 +767,39 @@ export const TakWorkspace = ({
   }, [pickRequest]);
 
   // Two-way with `selection`: a change from outside selects (and shows) it here, a pick here goes out.
-  const outsideKey = selection && selectionKey(selection);
+  // With both set, the event wins: the TAK item is then the context other widgets narrow to.
+  const outside = selection && {
+    tak: selection.event ? undefined : selection.tak,
+    event: selection.event,
+  };
+  const outsideKey = outside && selectionKey(outside);
   const insideKey = selectionKey({ tak: selectedUid, event: selectedEventId });
   const lastOutside = useRef<string>(undefined);
   const lastInside = useRef(insideKey);
+  /** An outside selection still to bring into view once the map and its data have it. */
+  const pendingCentre = useRef<Selection>(undefined);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a new outside selection moves the map
   useEffect(() => {
-    if (!selection || outsideKey === lastOutside.current) return;
+    if (!outside || outsideKey === lastOutside.current) return;
     lastOutside.current = outsideKey;
     // Our own pick coming back through the URL.
     if (outsideKey === insideKey) return;
-    setSelectedUidState(selection.tak);
-    setSelectedEventId(selection.tak ? undefined : selection.event);
+    setSelectedUidState(outside.tak);
+    setSelectedEventId(outside.event);
     setSelectedOutside(true);
-    if (!centreOnSelection) return;
-    const item = selection.tak && currentItem(selection.tak);
-    if (item) centreOn(item);
-    const point = selection.event && shownEvent(selection.event)?.locationPoint;
-    if (point) flyTo([point.lng, point.lat]);
+    pendingCentre.current = centreOnSelection ? outside : undefined;
   }, [outsideKey]);
+  useEffect(() => {
+    const target = pendingCentre.current;
+    if (!target || !mapRef.current) return;
+    const item = target.tak ? currentItem(target.tak) : undefined;
+    const point =
+      target.event && selectedEvent?.eventId === target.event && selectedEvent.locationPoint;
+    if (item) centreOn(item);
+    else if (point) flyTo([point.lng, point.lat]);
+    else return;
+    pendingCentre.current = undefined;
+  });
   // biome-ignore lint/correctness/useExhaustiveDependencies: reports picks made here, nothing else
   useEffect(() => {
     if (insideKey === lastInside.current) return;

@@ -355,7 +355,8 @@ export const takPickValues = (
 ): FormValues => {
   const values: FormValues = { [field.id]: link };
   const coordinates = config.fields.find((f) => f.kind === "event" && f.field === "locationPoint");
-  if (field.takSetsLocation && coordinates && point) values[coordinates.id] = point;
+  // An item without a position clears it: the last item's position would be a false one.
+  if (field.takSetsLocation && coordinates && link) values[coordinates.id] = point;
   return values;
 };
 

@@ -28,6 +28,8 @@ export const eventsFilterSchema = z.object({
   located: z.boolean().optional(),
   /** Events linked to this TAK item (`data.tak.uid`). */
   takUid: z.string().min(1).optional(),
+  /** Happened at or after: the event time, or when logged for events without one. */
+  occurredFrom: z.coerce.date().optional(),
   eventTimeFrom: z.coerce.date().optional(),
   eventTimeTo: z.coerce.date().optional(),
   createdAtFrom: z.coerce.date().optional(),
@@ -88,6 +90,11 @@ export const buildEventsWhere = (filter: EventsFilter): SQL | undefined => {
   }
   if (filter.takUid) {
     conditions.push(sql`${takUidOf} = ${filter.takUid}`);
+  }
+  if (filter.occurredFrom) {
+    conditions.push(
+      gte(sql`COALESCE(${events.eventTime}, ${events.createdAt})`, filter.occurredFrom),
+    );
   }
   if (filter.eventTimeFrom) {
     conditions.push(gte(events.eventTime, filter.eventTimeFrom));
@@ -176,6 +183,7 @@ export const matchesEventsFilter = (row: EventRow, filter: EventsFilter): boolea
   }
   if (filter.located && !row.locationPoint) return false;
   if (filter.takUid && dataText(row.data, "tak.uid") !== filter.takUid) return false;
+  if (filter.occurredFrom && (row.eventTime ?? row.createdAt) < filter.occurredFrom) return false;
   if (filter.eventTimeFrom && (!row.eventTime || row.eventTime < filter.eventTimeFrom)) {
     return false;
   }
