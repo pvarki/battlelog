@@ -99,6 +99,17 @@
   pointer-events: auto;
 }
 
+.tak-command-row {
+  display: flex;
+  gap: 6px;
+  width: min(440px, 100%);
+}
+
+.tak-command-row .tak-search-slot {
+  flex: 1;
+  min-width: 0;
+}
+
 .tak-search-slot {
   width: min(360px, 100%);
 }
@@ -249,6 +260,20 @@
   justify-content: space-around;
   border-right: 0;
   border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+/* Six fixed-width buttons are wider than a phone: they share the bar instead. */
+.tak-workspace[data-mobile] .tak-rail-button {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.tak-workspace[data-mobile] .tak-rail-button > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tak-workspace[data-mobile] .tak-statusbar > :not(:first-child):not(:nth-child(2)) {
@@ -564,4 +589,31 @@
 .tak-map .maplibregl-ctrl-attrib-button {
   background-color: transparent;
   filter: invert(0.85);
+}
+
+.tak-draw-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: var(--tak-chrome-size);
+  height: var(--tak-chrome-size);
+  padding: 0 10px;
+  border: 1px solid var(--tak-chrome-bd);
+  border-radius: var(--tak-chrome-radius);
+  background: var(--tak-chrome-bg);
+  box-shadow: var(--tak-chrome-shadow);
+  color: var(--mantine-color-dark-0);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+}
+
+.tak-draw-toggle:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-draw-toggle[aria-pressed="true"] {
+  border-color: var(--mantine-color-accent-4);
+  color: var(--mantine-color-accent-4);
 }

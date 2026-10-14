@@ -627,15 +627,6 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             </UnstyledButton>
           );
         })}
-        <UnstyledButton
-          className="tak-rail-button"
-          aria-pressed={toolbarShown}
-          onClick={toggleDrawing}
-          title="Drawing tools (D)"
-        >
-          <IconPencil size={20} stroke={1.5} />
-          <span>Draw</span>
-        </UnstyledButton>
       </nav>
 
       {!isMobile && drawer && (
@@ -732,14 +723,27 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           drawers={[...drawers.map((id) => DRAWERS[id]), { label: "the drawing tools", key: "D" }]}
         />
         <div className="tak-overlay">
-          <div className="tak-search-slot">
-            <SearchBox
-              ref={searchRef}
-              items={items}
-              coordFormat={settings.coordFormat}
-              onPickItem={pick}
-              onGoTo={goTo}
-            />
+          {/* Search and draw together: the tools open right under the button that opens them. */}
+          <div className="tak-command-row">
+            <div className="tak-search-slot">
+              <SearchBox
+                ref={searchRef}
+                items={items}
+                coordFormat={settings.coordFormat}
+                onPickItem={pick}
+                onGoTo={goTo}
+              />
+            </div>
+            <UnstyledButton
+              className="tak-draw-toggle"
+              aria-pressed={toolbarShown}
+              aria-label="Drawing tools"
+              onClick={toggleDrawing}
+              title="Drawing tools (D)"
+            >
+              <IconPencil size={18} stroke={1.5} />
+              {!isMobile && <span>Draw</span>}
+            </UnstyledButton>
           </div>
           <div className="tak-banners">
             <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
