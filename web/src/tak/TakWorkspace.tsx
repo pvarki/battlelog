@@ -58,6 +58,11 @@ import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-g
 import { type Drawn, TOOLS, useDrawing } from "./drawing/useDrawing.ts";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
+import { EventDetails } from "./event-layers/EventDetails.tsx";
+import { EventLayerFeeds, type LayerEvents } from "./event-layers/EventLayerFeeds.tsx";
+import { EventLayersSection } from "./event-layers/EventLayersSection.tsx";
+import { featureCollection, layerFeatures } from "./event-layers/layers.ts";
+import { useEventLayers } from "./event-layers/store.ts";
 import { takSender, useCallsign } from "./identity.ts";
 import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
@@ -97,6 +102,7 @@ import { useMapSettings } from "./settings.ts";
 import type { MapView, TakTool } from "./tools.ts";
 import { trackFeatures } from "./tracks.ts";
 import { describeStep, type UndoStep, undoEvents, withStep } from "./undo.ts";
+import { useNow } from "./use-now.ts";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
@@ -251,7 +257,23 @@ type Props = {
   missions?: readonly string[];
   /** Keeps these items in view as they move. */
   follow?: Follow;
+  /** The BattleLog layers shown, fixed; absent = this browser's choice. */
+  eventLayers?: readonly string[];
+  /**
+   * What's selected, held outside (a dashboard keeps it in the URL so other
+   * widgets follow): one TAK item or one BattleLog event, never both.
+   */
+  selection?: Selection;
+  onSelect?: (selection: Selection) => void;
+  /** Whether a selection made outside the map brings it into view. */
+  centreOnSelection?: boolean;
 };
+
+export type Selection = { tak?: string; event?: string };
+
+const selectionKey = (s: Selection) => `${s.tak ?? ""}|${s.event ?? ""}`;
+
+const LAYER_CLOCK_MS = 60_000;
 
 /**
  * The TAK client: map, item list, layers and item details around one shared
@@ -267,6 +289,10 @@ export const TakWorkspace = ({
   hiddenGroups,
   missions: extraMissions = [],
   follow,
+  eventLayers: fixedEventLayers,
+  selection,
+  onSelect,
+  centreOnSelection = true,
 }: Props) => {
   const wall = display === "wall";
   const has = (tool: TakTool) => !wall && (!tools || tools.has(tool));
@@ -296,7 +322,17 @@ export const TakWorkspace = ({
   );
   // A widget switched to fewer tools (or to wall display) closes what it no longer has.
   const drawer = chosenDrawer && drawers.includes(chosenDrawer) ? chosenDrawer : null;
-  const [selectedUid, setSelectedUid] = useState<string>();
+  const [selectedUid, setSelectedUidState] = useState<string>();
+  const [selectedEventId, setSelectedEventId] = useState<string>();
+  /** Selecting a TAK item lets go of any selected event, and back. */
+  const setSelectedUid = (uid: string | undefined) => {
+    setSelectedUidState(uid);
+    if (uid) setSelectedEventId(undefined);
+  };
+  const selectEvent = (eventId: string | undefined) => {
+    setSelectedEventId(eventId);
+    if (eventId) setSelectedUidState(undefined);
+  };
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
@@ -311,6 +347,41 @@ export const TakWorkspace = ({
   const replaying = replay.windowMs !== undefined;
   const replayFrame = replaying ? replay.frame : undefined;
   const replayReason = replaying ? "Replaying history: go back to live to change TAK" : undefined;
+  const eventLayers = useEventLayers();
+  const shownLayerIds = fixedEventLayers ? new Set(fixedEventLayers) : settings.shownEventLayers;
+  const shownLayers = (eventLayers ?? []).filter((l) => shownLayerIds.has(l.eventId));
+  const [layerEvents, setLayerEvents] = useState<ReadonlyMap<string, LayerEvents>>(new Map());
+  const onLayerEvents = (layerId: string, events: LayerEvents | undefined) =>
+    setLayerEvents((current) => {
+      if (current.get(layerId) === events) return current;
+      const next = new Map(current);
+      if (events) next.set(layerId, events);
+      else next.delete(layerId);
+      return next;
+    });
+  const layerClock = useNow(LAYER_CLOCK_MS);
+  const eventFeatures = featureCollection(
+    shownLayers.flatMap((layer) =>
+      layerFeatures(
+        layer,
+        layerEvents.get(layer.eventId)?.events ?? [],
+        replayFrame?.at ?? layerClock,
+      ),
+    ),
+  );
+  const shownEvent = (eventId: string | undefined) => {
+    if (!eventId) return undefined;
+    const drawn = eventFeatures.features.some((f) => f.properties.eventId === eventId);
+    if (!drawn) return undefined;
+    for (const layer of shownLayers) {
+      const found = layerEvents.get(layer.eventId)?.events.find((e) => e.eventId === eventId);
+      if (found) return found;
+    }
+  };
+  const selectedEvent = shownEvent(selectedEventId);
+  const truncatedLayers = new Set(
+    [...layerEvents].flatMap(([id, events]) => (events.truncated ? [id] : [])),
+  );
   // The rest of the workspace (contacts, chat, emergencies) stays live while replaying.
   const items = replaying
     ? (replayFrame?.items ?? []).filter((i) => i.uid !== takSender(callsign).uid)
@@ -651,6 +722,30 @@ export const TakWorkspace = ({
   };
   const busy = !!(drawing.tool || drawing.editing || measure.active);
 
+  // Two-way with `selection`: a change from outside selects (and shows) it here, a pick here goes out.
+  const outsideKey = selection && selectionKey(selection);
+  const insideKey = selectionKey({ tak: selectedUid, event: selectedEventId });
+  const lastOutside = useRef<string>(undefined);
+  const lastInside = useRef(insideKey);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new outside selection moves the map
+  useEffect(() => {
+    if (!selection || outsideKey === lastOutside.current) return;
+    lastOutside.current = outsideKey;
+    setSelectedUidState(selection.tak);
+    setSelectedEventId(selection.tak ? undefined : selection.event);
+    if (!centreOnSelection) return;
+    const item = selection.tak && currentItem(selection.tak);
+    if (item) centreOn(item);
+    const point = selection.event && shownEvent(selection.event)?.locationPoint;
+    if (point) flyTo([point.lng, point.lat]);
+  }, [outsideKey]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reports picks made here, nothing else
+  useEffect(() => {
+    if (insideKey === lastInside.current) return;
+    lastInside.current = insideKey;
+    if (insideKey !== outsideKey) onSelect?.({ tak: selectedUid, event: selectedEventId });
+  }, [insideKey]);
+
   const pick = (item: TakItem) => {
     clearGroup();
     setSelectedUid(item.uid);
@@ -689,6 +784,7 @@ export const TakWorkspace = ({
         else if (lassoing) setLassoing(false);
         else if (grouped.size) clearGroup();
         else if (selectedUid) setSelectedUid(undefined);
+        else if (selectedEventId) selectEvent(undefined);
         else setDrawer(null);
         return;
       }
@@ -705,6 +801,8 @@ export const TakWorkspace = ({
       }
       if (e.key === "?") setShowShortcuts((open) => !open);
       if (e.key.toLowerCase() === "c" && selected) centreOn(selected);
+      if (e.key.toLowerCase() === "c" && selectedEvent?.locationPoint)
+        flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat]);
       for (const id of drawers) {
         if (e.key === DRAWERS[id].key) toggleDrawer(id);
       }
@@ -784,6 +882,14 @@ export const TakWorkspace = ({
         map={map}
         basemap={basemap}
         clientUid={writerUid}
+        eventLayers={
+          <EventLayersSection
+            layers={eventLayers}
+            shown={shownLayerIds}
+            onToggle={fixedEventLayers ? undefined : settings.toggleEventLayer}
+            truncated={truncatedLayers}
+          />
+        }
       >
         {import.meta.env.DEV && callsign && (
           <Button
@@ -806,6 +912,24 @@ export const TakWorkspace = ({
       destination={activePlan ? `plan ${activePlan.name}` : "TAK"}
       disabledReason={undoReason}
       onUndo={undo}
+    />
+  );
+
+  const eventDetails = !wall && !selected && selectedEvent && (
+    <EventDetails
+      key={selectedEvent.eventId}
+      event={selectedEvent}
+      layerNames={shownLayers
+        .filter((l) =>
+          layerEvents.get(l.eventId)?.events.some((e) => e.eventId === selectedEvent.eventId),
+        )
+        .map((l) => l.definition.name)}
+      coordFormat={settings.coordFormat}
+      onCenter={() =>
+        selectedEvent.locationPoint &&
+        flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat])
+      }
+      onClose={() => selectEvent(undefined)}
     />
   );
 
@@ -892,7 +1016,7 @@ export const TakWorkspace = ({
           dim={settings.dim}
           mgrsGrid={settings.mgrsGrid}
           selectedUids={[...(selectedUid ? [selectedUid] : []), ...grouped]}
-          onPick={({ uids, at, position, shift }) => {
+          onPick={({ uids, eventIds, at, position, shift }) => {
             if (movingGroup) return moveGroupTo(position);
             if (busy) return;
             if (shift && has("draw")) {
@@ -901,7 +1025,9 @@ export const TakWorkspace = ({
             }
             clearGroup();
             setChooser(uids.length > 1 ? { uids, at } : undefined);
+            if (!uids.length && eventIds[0]) return selectEvent(eventIds[0]);
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
+            if (!uids.length) selectEvent(undefined);
           }}
           onBoxSelect={has("draw") && !busy && !movingGroup ? addToGroup : undefined}
           onLasso={lassoing && has("draw") && !busy && !movingGroup ? addToGroup : undefined}
@@ -914,6 +1040,13 @@ export const TakWorkspace = ({
           passive={wall}
           symbolScale={wall ? WALL_SYMBOL_SCALE : 1}
           replayAt={replayFrame?.at}
+          events={eventFeatures}
+          selectedEventId={selectedEventId}
+        />
+        <EventLayerFeeds
+          layers={shownLayers}
+          replayWindowMs={replay.windowMs ?? 0}
+          onEvents={onLayerEvents}
         />
         {mapControls &&
           createPortal(
@@ -1088,9 +1221,9 @@ export const TakWorkspace = ({
         )}
       </div>
 
-      {!isMobile && details && (
+      {!isMobile && (details || eventDetails) && (
         <aside className="tak-details" aria-label="Item details">
-          {details}
+          {details || eventDetails}
         </aside>
       )}
 
@@ -1106,13 +1239,16 @@ export const TakWorkspace = ({
             {drawer && drawerContent(drawer)}
           </Drawer>
           <Drawer
-            opened={!!details}
-            onClose={() => setSelectedUid(undefined)}
+            opened={!!(details || eventDetails)}
+            onClose={() => {
+              setSelectedUid(undefined);
+              selectEvent(undefined);
+            }}
             position="bottom"
             size="60%"
             withCloseButton={false}
           >
-            {details}
+            {details || eventDetails}
           </Drawer>
         </>
       )}

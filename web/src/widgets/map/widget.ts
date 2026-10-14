@@ -37,6 +37,10 @@ const configSchema = z
     groups: overlayGroups.optional(),
     /** Missions shown on this map besides those this browser shows. */
     missions: z.array(z.string().min(1)).default([]),
+    /** The BattleLog layers shown, by layer event id; absent = this browser's choice. */
+    eventLayers: z.array(z.string().uuid()).optional(),
+    /** Whether selecting something in another widget brings it into view; absent = yes. */
+    centreOnSelection: z.boolean().optional(),
   })
   .strict();
 

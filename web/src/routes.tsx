@@ -258,7 +258,11 @@ export const dashboardsRoute = createRoute({
 
 // `event`: the event a widget selected (a feed row click) for others to act on,
 // e.g. a form loading it for editing. Malformed values degrade to none.
-const dashboardSearchSchema = z.object({ event: z.string().uuid().optional().catch(undefined) });
+// The dashboard's selection, which widgets follow: a log event, or a TAK item by uid.
+const dashboardSearchSchema = z.object({
+  event: z.string().uuid().optional().catch(undefined),
+  tak: z.string().min(1).max(200).optional().catch(undefined),
+});
 
 export const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,

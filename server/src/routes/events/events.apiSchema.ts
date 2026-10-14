@@ -100,6 +100,13 @@ export const eventsQuerySchema = z.object({
     })
     .pipe(z.record(z.string().min(1), z.string()))
     .optional(),
+  /** Only events with a map position. */
+  located: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true" || undefined),
+  /** Events linked to this TAK item (`data.tak.uid`). */
+  takUid: z.string().min(1).optional(),
   eventTimeFrom: z.coerce.date().optional(),
   eventTimeTo: z.coerce.date().optional(),
   createdAtFrom: z.coerce.date().optional(),

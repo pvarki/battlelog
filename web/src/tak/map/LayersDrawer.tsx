@@ -33,6 +33,8 @@ type Props = {
   basemap: MapSource;
   /** This connection's uid on TAK; undefined without a callsign. */
   clientUid: string | undefined;
+  /** The BattleLog layers section. */
+  eventLayers: ReactNode;
   /** Developer tools; only passed in dev builds. */
   children?: ReactNode;
 };
@@ -50,7 +52,15 @@ const Heading = ({ children }: { children: ReactNode }) => (
   <Text className="tak-group-heading">{children}</Text>
 );
 
-export const LayersDrawer = ({ settings, sources, map, basemap, clientUid, children }: Props) => {
+export const LayersDrawer = ({
+  settings,
+  sources,
+  map,
+  basemap,
+  clientUid,
+  eventLayers,
+  children,
+}: Props) => {
   const remove = (source: MapSource) => {
     if (settings.basemap === source.id) settings.setBasemap(DEFAULT_BASEMAP);
     if (settings.overlay === source.id) settings.setOverlay(null);
@@ -60,6 +70,8 @@ export const LayersDrawer = ({ settings, sources, map, basemap, clientUid, child
 
   return (
     <Stack gap="md">
+      {eventLayers}
+
       <Radio.Group
         label={<Heading>Background map</Heading>}
         value={settings.basemap}

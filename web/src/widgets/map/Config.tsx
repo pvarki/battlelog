@@ -10,6 +10,7 @@ import {
 } from "@mantine/core";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
+import { useEventLayers } from "../../tak/event-layers/store.ts";
 import { useMissions, useMissionsSync } from "../../tak/missions/store.ts";
 import { GROUP_LABEL, groupPathLabel } from "../../tak/overlays.ts";
 import { useTakItems, useTakSession } from "../../tak/session.ts";
@@ -45,6 +46,7 @@ const MapConfigForm = ({ config, onChange }: WidgetConfigProps<MapConfig>) => {
       ...(follow.callsigns ?? []),
     ]),
   ].sort();
+  const layers = useEventLayers() ?? [];
   const setFollow = (patch: Follow) =>
     onChange({ ...config, follow: followOf({ ...follow, ...patch }) });
 
@@ -96,6 +98,27 @@ const MapConfigForm = ({ config, onChange }: WidgetConfigProps<MapConfig>) => {
         onChange={(missions) => onChange({ ...config, missions })}
         searchable
         clearable
+      />
+      <MultiSelect
+        label="BattleLog layers shown"
+        description="Empty: this browser's layer settings. Make layers in the map's Layers panel."
+        data={[
+          ...layers.map((l) => ({ value: l.eventId, label: l.definition.name || "(unnamed)" })),
+          ...(config.eventLayers ?? [])
+            .filter((id) => !layers.some((l) => l.eventId === id))
+            .map((id) => ({ value: id, label: "(deleted layer)" })),
+        ]}
+        value={config.eventLayers ?? []}
+        onChange={(ids) => onChange({ ...config, eventLayers: ids.length ? ids : undefined })}
+        searchable
+        clearable
+      />
+      <Checkbox
+        label="Bring a selection made in another widget into view"
+        checked={config.centreOnSelection ?? true}
+        onChange={(e) =>
+          onChange({ ...config, centreOnSelection: e.currentTarget.checked ? undefined : false })
+        }
       />
       <Input.Wrapper label="Follow" description="The map keeps these in view as they move">
         <Stack gap="xs" mt={4}>

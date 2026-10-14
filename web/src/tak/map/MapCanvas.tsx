@@ -1,5 +1,5 @@
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { FeatureCollection } from "geojson";
+import type { FeatureCollection, Point } from "geojson";
 import {
   type ExpressionSpecification,
   type FilterSpecification,
@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ACCENT } from "../../theme.ts";
 import type { Position, TakItem } from "../cot.ts";
 import type { Drawn, Sketch } from "../drawing/useDrawing.ts";
+import type { EventFeature } from "../event-layers/layers.ts";
 import { labelOf } from "../items.ts";
 import type { MapView } from "../tools.ts";
 import { useNow } from "../use-now.ts";
@@ -47,6 +48,8 @@ type Props = {
   /** Every item under a click, topmost first, where on the screen and map it was, and whether Shift was held. */
   onPick: (pick: {
     uids: string[];
+    /** BattleLog events under the click, topmost first. */
+    eventIds: string[];
     at: { x: number; y: number };
     position: Position;
     shift: boolean;
@@ -64,6 +67,9 @@ type Props = {
   symbolScale?: number;
   /** The moment shown when replaying history, which staleness is judged at; undefined when live. */
   replayAt?: number;
+  /** BattleLog events drawn above the TAK picture, from `layerFeatures`. */
+  events?: FeatureCollection<Point, EventFeature["properties"]>;
+  selectedEventId?: string;
 };
 
 const VIEW_KEY = "battlelog.tak.view";
@@ -94,11 +100,57 @@ const uidsIn = (map: MapLibreMap, box: ScreenBox) => [
 ];
 
 // A few pixels of slack: thin lines are otherwise nearly impossible to hit.
-const uidsAt = (map: MapLibreMap, { x, y }: { x: number; y: number }) =>
-  uidsIn(map, [
-    [x - CLICK_SLACK_PX, y - CLICK_SLACK_PX],
-    [x + CLICK_SLACK_PX, y + CLICK_SLACK_PX],
-  ]);
+const slackBox = ({ x, y }: { x: number; y: number }): ScreenBox => [
+  [x - CLICK_SLACK_PX, y - CLICK_SLACK_PX],
+  [x + CLICK_SLACK_PX, y + CLICK_SLACK_PX],
+];
+const uidsAt = (map: MapLibreMap, point: { x: number; y: number }) => uidsIn(map, slackBox(point));
+
+const eventsAt = (map: MapLibreMap, point: { x: number; y: number }) =>
+  map
+    .queryRenderedFeatures(slackBox(point), { layers: ["bl-event-points"] })
+    .map((f) => f.properties as EventFeature["properties"]);
+
+const EVENT_LABEL_MIN_ZOOM = 10;
+
+/** BattleLog events: coloured dots with a white ring, so they never pass for TAK symbols. */
+const addEventLayers = (map: MapLibreMap) => {
+  map.addSource("bl-events", { type: "geojson", data: empty });
+  map.addLayer({
+    id: "bl-selected-event",
+    type: "circle",
+    source: "bl-events",
+    filter: ["==", ["get", "eventId"], ""],
+    paint: {
+      "circle-radius": 13,
+      "circle-color": "transparent",
+      "circle-stroke-color": ACCENT,
+      "circle-stroke-width": 3,
+    },
+  });
+  map.addLayer({
+    id: "bl-event-points",
+    type: "circle",
+    source: "bl-events",
+    paint: {
+      "circle-radius": 7,
+      "circle-color": ["get", "color"],
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+    },
+  });
+  map.addLayer({
+    id: "bl-event-labels",
+    type: "symbol",
+    source: "bl-events",
+    minzoom: EVENT_LABEL_MIN_ZOOM,
+    layout: {
+      "icon-image": ["get", "icon"],
+      "icon-anchor": "left",
+      "icon-offset": [12, 0],
+    },
+  });
+};
 
 /** Draws a box from `start` while the pointer drags, then hands over the items inside it. */
 const dragSelectBox = (
@@ -490,6 +542,8 @@ export const MapCanvas = ({
   passive = false,
   symbolScale = 1,
   replayAt,
+  events,
+  selectedEventId,
 }: Props) => {
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap>();
@@ -519,6 +573,7 @@ export const MapCanvas = ({
     m.on("load", () => {
       addMgrsGridLayers(m);
       addItemLayers(m, "tak");
+      addEventLayers(m);
       addItemLayers(m, "tak-preview");
       setMap(m);
       setBearing(m.getBearing());
@@ -530,6 +585,7 @@ export const MapCanvas = ({
       if (callbacks.current.passive) return;
       callbacks.current.onPick({
         uids: uidsAt(m, e.point),
+        eventIds: eventsAt(m, e.point).map((p) => p.eventId),
         at: e.point,
         position: [e.lngLat.lng, e.lngLat.lat],
         shift: e.originalEvent.shiftKey,
@@ -547,13 +603,14 @@ export const MapCanvas = ({
       callbacks.current.cursor.set([e.lngLat.lng, e.lngLat.lat]);
       const uid = callbacks.current.passive ? undefined : uidsAt(m, e.point)[0];
       const item = uid ? itemsByUid.current.get(uid) : undefined;
-      m.getCanvas().style.cursor = item ? "pointer" : "";
-      if (!item) {
+      const event = !item && !callbacks.current.passive ? eventsAt(m, e.point)[0] : undefined;
+      m.getCanvas().style.cursor = item || event ? "pointer" : "";
+      if (!item && !event) {
         hover.remove();
         return;
       }
       const label = document.createElement("span");
-      label.textContent = labelOf(item);
+      label.textContent = item ? labelOf(item) : (event?.label ?? "");
       hover.setLngLat(e.lngLat).setDOMContent(label).addTo(m);
     });
     m.on("mouseout", () => {
@@ -660,6 +717,25 @@ export const MapCanvas = ({
     drawnTracks.current = json;
     (map.getSource("tak-tracks") as GeoJSONSource).setData(tracks);
   }, [map, tracks]);
+
+  const drawnEvents = useRef("");
+  useEffect(() => {
+    const json = JSON.stringify(events ?? empty);
+    if (!map || json === drawnEvents.current) return;
+    drawnEvents.current = json;
+    const withIcons = {
+      ...(events ?? empty),
+      features: (events?.features ?? []).map((f) => ({
+        ...f,
+        properties: { ...f.properties, icon: labelImage(map, f.properties.label).id },
+      })),
+    };
+    (map.getSource("bl-events") as GeoJSONSource).setData(withIcons);
+  }, [map, events]);
+
+  useEffect(() => {
+    map?.setFilter("bl-selected-event", ["==", ["get", "eventId"], selectedEventId ?? ""]);
+  }, [map, selectedEventId]);
 
   // A new array each render; the filter changes only when its members do.
   const selectedKey = JSON.stringify(selectedUids);

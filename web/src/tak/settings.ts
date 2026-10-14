@@ -56,6 +56,15 @@ export const useMapSettings = () => {
     setShownMissionList((list) =>
       list.includes(name) ? list.filter((n) => n !== name) : [...list, name],
     );
+  const [shownEventLayerList, setShownEventLayerList] = useLocalStorage<string[]>({
+    key: "battlelog.tak.shownEventLayers",
+    defaultValue: [],
+  });
+  const shownEventLayers = new Set(shownEventLayerList);
+  const toggleEventLayer = (eventId: string) =>
+    setShownEventLayerList((list) =>
+      list.includes(eventId) ? list.filter((id) => id !== eventId) : [...list, eventId],
+    );
   const [sharePosition, setSharePosition] = useLocalStorage({
     key: "battlelog.tak.sharePosition",
     defaultValue: false,
@@ -91,6 +100,8 @@ export const useMapSettings = () => {
     toggleGroup,
     shownMissions,
     toggleMission,
+    shownEventLayers,
+    toggleEventLayer,
     sharePosition,
     setSharePosition,
     team,
