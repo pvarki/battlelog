@@ -230,8 +230,27 @@ test("a DJI drone from the UAS Tool: sensor cone and video feed", () => {
     fill: { color: "#ffffff", opacity: 0.3 },
     stroke: { color: "#cccccc", opacity: 1 },
   });
-  // ATAK draws the ground range: slant range × cos(elevation).
-  expect(change.item.sensor?.range).toBeCloseTo(150);
+  expect(change.item.sensor?.range).toBe(300);
+});
+
+test("the UAS Tool's DJI aircraft on the ground: a small cone and its flight state", () => {
+  const change = toChange({
+    ...base,
+    uid: "1SCCHB5017AS0Q",
+    type: "a-f-A-M-H-Q",
+    detail:
+      '<contact callsign="UAS-Kilo15"/><_uastool extendedCot="true" activeRoute="false"/><track course="26.80" slope="0.0" speed="0.0"/><sensor elevation="128.39" vfov="52.3" north="206.79" roll="38.5" range="5" azimuth="26.0" model="Mavic Mini Camera" fov="72.7" type="r-e" version="0.6"/><spatial><attitude roll="122.0" pitch="36.4" yaw="26.8"/></spatial><vehicle goHomeBatteryPercent="0" hal="0.0" flightTimeRemaining="0" typeTag="_DJI_" batteryRemainingCapacity="1792" isFlying="false" flightTime="0" type="DJI" batteryMaxCapacity="2105" voltage="8.02"/><_radio rssi="100" gps="true"/><__video/><link uid="ANDROID-d58bfa05658fd7e9" type="a-f-G-U-C" relation="p-p"/>',
+  });
+  if (change?.kind !== "upsert") throw new Error("expected upsert");
+  expect(change.item.sensor).toMatchObject({ azimuth: 26, fov: 72.7, range: 5 });
+  expect(change.item.vehicle).toEqual({
+    flying: false,
+    battery: 85,
+    flightTime: 0,
+    make: "DJI",
+    operatorUid: "ANDROID-d58bfa05658fd7e9",
+  });
+  expect(change.item.video).toBeUndefined();
 });
 
 test("an empty __video and a hidden or incomplete sensor give neither", () => {
@@ -262,10 +281,12 @@ test("a sensor point of interest knows which sensor looks at it", () => {
     uid: "UAS-Kilo15.1SCCHB5017AS0Q.SPI1",
     type: "b-m-p-s-p-i",
     detail:
-      '<contact callsign="UAS-Kilo15.SPI1"/><link uid="1SCCHB5017AS0Q" type="a-f-A-M-H-Q" relation="p-p"/>',
+      '<contact callsign="UAS-Kilo15.SPI1"/><link uid="1SCCHB5017AS0Q" type="a-f-A-M-H-Q" relation="p-p"/><shape><polyline closed="true" ownerUID="UAS-Kilo15.1SCCHB5017AS0Q.SPI1"><vertex lon="15.441322" lat="63.601535" hae="0.0"/><vertex lon="15.441322" lat="63.601535" hae="0.0"/><vertex lon="15.441322" lat="63.601535" hae="0.0"/><vertex lon="15.441322" lat="63.601535" hae="0.0"/></polyline></shape>',
   });
   if (change?.kind !== "upsert") throw new Error("expected upsert");
   expect(change.item.sensorUid).toBe("1SCCHB5017AS0Q");
+  expect(change.item.footprint).toBeUndefined();
+  expect(change.item.vehicle).toBeUndefined();
 });
 
 test("a sensor with an impossible field of view draws no cone", () => {
