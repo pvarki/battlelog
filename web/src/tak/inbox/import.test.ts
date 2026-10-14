@@ -48,7 +48,9 @@ const search = (hashes: string[]) =>
 test("a TAK without the files API deletes through sync, and the list confirms it", async () => {
   const calls: string[] = [];
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
-    calls.push(`${init?.method ?? "GET"} ${new URL(url, "https://tak.test").pathname}`);
+    calls.push(
+      `${init?.method ?? "GET"} ${new URL(url, "https://tak.test").pathname.replace(/^.*(?=\/Marti)/, "")}`,
+    );
     if (init?.method === "DELETE") return new Response("", { status: 405 });
     return new Response(init?.method === "POST" ? "" : search(["b".repeat(64)]));
   });
