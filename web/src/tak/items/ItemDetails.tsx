@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { useWrites, type WriteState } from "../commands.ts";
+import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import { type CoordFormat, formatCoord } from "../coords.ts";
 import type { CotEvent, TakItem } from "../cot.ts";
 import { isImage, useAttachments } from "../inbox/import.ts";
@@ -45,6 +46,7 @@ import { formatDistance } from "../map/layers.ts";
 import { AddToMission } from "../missions/AddToMission.tsx";
 import type { Mission } from "../missions/missions.ts";
 import { contentLinks } from "../rest.ts";
+import { sendItem } from "../send.ts";
 import { useNow } from "../use-now.ts";
 import { AttachPhoto } from "./AttachPhoto.tsx";
 import { DeleteItem } from "./DeleteItem.tsx";
@@ -58,14 +60,16 @@ type Props = {
   readOnlyReason: string | undefined;
   /** The user's callsign, which uploads are credited to. */
   callsign: string | null | undefined;
-  /** Callsigns of TAK users, for sending photos to chosen people. */
-  contacts: string[];
+  /** TAK users, for sending the item or photos to chosen people. */
+  contacts: RecipientGroup[];
+  /** Why the item can't be sent to people, or undefined when it can. */
+  sendReason: string | undefined;
   onSubmit: (event: CotEvent) => void;
   submitLabel: string;
   /** Starts moving or reshaping the item on the map; undefined when its geometry can't be edited. */
   onEditShape: (() => void) | undefined;
-  /** Photos go straight to TAK, so they can't be staged in a plan. */
-  livePhotos: boolean;
+  /** Edits are staged in a plan; photos and sends to people go straight to TAK instead. */
+  planActive: boolean;
   /** Whether the map shows where this item has been. */
   tracking: boolean;
   /** Undefined when tracks can't be switched per item (all are shown). */
@@ -107,10 +111,11 @@ export const ItemDetails = ({
   readOnlyReason,
   callsign,
   contacts,
+  sendReason,
   onSubmit,
   submitLabel,
   onEditShape,
-  livePhotos,
+  planActive,
   tracking,
   onToggleTrack,
   missions,
@@ -322,7 +327,7 @@ export const ItemDetails = ({
               Mark destroyed
             </Button>
           )}
-          {callsign && !readOnlyReason && livePhotos && !item.draft && (
+          {callsign && !readOnlyReason && !planActive && !item.draft && (
             <AttachPhoto
               item={item}
               callsign={callsign}
@@ -341,6 +346,15 @@ export const ItemDetails = ({
             </Button>
           )}
           {!readOnlyReason && <DeleteItem item={item} onSubmit={onSubmit} />}
+          {!item.draft && (
+            <SendTo
+              what={labelOf(item)}
+              contacts={contacts}
+              note={planActive ? "Sent now, not staged in the active plan." : undefined}
+              disabledReason={sendReason}
+              onSend={(callsigns) => sendItem(item, callsigns)}
+            />
+          )}
           {clientUid && !item.draft && allMissions.length > 0 && (
             <AddToMission item={item} missions={allMissions} clientUid={clientUid} />
           )}

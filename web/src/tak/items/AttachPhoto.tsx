@@ -1,18 +1,9 @@
-import {
-  Button,
-  Checkbox,
-  FileButton,
-  Group,
-  Image,
-  Modal,
-  MultiSelect,
-  Radio,
-  Stack,
-} from "@mantine/core";
+import { Button, Checkbox, FileButton, Group, Image, Modal, Radio, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconPhoto } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { attachPhotoLink } from "../commands.ts";
+import { type RecipientGroup, RecipientPicker } from "../contacts/SendTo.tsx";
 import type { TakItem } from "../cot.ts";
 import { sendPhotoPackage } from "../datapackage.ts";
 import { labelOf } from "../items.ts";
@@ -20,8 +11,8 @@ import { labelOf } from "../items.ts";
 type Props = {
   item: TakItem;
   callsign: string;
-  /** Callsigns of TAK users a photo can be sent to. */
-  contacts: string[];
+  /** TAK users a photo can be sent to. */
+  contacts: RecipientGroup[];
   disabled: boolean;
 };
 
@@ -114,16 +105,7 @@ export const AttachPhoto = ({ item, callsign, contacts, disabled }: Props) => {
                 </Group>
               </Radio.Group>
               {audience === "chosen" && (
-                <MultiSelect
-                  size="xs"
-                  placeholder="Callsigns"
-                  aria-label="Send to"
-                  data={contacts}
-                  value={chosen}
-                  onChange={setChosen}
-                  searchable
-                  comboboxProps={{ withinPortal: true }}
-                />
+                <RecipientPicker contacts={contacts} value={chosen} onChange={setChosen} />
               )}
             </Stack>
           )}

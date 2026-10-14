@@ -13,11 +13,13 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
+import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
 import type { Sender } from "../drawing/new-items.ts";
 import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
+import { sendPlan } from "../send.ts";
 import { useNow } from "../use-now.ts";
 import { kmlBlob } from "./overlay-files.ts";
 import {
@@ -42,8 +44,10 @@ type Props = {
   onPick: (item: TakItem) => void;
   /** Why publishing is unavailable, or undefined when it is. */
   publishReason: string | undefined;
-  /** Named as the creator of drawings imported from overlay files. */
+  /** Named as the creator of drawings imported from overlay files, and the sender of plans sent to people. */
   sender: Sender;
+  /** TAK users a plan can be sent to. */
+  contacts: RecipientGroup[];
 };
 
 const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: () => void }) => {
@@ -182,6 +186,13 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
           Discard
         </Button>
       </Group>
+      <SendTo
+        what={plan.name}
+        contacts={props.contacts}
+        note="It arrives as a data package; the plan stays a draft here."
+        disabledReason={drafts.length === 0 ? "The plan is empty" : props.publishReason}
+        onSend={(callsigns) => sendPlan(plan, props.sender, callsigns)}
+      />
       <Button
         size="xs"
         onClick={() => void publishAll()}
