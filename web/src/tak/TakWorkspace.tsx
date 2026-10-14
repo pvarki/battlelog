@@ -580,7 +580,11 @@ export const TakWorkspace = ({
         onToggleGroup={settings.toggleGroup}
       />
     ) : (
-      <LayersDrawer settings={settings} sources={mapSources}>
+      <LayersDrawer
+        settings={settings}
+        sources={mapSources}
+        clientUid={callsign ? sender.uid : undefined}
+      >
         {import.meta.env.DEV && callsign && (
           <Button
             size="xs"
