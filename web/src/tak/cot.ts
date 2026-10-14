@@ -68,6 +68,8 @@ export type TakItem = {
   bullseye?: Bullseye;
   /** Range-and-bearing line from the item's point; the geometry runs to its end. */
   rangeBearing?: { range: number; bearing: number; northRef: "T" | "M" | "G" };
+  /** ATAK's `__geofence`: the shape is a fence that alerts when watched items cross it. */
+  geofence?: Geofence;
   /** An ATAK emergency alert (b-a-*): what kind, and the callsign of who raised it. */
   emergency?: { kind: string; from: string };
   /** The user disconnected from TAK; ATAK keeps them, greyed out. */
@@ -75,6 +77,17 @@ export type TakItem = {
   /** A change in a plan in this browser, not (yet) on TAK. */
   draft?: true;
   event: CotEvent;
+};
+
+export const GEOFENCE_TRIGGERS = ["Entry", "Exit", "Both"] as const;
+export const GEOFENCE_MONITORS = ["TAKUsers", "Friendly", "Hostile", "Custom", "All"] as const;
+
+export type Geofence = {
+  trigger: (typeof GEOFENCE_TRIGGERS)[number];
+  /** Which items it watches; "Custom" is a hand-picked list ATAK keeps on the device. */
+  monitor: (typeof GEOFENCE_MONITORS)[number];
+  /** Whether the fence is being monitored. */
+  tracking: boolean;
 };
 
 export type Sensor = {
@@ -122,12 +135,13 @@ const MAP_TYPE_PREFIXES = ["a-", "b-a-", "b-m-p", "b-m-r", "u-d-", "u-rb-a", "u-
 export const RANGE_RINGS_TYPE = "u-r-b-c-c";
 export const BULLSEYE_TYPE = "u-r-b-bullseye";
 const EMERGENCY_CANCEL = "b-a-o-can";
+export const GEOFENCE_BREACH_TYPE = "b-a-g";
 /** ATAK's names for its emergency types, for alerts that don't name themselves. */
 const EMERGENCY_KIND: Record<string, string> = {
   "b-a-o-tbl": "911 Alert",
   "b-a-o-pan": "Ring The Bell",
   "b-a-o-opn": "Troops In Contact",
-  "b-a-g": "Geo-fence Breached",
+  [GEOFENCE_BREACH_TYPE]: "Geo-fence Breached",
 };
 const STROKE_STYLES: StrokeStyle[] = ["solid", "dashed", "dotted", "outlined"];
 const EARTH_RADIUS_M = 6_371_008.8;
@@ -248,6 +262,18 @@ const bullseyeOf = (type: string, el: Element | undefined): Bullseye | undefined
       showRings && spacing && spacing > 0 && count && count >= 1
         ? { spacing: spacing * toMetres, count: Math.min(Math.floor(count), MAX_RINGS) }
         : undefined,
+  };
+};
+
+const geofenceOf = (el: Element | undefined): Geofence | undefined => {
+  if (!el) return undefined;
+  // CloudTAK writes "Enter" where ATAK writes "Entry".
+  const trigger = el.getAttribute("trigger")?.replace(/^Enter$/, "Entry");
+  const monitor = el.getAttribute("monitor");
+  return {
+    trigger: GEOFENCE_TRIGGERS.find((t) => t === trigger) ?? "Entry",
+    monitor: GEOFENCE_MONITORS.find((m) => m === monitor) ?? "TAKUsers",
+    tracking: el.getAttribute("tracking") === "true",
   };
 };
 
@@ -423,6 +449,7 @@ export const toChange = (event: CotEvent): TakChange | null => {
     vehicle: vehicleOf(child("vehicle"), parent?.getAttribute("uid") ?? undefined),
     video: videoOf(child("__video")),
     rangeBearing,
+    geofence: geofenceOf(child("__geofence")),
     emergency: type.startsWith("b-a-")
       ? {
           kind: attr("emergency", "type") || (EMERGENCY_KIND[type] ?? "Emergency"),

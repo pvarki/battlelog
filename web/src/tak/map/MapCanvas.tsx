@@ -10,7 +10,7 @@ import {
   ScaleControl,
 } from "maplibre-gl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ACCENT } from "../../theme.ts";
+import { ACCENT, WARNING_COLOR } from "../../theme.ts";
 import { useNow } from "../../use-now.ts";
 import type { Position, TakItem } from "../cot.ts";
 import type { Drawn, Sketch } from "../drawing/useDrawing.ts";
@@ -219,6 +219,19 @@ const addItemLayers = (map: MapLibreMap, prefix: string) => {
     source: `${prefix}-shapes`,
     filter: ["==", ["geometry-type"], "Polygon"],
     paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fillOpacity"] },
+  });
+  // A dashed amber band under the shape's own line, which keeps the style it was drawn with.
+  map.addLayer({
+    id: `${prefix}-fence-shapes`,
+    type: "line",
+    source: `${prefix}-shapes`,
+    filter: ["==", ["get", "fence"], true],
+    paint: {
+      "line-color": WARNING_COLOR,
+      "line-width": ["+", ["get", "strokeWidth"], 6],
+      "line-opacity": 0.7,
+      "line-dasharray": ["literal", [2, 1]],
+    },
   });
   map.addLayer({
     id: `${prefix}-draft-shapes`,

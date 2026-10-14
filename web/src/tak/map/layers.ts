@@ -368,6 +368,7 @@ const featuresOf = (
     properties: {
       uid,
       draft,
+      fence: !!(ring && item.geofence),
       stroke,
       // With ATAK's tactical overlay the sides are drawn below, one colour each.
       strokeOpacity: overlay ? 0 : (item.stroke?.opacity ?? 1),

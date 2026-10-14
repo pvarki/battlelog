@@ -54,6 +54,7 @@ const WARNING = [
 
 /** The accent colour where CSS variables can't reach, e.g. MapLibre paint. */
 export const ACCENT = "#8abbff";
+export const WARNING_COLOR = WARNING[4];
 
 export const theme = createTheme({
   fontFamily: "'Inter Variable', Inter, system-ui, sans-serif",

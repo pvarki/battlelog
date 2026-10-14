@@ -1,4 +1,4 @@
-import { destination, type Position, type TakItem } from "./cot.ts";
+import { destination, GEOFENCE_BREACH_TYPE, type Position, type TakItem } from "./cot.ts";
 
 export type ItemStatus = "online" | "stale" | "offline";
 
@@ -67,8 +67,15 @@ export const extentOf = (item: TakItem): [Position, Position] | undefined => {
 };
 
 /** Emergency alerts still in force, newest first; an alert nobody renews goes stale. */
-export const activeEmergencies = (items: TakItem[], now: number): TakItem[] =>
+const activeAlerts = (items: TakItem[], now: number): TakItem[] =>
   items.filter((i) => i.emergency && i.stale > now).sort((a, b) => b.time - a.time);
+
+export const activeEmergencies = (items: TakItem[], now: number): TakItem[] =>
+  activeAlerts(items, now).filter((i) => i.type !== GEOFENCE_BREACH_TYPE);
+
+/** Geofence breach alerts from other TAK clients: warnings, not emergencies. */
+export const activeBreachAlerts = (items: TakItem[], now: number): TakItem[] =>
+  activeAlerts(items, now).filter((i) => i.type === GEOFENCE_BREACH_TYPE);
 
 export const labelOf = (item: TakItem): string =>
   `${item.callsign ?? item.uid}${item.draft ? " (draft)" : ""}`;
