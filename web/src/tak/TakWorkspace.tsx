@@ -107,6 +107,8 @@ type DrawerId = keyof typeof DRAWERS;
 
 const FOCUS_ZOOM = 14;
 const FIT_PADDING_PX = 60;
+// Close enough for a building-sized shape to fill the view; MML maps go to 19.
+const FIT_MAX_ZOOM = 18;
 
 const KIND_NAME: Record<Drawn["kind"], string> = {
   marker: "Marker",
@@ -586,11 +588,15 @@ export const TakWorkspace = ({
     const map = mapRef.current;
     const extent = extentOf(item);
     if (!map || !extent) return hasPosition(item) && flyTo(anchorOf(item));
-    const { clientWidth: width, clientHeight: height } = map.getContainer();
-    map.fitBounds(extent, {
-      padding: Math.min(FIT_PADDING_PX, width / 6, height / 6),
-      maxZoom: FOCUS_ZOOM + 3,
-      bearing: map.getBearing(),
+    // Picking opens the details panel, which narrows the map on the next frame: fit to that map.
+    requestAnimationFrame(() => {
+      map.resize();
+      const { clientWidth: width, clientHeight: height } = map.getContainer();
+      map.fitBounds(extent, {
+        padding: Math.min(FIT_PADDING_PX, width / 6, height / 6),
+        maxZoom: FIT_MAX_ZOOM,
+        bearing: map.getBearing(),
+      });
     });
   };
   const busy = !!(drawing.tool || drawing.editing || measure.active);
