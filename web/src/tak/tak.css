@@ -26,11 +26,11 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: 64px;
-  padding: 6px 0;
+  width: 56px;
+  padding: 4px 0;
   border-radius: 6px;
   color: var(--mantine-color-dark-2);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 /* Settings sits apart from the drawers about the picture. */
@@ -51,7 +51,7 @@
 .tak-drawer,
 .tak-details {
   min-height: 0;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: var(--mantine-color-dark-6);
 }
 
@@ -185,10 +185,10 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-  min-height: 24px;
-  padding: 3px 4px;
+  min-height: 22px;
+  padding: 2px 4px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -213,7 +213,7 @@
 }
 
 .tak-row {
-  padding: 5px 6px;
+  padding: 3px 6px;
   border-radius: 6px;
 }
 
