@@ -11,11 +11,11 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
-import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import type { DataFilter } from "../../event-binding/filter.ts";
+import { optionalText } from "../../form-utils.ts";
 import {
   columnWidth,
   type FeedColumn,

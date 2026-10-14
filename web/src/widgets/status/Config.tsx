@@ -1,6 +1,5 @@
 import { Button, Divider, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
 import { EventPicker } from "../../dashboard/EventPicker.tsx";
-import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -11,6 +10,7 @@ import {
   QueryEditor,
   useFieldSuggestions,
 } from "../../event-binding/editors.tsx";
+import { optionalText } from "../../form-utils.ts";
 import type { StatusConfig, StatusGroup, StatusProperty, StatusRow } from "./widget.ts";
 
 const EMPTY_GROUP: StatusGroup = {

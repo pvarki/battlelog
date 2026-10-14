@@ -12,7 +12,7 @@ import {
 import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { api } from "../api.ts";
-import { optionalText } from "../dashboard/form-utils.ts";
+import { optionalText } from "../form-utils.ts";
 import { detectFields, type FieldSuggestion } from "./detect.ts";
 import { queryFor } from "./filter.ts";
 import { STATUS_COLORS, type StatusColor, type StatusOption } from "./options.ts";
