@@ -18,6 +18,7 @@ import { useNow } from "../use-now.ts";
 import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
+import { type ScreenPoint, uidsInOutline } from "./lasso.ts";
 import { LABEL_ZOOM_FILTER, toSources } from "./layers.ts";
 import { mgrsGrid } from "./mgrs-grid.ts";
 import { labelImage } from "./symbols.ts";
@@ -51,6 +52,8 @@ type Props = {
   }) => void;
   /** Shift-dragging draws a box and picks every item in it; without this, Shift-drag zooms. */
   onBoxSelect?: (uids: string[]) => void;
+  /** While set, dragging draws a lasso (mouse or finger) instead of panning, and hands over the items inside. */
+  onLasso?: (uids: string[]) => void;
   onReady: (map: MapLibreMap | undefined) => void;
   /** A fixed starting view; the map then doesn't remember where the viewer left it. */
   view?: MapView;
@@ -134,6 +137,72 @@ const dragSelectBox = (
   };
   document.addEventListener("mousemove", onMove);
   document.addEventListener("mouseup", onUp);
+};
+
+const LASSO_STEP_PX = 3;
+
+/** Lasso mode: pointer drags draw an outline instead of panning; returns the cleanup. */
+const followLasso = (map: MapLibreMap, onSelect: (uids: string[]) => void) => {
+  const container = map.getCanvasContainer();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("tak-lasso");
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  svg.appendChild(line);
+  map.getContainer().appendChild(svg);
+  map.dragPan.disable();
+  container.style.cursor = "crosshair";
+  let outline: ScreenPoint[] | undefined;
+
+  const pointOf = (e: PointerEvent): ScreenPoint => {
+    const rect = container.getBoundingClientRect();
+    return [e.clientX - rect.left, e.clientY - rect.top];
+  };
+  const draw = () => line.setAttribute("points", (outline ?? []).map((p) => p.join(",")).join(" "));
+  const onDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    outline = [pointOf(e)];
+    draw();
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  };
+  const onMove = (e: PointerEvent) => {
+    if (!outline) return;
+    const [x, y] = pointOf(e);
+    const [lx, ly] = outline.at(-1) as ScreenPoint;
+    if (Math.hypot(x - lx, y - ly) < LASSO_STEP_PX) return;
+    outline.push([x, y]);
+    draw();
+  };
+  const onUp = () => {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    document.removeEventListener("pointercancel", onUp);
+    const drawn = outline;
+    outline = undefined;
+    draw();
+    if (!drawn || drawn.length < 3) return;
+    const xs = drawn.map(([x]) => x);
+    const ys = drawn.map(([, y]) => y);
+    const features = map.queryRenderedFeatures(
+      [
+        [Math.min(...xs), Math.min(...ys)],
+        [Math.max(...xs), Math.max(...ys)],
+      ],
+      { layers: INTERACTIVE_LAYERS },
+    );
+    onSelect(uidsInOutline(map, features, drawn));
+  };
+  container.addEventListener("pointerdown", onDown);
+  return () => {
+    container.removeEventListener("pointerdown", onDown);
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    document.removeEventListener("pointercancel", onUp);
+    svg.remove();
+    container.style.cursor = "";
+    map.dragPan.enable();
+  };
 };
 
 const savedView = () => {
@@ -415,6 +484,7 @@ export const MapCanvas = ({
   selectedUids,
   onPick,
   onBoxSelect,
+  onLasso,
   onReady,
   view,
   passive = false,
@@ -508,6 +578,14 @@ export const MapCanvas = ({
     }
     if (overlay) map.setPaintProperty("overlay", "raster-opacity", overlay.opacity);
   }, [map, basemap, overlay, dim]);
+
+  const lassoing = !!onLasso;
+  const lassoCallback = useRef(onLasso);
+  lassoCallback.current = onLasso;
+  useEffect(() => {
+    if (!map || !lassoing) return;
+    return followLasso(map, (uids) => lassoCallback.current?.(uids));
+  }, [map, lassoing]);
 
   useEffect(() => {
     if (!map) return;

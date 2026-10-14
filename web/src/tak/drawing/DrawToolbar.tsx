@@ -4,6 +4,7 @@ import {
   IconChevronDown,
   IconCircle,
   IconCircles,
+  IconLasso,
   IconLine,
   IconMapPin,
   IconPolygon,
@@ -49,6 +50,9 @@ const HINT: Record<Tool, string> = {
   bullseye: "Click the centre of the bullseye.",
 };
 
+const LASSO_HINT =
+  "Draw around the items to select, with the mouse or a finger; each outline adds to the selection.";
+
 const SYMBOL_HINT = "Click where the symbol goes.";
 
 const EDIT_HINT =
@@ -67,6 +71,9 @@ type Props = {
   planName: string | undefined;
   measuring: boolean;
   onToggleMeasure: () => void;
+  /** Lasso selection on: drags draw an outline around items instead of panning. */
+  lassoing: boolean;
+  onToggleLasso: () => void;
   /** The measurement readout, shown while measuring. */
   children?: ReactNode;
   /** While an existing item's shape is being edited: its name and how to end the edit. */
@@ -129,6 +136,8 @@ export const DrawToolbar = ({
   planName,
   measuring,
   onToggleMeasure,
+  lassoing,
+  onToggleLasso,
   children,
   editing,
   selection,
@@ -167,6 +176,8 @@ export const DrawToolbar = ({
           planName={planName}
           measuring={measuring}
           onToggleMeasure={onToggleMeasure}
+          lassoing={lassoing}
+          onToggleLasso={onToggleLasso}
           undo={undo}
         >
           {children}
@@ -187,6 +198,8 @@ const ToolButtons = ({
   planName,
   measuring,
   onToggleMeasure,
+  lassoing,
+  onToggleLasso,
   children,
   undo,
 }: Omit<Props, "editing" | "selection">) => (
@@ -236,8 +249,8 @@ const ToolButtons = ({
         <Menu.Target>
           <Button
             size="compact-xs"
-            variant={measuring || isMenuTool(tool) ? "filled" : "subtle"}
-            color={measuring || isMenuTool(tool) ? "primary" : "gray"}
+            variant={measuring || lassoing || isMenuTool(tool) ? "filled" : "subtle"}
+            color={measuring || lassoing || isMenuTool(tool) ? "primary" : "gray"}
             leftSection={<IconTools size={14} />}
             rightSection={<IconChevronDown size={12} />}
           >
@@ -247,6 +260,9 @@ const ToolButtons = ({
         <Menu.Dropdown>
           <Menu.Item leftSection={<IconRuler2 size={14} />} onClick={onToggleMeasure}>
             {measuring ? "Stop measuring" : "Measure"}
+          </Menu.Item>
+          <Menu.Item leftSection={<IconLasso size={14} />} onClick={onToggleLasso}>
+            {lassoing ? "Stop lasso" : "Lasso select"}
           </Menu.Item>
           {MENU_TOOLS.map((id) => {
             const Icon = ICONS[id];
@@ -264,29 +280,26 @@ const ToolButtons = ({
           })}
         </Menu.Dropdown>
       </Menu>
-      <Button
-        size="compact-xs"
-        variant={measuring ? "filled" : "subtle"}
-        color={measuring ? "primary" : "gray"}
-        leftSection={<IconRuler2 size={14} />}
-        aria-pressed={measuring}
-        onClick={onToggleMeasure}
-      >
-        Measure
-      </Button>
       {undo}
-      {(tool || measuring) && (
+      {(tool || measuring || lassoing) && (
         <Button
           size="compact-xs"
           variant="subtle"
           color="gray"
           leftSection={<IconX size={14} />}
-          onClick={() => (measuring ? onToggleMeasure() : onChoose(undefined))}
+          onClick={() =>
+            measuring ? onToggleMeasure() : lassoing ? onToggleLasso() : onChoose(undefined)
+          }
         >
           Stop (Esc)
         </Button>
       )}
     </Group>
+    {lassoing && (
+      <Text fz="xs" c="dimmed" px={6} pt={2}>
+        {LASSO_HINT}
+      </Text>
+    )}
     {tool && (
       <Text fz="xs" c="dimmed" px={6} pt={2}>
         {(graphic && hintFor(graphic)) ?? (symbol ? SYMBOL_HINT : HINT[tool])}

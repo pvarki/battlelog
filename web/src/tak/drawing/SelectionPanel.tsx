@@ -21,7 +21,7 @@ const hintFor = ({ count, movable, deletable, moving }: Props) => {
   if (moving) return "Click where the middle of the group goes.";
   const locked = count - Math.min(movable, deletable);
   const lockedNote = locked > 0 ? ` ${locked} of them can't be changed from here.` : "";
-  return `Shift-click or Shift-drag on the map to add or remove items.${lockedNote}`;
+  return `Shift-click, Shift-drag or the lasso (Tools) adds or removes items.${lockedNote}`;
 };
 
 /** Several items picked together, to move or delete in one go. */

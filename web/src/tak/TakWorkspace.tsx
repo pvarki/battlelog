@@ -394,6 +394,7 @@ export const TakWorkspace = ({
     for (const event of undoEvents(latestStep, canChange)) send(event);
   };
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
+  const [lassoing, setLassoing] = useState(false);
   const [movingGroup, setMovingGroup] = useState(false);
   const groupItems = items.filter((i) => grouped.has(i.uid));
   const movableItems = groupItems.filter((i) => canChange(i) && editTarget(i));
@@ -650,6 +651,7 @@ export const TakWorkspace = ({
         else if (drawing.editing) drawing.clear();
         else if (drawing.tool && !drawing.drawn) drawing.clear();
         else if (movingGroup) setMovingGroup(false);
+        else if (lassoing) setLassoing(false);
         else if (grouped.size) clearGroup();
         else if (selectedUid) setSelectedUid(undefined);
         else setDrawer(null);
@@ -864,6 +866,7 @@ export const TakWorkspace = ({
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
           }}
           onBoxSelect={has("draw") && !busy && !movingGroup ? addToGroup : undefined}
+          onLasso={lassoing && has("draw") && !busy && !movingGroup ? addToGroup : undefined}
           onReady={(ready) => {
             mapRef.current = ready;
             setMap(ready);
@@ -931,6 +934,7 @@ export const TakWorkspace = ({
             tool={drawing.tool}
             onChoose={(tool) => {
               measure.stop();
+              setLassoing(false);
               drawing.choose(tool);
               if (tool === "rings" || tool === "bullseye")
                 setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
@@ -988,6 +992,12 @@ export const TakWorkspace = ({
             }
             undo={undoButton}
             measuring={measure.active}
+            lassoing={lassoing}
+            onToggleLasso={() => {
+              measure.stop();
+              drawing.choose(undefined);
+              setLassoing(!lassoing);
+            }}
             onToggleMeasure={() => {
               if (measure.active) return measure.stop();
               drawing.choose(undefined);
