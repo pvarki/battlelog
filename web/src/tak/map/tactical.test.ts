@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { expect, test } from "vitest";
-import { type CotEvent, type TakItem, toChange } from "../cot.ts";
-import { placementFor, renderGraphic, toFeatures, upright } from "./tactical.ts";
+import { type CotEvent, type Position, type TakItem, toChange } from "../cot.ts";
+import { labelMinZoom, placementFor, renderGraphic, toFeatures, upright } from "./tactical.ts";
 
 const R = await import("@armyc2.c5isr.renderer/mil-sym-ts-web");
 
@@ -155,4 +155,19 @@ test("graphics keep the drawing's colour even with labels off, obstacles include
   expect(
     mined?.filter((f) => f.properties?.stroke).every((f) => f.properties?.stroke === "#ff0000"),
   ).toBe(true);
+});
+
+test("a graphic's labels wait until it spans about 120 px: big graphics label sooner", () => {
+  const short: Position[] = [
+    [24.9, 60.17],
+    [24.91, 60.17],
+  ];
+  const long: Position[] = [
+    [24.9, 60.17],
+    [25.9, 60.17],
+  ];
+  // ~555 m and ~55 km: zooms 13 and 6.4 at Helsinki's latitude.
+  expect(labelMinZoom(short)).toBeCloseTo(13.04, 1);
+  expect(labelMinZoom(long)).toBeCloseTo(6.4, 1);
+  expect(labelMinZoom([[24.9, 60.17]])).toBe(0);
 });

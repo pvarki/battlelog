@@ -1,6 +1,7 @@
 import type { Feature, Geometry, LineString, Polygon } from "geojson";
 import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
 import type { Position, TakItem } from "../cot.ts";
+import { distance } from "../geo.ts";
 
 /**
  * MIL-STD-2525 tactical graphics for drawings that carry a `__milsym` code, as
@@ -312,6 +313,24 @@ const register = (map: MapLibreMap, p: Properties): Properties => {
   return p;
 };
 
+// A graphic's labels show once it spans this many pixels: smaller, they'd bury the graphic.
+const LABEL_SPAN_PX = 120;
+const EARTH_CIRCUMFERENCE_M = 40_075_016.7;
+const TILE_PX = 512;
+
+/** The zoom from which the graphic is big enough on screen for its labels. */
+export const labelMinZoom = (points: Position[]): number => {
+  const lons = points.map(([lon]) => lon);
+  const lats = points.map(([, lat]) => lat);
+  const [west, east] = [Math.min(...lons), Math.max(...lons)];
+  const [south, north] = [Math.min(...lats), Math.max(...lats)];
+  const extent = distance([west, south], [east, north]);
+  if (!(extent > 0)) return 0;
+  const metresPerPixelAtZero =
+    (EARTH_CIRCUMFERENCE_M * Math.cos((((south + north) / 2) * Math.PI) / 180)) / TILE_PX;
+  return Math.max(0, Math.log2((LABEL_SPAN_PX * metresPerPixelAtZero) / extent));
+};
+
 /**
  * The item's tactical graphic as map features, or undefined to draw it plain:
  * no graphic, one that doesn't fit, or not rendered yet (the map hears from
@@ -330,6 +349,10 @@ export const tacticalFeatures = (
     return undefined;
   }
   drawn.add(key);
+  const shape = item.geometry;
+  const minZoom = labelMinZoom(
+    shape.type === "Polygon" ? shape.coordinates.flat() : shape.coordinates,
+  );
   return graphic?.map((f) => {
     const p = register(map, f.properties as Properties);
     if (typeof p.label !== "string") return { ...f, properties: { ...p, uid: item.uid } };
@@ -337,7 +360,13 @@ export const tacticalFeatures = (
     const turned = upright(Number(p.angle) - bearing, String(p.anchor));
     return {
       ...f,
-      properties: { ...p, angle: turned.angle + bearing, anchor: turned.anchor, uid: item.uid },
+      properties: {
+        ...p,
+        angle: turned.angle + bearing,
+        anchor: turned.anchor,
+        minZoom,
+        uid: item.uid,
+      },
     };
   });
 };
@@ -379,7 +408,7 @@ export const addTacticalLayers = (map: MapLibreMap, prefix: string) => {
     id: `${prefix}-tactical-labels`,
     type: "symbol",
     source: `${prefix}-tactical`,
-    filter: ["has", "icon"],
+    filter: ["all", ["has", "icon"], [">=", ["zoom"], ["coalesce", ["get", "minZoom"], 0]]],
     layout: {
       "icon-image": ["get", "icon"],
       "icon-rotate": ["coalesce", ["get", "angle"], 0],
