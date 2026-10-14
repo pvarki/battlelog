@@ -31,6 +31,7 @@ test("a wall map following users, a mission and groups validates", () => {
   expect(
     parses({
       display: "wall",
+      basemap: "orthophoto",
       groups: ["markers/team", "shapes"],
       missions: ["Op North"],
       follow: { callsigns: ["Alpha"], mission: "Op North", groups: ["markers/friendly/troops"] },

@@ -33,6 +33,8 @@ const configSchema = z
       })
       .strict()
       .optional(),
+    /** A built-in background map's id; absent = this browser's choice. */
+    basemap: z.string().min(1).max(64).optional(),
     /** The overlay groups shown; absent = this browser's layer settings. */
     groups: overlayGroups.optional(),
     /** Missions shown on this map besides those this browser shows. */

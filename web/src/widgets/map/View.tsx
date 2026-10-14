@@ -23,6 +23,7 @@ const MapWidgetView = ({ config, editMode, updateConfig }: WidgetViewProps<MapCo
         onMap={setMap}
         display={config.display}
         hiddenGroups={config.groups?.length ? hiddenExcept(config.groups) : undefined}
+        basemap={config.basemap}
         missions={config.missions}
         follow={config.follow}
         eventLayers={config.eventLayers}

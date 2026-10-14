@@ -376,6 +376,13 @@ export const MapCanvas = ({
     m.addControl(new NavigationControl({ visualizePitch: false }), "top-right");
     m.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
     m.keyboard.enable();
+    // Compact attribution opens expanded until the first drag; on a small widget it hides the map.
+    m.once("idle", () =>
+      m
+        .getContainer()
+        .querySelector(".maplibregl-ctrl-attrib")
+        ?.classList.remove("maplibregl-compact-show"),
+    );
 
     const hover = new Popup({ closeButton: false, closeOnClick: false, offset: 14 });
 

@@ -11,6 +11,7 @@ import {
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import { useEventLayers } from "../../tak/event-layers/store.ts";
+import { BUILTIN_SOURCES } from "../../tak/map/basemaps.ts";
 import { useMissions, useMissionsSync } from "../../tak/missions/store.ts";
 import { GROUP_LABEL, groupPathLabel } from "../../tak/overlays.ts";
 import { useTakItems, useTakSession } from "../../tak/session.ts";
@@ -81,6 +82,15 @@ const MapConfigForm = ({ config, onChange }: WidgetConfigProps<MapConfig>) => {
           </Stack>
         </Checkbox.Group>
       )}
+      <Select
+        label="Background map"
+        description="Empty: this browser's choice. Maps added in a browser can't be shared, so only built-in ones."
+        placeholder="This browser's choice"
+        data={BUILTIN_SOURCES.map((s) => ({ value: s.id, label: s.label }))}
+        value={config.basemap ?? null}
+        onChange={(basemap) => onChange({ ...config, basemap: basemap ?? undefined })}
+        clearable
+      />
       <MultiSelect
         label="Overlay groups shown"
         description="Empty: this browser's layer settings"

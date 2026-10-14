@@ -124,7 +124,7 @@ const Shell = ({
       padding={0}
     >
       <AppShell.Header>
-        <Group h="100%" px="md" gap="lg" wrap="nowrap">
+        <Group h="100%" px="md" gap={isMobile ? "sm" : "lg"} wrap="nowrap">
           {hasNav && (
             <Burger
               size="sm"
@@ -137,7 +137,7 @@ const Shell = ({
             BATTLELOG
           </Text>
           <NavLink to="/">Home</NavLink>
-          <NavLink to="/events">Event Explorer</NavLink>
+          <NavLink to="/events">{isMobile ? "Events" : "Event Explorer"}</NavLink>
           <NavLink to="/map">Map</NavLink>
           <Group gap="md" ml="auto" wrap="nowrap">
             <TakIndicator />

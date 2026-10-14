@@ -5,6 +5,7 @@
   grid-template-areas:
     "rail drawer main details"
     "status status status status";
+  position: relative;
   height: calc(100dvh - var(--app-shell-header-height, 48px));
   overflow: hidden;
   background: var(--mantine-color-dark-7);
@@ -312,6 +313,63 @@
   .tak-statusbar > :not(:first-child):not(:nth-child(2)) {
     display: none;
   }
+}
+
+/*
+ * A widget too narrow for drawer, map and details side by side: panels open over
+ * the map instead of beside it. A positioned grid's absolute child is placed in
+ * its grid area, so "main" keeps them between the rail and the status bar.
+ */
+@container (max-width: 760px) {
+  .tak-drawer,
+  .tak-details {
+    grid-area: main;
+    position: absolute;
+    z-index: 4;
+    width: min(320px, 85cqw, 100%);
+    box-shadow: 0 0 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .tak-drawer {
+    inset: 0 auto 0 0;
+  }
+
+  .tak-details {
+    inset: 0 0 0 auto;
+  }
+
+  /* Instructions while a tool is in use stay; the idle tip is one keypress away (?). */
+  .tak-idle-hint {
+    display: none;
+  }
+}
+
+/* A narrow map keeps the draw tools to one row that scrolls sideways, not a block over the map. */
+@container (max-width: 760px) {
+  .tak-draw-tools {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+}
+
+.tak-workspace[data-mobile] .tak-draw-tools {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+}
+
+/* No pointer, no cursor position: give its slot to the connection line. */
+@media (hover: none) {
+  .tak-statusbar > :first-child {
+    display: none;
+  }
+}
+
+.tak-statusbar > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tak-widget-pin {

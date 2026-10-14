@@ -209,7 +209,7 @@ const ToolButtons = ({
   undo,
 }: Omit<Props, "editing" | "selection">) => (
   <>
-    <Group gap={4} justify="center">
+    <Group className="tak-draw-tools" gap={4} justify="center">
       <Badge
         size="sm"
         variant={planName ? "filled" : "outline"}
@@ -341,7 +341,7 @@ const ToolButtons = ({
       </Text>
     )}
     {!tool && !measuring && !lassoing && (
-      <Text fz="xs" c="dimmed" px={6} pt={2} ta="center">
+      <Text className="tak-idle-hint" fz="xs" c="dimmed" px={6} pt={2} ta="center">
         {IDLE_HINT}
       </Text>
     )}

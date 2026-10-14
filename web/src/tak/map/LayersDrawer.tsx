@@ -31,6 +31,8 @@ type Props = {
   /** The map on screen and its background, for saving the visible area offline. */
   map?: MapLibreMap;
   basemap: MapSource;
+  /** Set by the dashboard widget, so not this browser's to change here. */
+  basemapPinned?: boolean;
   /** This connection's uid on TAK; undefined without a callsign. */
   clientUid: string | undefined;
   /** The BattleLog layers section. */
@@ -57,6 +59,7 @@ export const LayersDrawer = ({
   sources,
   map,
   basemap,
+  basemapPinned,
   clientUid,
   eventLayers,
   children,
@@ -74,13 +77,14 @@ export const LayersDrawer = ({
 
       <Radio.Group
         label={<Heading>Background map</Heading>}
-        value={settings.basemap}
+        description={basemapPinned ? "Set by this widget" : undefined}
+        value={basemap.id}
         onChange={settings.setBasemap}
       >
         <Stack gap={6} mt={6}>
           {sources.map((source) => (
             <Group key={source.id} gap="xs" wrap="nowrap" justify="space-between">
-              <Radio size="xs" value={source.id} label={source.label} />
+              <Radio size="xs" value={source.id} label={source.label} disabled={basemapPinned} />
               {source.origin !== "builtin" && (
                 <ActionIcon
                   variant="subtle"
@@ -104,7 +108,7 @@ export const LayersDrawer = ({
           description="Drawn see-through over the background"
           placeholder="None"
           data={sources
-            .filter((s) => s.id !== settings.basemap)
+            .filter((s) => s.id !== basemap.id)
             .map((s) => ({ value: s.id, label: s.label }))}
           value={settings.overlay}
           onChange={settings.setOverlay}

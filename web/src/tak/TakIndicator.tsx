@@ -28,9 +28,17 @@ export const TakIndicator = () => {
   if (connection === "idle") return null;
   const { Icon, c, label } = LOOK[connection];
   return (
-    <Group gap={4} c={c} title={label} role="status" wrap="nowrap">
+    <Group
+      gap={4}
+      c={c}
+      title={label}
+      role="status"
+      aria-label={`${callsign ?? "TAK"}: ${label}`}
+      wrap="nowrap"
+    >
       <Icon size={16} stroke={1.5} />
-      <Text fz="xs" fw={600} c="dark.0">
+      {/* A phone's header has no room for the callsign; the icon still shows the connection. */}
+      <Text fz="xs" fw={600} c="dark.0" visibleFrom="sm">
         {callsign ?? "TAK"}
       </Text>
       <Text fz="xs" visibleFrom="sm">

@@ -159,6 +159,8 @@ type Props = {
   display?: "normal" | "wall";
   /** Overrides this browser's hidden overlay groups. */
   hiddenGroups?: ReadonlySet<string>;
+  /** Overrides this browser's background map, by source id. */
+  basemap?: string;
   /** Shown besides the missions this browser shows. */
   missions?: readonly string[];
   /** Keeps these items in view as they move. */
@@ -193,6 +195,7 @@ export const TakWorkspace = ({
   onMap,
   display,
   hiddenGroups,
+  basemap: fixedBasemap,
   missions: extraMissions = [],
   follow,
   eventLayers: fixedEventLayers,
@@ -216,7 +219,9 @@ export const TakWorkspace = ({
   const settings = useMapSettings();
   const mapSources = useMapSources(settings.customSources);
   const sourceById = (id: string | null) => mapSources.find((s) => s.id === id);
-  const basemap = sourceById(settings.basemap) ?? (sourceById(DEFAULT_BASEMAP) as MapSource);
+  const pinnedBasemap = sourceById(fixedBasemap ?? null);
+  const basemap =
+    pinnedBasemap ?? sourceById(settings.basemap) ?? (sourceById(DEFAULT_BASEMAP) as MapSource);
   const overlaySource = sourceById(settings.overlay);
   const hidden = hiddenGroups ?? settings.hidden;
   const shownMissions = new Set([
@@ -225,8 +230,9 @@ export const TakWorkspace = ({
     ...(follow?.mission ? [follow.mission] : []),
   ]);
   const isMobile = useIsMobile();
+  // A widget opens on its map: a drawer would cover most of a small one.
   const [chosenDrawer, setDrawer] = useState<DrawerId | null>(
-    isMobile || !has("items") ? null : "items",
+    isMobile || embedded || !has("items") ? null : "items",
   );
   // A widget switched to fewer tools (or to wall display) closes what it no longer has.
   const drawer = chosenDrawer && drawers.includes(chosenDrawer) ? chosenDrawer : null;
@@ -636,6 +642,7 @@ export const TakWorkspace = ({
         sources={mapSources}
         map={map}
         basemap={basemap}
+        basemapPinned={!!pinnedBasemap}
         clientUid={writerUid}
         eventLayers={
           <EventLayersSection
