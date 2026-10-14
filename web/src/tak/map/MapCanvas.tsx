@@ -19,7 +19,7 @@ import { useNow } from "../use-now.ts";
 import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
-import { toSources } from "./layers.ts";
+import { LABEL_ZOOM_FILTER, toSources } from "./layers.ts";
 import { mgrsGrid } from "./mgrs-grid.ts";
 import { labelImage } from "./symbols.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
@@ -71,8 +71,6 @@ const INTERACTIVE_LAYERS = [
   "tak-tactical-fills",
 ];
 const ACCENT = "#8abbff";
-// ATAK hides marker names beyond 10 m per pixel, about zoom 12 at Finnish latitudes.
-const MARKER_LABEL_MIN_ZOOM = 12;
 
 const savedView = () => {
   try {
@@ -286,6 +284,7 @@ const addItemLayers = (map: MapLibreMap, prefix: string) => {
     id: `${prefix}-line-labels`,
     type: "symbol",
     source: `${prefix}-lineLabels`,
+    filter: LABEL_ZOOM_FILTER,
     layout: {
       ...overlapping,
       "icon-image": ["get", "icon"],
@@ -333,7 +332,7 @@ const addItemLayers = (map: MapLibreMap, prefix: string) => {
     id: `${prefix}-marker-labels`,
     type: "symbol",
     source: `${prefix}-markerLabels`,
-    minzoom: MARKER_LABEL_MIN_ZOOM,
+    filter: LABEL_ZOOM_FILTER,
     layout: { ...overlapping, "icon-image": ["get", "icon"], "icon-offset": ["get", "offset"] },
   });
 };

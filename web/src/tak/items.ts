@@ -128,6 +128,8 @@ export const describeType = (item: TakItem): string => {
     const where = DIMENSION_NAME[dimension];
     return `${AFFILIATION_NAME[affiliation] ?? "Unknown"} ${where ? `${where} ` : ""}unit`;
   }
+  // ATAK draws lines and areas as the same type; a closed one is an area.
+  if (t.startsWith("u-d-f") && item.geometry.type === "Polygon") return "Area";
   return OTHER_TYPE_NAME.find(([prefix]) => t.startsWith(prefix))?.[1] ?? "Map item";
 };
 

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { TakItem } from "./cot.ts";
-import { activeEmergencies, unitStatusOf, withUnitStatus } from "./items.ts";
+import { activeEmergencies, describeType, unitStatusOf, withUnitStatus } from "./items.ts";
 
 test("status goes in the 4th character of a 2525C code", () => {
   expect(withUnitStatus("SHGPU----------", "destroyed")).toBe("SHGXU----------");
@@ -29,4 +29,17 @@ test("only emergencies that haven't gone stale are active, newest first", () => 
     item("marker", 400, 2000, false),
   ];
   expect(activeEmergencies(items, 1000).map((i) => i.uid)).toEqual(["new", "old"]);
+});
+
+test("a closed ATAK line is an area, an open one a line", () => {
+  const drawing = (geometry: TakItem["geometry"]) =>
+    ({ uid: "d", type: "u-d-f", time: 0, stale: 0, geometry }) as TakItem;
+  const ring: [number, number][] = [
+    [25, 60],
+    [25.1, 60],
+    [25.1, 60.1],
+    [25, 60],
+  ];
+  expect(describeType(drawing({ type: "Polygon", coordinates: [ring] }))).toBe("Area");
+  expect(describeType(drawing({ type: "LineString", coordinates: ring.slice(0, 3) }))).toBe("Line");
 });

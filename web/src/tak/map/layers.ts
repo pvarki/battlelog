@@ -1,5 +1,5 @@
 import type { Feature, FeatureCollection } from "geojson";
-import type { Map as MapLibreMap } from "maplibre-gl";
+import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
 import { destination, type Position, type Sensor, type TakItem } from "../cot.ts";
 import { hasPosition, labelOf, statusOf } from "../items.ts";
 import { groupOf, isHidden } from "../overlays.ts";
@@ -13,7 +13,17 @@ import {
   pruneLabels,
   referenceDot,
 } from "./symbols.ts";
-import { pruneTactical, tacticalFeatures, tacticalReady } from "./tactical.ts";
+import { labelMinZoom, pruneTactical, tacticalFeatures, tacticalReady } from "./tactical.ts";
+
+// ATAK hides marker names beyond 10 m per pixel, about zoom 12 at Finnish latitudes.
+const MARKER_LABEL_MIN_ZOOM = 12;
+
+/** For a label layer: each label waits for its own `minZoom`, a marker's or its shape's size. */
+export const LABEL_ZOOM_FILTER: FilterSpecification = [
+  ">=",
+  ["zoom"],
+  ["coalesce", ["get", "minZoom"], 0],
+];
 
 /**
  * Items as the GeoJSON sources the map draws, following ATAK's conventions:
@@ -183,7 +193,13 @@ export const toSources = (
     points.push(point(at, { uid, icon: image.id, offset: image.offset, order, draft }));
 
   /** A name centred under an icon, as ATAK draws marker labels. */
-  const nameUnder = (uid: string, at: Position, text: string, under: MapImage) => {
+  const nameUnder = (
+    uid: string,
+    at: Position,
+    text: string,
+    under: MapImage,
+    minZoom = MARKER_LABEL_MIN_ZOOM,
+  ) => {
     const label = labelImage(map, text);
     const iconBottom = under.height / 2 + under.offset[1];
     markerLabels.push(
@@ -191,6 +207,7 @@ export const toSources = (
         uid,
         icon: label.id,
         offset: [0, iconBottom + LABEL_GAP + label.height / 2],
+        minZoom,
       }),
     );
   };
@@ -201,12 +218,14 @@ export const toSources = (
     to: Position,
     text: string,
     style: LabelStyle = "marker",
+    minZoom = 0,
   ) =>
     lineLabels.push(
       point(midpoint(from, to), {
         uid,
         icon: labelImage(map, text, style).id,
         rotate: textAngle(from, to, bearing),
+        minZoom,
       }),
     );
 
@@ -337,8 +356,9 @@ export const toSources = (
     if (ring) {
       const centre = g.type === "Point" ? g.coordinates : centreOf(ring);
       const dot = referenceDot(map, stroke);
+      const labelsFrom = labelMinZoom(ring);
       icon(uid, centre, dot, -1);
-      nameUnder(uid, centre, name, dot);
+      nameUnder(uid, centre, name, dot, labelsFrom);
       if (item.labelsOn && item.ellipse) {
         const { major, minor } = item.ellipse;
         const text =
@@ -346,12 +366,14 @@ export const toSources = (
             ? formatDistance(major)
             : `W: ${formatDistance(minor * 2)}  L: ${formatDistance(major * 2)}`;
         const top = ring.reduce((a, b) => (b[1] > a[1] ? b : a));
-        lineLabels.push(point(top, { uid, icon: labelImage(map, text).id, rotate: 0 }));
+        lineLabels.push(
+          point(top, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
+        );
       }
       if (item.labelsOn && item.type === "u-d-r") {
         for (let i = 0; i + 1 < ring.length; i++) {
           const [a, b] = [ring[i] as Position, ring[i + 1] as Position];
-          alongLine(uid, a, b, formatDistance(distance(a, b)));
+          alongLine(uid, a, b, formatDistance(distance(a, b)), "marker", labelsFrom);
         }
       }
       continue;
@@ -374,7 +396,8 @@ export const toSources = (
     }
     if (item.labelsOn) {
       const middle = Math.floor((line.length - 1) / 2);
-      alongLine(uid, line[middle] as Position, line[middle + 1] as Position, name);
+      const [a, b] = [line[middle] as Position, line[middle + 1] as Position];
+      alongLine(uid, a, b, name, "marker", labelMinZoom(line));
     }
     for (const waypoint of item.waypoints ?? []) {
       const dot = referenceDot(map, stroke);

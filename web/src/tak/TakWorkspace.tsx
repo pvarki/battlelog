@@ -253,11 +253,13 @@ export const TakWorkspace = ({
   const has = (tool: TakTool) => !wall && (!tools || tools.has(tool));
   const drawers = (Object.keys(DRAWERS) as DrawerId[]).filter(has);
   useTakSession();
-  const liveItems = useTakItems();
+  const picture = useTakItems();
   const tracks = useTakTracks();
   const [trackedUids, setTrackedUids] = useState<ReadonlySet<string>>(new Set());
   const status = useTakStatus();
   const callsign = useCallsign();
+  // Other tabs announce this same user; BattleLog never lists itself.
+  const liveItems = picture.filter((i) => i.uid !== takSender(callsign).uid);
   const settings = useMapSettings();
   const mapSources = useMapSources(settings.customSources);
   const sourceById = (id: string | null) => mapSources.find((s) => s.id === id);
@@ -663,9 +665,7 @@ export const TakWorkspace = ({
         <MapCanvas
           cursor={cursor}
           preview={{ sketch: drawing.sketch, build: previewOf }}
-          items={items.filter(
-            (i) => !(ownPosition.fix && i.uid === sender.uid) && i.uid !== drawing.editing?.uid,
-          )}
+          items={items.filter((i) => i.uid !== drawing.editing?.uid)}
           tracks={trackFeatures(
             settings.showAllTracks ? items : items.filter((i) => trackedUids.has(i.uid)),
             tracks,
