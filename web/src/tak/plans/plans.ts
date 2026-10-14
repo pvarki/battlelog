@@ -2,8 +2,10 @@ import { notifications } from "@mantine/notifications";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { useSyncExternalStore } from "react";
 import { publish } from "../commands.ts";
-import { type CotEvent, toChange } from "../cot.ts";
+import { type CotEvent, type TakChange, toChange } from "../cot.ts";
 import type { Sender } from "../drawing/new-items.ts";
+import type { Mission } from "../missions/missions.ts";
+import { addItems, ensureSubscribed, removeItems } from "../missions/writes.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
 import { geojsonToEvents, gpxToEvents, kmlToEvents } from "./overlay-files.ts";
 import { readShapefile } from "./shapefile.ts";
@@ -177,17 +179,70 @@ export const reissuePlan = (plan: Plan, now = Date.now()): Plan => ({
   })),
 });
 
+/** Sends every draft to TAK, re-issued now; resolves to the drafts TAK confirmed. */
+const sendDrafts = async (plan: Plan): Promise<PlanEntry[]> => {
+  const results = await Promise.all(reissuePlan(plan).entries.map((entry) => publish(entry.event)));
+  return plan.entries.filter((_, i) => results[i]);
+};
+
+const dropFromPlan = (plan: Plan, done: ReadonlySet<PlanEntry>) => {
+  // Drafts added or changed while publishing aren't the ones that were done: keep them.
+  const current = state.plans.find((p) => p.id === plan.id);
+  if (current) save({ ...current, entries: current.entries.filter((e) => !done.has(e)) });
+};
+
 /**
  * Sends every draft to TAK, re-issued now. Drafts TAK confirms leave the plan;
  * the rest stay so nothing is lost. Returns how many went out.
  */
 export const publishPlan = async (plan: Plan): Promise<{ sent: number; kept: number }> => {
-  const results = await Promise.all(reissuePlan(plan).entries.map((entry) => publish(entry.event)));
-  const published = new Set(plan.entries.filter((_, i) => results[i]));
-  // Drafts added or changed while publishing aren't the ones TAK confirmed: keep them.
-  const current = state.plans.find((p) => p.id === plan.id);
-  if (current) save({ ...current, entries: current.entries.filter((e) => !published.has(e)) });
-  return { sent: published.size, kept: plan.entries.length - published.size };
+  const published = await sendDrafts(plan);
+  dropFromPlan(plan, new Set(published));
+  return { sent: published.length, kept: plan.entries.length - published.length };
+};
+
+const targetUid = (change: TakChange) => (change.kind === "upsert" ? change.item.uid : change.uid);
+
+/** What the drafts change in a mission: items drawn or edited join it, deleted ones leave it. */
+export const missionChanges = (entries: PlanEntry[], itemUids: readonly string[]) => {
+  const changes = entries.flatMap(({ event }) => toChange(event) ?? []);
+  return {
+    add: changes.flatMap((c) => (c.kind === "upsert" ? [c.item.uid] : [])),
+    remove: changes.flatMap((c) =>
+      c.kind === "delete" && itemUids.includes(c.uid) ? [c.uid] : [],
+    ),
+  };
+};
+
+/**
+ * Publishes the drafts as live CoT, then adds their items to the mission in
+ * one change and takes staged deletes out of it. A draft leaves the plan only
+ * once it is both on TAK and in (or out of) the mission; `notInMission`
+ * names the uids that aren't.
+ */
+export const publishPlanToMission = async (
+  plan: Plan,
+  mission: Pick<Mission, "name" | "itemUids">,
+  clientUid: string,
+): Promise<{ sent: number; kept: number; notInMission: string[] }> => {
+  // Before sending anything: TAK silently ignores mission changes from non-subscribers.
+  await ensureSubscribed(mission.name, clientUid);
+  const published = await sendDrafts(plan);
+  const { add, remove } = missionChanges(published, mission.itemUids);
+  const missed = new Set([
+    ...(add.length ? await addItems(mission.name, add, clientUid) : []),
+    ...(remove.length ? await removeItems(mission.name, remove, clientUid) : []),
+  ]);
+  const done = published.filter((entry) => {
+    const change = toChange(entry.event);
+    return !change || !missed.has(targetUid(change));
+  });
+  dropFromPlan(plan, new Set(done));
+  return {
+    sent: published.length,
+    kept: plan.entries.length - done.length,
+    notInMission: [...missed],
+  };
 };
 
 const escapeXml = (s: string) =>
