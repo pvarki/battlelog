@@ -21,7 +21,7 @@ import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
 import { type ScreenPoint, uidsInOutline } from "./lasso.ts";
-import { LABEL_ZOOM_FILTER, toSources } from "./layers.ts";
+import { createPictureDrawer, LABEL_ZOOM_FILTER, toSources } from "./layers.ts";
 import { mgrsGrid } from "./mgrs-grid.ts";
 import { keptLabelImage, labelImage } from "./symbols.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
@@ -660,16 +660,19 @@ export const MapCanvas = ({
   }>(undefined);
   const awaitingGraphics = useRef(false);
 
+  const drawPicture = useRef<ReturnType<typeof createPictureDrawer>>(undefined);
   useEffect(() => {
     if (!map) return;
-    // ponytail: full setData per change (≤4/s); switch to updateData diffs if large pictures stutter.
+    drawPicture.current ??= createPictureDrawer(map, "tak");
     const draw = () => {
-      const sources = toSources(map, items, hidden, now, bearing);
-      for (const name of ITEM_SOURCES) {
-        (map.getSource(`tak-${name}`) as GeoJSONSource).setData(sources[name]);
-      }
+      const { graphicsPending } = (drawPicture.current as ReturnType<typeof createPictureDrawer>)(
+        items,
+        hidden,
+        now,
+        bearing,
+      );
       drawnFrom.current = { items, hidden, now, bearing };
-      awaitingGraphics.current = sources.graphicsPending;
+      awaitingGraphics.current = graphicsPending;
     };
     const last = drawnFrom.current;
     const unchanged =
@@ -769,7 +772,7 @@ const PreviewLayer = ({
   const items = build(shape, useCursor(cursor));
   useEffect(() => {
     const draw = () => {
-      const sources = toSources(map, items, NO_GROUPS_HIDDEN, Date.now(), bearing, false);
+      const sources = toSources(map, items, NO_GROUPS_HIDDEN, Date.now(), bearing);
       // Until its graphic is rendered, keep showing the last one rather than flicker to a plain line.
       if (sources.graphicsPending) return;
       for (const name of ITEM_SOURCES) {

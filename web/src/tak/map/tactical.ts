@@ -187,7 +187,18 @@ const listeners = new Set<() => void>();
 const imageIds = new Map<string, Promise<string>>();
 const decoded = new Map<string, HTMLImageElement>();
 
-const keyOf = (item: TakItem) =>
+// Items never change in place, so an item's key is worked out once.
+const keys = new WeakMap<TakItem, string>();
+const keyOf = (item: TakItem) => {
+  let key = keys.get(item);
+  if (key === undefined) {
+    key = lookOf(item);
+    keys.set(item, key);
+  }
+  return key;
+};
+
+const lookOf = (item: TakItem) =>
   [
     item.sidc,
     item.labelsOn && item.callsign,
@@ -232,6 +243,11 @@ const withImageIds = (features: Feature[]) =>
 /** Whether the item's graphic is ready (or known to render plain), so a redraw would change nothing for it. */
 export const tacticalReady = (item: TakItem) =>
   !item.sidc || item.geometry.type === "Point" || graphics.has(keyOf(item));
+
+/** For an item drawn from a cache: its graphic is still on the map and mustn't be pruned. */
+export const markTacticalDrawn = (item: TakItem) => {
+  if (item.sidc && item.geometry.type !== "Point") drawn.add(keyOf(item));
+};
 
 /** Call after each redraw: forgets graphics that are no longer on the map once over the cap. */
 export const pruneTactical = () => {

@@ -118,12 +118,20 @@ const STORE = "iconsets";
 let state: IconsetsState = { sets: [], loaded: false };
 const listeners = new Set<() => void>();
 
+/** Bumped whenever a set or a decoded icon changes, so drawings cached with the old look are redone. */
+let version = 0;
+export const iconsetsVersion = () => version;
+// A lookup per drawn item: a linear search of every set and icon was a redraw hot spot.
+let index: Map<string, { set: Iconset; icons: Map<string, IconsetIcon> }> | undefined;
+
 const notify = () => {
+  version++;
   for (const listener of listeners) listener();
 };
 
 const set = (sets: Iconset[]) => {
   state = { sets: sets.sort((a, b) => a.name.localeCompare(b.name)), loaded: true };
+  index = undefined;
   const current = new Set(sets.map((s) => `${s.uid}|${s.imported}|`));
   for (const [key, bitmap] of bitmaps) {
     if (current.has(key.slice(0, key.lastIndexOf("|") + 1))) continue;
@@ -209,9 +217,13 @@ const bitmaps = new Map<string, ImageBitmap | "decoding" | "failed">();
 export const iconsetImage = (path: string): IconsetImage | undefined => {
   void load();
   const segments = path.split("/");
-  const iconset = state.sets.find((s) => s.uid === segments[0]);
+  index ??= new Map(
+    state.sets.map((s) => [s.uid, { set: s, icons: new Map(s.icons.map((i) => [i.file, i])) }]),
+  );
+  const indexed = index.get(segments[0] ?? "");
   const file = segments.length > 1 ? segments[segments.length - 1] : undefined;
-  const icon = iconset?.icons.find((i) => i.file === file);
+  const iconset = indexed?.set;
+  const icon = file === undefined ? undefined : indexed?.icons.get(file);
   if (!iconset || !icon) return undefined;
   const key = `${iconset.uid}|${iconset.imported}|${icon.file}`;
   const bitmap = bitmaps.get(key);

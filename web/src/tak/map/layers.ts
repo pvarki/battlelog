@@ -1,8 +1,9 @@
 import type { Feature, FeatureCollection } from "geojson";
-import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
+import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { destination, type Position, type Sensor, type TakItem } from "../cot.ts";
 import { hasPosition, labelOf, statusOf } from "../items.ts";
 import { groupOf, isHidden } from "../overlays.ts";
+import { iconsetsVersion } from "./iconsets.ts";
 import { BETWEEN_SPOKES, bullseyeMarks, bullseyeRadii, circleLine } from "./rings.ts";
 import {
   arrowhead,
@@ -11,10 +12,18 @@ import {
   type LabelStyle,
   labelImage,
   type MapImage,
+  markLabelsUsed,
   pruneLabels,
+  recordLabels,
   referenceDot,
 } from "./symbols.ts";
-import { labelMinZoom, pruneTactical, tacticalFeatures, tacticalReady } from "./tactical.ts";
+import {
+  labelMinZoom,
+  markTacticalDrawn,
+  pruneTactical,
+  tacticalFeatures,
+  tacticalReady,
+} from "./tactical.ts";
 
 // ATAK hides marker names beyond 10 m per pixel, about zoom 12 at Finnish latitudes.
 const MARKER_LABEL_MIN_ZOOM = 12;
@@ -170,26 +179,41 @@ const point = (coordinates: Position, properties: Record<string, unknown>): Feat
   properties,
 });
 
-export const toSources = (
-  map: MapLibreMap,
-  items: TakItem[],
-  hidden: ReadonlySet<string>,
-  now: number,
-  /** The map's rotation, so line labels stay readable when it turns. */
-  bearing: number,
-  /** Off for the drawing preview: its few items say nothing about which cached images the picture still uses. */
-  prune = true,
-): Sources => {
-  const points: Feature[] = [];
-  const shapes: Feature[] = [];
-  const markerLabels: Feature[] = [];
-  const lineLabels: Feature[] = [];
-  const decorations: Feature[] = [];
-  const tactical: Feature[] = [];
-  let graphicsPending = false;
+const SOURCE_NAMES = [
+  "points",
+  "shapes",
+  "markerLabels",
+  "lineLabels",
+  "decorations",
+  "tactical",
+] as const;
 
-  // Set per item below; drafts get a dashed outline so they can't pass for what TAK has.
-  let draft = false;
+type SourceName = (typeof SOURCE_NAMES)[number];
+
+/** One item's share of each source; `pending` while its tactical graphic is still rendering. */
+type ItemFeatures = Record<SourceName, Feature[]> & { pending: boolean };
+
+/** What an item's drawing depends on besides the item itself, which never changes in place. */
+type DrawContext = { now: number; bearing: number; byUid: ReadonlyMap<string, TakItem> };
+
+const featuresOf = (
+  map: MapLibreMap,
+  item: TakItem,
+  group: string[],
+  { now, bearing, byUid }: DrawContext,
+): ItemFeatures => {
+  const out: ItemFeatures = {
+    points: [],
+    shapes: [],
+    markerLabels: [],
+    lineLabels: [],
+    decorations: [],
+    tactical: [],
+    pending: false,
+  };
+  const { points, shapes, markerLabels, lineLabels, decorations, tactical } = out;
+  // Drafts get a dashed outline so they can't pass for what TAK has.
+  const draft = item.draft === true;
   const icon = (uid: string, at: Position, image: MapImage, order: number) =>
     points.push(point(at, { uid, icon: image.id, offset: image.offset, order, draft }));
 
@@ -230,236 +254,368 @@ export const toSources = (
       }),
     );
 
-  const byUid = new Map(items.map((item) => [item.uid, item]));
-  for (const item of items) {
-    const group = groupOf(item);
-    if (isHidden(group, hidden) || !hasPosition(item)) continue;
-    const { uid } = item;
-    draft = item.draft === true;
-    const stale = statusOf(item, now) !== "online";
-    const name = labelOf(item);
-    const stroke = item.stroke?.color ?? (item.rangeBearing ? RANGE_BEARING_COLOR : DEFAULT_STROKE);
-    const g = item.geometry;
+  const { uid } = item;
+  const stale = statusOf(item, now) !== "online";
+  const name = labelOf(item);
+  const stroke = item.stroke?.color ?? (item.rangeBearing ? RANGE_BEARING_COLOR : DEFAULT_STROKE);
+  const g = item.geometry;
 
-    const graphic = g.type === "Point" ? undefined : tacticalFeatures(map, item, bearing);
-    if (!graphic && !tacticalReady(item)) graphicsPending = true;
-    if (graphic) {
-      tactical.push(...graphic);
-      continue;
+  const graphic = g.type === "Point" ? undefined : tacticalFeatures(map, item, bearing);
+  if (!graphic && !tacticalReady(item)) out.pending = true;
+  if (graphic) {
+    tactical.push(...graphic);
+    return out;
+  }
+
+  const radii = item.rangeRings ?? (item.bullseye ? bullseyeRadii(item.bullseye) : undefined);
+  if (g.type === "Point" && radii) {
+    const centre = g.coordinates;
+    const strokeLine = (coordinates: Position[], strokeWidth: number) =>
+      shapes.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates },
+        properties: {
+          uid,
+          draft,
+          stroke,
+          strokeOpacity: item.stroke?.opacity ?? 1,
+          strokeWidth,
+          strokeStyle: "solid",
+          fillOpacity: 0,
+        },
+      });
+    const labelsFrom = labelMinZoom(circleLine(centre, Math.max(...radii)));
+    const label = (at: Position, text: string) =>
+      lineLabels.push(
+        point(at, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
+      );
+    const ringLabelBearing = item.bullseye ? BETWEEN_SPOKES : 0;
+    for (const radius of radii) {
+      strokeLine(circleLine(centre, radius), item.strokeWidth ?? 2);
+      label(destination(centre, radius, ringLabelBearing), formatDistance(radius));
     }
-
-    const radii = item.rangeRings ?? (item.bullseye ? bullseyeRadii(item.bullseye) : undefined);
-    if (g.type === "Point" && radii) {
-      const centre = g.coordinates;
-      const strokeLine = (coordinates: Position[], strokeWidth: number) =>
-        shapes.push({
-          type: "Feature",
-          geometry: { type: "LineString", coordinates },
-          properties: {
-            uid,
-            draft,
-            stroke,
-            strokeOpacity: item.stroke?.opacity ?? 1,
-            strokeWidth,
-            strokeStyle: "solid",
-            fillOpacity: 0,
-          },
-        });
-      const labelsFrom = labelMinZoom(circleLine(centre, Math.max(...radii)));
-      const label = (at: Position, text: string) =>
-        lineLabels.push(
-          point(at, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
-        );
-      const ringLabelBearing = item.bullseye ? BETWEEN_SPOKES : 0;
-      for (const radius of radii) {
-        strokeLine(circleLine(centre, radius), item.strokeWidth ?? 2);
-        label(destination(centre, radius, ringLabelBearing), formatDistance(radius));
-      }
-      if (item.bullseye) {
-        const marks = bullseyeMarks(centre, item.bullseye);
-        for (const spoke of marks.lines) strokeLine(spoke, 1);
-        for (const bearingLabel of marks.labels) label(bearingLabel.at, bearingLabel.text);
-      }
-      const dot = referenceDot(map, stroke);
-      icon(uid, centre, dot, -1);
-      nameUnder(uid, centre, name, dot, labelsFrom);
-      continue;
+    if (item.bullseye) {
+      const marks = bullseyeMarks(centre, item.bullseye);
+      for (const spoke of marks.lines) strokeLine(spoke, 1);
+      for (const bearingLabel of marks.labels) label(bearingLabel.at, bearingLabel.text);
     }
+    const dot = referenceDot(map, stroke);
+    icon(uid, centre, dot, -1);
+    nameUnder(uid, centre, name, dot, labelsFrom);
+    return out;
+  }
 
-    if (g.type === "Point" && !item.ellipse) {
-      const image = iconFor(map, item, stale);
-      icon(uid, g.coordinates, image, DRAW_ORDER.indexOf(group.slice(0, 2).join("/")));
-      if (!item.hideLabel) nameUnder(uid, g.coordinates, name, image);
-      if (item.footprint) {
-        shapes.push({
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: [[...item.footprint, item.footprint[0] as Position]],
-          },
-          properties: {
-            uid,
-            stroke,
-            strokeOpacity: 1,
-            strokeWidth: 2,
-            strokeStyle: "solid",
-            fill: stroke,
-            fillOpacity: 0.15,
-          },
-        });
-      }
-      // A stale cone would show where the camera no longer looks.
-      if (item.sensor && item.sensor.range > 0 && !stale) {
-        shapes.push({
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [sensorCone(g.coordinates, item.sensor)] },
-          properties: {
-            uid,
-            stroke: item.sensor.stroke.color,
-            strokeOpacity: item.sensor.stroke.opacity,
-            strokeWidth: 1,
-            strokeStyle: "solid",
-            fill: item.sensor.fill.color,
-            fillOpacity: item.sensor.fill.opacity,
-          },
-        });
-      }
-      const sensor = item.sensorUid ? byUid.get(item.sensorUid) : undefined;
-      if (sensor?.geometry.type === "Point" && hasPosition(sensor) && !stale) {
-        shapes.push({
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: [sensor.geometry.coordinates, g.coordinates],
-          },
-          properties: {
-            uid,
-            stroke: SPI_LINE,
-            strokeOpacity: 1,
-            strokeWidth: 1,
-            strokeStyle: "solid",
-            fillOpacity: 0,
-          },
-        });
-      }
-      continue;
+  if (g.type === "Point" && !item.ellipse) {
+    const image = iconFor(map, item, stale);
+    icon(uid, g.coordinates, image, DRAW_ORDER.indexOf(group.slice(0, 2).join("/")));
+    if (!item.hideLabel) nameUnder(uid, g.coordinates, name, image);
+    if (item.footprint) {
+      shapes.push({
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [[...item.footprint, item.footprint[0] as Position]],
+        },
+        properties: {
+          uid,
+          stroke,
+          strokeOpacity: 1,
+          strokeWidth: 2,
+          strokeStyle: "solid",
+          fill: stroke,
+          fillOpacity: 0.15,
+        },
+      });
     }
-
-    const ring =
-      g.type === "Point" && item.ellipse
-        ? ellipseRing(g.coordinates, item.ellipse)
-        : g.type === "Polygon"
-          ? (g.coordinates[0] ?? [])
-          : undefined;
-    const line = g.type === "LineString" ? g.coordinates : undefined;
-    const overlay =
-      item.tacticalOverlay && ring?.length === 5 ? tacticalOverlayColors(ring) : undefined;
-    shapes.push({
-      type: "Feature",
-      geometry: ring
-        ? { type: "Polygon", coordinates: [ring] }
-        : { type: "LineString", coordinates: line ?? [] },
-      properties: {
-        uid,
-        draft,
-        stroke,
-        // With ATAK's tactical overlay the sides are drawn below, one colour each.
-        strokeOpacity: overlay ? 0 : (item.stroke?.opacity ?? 1),
-        strokeWidth: item.strokeWidth ?? 3,
-        strokeStyle: item.rangeBearing ? "outlined" : (item.strokeStyle ?? "solid"),
-        // ATAK fills closed shapes only.
-        fill: item.fill?.color ?? DEFAULT_STROKE,
-        fillOpacity: ring ? (item.fill?.opacity ?? 0) : 0,
-      },
-    });
-
-    for (const [i, color] of (overlay ?? []).entries()) {
+    // A stale cone would show where the camera no longer looks.
+    if (item.sensor && item.sensor.range > 0 && !stale) {
+      shapes.push({
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [sensorCone(g.coordinates, item.sensor)] },
+        properties: {
+          uid,
+          stroke: item.sensor.stroke.color,
+          strokeOpacity: item.sensor.stroke.opacity,
+          strokeWidth: 1,
+          strokeStyle: "solid",
+          fill: item.sensor.fill.color,
+          fillOpacity: item.sensor.fill.opacity,
+        },
+      });
+    }
+    const sensor = item.sensorUid ? byUid.get(item.sensorUid) : undefined;
+    if (sensor?.geometry.type === "Point" && hasPosition(sensor) && !stale) {
       shapes.push({
         type: "Feature",
         geometry: {
           type: "LineString",
-          coordinates: [ring?.[i] as Position, ring?.[i + 1] as Position],
+          coordinates: [sensor.geometry.coordinates, g.coordinates],
         },
         properties: {
           uid,
-          draft,
-          stroke: color,
+          stroke: SPI_LINE,
           strokeOpacity: 1,
-          strokeWidth: (item.strokeWidth ?? 3) + 1,
-          strokeStyle: "outlined",
+          strokeWidth: 1,
+          strokeStyle: "solid",
           fillOpacity: 0,
         },
       });
     }
-
-    if (ring) {
-      const centre = g.type === "Point" ? g.coordinates : centreOf(ring);
-      const dot = referenceDot(map, stroke);
-      const labelsFrom = labelMinZoom(ring);
-      icon(uid, centre, dot, -1);
-      nameUnder(uid, centre, name, dot, labelsFrom);
-      if (item.labelsOn && item.ellipse) {
-        const { major, minor } = item.ellipse;
-        const text =
-          major === minor
-            ? formatDistance(major)
-            : `W: ${formatDistance(minor * 2)}  L: ${formatDistance(major * 2)}`;
-        const top = ring.reduce((a, b) => (b[1] > a[1] ? b : a));
-        lineLabels.push(
-          point(top, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
-        );
-      }
-      if (item.labelsOn && item.type === "u-d-r") {
-        for (let i = 0; i + 1 < ring.length; i++) {
-          const [a, b] = [ring[i] as Position, ring[i + 1] as Position];
-          alongLine(uid, a, b, formatDistance(distance(a, b)), "marker", labelsFrom);
-        }
-      }
-      continue;
-    }
-
-    if (!line || line.length < 2) continue;
-    if (item.rangeBearing) {
-      const { range, bearing: heading, northRef } = item.rangeBearing;
-      const [from, to] = [line[0] as Position, line[1] as Position];
-      const arrow = heading >= 180 ? "←" : "→";
-      alongLine(
-        uid,
-        from,
-        to,
-        `${arrow} ${Math.round(heading)}°${northRef}   ${formatDistance(range)}`,
-        "emphasis",
-      );
-      decorations.push(point(to, { uid, icon: arrowhead(map, stroke).id, rotate: heading }));
-      continue;
-    }
-    if (item.labelsOn) {
-      const middle = Math.floor((line.length - 1) / 2);
-      const [a, b] = [line[middle] as Position, line[middle + 1] as Position];
-      alongLine(uid, a, b, name, "marker", labelMinZoom(line));
-    }
-    for (const waypoint of item.waypoints ?? []) {
-      const dot = referenceDot(map, stroke);
-      icon(uid, waypoint.position, dot, -1);
-      nameUnder(uid, waypoint.position, waypoint.name, dot);
-    }
+    return out;
   }
 
-  const collection = (features: Feature[]): FeatureCollection => ({
-    type: "FeatureCollection",
-    features,
+  const ring =
+    g.type === "Point" && item.ellipse
+      ? ellipseRing(g.coordinates, item.ellipse)
+      : g.type === "Polygon"
+        ? (g.coordinates[0] ?? [])
+        : undefined;
+  const line = g.type === "LineString" ? g.coordinates : undefined;
+  const overlay =
+    item.tacticalOverlay && ring?.length === 5 ? tacticalOverlayColors(ring) : undefined;
+  shapes.push({
+    type: "Feature",
+    geometry: ring
+      ? { type: "Polygon", coordinates: [ring] }
+      : { type: "LineString", coordinates: line ?? [] },
+    properties: {
+      uid,
+      draft,
+      stroke,
+      // With ATAK's tactical overlay the sides are drawn below, one colour each.
+      strokeOpacity: overlay ? 0 : (item.stroke?.opacity ?? 1),
+      strokeWidth: item.strokeWidth ?? 3,
+      strokeStyle: item.rangeBearing ? "outlined" : (item.strokeStyle ?? "solid"),
+      // ATAK fills closed shapes only.
+      fill: item.fill?.color ?? DEFAULT_STROKE,
+      fillOpacity: ring ? (item.fill?.opacity ?? 0) : 0,
+    },
   });
-  if (prune) {
+
+  for (const [i, color] of (overlay ?? []).entries()) {
+    shapes.push({
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [ring?.[i] as Position, ring?.[i + 1] as Position],
+      },
+      properties: {
+        uid,
+        draft,
+        stroke: color,
+        strokeOpacity: 1,
+        strokeWidth: (item.strokeWidth ?? 3) + 1,
+        strokeStyle: "outlined",
+        fillOpacity: 0,
+      },
+    });
+  }
+
+  if (ring) {
+    const centre = g.type === "Point" ? g.coordinates : centreOf(ring);
+    const dot = referenceDot(map, stroke);
+    const labelsFrom = labelMinZoom(ring);
+    icon(uid, centre, dot, -1);
+    nameUnder(uid, centre, name, dot, labelsFrom);
+    if (item.labelsOn && item.ellipse) {
+      const { major, minor } = item.ellipse;
+      const text =
+        major === minor
+          ? formatDistance(major)
+          : `W: ${formatDistance(minor * 2)}  L: ${formatDistance(major * 2)}`;
+      const top = ring.reduce((a, b) => (b[1] > a[1] ? b : a));
+      lineLabels.push(
+        point(top, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
+      );
+    }
+    if (item.labelsOn && item.type === "u-d-r") {
+      for (let i = 0; i + 1 < ring.length; i++) {
+        const [a, b] = [ring[i] as Position, ring[i + 1] as Position];
+        alongLine(uid, a, b, formatDistance(distance(a, b)), "marker", labelsFrom);
+      }
+    }
+    return out;
+  }
+
+  if (!line || line.length < 2) return out;
+  if (item.rangeBearing) {
+    const { range, bearing: heading, northRef } = item.rangeBearing;
+    const [from, to] = [line[0] as Position, line[1] as Position];
+    const arrow = heading >= 180 ? "←" : "→";
+    alongLine(
+      uid,
+      from,
+      to,
+      `${arrow} ${Math.round(heading)}°${northRef}   ${formatDistance(range)}`,
+      "emphasis",
+    );
+    decorations.push(point(to, { uid, icon: arrowhead(map, stroke).id, rotate: heading }));
+    return out;
+  }
+  if (item.labelsOn) {
+    const middle = Math.floor((line.length - 1) / 2);
+    const [a, b] = [line[middle] as Position, line[middle + 1] as Position];
+    alongLine(uid, a, b, name, "marker", labelMinZoom(line));
+  }
+  for (const waypoint of item.waypoints ?? []) {
+    const dot = referenceDot(map, stroke);
+    icon(uid, waypoint.position, dot, -1);
+    nameUnder(uid, waypoint.position, waypoint.name, dot);
+  }
+  return out;
+};
+
+type Cached = ItemFeatures & { context: string; labels: string[] };
+
+// Per map: each registers its own images, so features drawn for one can't be shown on another.
+const drawings = new WeakMap<MapLibreMap, WeakMap<TakItem, Cached>>();
+
+/** The inputs besides the item that change its drawing: when they're the same, so is the drawing. */
+const contextOf = (item: TakItem, { now, bearing, byUid }: DrawContext) => {
+  const sensor = item.sensorUid ? byUid.get(item.sensorUid) : undefined;
+  return [
+    statusOf(item, now),
+    bearing,
+    iconsetsVersion(),
+    sensor && hasPosition(sensor) ? JSON.stringify(sensor.geometry.coordinates) : "",
+  ].join("|");
+};
+
+/** An item's features, redrawn only when the item or what it depends on changed. */
+const cachedFeaturesOf = (
+  map: MapLibreMap,
+  item: TakItem,
+  group: string[],
+  context: DrawContext,
+): ItemFeatures => {
+  let cache = drawings.get(map);
+  if (!cache) {
+    cache = new WeakMap();
+    drawings.set(map, cache);
+  }
+  const key = contextOf(item, context);
+  const hit = cache.get(item);
+  // The labels and graphic it shows are still in use: pruning must keep them.
+  if (hit?.context === key && markLabelsUsed(map, hit.labels)) {
+    markTacticalDrawn(item);
+    return hit;
+  }
+  const [features, labels] = recordLabels(() => featuresOf(map, item, group, context));
+  // A graphic still rendering is drawn plain for now; the next redraw has the real one.
+  if (!features.pending) cache.set(item, { ...features, context: key, labels });
+  return features;
+};
+
+/** The picture by item: which are drawn, and each one's features. */
+const pictureOf = (
+  map: MapLibreMap,
+  items: TakItem[],
+  hidden: ReadonlySet<string>,
+  now: number,
+  bearing: number,
+  cached: boolean,
+) => {
+  const context: DrawContext = { now, bearing, byUid: new Map(items.map((i) => [i.uid, i])) };
+  const drawn = new Map<string, ItemFeatures>();
+  for (const item of items) {
+    const group = groupOf(item);
+    if (isHidden(group, hidden) || !hasPosition(item)) continue;
+    drawn.set(
+      item.uid,
+      cached ? cachedFeaturesOf(map, item, group, context) : featuresOf(map, item, group, context),
+    );
+  }
+  return drawn;
+};
+
+const collection = (features: Feature[]): FeatureCollection => ({
+  type: "FeatureCollection",
+  features,
+});
+
+const sourcesOf = (drawn: ReadonlyMap<string, ItemFeatures>): Sources => {
+  const sources = Object.fromEntries(
+    SOURCE_NAMES.map((name) => [name, collection([...drawn.values()].flatMap((f) => f[name]))]),
+  ) as Record<SourceName, FeatureCollection>;
+  return { ...sources, graphicsPending: [...drawn.values()].some((f) => f.pending) };
+};
+
+/** The drawing preview: a few items, drawn afresh, and no say in which images the picture keeps. */
+export const toSources = (
+  map: MapLibreMap,
+  items: TakItem[],
+  hidden: ReadonlySet<string>,
+  now: number,
+  /** The map's rotation, so line labels stay readable when it turns. */
+  bearing: number,
+): Sources => {
+  const sources = sourcesOf(pictureOf(map, items, hidden, now, bearing, false));
+  keepUsedLabels();
+  return sources;
+};
+
+/** A feature's id in its source: the item's uid and its place among that item's features there. */
+const featureId = (uid: string, index: number) => `${uid}\u0000${index}`;
+
+const withIds = (uid: string, features: Feature[]) =>
+  features.map((f, i) => ({ ...f, id: featureId(uid, i) }));
+
+/**
+ * What one source needs to go from `shown` to `drawn`: the features of items
+ * that changed or arrived (same ids replace), and ids an item no longer has.
+ * Unchanged items are the same object, so they cost nothing.
+ */
+export const sourceDiff = (
+  shown: ReadonlyMap<string, Pick<ItemFeatures, SourceName>>,
+  drawn: ReadonlyMap<string, Pick<ItemFeatures, SourceName>>,
+  name: SourceName,
+) => {
+  const remove: string[] = [];
+  const add: Feature[] = [];
+  for (const [uid, before] of shown) {
+    const after = drawn.get(uid);
+    if (after === before) continue;
+    for (let i = after?.[name].length ?? 0; i < before[name].length; i++)
+      remove.push(featureId(uid, i));
+  }
+  for (const [uid, after] of drawn) {
+    if (shown.get(uid) !== after) add.push(...withIds(uid, after[name]));
+  }
+  return { remove, add };
+};
+
+/**
+ * Draws the picture onto the `${prefix}-…` sources and keeps it drawn: each
+ * redraw works out only the items that changed and sends the map just those,
+ * so a position report costs one item, not the whole picture.
+ */
+export const createPictureDrawer = (map: MapLibreMap, prefix: string) => {
+  let shown = new Map<string, ItemFeatures>();
+  let started = false;
+  return (
+    items: TakItem[],
+    hidden: ReadonlySet<string>,
+    now: number,
+    bearing: number,
+  ): { graphicsPending: boolean } => {
+    const drawn = pictureOf(map, items, hidden, now, bearing, true);
     pruneTactical();
     pruneLabels(map);
-  } else keepUsedLabels();
-  return {
-    points: collection(points),
-    shapes: collection(shapes),
-    markerLabels: collection(markerLabels),
-    lineLabels: collection(lineLabels),
-    decorations: collection(decorations),
-    tactical: collection(tactical),
-    graphicsPending,
+    const source = (name: SourceName) => map.getSource(`${prefix}-${name}`) as GeoJSONSource;
+    if (!started) {
+      started = true;
+      for (const name of SOURCE_NAMES) {
+        source(name).setData(
+          collection([...drawn].flatMap(([uid, features]) => withIds(uid, features[name]))),
+        );
+      }
+    } else {
+      for (const name of SOURCE_NAMES) {
+        const diff = sourceDiff(shown, drawn, name);
+        if (diff.remove.length || diff.add.length) void source(name).updateData(diff);
+      }
+    }
+    shown = drawn;
+    return { graphicsPending: [...drawn.values()].some((f) => f.pending) };
   };
 };

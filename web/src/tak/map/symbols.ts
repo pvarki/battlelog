@@ -33,6 +33,28 @@ const registered = new Map<string, MapImage>();
 const usedLabels = new Set<string>();
 // Labels the drawing preview shows; the picture's redraws must not prune them from under it.
 let previewLabels = new Set<string>();
+/** While set, collects the labels drawn, so a cached item can mark them used without redrawing. */
+let recording: string[] | undefined;
+
+/** Runs `draw` and returns what it drew with the label keys it used. */
+export const recordLabels = <T>(draw: () => T): [T, string[]] => {
+  recording = [];
+  try {
+    return [draw(), recording];
+  } finally {
+    recording = undefined;
+  }
+};
+
+/** Marks labels as still shown; false when one has been pruned from the map and must be drawn again. */
+export const markLabelsUsed = (map: MapLibreMap, keys: readonly string[]): boolean => {
+  for (const key of keys) {
+    const image = registered.get(key);
+    if (!image || !map.hasImage(image.id)) return false;
+  }
+  for (const key of keys) usedLabels.add(key);
+  return true;
+};
 
 /** Call after drawing the preview, which doesn't prune: keeps its labels alive. */
 export const keepUsedLabels = () => {
@@ -262,6 +284,7 @@ export const labelImage = (
 ): MapImage => {
   const key = `label|${style}|${text}`;
   usedLabels.add(key);
+  recording?.push(key);
   return register(map, key, () => labelArt(text, style));
 };
 

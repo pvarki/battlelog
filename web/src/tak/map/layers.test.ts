@@ -1,5 +1,6 @@
+import type { Feature } from "geojson";
 import { expect, test } from "vitest";
-import { formatDistance, sensorCone } from "./layers.ts";
+import { formatDistance, sensorCone, sourceDiff } from "./layers.ts";
 
 test("a sensor cone is a closed wedge from the sensor, its edges fov apart around the azimuth", () => {
   const origin: [number, number] = [25, 60];
@@ -41,4 +42,36 @@ test("ATAK's tactical overlay: left/right as seen looking out of the front, so a
   // Same building drawn clockwise from south-east; walls: south, west, north, east.
   const clockwise = [square[1], square[0], square[3], square[2], square[1]] as [number, number][];
   expect(tacticalOverlayColors(clockwise)).toEqual(["#ffffff", "#00ff00", "#000000", "#ff0000"]);
+});
+
+const dot = (n: number): Feature => ({
+  type: "Feature",
+  geometry: { type: "Point", coordinates: [n, n] },
+  properties: {},
+});
+const drawing = (points: Feature[]) => ({
+  points,
+  shapes: [],
+  markerLabels: [],
+  lineLabels: [],
+  decorations: [],
+  tactical: [],
+});
+
+test("a source diff sends only what changed: new and changed items, and ids an item lost", () => {
+  const still = drawing([dot(1)]);
+  const before = new Map([
+    ["a", still],
+    ["b", drawing([dot(2), dot(3)])],
+    ["gone", drawing([dot(4)])],
+  ]);
+  const after = new Map([
+    ["a", still],
+    ["b", drawing([dot(5)])],
+    ["new", drawing([dot(6)])],
+  ]);
+  const { add, remove } = sourceDiff(before, after, "points");
+  expect(add.map((f) => f.id)).toEqual(["b\u00000", "new\u00000"]);
+  expect(remove).toEqual(["b\u00001", "gone\u00000"]);
+  expect(sourceDiff(after, after, "points")).toEqual({ add: [], remove: [] });
 });
