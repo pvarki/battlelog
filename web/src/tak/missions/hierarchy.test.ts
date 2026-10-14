@@ -15,6 +15,7 @@ const mission = (name: string, changedAt: number): Mission => ({
   files: [],
   changedAt,
   version: "",
+  mapLayers: [],
 });
 
 const names = (rows: ReturnType<typeof missionTree>) =>

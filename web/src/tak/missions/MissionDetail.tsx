@@ -11,21 +11,31 @@ import {
   ScrollArea,
   Stack,
   Switch,
+  TagsInput,
   Text,
 } from "@mantine/core";
-import { IconArrowLeft, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge, formatDate } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
+import { download } from "../download.ts";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { labelOf } from "../items.ts";
+import { CopyMission } from "./CopyMission.tsx";
 import { MissionFamily } from "./MissionFamily.tsx";
+import { MissionLayers } from "./MissionLayers.tsx";
 import { MissionLog, NewLogEntry } from "./MissionLog.tsx";
 import { MissionMembers } from "./MissionMembers.tsx";
 import type { MissionsDrawerProps } from "./MissionsDrawer.tsx";
-import { fileUrl, type Mission, ROLE_LABELS } from "./missions.ts";
+import {
+  fetchMissionExport,
+  fileUrl,
+  type Mission,
+  type MissionExport,
+  ROLE_LABELS,
+} from "./missions.ts";
 import { RemoveButton, Section, useWrite } from "./shared.tsx";
 import {
   addFile,
@@ -36,6 +46,7 @@ import {
   loadSubscription,
   removeFile,
   removeItem,
+  setKeywords,
   subscribe,
   unsubscribe,
   useSubscriptions,
@@ -92,6 +103,7 @@ export const MissionDetail = ({
   const { busy, run } = useWrite();
   const [logKey, setLogKey] = useState(0);
   const [password, setPasswordText] = useState("");
+  const [keywordDraft, setKeywordDraft] = useState<string[]>();
   const { clientUid } = props;
   const subscription = useSubscriptions().get(mission.name);
   const subscribed = !!subscription;
@@ -106,6 +118,10 @@ export const MissionDetail = ({
   const contents = props.state.contents.get(mission.name);
   const creator =
     mission.creatorUid && (props.callsignOf(mission.creatorUid) ?? mission.creatorUid);
+  const exportAs = (kind: MissionExport, fileName: string) =>
+    void run("Couldn't export the feed", async () =>
+      download(await fetchMissionExport(mission.name, kind), fileName),
+    );
   return (
     <Stack gap="xs" h="100%">
       <Group gap="xs" wrap="nowrap">
@@ -134,14 +150,30 @@ export const MissionDetail = ({
             {mission.inviteOnly ? " · invite-only" : ""}
             {mission.passwordProtected ? " · password-protected" : ""}
           </Text>
-          {mission.keywords.length > 0 && (
-            <Group gap={4}>
-              {mission.keywords.map((k) => (
-                <Badge key={k} size="xs" variant="outline" color="gray">
-                  {k}
-                </Badge>
-              ))}
-            </Group>
+          {writable ? (
+            <TagsInput
+              size="xs"
+              aria-label="Keywords"
+              placeholder="Add keyword"
+              value={keywordDraft ?? mission.keywords}
+              disabled={busy}
+              onChange={(keywords) => {
+                setKeywordDraft(keywords);
+                void run("Keywords not saved", () =>
+                  setKeywords(mission.name, keywords, clientUid),
+                ).then(() => setKeywordDraft(undefined));
+              }}
+            />
+          ) : (
+            mission.keywords.length > 0 && (
+              <Group gap={4}>
+                {mission.keywords.map((k) => (
+                  <Badge key={k} size="xs" variant="outline" color="gray">
+                    {k}
+                  </Badge>
+                ))}
+              </Group>
+            )
           )}
           <MissionFamily
             mission={mission}
@@ -205,6 +237,34 @@ export const MissionDetail = ({
               No callsign: open BattleLog from the deploy app to change feeds.
             </Text>
           )}
+          <Group gap="xs">
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconDownload size={14} />}
+              disabled={busy}
+              onClick={() => exportAs("kml", `${mission.name}.kml`)}
+            >
+              Download KML
+            </Button>
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconDownload size={14} />}
+              disabled={busy}
+              onClick={() => exportAs("archive", `${mission.name}.zip`)}
+            >
+              Download archive
+            </Button>
+            {clientUid && (
+              <CopyMission
+                mission={mission}
+                clientUid={clientUid}
+                disabled={busy}
+                onCopied={props.onOpen}
+              />
+            )}
+          </Group>
           {clientUid && !subscribed && (
             <Text fz="xs" c="dimmed">
               Subscribe to add items, files and log entries: TAK ignores changes from users who
@@ -326,6 +386,7 @@ export const MissionDetail = ({
               </FileButton>
             )}
           </Section>
+          <MissionLayers mission={mission} />
           <Section title="Log">
             {writable && (
               <NewLogEntry

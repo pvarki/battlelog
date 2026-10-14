@@ -120,6 +120,31 @@ export const logEntryRequest = (
   body: { dtg: new Date(now).toISOString(), content, creatorUid: clientUid, missionNames: [name] },
 });
 
+/** Replaces all of the mission's keywords. */
+export const setKeywordsRequest = (
+  name: string,
+  keywords: string[],
+  clientUid: string,
+): TakWrite => ({
+  method: "PUT",
+  path: `${missionPath(name)}/keywords?${query({ creatorUid: clientUid })}`,
+  body: keywords,
+});
+
+export const copyMissionRequest = (
+  name: string,
+  copyName: string,
+  clientUid: string,
+  { password, defaultRole }: Pick<NewMission, "password" | "defaultRole">,
+): TakWrite => ({
+  method: "PUT",
+  path: `${missionPath(name)}/copy?${query({
+    creatorUid: clientUid,
+    copyName,
+    ...definedOnly({ defaultRole, password }),
+  })}`,
+});
+
 /** Nests `name` under `parent`; TAK Server only, ATAK doesn't show it. */
 export const setParentRequest = (name: string, parent: string): TakWrite => ({
   method: "PUT",
@@ -305,13 +330,17 @@ const readBack = async (name: string): Promise<Mission> => {
 
 const unconfirmed = (what: string) => new Error(`TAK didn't confirm ${what}`);
 
-export const createMission = async (name: string, settings: NewMission, clientUid: string) => {
+const assertNameFree = async (name: string) => {
   // A create on an existing name updates that mission; TAK hides invite-only ones (403).
   const existing = await takGetText(missionPath(name)).catch((err: unknown) => {
     if (err instanceof TakRequestError && err.status === 403) return "restricted";
     throw err;
   });
   if (existing) throw new Error(`A feed named ${name} already exists`);
+};
+
+export const createMission = async (name: string, settings: NewMission, clientUid: string) => {
+  await assertNameFree(name);
   const created = await takSend(createMissionRequest(name, settings, clientUid));
   // TAK subscribes the creator as owner.
   const subscription = parseSubscription(JSON.parse(created));
@@ -376,6 +405,34 @@ export const removeFile = async (name: string, hash: string, clientUid: string) 
 /** Adds a log entry; the caller reloads the log to show it. */
 export const addLogEntry = async (name: string, content: string, clientUid: string) => {
   await writeAsSubscriber(name, clientUid, logEntryRequest(name, content, clientUid));
+};
+
+export const sameKeywords = (a: string[], b: string[]) => {
+  const set = new Set(a);
+  return set.size === new Set(b).size && b.every((k) => set.has(k));
+};
+
+export const setKeywords = async (name: string, keywords: string[], clientUid: string) => {
+  await writeAsSubscriber(name, clientUid, setKeywordsRequest(name, keywords, clientUid));
+  if (!sameKeywords((await readBack(name)).keywords, keywords)) throw unconfirmed("the keywords");
+};
+
+/** Copies the feed's contents into a new one this client owns; reading the original is enough. */
+export const copyMission = async (
+  mission: Mission,
+  copyName: string,
+  clientUid: string,
+  password?: string,
+) => {
+  await assertNameFree(copyName);
+  // Sent when we have it: a password-protected original is readable only with it.
+  const token = (await loadSubscription(mission.name, clientUid))?.token;
+  const request = copyMissionRequest(mission.name, copyName, clientUid, {
+    password,
+    defaultRole: mission.defaultRole,
+  });
+  await takSend(request, token);
+  await readBack(copyName);
 };
 
 export const deleteMission = async (mission: Mission, clientUid: string) => {

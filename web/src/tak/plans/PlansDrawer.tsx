@@ -302,7 +302,7 @@ export const PlansDrawer = (props: Props) => {
         </Button>
       </Group>
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
-        <InboxSection onOpenPlan={setOpenId} />
+        <InboxSection onOpenPlan={setOpenId} clientUid={props.clientUid} />
         {props.state.plans.length === 0 ? (
           <Box py="md">
             <Placeholder

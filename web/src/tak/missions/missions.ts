@@ -41,6 +41,9 @@ const roleSchema = z
   .catch(undefined)
   .transform((type) => MISSION_ROLES.find((role) => role === type));
 
+/** A basemap or overlay a feed carries for its subscribers' maps. */
+export type MissionMapLayer = { name: string; type?: string; url?: string };
+
 export type Mission = {
   name: string;
   description?: string;
@@ -59,6 +62,7 @@ export type Mission = {
   changedAt: number;
   /** Moves whenever items or files are added or removed; contents are refetched only then. */
   version: string;
+  mapLayers: MissionMapLayer[];
 };
 
 export type MissionLogEntry = { id: string; content: string; creatorUid?: string; time: number };
@@ -97,6 +101,7 @@ const missionSchema = z.object({
       }),
     )
     .catch([]),
+  mapLayers: z.array(z.object({ name: z.string(), type: text, url: text })).catch([]),
 });
 
 /** Missions from `GET /Marti/api/missions`; malformed entries are skipped, not fatal. */
@@ -123,6 +128,7 @@ export const parseMissionList = (json: unknown): Mission[] => {
         changedAt: Math.max(m.createTime, ...changes),
         // A removal doesn't move the newest timestamp, but it changes the counts.
         version: `${m.uids.length}:${m.contents.length}:${Math.max(0, ...changes)}`,
+        mapLayers: m.mapLayers,
       },
     ];
   });
@@ -249,6 +255,48 @@ export const fetchMissionLog = async (
 
 export const isAccessDenied = (err: unknown) =>
   err instanceof TakRequestError && (err.status === 401 || err.status === 403);
+
+/** A feed's layer tree (groups of items, files and map layers), flattened with each entry's depth. */
+export type MissionLayer = { uid: string; name: string; type?: string; depth: number };
+
+type RawLayer = { uid?: unknown; name?: unknown; type?: unknown; children?: unknown };
+
+/** The layers from `GET /Marti/api/missions/{name}/layers`, each parent before its children. */
+export const parseMissionLayers = (json: unknown): MissionLayer[] => {
+  const flatten = (raw: unknown, depth: number): MissionLayer[] =>
+    Array.isArray(raw)
+      ? raw.flatMap((layer: RawLayer) =>
+          typeof layer?.uid === "string"
+            ? [
+                {
+                  uid: layer.uid,
+                  name: typeof layer.name === "string" && layer.name ? layer.name : layer.uid,
+                  type: typeof layer.type === "string" ? layer.type : undefined,
+                  depth,
+                },
+                ...flatten(layer.children, depth + 1),
+              ]
+            : [],
+        )
+      : [];
+  return flatten((json as { data?: unknown })?.data, 0);
+};
+
+export const fetchMissionLayers = async (name: string, signal?: AbortSignal) =>
+  parseMissionLayers(await getJson(`${missionPath(name)}/layers`, signal));
+
+export type MissionExport = "kml" | "archive";
+
+export const exportPath = (name: string, kind: MissionExport) =>
+  kind === "kml" ? `${missionPath(name)}/kml?download=true` : `${missionPath(name)}/archive`;
+
+/** The feed as KML or as TAK's zip archive; any reader may export. */
+export const fetchMissionExport = async (name: string, kind: MissionExport): Promise<Blob> => {
+  const path = exportPath(name, kind);
+  const res = await fetch(`${takBaseUrl()}${path}`, { credentials: "include" });
+  if (!res.ok) throw new TakRequestError(path.split("?")[0] as string, res.status);
+  return res.blob();
+};
 
 /** Where the browser downloads a mission file, with the user's own certificate. */
 export const fileUrl = (file: MissionFile) =>
