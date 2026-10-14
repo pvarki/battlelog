@@ -23,7 +23,9 @@ import { HEADER_FIELD, useBoundEvents } from "../../event-binding/useBoundEvents
 import { useLiveEvents } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import { StaleNotice } from "../../StaleNotice.tsx";
+import { linkedTo } from "../../tak/links.ts";
 import { formatShortDateTime } from "../../time.ts";
+import { TakSelectionPill } from "../feed/TakSelectionPill.tsx";
 import { type FeedConfig, matchesFeed, queryFor } from "../feed/widget.ts";
 import { FilterInput } from "./FilterInput.tsx";
 import {
@@ -80,11 +82,15 @@ const displayText = (col: TableColumn, cell: BoundState): string => {
 };
 
 const EventTable = ({ config, filter }: { config: EventTableConfig; filter: FeedConfig }) => {
+  const { tak } = dashboardRoute.useSearch();
+  const followed = config.followTakSelection ? tak : undefined;
+  const link = followed ? linkedTo(followed) : undefined;
   const { events, failed } = useLiveEvents({
     limit: config.rowLimit,
-    query: queryFor(filter),
-    match: (event) => matchesFeed(event, filter),
+    query: { ...queryFor(filter), ...link?.query },
+    match: (event) => matchesFeed(event, filter) && (!link || link.match(event)),
   });
+  const pill = followed && <TakSelectionPill uid={followed} events={events} />;
   const bound = useBoundEvents([], events ?? []);
   // null = the configured default order.
   const [sort, setSort] = useState<{ by: string; dir: SortDir } | null>(null);
@@ -102,11 +108,14 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Feed
   if (events.length === 0) {
     return (
       <Center h="100%" p="sm">
-        <Text c="dimmed" fz="xs" ta="center">
-          {failed
-            ? "Could not load events — new ones will still arrive on the live stream."
-            : "No matching events"}
-        </Text>
+        <Stack gap={4} align="center">
+          {pill}
+          <Text c="dimmed" fz="xs" ta="center">
+            {failed
+              ? "Could not load events — new ones will still arrive on the live stream."
+              : "No matching events"}
+          </Text>
+        </Stack>
       </Center>
     );
   }
@@ -163,6 +172,7 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Feed
       )}
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
         {failed && <StaleNotice />}
+        {pill}
         <Table striped highlightOnHover stickyHeader fz="sm" verticalSpacing={4}>
           <Table.Thead>
             <Table.Tr>

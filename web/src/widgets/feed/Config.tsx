@@ -5,6 +5,7 @@ import {
   NumberInput,
   Select,
   Stack,
+  Switch,
   TagsInput,
   Text,
   TextInput,
@@ -125,6 +126,14 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
             ...config,
             createdBy: optionalText(e.currentTarget.value),
           })
+        }
+      />
+      <Switch
+        label="Follow the map selection"
+        description="While a TAK item is selected, only events linked to it"
+        checked={config.followTakSelection ?? false}
+        onChange={(e) =>
+          onChange({ ...config, followTakSelection: e.currentTarget.checked || undefined })
         }
       />
       <NumberInput

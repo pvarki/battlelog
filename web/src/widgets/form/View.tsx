@@ -22,6 +22,10 @@ import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
 import { useLiveEvents } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
+import type { TakItem } from "../../tak/cot.ts";
+import { anchorOf, hasPosition, labelOf } from "../../tak/items.ts";
+import { parseTakLink, type TakLink, takLinkOf } from "../../tak/links.ts";
+import { useTakItems, useTakSession } from "../../tak/session.ts";
 import { matchesFeed, queryFor } from "../feed/widget.ts";
 import { FormPrint } from "./Print.tsx";
 import {
@@ -39,6 +43,7 @@ import {
   missingRequired,
   type PendingWriteBack,
   pendingWriteBacks,
+  takPickValues,
   type VisibleField,
   writeBackData,
 } from "./widget.ts";
@@ -83,13 +88,15 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   >([]);
   /** A selected event held back because loading it would discard unsaved input. */
   const [offered, setOffered] = useState<EventResponse | null>(null);
+  /** TAK item fields the user picked in, which the map selection no longer fills. */
+  const [takTouched, setTakTouched] = useState<string[]>([]);
   const dirty = useRef(false);
   /** Bumped whenever the form starts over, so a late save response can tell it's stale. */
   const generation = useRef(0);
   const editingId = useRef<string | undefined>(undefined);
   editingId.current = editing?.eventId;
 
-  const { event: selectedId } = dashboardRoute.useSearch();
+  const { event: selectedId, tak: selectedTak } = dashboardRoute.useSearch();
   const navigate = dashboardRoute.useNavigate();
   const clearSelection = () =>
     navigate({ search: (prev) => ({ ...prev, event: undefined }), replace: true });
@@ -100,6 +107,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     setValues(event ? eventToValues(config, event) : {});
     setOffered(null);
     setMissingIds([]);
+    setTakTouched([]);
     setProblem("");
     setStatus("idle");
     dirty.current = false;
@@ -135,6 +143,20 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     setValues((prev) => ({ ...prev, [id]: v }));
     // Typing into a flagged field clears its error immediately.
     setMissingIds((ids) => ids.filter((x) => x !== id));
+  };
+
+  /** A pick from the map selection doesn't count as input: it neither dirties the form nor sticks. */
+  const pickTak = (field: VisibleField, item: TakItem | undefined, byUser: boolean) => {
+    if (field.kind !== "data") return;
+    if (byUser) {
+      dirty.current = true;
+      setTakTouched((ids) => [...ids, field.id]);
+      setMissingIds((ids) => ids.filter((x) => x !== field.id));
+    }
+    const anchor = item && hasPosition(item) ? anchorOf(item) : undefined;
+    const point = anchor && { lat: anchor[1], lng: anchor[0] };
+    const link = item && takLinkOf(item, Date.now());
+    setValues((prev) => ({ ...prev, ...takPickValues(config, field, link, point) }));
   };
 
   const cancelEdit = () => {
@@ -312,6 +334,8 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
                 value={values[f.id]}
                 error={missingIds.includes(f.id) ? "Required" : undefined}
                 onChange={(v) => set(f.id, v)}
+                takPrefill={editing || takTouched.includes(f.id) ? undefined : selectedTak}
+                onTakPick={(item, byUser) => pickTak(f, item, byUser)}
               />
             ))
           )}
@@ -351,11 +375,16 @@ const FieldInput = ({
   value,
   error,
   onChange,
+  takPrefill,
+  onTakPick,
 }: {
   field: VisibleField;
   value: unknown;
   error?: string;
   onChange: (v: unknown) => void;
+  /** The map's selected TAK item, for a TAK item input to fill itself from. */
+  takPrefill: string | undefined;
+  onTakPick: (item: TakItem | undefined, byUser: boolean) => void;
 }) => {
   const common = {
     label: fieldLabel(field),
@@ -419,6 +448,15 @@ const FieldInput = ({
             select={field.eventSelect}
             value={isReference(value) ? value : undefined}
             onChange={onChange}
+          />
+        );
+      case "tak":
+        return (
+          <TakItemSelect
+            common={common}
+            value={parseTakLink(value)}
+            prefillUid={takPrefill}
+            onPick={onTakPick}
           />
         );
     }
@@ -588,6 +626,48 @@ const LiveEventSelect = ({
       onChange={(id) => {
         const option = options.find((o) => o.value === id);
         onChange(option ? { eventId: option.value, label: option.label } : undefined);
+      }}
+    />
+  );
+};
+
+const TakItemSelect = ({
+  common,
+  value,
+  prefillUid,
+  onPick,
+}: {
+  common: CommonProps;
+  value: TakLink | undefined;
+  prefillUid: string | undefined;
+  onPick: (item: TakItem | undefined, byUser: boolean) => void;
+}) => {
+  useTakSession();
+  const items = useTakItems();
+  const prefill = prefillUid ? items.find((i) => i.uid === prefillUid) : undefined;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a snapshot per selection, not one per move of the item
+  useEffect(() => {
+    if (prefill && value?.uid !== prefill.uid) onPick(prefill, false);
+  }, [prefill?.uid, value?.uid]);
+  const options = items
+    .filter((i) => !i.draft)
+    .map((i) => ({ value: i.uid, label: labelOf(i) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  // A stored pick stays shown while its item is gone from the picture.
+  if (value && !options.some((o) => o.value === value.uid)) {
+    options.unshift({ value: value.uid, label: value.callsign ?? value.uid });
+  }
+  return (
+    <Select
+      {...common}
+      clearable
+      searchable
+      data={options}
+      placeholder={options.length ? undefined : "No TAK items"}
+      value={value?.uid ?? null}
+      onChange={(uid) => {
+        const picked = items.find((i) => i.uid === uid);
+        if (uid !== (value?.uid ?? null)) onPick(picked, true);
       }}
     />
   );

@@ -81,6 +81,7 @@ const blank = (field: VisibleField): { surface: ReactNode; wide: boolean } => {
         return { surface: null, wide: false };
       // Options come from live events, so paper gets a write-in line, not a stale list.
       case "event":
+      case "tak":
         return { surface: <div className="print-line" />, wide: true };
     }
   }

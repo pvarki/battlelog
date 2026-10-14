@@ -66,6 +66,8 @@ const configSchema = z
     createdBy: z.string().optional(),
     /** Exact-value matches on `data`; only applied while `types` is set (the server requires it). */
     dataFilters: z.array(dataFilterSchema).max(10).optional(),
+    /** While the map has a TAK item selected (`?tak=`), only events linked to it. */
+    followTakSelection: z.boolean().optional(),
     rows: z.number().int().min(1).max(100).default(10),
     columns: z
       .array(columnSchema)

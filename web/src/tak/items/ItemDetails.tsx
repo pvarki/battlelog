@@ -22,6 +22,7 @@ import {
   IconCopy,
   IconCurrentLocation,
   IconDownload,
+  IconNotes,
   IconPencil,
   IconShape,
   IconX,
@@ -58,6 +59,7 @@ import { AttachPhoto } from "./AttachPhoto.tsx";
 import { DeleteItem } from "./DeleteItem.tsx";
 import { EditItem } from "./EditItem.tsx";
 import { exportTrack, TRACK_FORMATS } from "./ExportTrack.tsx";
+import { ItemLogEntries, LogItemDialog } from "./ItemLog.tsx";
 import { VideoFeed } from "./VideoFeed.tsx";
 
 type Props = {
@@ -89,6 +91,8 @@ type Props = {
   clientUid: string | undefined;
   /** The moment shown when replaying history; undefined when live. */
   replayAt?: number;
+  /** Opens a BattleLog log entry linked to the item. */
+  onOpenEvent: (eventId: string) => void;
   onCenter: () => void;
   onClose: () => void;
 };
@@ -131,12 +135,14 @@ export const ItemDetails = ({
   allMissions,
   clientUid,
   replayAt,
+  onOpenEvent,
   onCenter,
   onClose,
 }: Props) => {
   const liveNow = useNow(10_000);
   const now = replayAt ?? liveNow;
   const [editing, setEditing] = useState<false | { status?: UnitStatus }>(false);
+  const [loggingAt, setLoggingAt] = useState<number>();
   const write = useWrites().get(item.uid);
   const received = useAttachments(item.uid);
   const photos = [
@@ -340,6 +346,7 @@ export const ItemDetails = ({
               <span className="tak-mono">{item.sidc}</span>
             </Field>
           )}
+          <ItemLogEntries uid={item.uid} onOpenEvent={onOpenEvent} />
           {missions.length > 0 && <Field label="Missions">{missions.join(", ")}</Field>}
           <Field label="UID">
             <span className="tak-mono" style={{ overflowWrap: "anywhere" }}>
@@ -389,7 +396,7 @@ export const ItemDetails = ({
               disabled={write === "sending"}
             />
           )}
-          {((canMove && !item.draft) || markable) && (
+          {(!item.draft || markable) && (
             <Menu position="top-end" withinPortal>
               <Menu.Target>
                 <Button
@@ -402,6 +409,14 @@ export const ItemDetails = ({
                 </Button>
               </Menu.Target>
               <Menu.Dropdown p="xs">
+                {!item.draft && (
+                  <Menu.Item
+                    leftSection={<IconNotes size={14} />}
+                    onClick={() => setLoggingAt(replayAt ?? Date.now())}
+                  >
+                    Log this…
+                  </Menu.Item>
+                )}
                 {canMove &&
                   !item.draft &&
                   TRACK_FORMATS.map((format) => (
@@ -428,6 +443,9 @@ export const ItemDetails = ({
                 )}
               </Menu.Dropdown>
             </Menu>
+          )}
+          {loggingAt !== undefined && (
+            <LogItemDialog item={item} at={loggingAt} onClose={() => setLoggingAt(undefined)} />
           )}
           {!readOnlyReason && (
             <>

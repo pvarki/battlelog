@@ -10,7 +10,8 @@ type Props = {
   /** The layers it's drawn on. */
   layerNames: string[];
   coordFormat: CoordFormat;
-  onCenter: () => void;
+  /** Undefined when the event has no position. */
+  onCenter: (() => void) | undefined;
   onClose: () => void;
   /** Extra actions, below the facts. */
   children?: ReactNode;
@@ -70,14 +71,16 @@ export const EventDetails = ({
       </Group>
 
       <Group gap="xs" grow>
-        <Button
-          variant="default"
-          size="xs"
-          leftSection={<IconCurrentLocation size={14} />}
-          onClick={onCenter}
-        >
-          Centre
-        </Button>
+        {onCenter && (
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconCurrentLocation size={14} />}
+            onClick={onCenter}
+          >
+            Centre
+          </Button>
+        )}
         <Button
           variant="default"
           size="xs"
