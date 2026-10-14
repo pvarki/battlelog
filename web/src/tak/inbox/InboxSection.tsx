@@ -1,11 +1,21 @@
 import { ActionIcon, Anchor, Button, Group, Loader, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconChevronDown, IconChevronRight, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconTrash, IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { formatClockTime, formatDateTime } from "../../time.ts";
+import { useCallsign } from "../identity.ts";
+import { notifyFailure } from "../notify.ts";
 import { takBaseUrl, takPublicUrl } from "../rest.ts";
 import { isOnTak, type PackageRef } from "./fileshare.ts";
-import { fetchTakPackages, importPackage, type TakPackage, useImported } from "./import.ts";
+import {
+  deleteTakPackage,
+  fetchTakPackages,
+  importPackage,
+  isOwnPackage,
+  type TakPackage,
+  useImported,
+} from "./import.ts";
 import { dismissShare, useInbox } from "./store.ts";
 
 const formatSize = (bytes: number) =>
@@ -17,10 +27,11 @@ type RowProps = {
   /** Why it can't be imported, or undefined when it can. */
   unavailable?: string;
   onDismiss?: () => void;
+  onDelete?: () => void;
   onOpenPlan: (id: string) => void;
 };
 
-const PackageRow = ({ pkg, detail, unavailable, onDismiss, onOpenPlan }: RowProps) => {
+const PackageRow = ({ pkg, detail, unavailable, onDismiss, onDelete, onOpenPlan }: RowProps) => {
   const [busy, setBusy] = useState(false);
   const result = useImported(pkg.hash);
 
@@ -75,6 +86,18 @@ const PackageRow = ({ pkg, detail, unavailable, onDismiss, onOpenPlan }: RowProp
             <IconX size={16} />
           </ActionIcon>
         )}
+        {onDelete && (
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="sm"
+            aria-label={`Delete ${pkg.name} from TAK`}
+            title="Delete from TAK"
+            onClick={onDelete}
+          >
+            <IconTrash size={16} />
+          </ActionIcon>
+        )}
       </Group>
       <Text fz="xs" c="dimmed">
         {unavailable ?? detail}
@@ -94,10 +117,22 @@ const PackageRow = ({ pkg, detail, unavailable, onDismiss, onOpenPlan }: RowProp
 };
 
 /** Data packages sent to us, and those anyone put on TAK Server, ready to import. */
-export const InboxSection = ({ onOpenPlan }: { onOpenPlan: (id: string) => void }) => {
+export const InboxSection = ({
+  onOpenPlan,
+  clientUid,
+}: {
+  onOpenPlan: (id: string) => void;
+  /** Who this browser writes to TAK as; undefined when it may not change TAK. */
+  clientUid: string | undefined;
+}) => {
   const shares = useInbox();
+  const callsign = useCallsign();
   const [onTak, setOnTak] = useState<TakPackage[] | "loading" | "failed">();
+  const [deleting, setDeleting] = useState<TakPackage>();
   const takUrls = [takBaseUrl(), takPublicUrl()];
+
+  const deletePackage = (pkg: TakPackage) =>
+    deleteTakPackage(pkg.hash).then(setOnTak, notifyFailure("Data package not deleted"));
 
   const toggleOnTak = () => {
     if (onTak) return setOnTak(undefined);
@@ -156,10 +191,25 @@ export const InboxSection = ({ onOpenPlan }: { onOpenPlan: (id: string) => void 
               key={pkg.hash}
               pkg={pkg}
               detail={`${pkg.by || "Unknown"} · ${formatSize(pkg.size)} · ${formatDateTime(pkg.submitted)}`}
+              onDelete={
+                clientUid && isOwnPackage(pkg, { callsign, clientUid })
+                  ? () => setDeleting(pkg)
+                  : undefined
+              }
               onOpenPlan={onOpenPlan}
             />
           ))
         ))}
+      <ConfirmDialog
+        opened={!!deleting}
+        onClose={() => setDeleting(undefined)}
+        title={`Delete ${deleting?.name}?`}
+        confirmLabel="Delete"
+        onConfirm={() => deleting && void deletePackage(deleting)}
+      >
+        The package is removed from TAK Server for every user. Copies already imported or saved
+        stay.
+      </ConfirmDialog>
     </Stack>
   );
 };

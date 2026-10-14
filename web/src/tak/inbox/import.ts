@@ -3,7 +3,14 @@ import { useSyncExternalStore } from "react";
 import { toChange } from "../cot.ts";
 import { MAX_PACKAGE_BYTES, planFromEvents, unzipLimited } from "../plans/plans.ts";
 import { parseCotXml } from "../protocol/cot-xml.ts";
-import { contentUrl, readCapped, TakRequestError, takGetText } from "../rest.ts";
+import {
+  contentUrl,
+  readCapped,
+  TakRequestError,
+  type TakWrite,
+  takGetText,
+  takSend,
+} from "../rest.ts";
 import { type PackageRef, readPackage, sha256Hex } from "./fileshare.ts";
 
 /** A received file, kept as a blob URL for this tab's lifetime. */
@@ -84,10 +91,17 @@ type SyncSearch = {
     Size?: string;
     SubmissionUser?: string;
     SubmissionDateTime?: string;
+    CreatorUid?: string;
   }[];
 };
 
-export type TakPackage = PackageRef & { by: string; submitted: string };
+export type TakPackage = PackageRef & {
+  /** The TAK user (certificate name) who uploaded it. */
+  by: string;
+  submitted: string;
+  /** The client uid the uploader named, e.g. BattleLog's or their ATAK's. */
+  creatorUid: string;
+};
 
 /** Data packages users have put on TAK Server, newest first. */
 export const fetchTakPackages = async (signal?: AbortSignal): Promise<TakPackage[]> => {
@@ -103,9 +117,43 @@ export const fetchTakPackages = async (signal?: AbortSignal): Promise<TakPackage
               size: Number(r.Size) || 0,
               by: r.SubmissionUser ?? "",
               submitted: r.SubmissionDateTime ?? "",
+              creatorUid: r.CreatorUid ?? "",
             },
           ]
         : [],
     )
     .sort((a, b) => b.submitted.localeCompare(a.submitted));
+};
+
+/**
+ * TAK lets anyone sharing a group delete a package, so BattleLog offers it
+ * only for packages this user uploaded, from BattleLog or under their own name.
+ */
+export const isOwnPackage = (
+  pkg: TakPackage,
+  me: { callsign: string | null | undefined; clientUid: string | undefined },
+) =>
+  (!!me.clientUid && pkg.creatorUid === me.clientUid) || (!!me.callsign && pkg.by === me.callsign);
+
+export const deletePackageRequest = (hash: string): TakWrite => ({
+  method: "DELETE",
+  path: `/Marti/api/files/${encodeURIComponent(hash)}`,
+});
+
+export const syncDeleteRequest = (hash: string): TakWrite => ({
+  method: "POST",
+  path: `/Marti/sync/delete?${new URLSearchParams({ Hash: hash })}`,
+});
+
+/** Deletes the package from TAK; resolves to the packages left, which no longer list it. */
+export const deleteTakPackage = async (hash: string): Promise<TakPackage[]> => {
+  await takSend(deletePackageRequest(hash)).catch((err: unknown) => {
+    // A TAK without the files API answers 404 or 405; the sync API is ATAK's own.
+    if (err instanceof TakRequestError && (err.status === 404 || err.status === 405))
+      return takSend(syncDeleteRequest(hash));
+    throw err;
+  });
+  const left = await fetchTakPackages();
+  if (left.some((p) => p.hash === hash)) throw new Error("TAK didn't confirm the deletion");
+  return left;
 };

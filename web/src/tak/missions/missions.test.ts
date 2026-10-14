@@ -1,8 +1,10 @@
 import { expect, test } from "vitest";
 import {
+  exportPath,
   parseInvitations,
   parseInvitedMissions,
   parseMembers,
+  parseMissionLayers,
   parseMissionList,
 } from "./missions.ts";
 
@@ -85,6 +87,46 @@ test("removing an older item still changes the version, so contents are refetche
   });
   expect(after?.changedAt).toBe(before?.changedAt);
   expect(after?.version).not.toBe(before?.version);
+});
+
+test("a mission's map layers; malformed ones leave none", () => {
+  const [recon] = parseMissionList({
+    data: [
+      {
+        ...list.data[0],
+        mapLayers: [{ uid: "l1", name: "Ortho", type: "WMS", url: "https://maps/wms" }],
+      },
+    ],
+  });
+  expect(recon?.mapLayers).toEqual([{ name: "Ortho", type: "WMS", url: "https://maps/wms" }]);
+  expect(parseMissionList(list)[0]?.mapLayers).toEqual([]);
+});
+
+test("the layer tree flattens with each child after its parent", () => {
+  expect(
+    parseMissionLayers({
+      data: [
+        {
+          uid: "g1",
+          name: "Group",
+          type: "GROUP",
+          children: [{ uid: "i1", type: "ITEM", parentUid: "g1" }],
+        },
+        { name: "no uid, skipped" },
+        { uid: "m1", name: "Basemap", type: "MAPLAYER" },
+      ],
+    }),
+  ).toEqual([
+    { uid: "g1", name: "Group", type: "GROUP", depth: 0 },
+    { uid: "i1", name: "i1", type: "ITEM", depth: 1 },
+    { uid: "m1", name: "Basemap", type: "MAPLAYER", depth: 0 },
+  ]);
+  expect(parseMissionLayers({})).toEqual([]);
+});
+
+test("exports are KML for download or TAK's archive", () => {
+  expect(exportPath("a b", "kml")).toBe("/Marti/api/missions/a%20b/kml?download=true");
+  expect(exportPath("a b", "archive")).toBe("/Marti/api/missions/a%20b/archive");
 });
 
 test("members with their roles; an unknown role reads as none", () => {

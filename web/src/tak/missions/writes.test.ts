@@ -4,6 +4,7 @@ import {
   addContentsRequest,
   canDelete,
   canWriteAs,
+  copyMissionRequest,
   createMissionRequest,
   deleteMissionRequest,
   inviteRequest,
@@ -12,6 +13,8 @@ import {
   parseSubscription,
   removeContentRequest,
   removePasswordRequest,
+  sameKeywords,
+  setKeywordsRequest,
   setPasswordRequest,
   setRoleRequest,
   subscribeDeniedMessage,
@@ -107,6 +110,31 @@ test("log entries name their mission in the body", () => {
       missionNames: ["RECON"],
     },
   });
+});
+
+test("keywords are replaced as a JSON list and compared as a set", () => {
+  expect(setKeywordsRequest("RECON", ["#RECON", "Oulu"], me)).toEqual({
+    method: "PUT",
+    path: "/Marti/api/missions/RECON/keywords?creatorUid=BattleLog-Eversti",
+    body: ["#RECON", "Oulu"],
+  });
+  expect(sameKeywords(["a", "b"], ["b", "a"])).toBe(true);
+  expect(sameKeywords(["a"], ["a", "b"])).toBe(false);
+  expect(sameKeywords([], [])).toBe(true);
+});
+
+test("a copy names its new name, and the default role and password when set", () => {
+  expect(copyMissionRequest("RECON", "RECON 2", me, {})).toEqual({
+    method: "PUT",
+    path: "/Marti/api/missions/RECON/copy?creatorUid=BattleLog-Eversti&copyName=RECON+2",
+  });
+  const settings = {
+    defaultRole: "MISSION_SUBSCRIBER",
+    password: "p&w", // pragma: allowlist secret
+  } as const;
+  expect(copyMissionRequest("a/b", "c", me, settings).path).toBe(
+    "/Marti/api/missions/a%2Fb/copy?creatorUid=BattleLog-Eversti&copyName=c&defaultRole=MISSION_SUBSCRIBER&password=p%26w",
+  );
 });
 
 test("the token and role come from a subscription or the created mission", () => {
