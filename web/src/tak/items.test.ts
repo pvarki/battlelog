@@ -1,6 +1,12 @@
 import { expect, test } from "vitest";
 import type { TakItem } from "./cot.ts";
-import { activeEmergencies, describeType, unitStatusOf, withUnitStatus } from "./items.ts";
+import {
+  activeEmergencies,
+  describeType,
+  extentOf,
+  unitStatusOf,
+  withUnitStatus,
+} from "./items.ts";
 
 test("status goes in the 4th character of a 2525C code", () => {
   expect(withUnitStatus("SHGPU----------", "destroyed")).toBe("SHGXU----------");
@@ -42,4 +48,32 @@ test("a closed ATAK line is an area, an open one a line", () => {
   ];
   expect(describeType(drawing({ type: "Polygon", coordinates: [ring] }))).toBe("Area");
   expect(describeType(drawing({ type: "LineString", coordinates: ring.slice(0, 3) }))).toBe("Line");
+});
+
+test("a shape's extent covers its vertices, a circle its radius, and a marker none", () => {
+  const item = (geometry: TakItem["geometry"], extra: Partial<TakItem> = {}) =>
+    ({ uid: "i", type: "u-d-f", time: 0, stale: 0, geometry, ...extra }) as TakItem;
+  const line = item({
+    type: "LineString",
+    coordinates: [
+      [25, 60],
+      [25.2, 60.1],
+    ],
+  });
+  expect(extentOf(line)).toEqual([
+    [25, 60],
+    [25.2, 60.1],
+  ]);
+  const circle = item(
+    { type: "Point", coordinates: [25, 60] },
+    { ellipse: { major: 1000, minor: 1000, angle: 0 } },
+  );
+  const [[west, south], [east, north]] = extentOf(circle) ?? [
+    [0, 0],
+    [0, 0],
+  ];
+  expect(north - south).toBeCloseTo(2000 / 111_195, 3);
+  expect(east).toBeGreaterThan(25);
+  expect(west).toBeLessThan(25);
+  expect(extentOf(item({ type: "Point", coordinates: [25, 60] }))).toBeUndefined();
 });

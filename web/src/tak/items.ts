@@ -1,4 +1,4 @@
-import type { Position, TakItem } from "./cot.ts";
+import { destination, type Position, type TakItem } from "./cot.ts";
 
 export type ItemStatus = "online" | "stale" | "offline";
 
@@ -25,6 +25,36 @@ export const anchorOf = (item: TakItem): Position => {
   if (g.type === "Point") return g.coordinates;
   if (g.type === "LineString") return g.coordinates[0] ?? [0, 0];
   return g.coordinates[0]?.[0] ?? [0, 0];
+};
+
+/**
+ * The south-west and north-east corners of everything the item draws: its
+ * vertices, and for circles, range rings and bullseyes their outer radius.
+ * Undefined for a plain marker, which has no extent to fit.
+ */
+export const extentOf = (item: TakItem): [Position, Position] | undefined => {
+  const g = item.geometry;
+  const radius = Math.max(
+    item.ellipse?.major ?? 0,
+    ...(item.rangeRings ?? []),
+    item.bullseye?.radius ?? 0,
+  );
+  const vertices =
+    g.type === "Point"
+      ? [g.coordinates]
+      : g.type === "LineString"
+        ? g.coordinates
+        : g.coordinates.flat();
+  if (g.type === "Point" && radius <= 0) return undefined;
+  const points = vertices.flatMap((p) =>
+    radius > 0 ? [0, 90, 180, 270].map((bearing) => destination(p, radius, bearing)) : [p],
+  );
+  const lons = points.map(([lon]) => lon);
+  const lats = points.map(([, lat]) => lat);
+  return [
+    [Math.min(...lons), Math.min(...lats)],
+    [Math.max(...lons), Math.max(...lats)],
+  ];
 };
 
 /** Emergency alerts still in force, newest first; an alert nobody renews goes stale. */

@@ -57,7 +57,7 @@ import { takSender, useCallsign } from "./identity.ts";
 import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
-import { anchorOf, hasPosition, labelOf } from "./items.ts";
+import { anchorOf, extentOf, hasPosition, labelOf } from "./items.ts";
 import { DEFAULT_BASEMAP, type MapSource, useMapSources } from "./map/basemaps.ts";
 import { createCursor } from "./map/cursor.ts";
 import { type Follow, followedItems, positionsOf, useFollow } from "./map/follow.ts";
@@ -100,6 +100,7 @@ const DRAWERS = {
 type DrawerId = keyof typeof DRAWERS;
 
 const FOCUS_ZOOM = 14;
+const FIT_PADDING_PX = 60;
 
 const KIND_NAME: Record<Drawn["kind"], string> = {
   marker: "Marker",
@@ -505,9 +506,22 @@ export const TakWorkspace = ({
     map?.flyTo({ center: position, zoom: Math.max(map.getZoom(), FOCUS_ZOOM) });
   };
 
+  /** A shape fills the view, centred; a marker is flown to at a readable zoom. */
+  const centreOn = (item: TakItem) => {
+    const map = mapRef.current;
+    const extent = extentOf(item);
+    if (!map || !extent) return hasPosition(item) && flyTo(anchorOf(item));
+    const { clientWidth: width, clientHeight: height } = map.getContainer();
+    map.fitBounds(extent, {
+      padding: Math.min(FIT_PADDING_PX, width / 6, height / 6),
+      maxZoom: FOCUS_ZOOM + 3,
+      bearing: map.getBearing(),
+    });
+  };
+
   const pick = (item: TakItem) => {
     setSelectedUid(item.uid);
-    if (hasPosition(item)) flyTo(anchorOf(item));
+    centreOn(item);
     if (isMobile) setDrawer(null);
   };
 
@@ -657,7 +671,7 @@ export const TakWorkspace = ({
       planActive={!!activePlan}
       tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
       onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}
-      onCenter={() => flyTo(anchorOf(selected))}
+      onCenter={() => centreOn(selected)}
       onClose={() => setSelectedUid(undefined)}
     />
   );
