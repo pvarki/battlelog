@@ -473,6 +473,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     ) : id === "contacts" ? (
       <ContactsDrawer
         contacts={liveItems.filter((i) => i.team && i.uid !== sender.uid)}
+        selfUid={sender.uid}
         map={map}
         ownPosition={ownPosition.fix?.position}
         onCenter={pick}

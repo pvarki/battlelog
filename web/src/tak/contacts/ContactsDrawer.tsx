@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Group, ScrollArea, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Box, Group, ScrollArea, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useState } from "react";
@@ -18,10 +18,13 @@ import {
   statusOf,
   teamColor,
 } from "../items.ts";
+import { mergeContacts, useKnownClients } from "./known-clients.ts";
 
 type Props = {
-  /** TAK users other than this one. */
+  /** TAK users on the picture other than this one. */
   contacts: TakItem[];
+  /** This client's uid, left out of TAK's list of known users. */
+  selfUid: string;
   map: MapLibreMap | undefined;
   /** Distances are measured from here when known, else from the map centre. */
   ownPosition: Position | undefined;
@@ -86,6 +89,7 @@ const ContactRow = ({
           </Group>
           <Text fz="xs" c="dimmed">
             {formatAge(now - contact.time)} ago
+            {!at && " · no position"}
             {at && from && (
               <span className="tak-mono">
                 {" · "}
@@ -100,15 +104,17 @@ const ContactRow = ({
           )}
         </Stack>
         <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            aria-label={`Centre on ${contact.callsign}`}
-            disabled={!at}
-            onClick={onCenter}
-          >
-            <IconFocusCentered size={16} />
-          </ActionIcon>
+          <Tooltip label="No position reported" disabled={!!at} withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label={`Centre on ${contact.callsign}`}
+              disabled={!at}
+              onClick={onCenter}
+            >
+              <IconFocusCentered size={16} />
+            </ActionIcon>
+          </Tooltip>
           <ActionIcon
             variant="subtle"
             color="gray"
@@ -123,9 +129,10 @@ const ContactRow = ({
   );
 };
 
-/** ATAK's Contacts: the TAK users on the picture by team, reachable ones first. */
+/** ATAK's Contacts: the TAK users on the picture or known to TAK, by team, reachable ones first. */
 export const ContactsDrawer = ({
-  contacts,
+  contacts: picture,
+  selfUid,
   map,
   ownPosition,
   onCenter,
@@ -135,6 +142,7 @@ export const ContactsDrawer = ({
   const [query, setQuery] = useState("");
   const now = useNow(10_000);
   const centre = useMapCentre(map);
+  const contacts = mergeContacts(picture, useKnownClients(), selfUid);
   const from = ownPosition ?? centre;
   const shown = contacts
     .filter((c) => matches(c, query))
@@ -166,8 +174,8 @@ export const ContactsDrawer = ({
           <Box py="md">
             {contacts.length === 0 ? (
               <Placeholder
-                title="No TAK users on the picture yet"
-                detail="Users appear here as their devices report in to TAK."
+                title="No TAK users yet"
+                detail="Users appear here as their devices connect to TAK."
               />
             ) : (
               <Placeholder
