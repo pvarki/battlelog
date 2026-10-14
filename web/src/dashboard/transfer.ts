@@ -1,6 +1,5 @@
 import type { DashboardResponse, EventResponse } from "../api.ts";
-import { TABS_TYPE } from "../widgets/tabs/widget.ts";
-import { getWidget } from "./registry.ts";
+import { type ChildWidget, childWidgetsOf, getWidget, mapChildWidgets } from "./registry.ts";
 
 /**
  * The export file is exactly the body `POST /dashboards` accepts, so import is
@@ -23,39 +22,31 @@ export type WidgetEventPointer = {
 
 export const TEMPLATE_TAG = "template";
 
-const forkConfig = (config: unknown): unknown => {
+const withoutEventId = (config: unknown): unknown => {
   if (!config || typeof config !== "object") return config;
   const { eventId: _, ...rest } = config as Record<string, unknown>;
-  if (Array.isArray(rest.tabs)) {
-    rest.tabs = rest.tabs.map((tab) => ({ ...tab, config: forkConfig(tab?.config) }));
-  }
   return rest;
 };
+
+const forkWidget = <T extends ChildWidget>(widget: T): T => ({
+  ...widget,
+  config: withoutEventId(mapChildWidgets(widget, forkWidget)),
+});
 
 /**
  * Widgets with their content pointer dropped. `eventId` is the one uniform
  * handle on a widget's event chain (note, todo, table, status, schedule all use
  * it), and `useEventDocument` mints a fresh one on first edit when it is absent
  * — so clearing it is what makes a copy its own document instead of a second
- * window onto the original's. Tabs carry child widgets, whose pointers go too.
+ * window onto the original's. Containers' child widgets lose theirs too.
  */
 export const forkWidgets = (widgets: DashboardResponse["widgets"]): DashboardResponse["widgets"] =>
-  widgets.map((w) => ({ ...w, config: forkConfig(w.config) }));
+  widgets.map(forkWidget);
 
-type DocumentHolder = Pick<DashboardResponse["widgets"][number], "id" | "type" | "config">;
-
-const tabChildren = (widget: DocumentHolder): DocumentHolder[] => {
-  const tabs = (widget.config as { tabs?: unknown } | null)?.tabs;
-  if (widget.type !== TABS_TYPE || !Array.isArray(tabs)) return [];
-  return tabs.filter(
-    (tab): tab is DocumentHolder => typeof tab?.id === "string" && typeof tab?.type === "string",
-  );
-};
-
-/** Every widget document, including those of widgets inside tabs (keyed by the child's id). */
+/** Every widget document, including those of widgets inside containers (keyed by the child's id). */
 export const widgetEventPointers = (widgets: DashboardResponse["widgets"]): WidgetEventPointer[] =>
   widgets
-    .flatMap((widget) => [widget, ...tabChildren(widget)])
+    .flatMap((widget) => [widget, ...childWidgetsOf(widget)])
     .flatMap((widget) => {
       if (!getWidget(widget.type)?.document) return [];
       if (!widget.config || typeof widget.config !== "object") return [];

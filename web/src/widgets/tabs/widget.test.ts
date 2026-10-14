@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import descriptor, { withFreshTabIds } from "./widget.ts";
+import { mapChildWidgets } from "../../dashboard/registry.ts";
+import descriptor from "./widget.ts";
 
 const tab = (type: string) => ({ id: crypto.randomUUID(), type, config: {} });
 
@@ -17,9 +18,12 @@ test("tab count is capped", () => {
   expect(descriptor.configSchema.safeParse({ tabs }).success).toBe(false);
 });
 
-test("withFreshTabIds gives children new ids and keeps their config", () => {
+test("mapChildWidgets rewrites tabs in place and keeps the rest of the config", () => {
   const original = { title: "Ops", tabs: [{ id: "a", type: "note", config: { eventId: "e1" } }] };
-  const copy = withFreshTabIds(original) as typeof original;
+  const copy = mapChildWidgets({ id: "t", type: "tabs", config: original }, (child) => ({
+    ...child,
+    id: crypto.randomUUID(),
+  })) as typeof original;
   expect(copy.title).toBe("Ops");
   expect(copy.tabs[0]?.id).not.toBe("a");
   expect(copy.tabs[0]?.config).toEqual({ eventId: "e1" });

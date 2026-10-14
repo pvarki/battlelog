@@ -61,11 +61,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 /**
- * The web app's tabs widget nests whole widgets in `config.tabs`; each child
- * owns its own document, keyed in templateEvents by the child's id. Kept in
- * sync with web/src/widgets/tabs/widget.ts.
+ * Container widget types and the config key holding their child widgets; each
+ * child owns its own document, keyed in templateEvents by the child's id.
+ * Mirrors the web descriptors' `childWidgets` (web/src/widgets/<type>/widget.ts).
  */
-const TABS_WIDGET_TYPE = "tabs";
+export const CHILD_WIDGET_KEYS: Record<string, string> = { tabs: "tabs" };
 
 const withForkedTemplateEvents = (
   widgets: DashboardWidget[],
@@ -104,21 +104,27 @@ const withForkedTemplateEvents = (
     return { ...item, config: { ...(isRecord(item.config) ? item.config : {}), eventId: id } };
   };
 
-  const forkTabs = (widget: DashboardWidget): DashboardWidget => {
+  const forkChildren = (widget: DashboardWidget): DashboardWidget => {
+    const key = Object.hasOwn(CHILD_WIDGET_KEYS, widget.type)
+      ? CHILD_WIDGET_KEYS[widget.type]
+      : undefined;
     const config = isRecord(widget.config) ? widget.config : undefined;
-    if (widget.type !== TABS_WIDGET_TYPE || !Array.isArray(config?.tabs)) return widget;
+    const children = key && config?.[key];
+    if (!key || !Array.isArray(children)) return widget;
     return {
       ...widget,
       config: {
         ...config,
-        tabs: config.tabs.map((tab) =>
-          isRecord(tab) && typeof tab.id === "string" ? forkDocument({ ...tab, id: tab.id }) : tab,
+        [key]: children.map((child) =>
+          isRecord(child) && typeof child.id === "string"
+            ? forkDocument({ ...child, id: child.id })
+            : child,
         ),
       },
     };
   };
 
-  return { widgets: widgets.map((w) => forkTabs(forkDocument(w))), eventRows };
+  return { widgets: widgets.map((w) => forkChildren(forkDocument(w))), eventRows };
 };
 
 export const createDashboard = async (input: CreateDashboardInput): Promise<DashboardRow> => {

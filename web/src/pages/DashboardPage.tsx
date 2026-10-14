@@ -32,14 +32,13 @@ import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import { firstFreeSlot } from "../dashboard/placement.ts";
 import { rememberOpened } from "../dashboard/recent.ts";
-import { getWidget, registry } from "../dashboard/registry.ts";
+import { getWidget, mapChildWidgets, registry } from "../dashboard/registry.ts";
 import { TEMPLATE_TAG, templateEventFor, widgetEventPointers } from "../dashboard/transfer.ts";
 import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
 import { WidgetConfigPanel } from "../dashboard/WidgetConfigPanel.tsx";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 import { Placeholder } from "../Placeholder.tsx";
 import { useWakeLock } from "../use-wake-lock.ts";
-import { TABS_TYPE, withFreshTabIds } from "../widgets/tabs/widget.ts";
 
 const route = getRouteApi("/d/$dashboardId");
 
@@ -381,7 +380,8 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     if (!slot) return;
     const id = crypto.randomUUID();
     setEnteringId(id);
-    const config = w.type === TABS_TYPE ? withFreshTabIds(w.config) : w.config;
+    // Child ids key template documents and mobile entries, so a copy must not reuse them.
+    const config = mapChildWidgets(w, (child) => ({ ...child, id: crypto.randomUUID() }));
     persist([...widgets, { ...w, id, config, layout: { ...w.layout, ...slot } }]);
   };
 

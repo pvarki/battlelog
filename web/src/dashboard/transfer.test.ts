@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import type { DashboardResponse } from "../api.ts";
+import { type ChildWidget, registry, type WidgetDescriptor } from "./registry.ts";
 import {
   exportFilename,
   forkWidgets,
@@ -108,6 +109,35 @@ test("forkWidgets clears eventIds of widgets inside tabs", () => {
     { ...tabs, config: { tabs: [{ id: "n", type: "note", config: {} }] } },
   ]);
   expect(tabs.config.tabs[0]?.config).toEqual({ eventId: "e1" });
+});
+
+test("child traversal goes through the descriptor, not the tabs type", () => {
+  type Box = { items: ChildWidget[] };
+  const box: WidgetDescriptor<Box> = {
+    ...(registry.get("tabs") as WidgetDescriptor<Box>),
+    type: "test-box",
+    childWidgets: (config) => config.items,
+    withChildWidgets: (config, items) => ({ ...config, items }),
+  };
+  const widgets = registry as Map<string, WidgetDescriptor>;
+  widgets.set(box.type, box as WidgetDescriptor);
+  try {
+    const container = {
+      id: "b",
+      type: "test-box",
+      config: { tabs: [], items: [{ id: "n", type: "note", config: { eventId: "e1" } }] },
+      layout: L,
+    };
+    expect(widgetEventPointers([container])).toEqual([
+      { widgetId: "n", widgetType: "note", eventId: "e1" },
+    ]);
+    expect(forkWidgets([container])[0]?.config).toEqual({
+      tabs: [],
+      items: [{ id: "n", type: "note", config: {} }],
+    });
+  } finally {
+    widgets.delete(box.type);
+  }
 });
 
 test("export round-trips through import", () => {

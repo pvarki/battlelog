@@ -7,6 +7,7 @@ import { createApp } from "../../app.ts";
 import { db, pool } from "../../db/client.ts";
 import { dashboards, events } from "../../db/schema.ts";
 import { checkDbUp } from "../../db/test-helpers.ts";
+import { CHILD_WIDGET_KEYS } from "../../services/dashboards/dashboards.service.ts";
 
 // Integration test: requires the local compose DB (docker compose up -d db).
 const dbUp = await checkDbUp("dashboards API round-trip test");
@@ -207,6 +208,39 @@ describe.runIf(dbUp)("dashboards HTTP contract", () => {
 
     const event = await app.request(`/api/v1/events/${note.config.eventId}`);
     expect(await event.json()).toMatchObject({ header: "Brief", data: { text: "ready" } });
+  });
+
+  test("templateEvents fork children of any container in CHILD_WIDGET_KEYS", async () => {
+    CHILD_WIDGET_KEYS["test-box"] = "items";
+    try {
+      const box = {
+        id: "box",
+        type: "test-box",
+        config: {
+          tabs: [{ id: "not-a-child", type: "note", config: {} }],
+          items: [{ id: "child", type: "note", config: {} }],
+        },
+        layout: { x: 0, y: 0, w: 16, h: 12 },
+      };
+      const post = await app.request("/api/v1/dashboards", {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({
+          name: "Box from template",
+          widgets: [box],
+          templateEvents: [
+            { widgetId: "child", header: "Child", type: "note" },
+            { widgetId: "not-a-child", header: "Ignored", type: "note" },
+          ],
+        }),
+      });
+      expect(post.status).toBe(201);
+      const { config } = (await post.json()).widgets[0];
+      expect(config.items[0].config.eventId).toEqual(expect.any(String));
+      expect(config.tabs).toEqual(box.config.tabs);
+    } finally {
+      delete CHILD_WIDGET_KEYS["test-box"];
+    }
   });
 
   test("malformed widget structure is rejected", async () => {
