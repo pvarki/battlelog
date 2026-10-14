@@ -160,3 +160,18 @@
 .nav-reveal[data-expanded] {
   opacity: 1;
 }
+
+/*
+ * Form controls need a 3:1 boundary against the surface (WCAG 1.4.11); Mantine's
+ * dark-4 border is 1.5:1. dark-3 is 3.5:1 on a surface and 3.2:1 on a modal.
+ * Checked controls keep their filled colour.
+ */
+[data-mantine-color-scheme="dark"] .mantine-Input-wrapper[data-variant="default"] {
+  --input-bd: var(--mantine-color-dark-3);
+}
+
+[data-mantine-color-scheme="dark"] .mantine-Checkbox-input:not(:checked),
+[data-mantine-color-scheme="dark"] .mantine-Radio-radio:not(:checked),
+[data-mantine-color-scheme="dark"] .mantine-Switch-input:not(:checked) + .mantine-Switch-track {
+  border-color: var(--mantine-color-dark-3);
+}

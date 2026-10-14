@@ -106,10 +106,10 @@ export const theme = createTheme({
       "#244e84",
     ],
   },
-  // Type ramp: body 14, small 12, caption 11.
+  // Type ramp: body 14, small 13, caption 12.
   fontSizes: {
-    xs: "0.6875rem",
-    sm: "0.75rem",
+    xs: "0.75rem",
+    sm: "0.8125rem",
     md: "0.875rem",
     lg: "1rem",
     xl: "1.125rem",
