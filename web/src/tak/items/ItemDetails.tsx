@@ -36,6 +36,8 @@ import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import { type CoordFormat, formatCoord } from "../coords.ts";
 import type { CotEvent, TakItem } from "../cot.ts";
 import { formatDistance } from "../geo.ts";
+import { GeofenceSection } from "../geofence/GeofenceSection.tsx";
+import { canBeFence } from "../geofence/geofence.ts";
 import { isImage, useAttachments } from "../inbox/import.ts";
 import {
   anchorOf,
@@ -343,6 +345,14 @@ export const ItemDetails = ({
             <Field label="Symbol code">
               <span className="tak-mono">{item.sidc}</span>
             </Field>
+          )}
+          {canBeFence(item) && !editing && (
+            <GeofenceSection
+              item={item}
+              readOnly={!!readOnlyReason}
+              onSubmit={onSubmit}
+              submitLabel={submitLabel}
+            />
           )}
           <ItemLogEntries uid={item.uid} onOpenEvent={onOpenEvent} />
           {missions.length > 0 && <Field label="Data Sync feeds">{missions.join(", ")}</Field>}

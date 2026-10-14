@@ -12,6 +12,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
   IconAddressBook,
   IconClipboardList,
@@ -53,6 +54,9 @@ import { EventDetails } from "./event-layers/EventDetails.tsx";
 import { EventLayerFeeds } from "./event-layers/EventLayerFeeds.tsx";
 import { EventLayersSection } from "./event-layers/EventLayersSection.tsx";
 import { useShownEventLayers } from "./event-layers/useShownEventLayers.ts";
+import { GeofenceBanner } from "./geofence/GeofenceBanner.tsx";
+import { breachEvent } from "./geofence/geofence.ts";
+import { useGeofenceAlerts } from "./geofence/useGeofenceAlerts.ts";
 import { takSender, useCallsign } from "./identity.ts";
 import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
@@ -274,6 +278,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       ? "Not connected to TAK"
       : undefined;
   const drawReason = replayReason ?? sendReason;
+  const fenceAlerts = useGeofenceAlerts(liveItems);
   const sender = takSender(callsign);
   // Mission, plan and group controls write to TAK directly: none of them while replaying.
   const writerUid = callsign && !replaying ? sender.uid : undefined;
@@ -754,6 +759,28 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           </div>
           <div className="tak-banners">
             <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
+            <GeofenceBanner
+              alerts={fenceAlerts.alerts}
+              items={liveItems}
+              isDismissed={fenceAlerts.isDismissed}
+              onShow={(uid) => {
+                const item = currentItem(uid);
+                if (item) pick(item);
+              }}
+              onDismiss={fenceAlerts.dismiss}
+              onDismissReceived={fenceAlerts.dismissReceived}
+              onSend={(alert) => {
+                // Not shown locally: it would come back as a received alert about our own crossing.
+                const sent = sendCot(breachEvent(alert, sender), { local: false });
+                notifications.show(
+                  sent
+                    ? { color: "success", message: "Breach alert sent to TAK" }
+                    : { color: "danger", message: "Not connected to TAK" },
+                );
+                if (sent) fenceAlerts.dismiss(alert.id);
+              }}
+              sendReason={sendReason}
+            />
             {replaying && <ReplayBanner replay={replay} />}
             <ConnectionBanner status={status} />
           </div>

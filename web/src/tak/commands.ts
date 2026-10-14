@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { type CotEvent, type TakItem, toChange } from "./cot.ts";
+import { type CotEvent, type Geofence, type TakItem, toChange } from "./cot.ts";
 import { childNamed } from "./protocol/cot-event.ts";
 import { escapeXml } from "./protocol/cot-xml.ts";
 import { fetchLatestCot, publicContentUrl, uploadFile } from "./rest.ts";
@@ -109,6 +109,25 @@ export const setCallsign = (detail: Element, callsign: string) =>
 
 export const setRemarks = (detail: Element, remarks: string) => {
   ensureChild(detail, "remarks").textContent = remarks;
+};
+
+// ponytail: 80 km is ATAK's default reach for a new fence as remembered, unverified against its source.
+const DEFAULT_BOUNDING_SPHERE_M = 80_000;
+
+/** Makes the shape a fence, or no longer one; attributes this app doesn't edit stay as they were. */
+export const setGeofence = (detail: Element, fence: Geofence | undefined) => {
+  const existing = childNamed(detail, "__geofence");
+  if (!fence) return existing?.remove();
+  const el = existing ?? ensureChild(detail, "__geofence");
+  if (!existing) {
+    el.setAttribute("elevationMonitored", "false");
+    el.setAttribute("minElevation", "");
+    el.setAttribute("maxElevation", "");
+    el.setAttribute("boundingSphere", String(DEFAULT_BOUNDING_SPHERE_M));
+  }
+  el.setAttribute("trigger", fence.trigger);
+  el.setAttribute("monitor", fence.monitor);
+  el.setAttribute("tracking", String(fence.tracking));
 };
 
 /** The symbol code in both places ATAK reads it from, so every client redraws it. */

@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import type { TakItem } from "./cot.ts";
 import {
+  activeBreachAlerts,
   activeEmergencies,
   describeType,
   extentOf,
@@ -35,6 +36,15 @@ test("only emergencies that haven't gone stale are active, newest first", () => 
     item("marker", 400, 2000, false),
   ];
   expect(activeEmergencies(items, 1000).map((i) => i.uid)).toEqual(["new", "old"]);
+});
+
+test("geofence breaches are alerts apart from emergencies", () => {
+  const items = [
+    { uid: "911", type: "b-a-o-tbl", time: 1, stale: 2000, emergency: { kind: "911", from: "A" } },
+    { uid: "fence", type: "b-a-g", time: 2, stale: 2000, emergency: { kind: "Breach", from: "B" } },
+  ] as TakItem[];
+  expect(activeEmergencies(items, 1000).map((i) => i.uid)).toEqual(["911"]);
+  expect(activeBreachAlerts(items, 1000).map((i) => i.uid)).toEqual(["fence"]);
 });
 
 test("a closed ATAK line is an area, an open one a line", () => {
