@@ -42,7 +42,7 @@ type Props = {
   onPick: (item: TakItem) => void;
   /** Why publishing is unavailable, or undefined when it is. */
   publishReason: string | undefined;
-  /** Named as the creator of drawings imported from KML or GPX. */
+  /** Named as the creator of drawings imported from overlay files. */
   sender: Sender;
 };
 
@@ -211,9 +211,10 @@ export const PlansDrawer = (props: Props) => {
         </Button>
         <FileButton
           accept={IMPORT_ACCEPT}
-          onChange={(file) =>
-            file &&
-            importPlan(file, props.sender).then(
+          multiple
+          onChange={(files) =>
+            files.length > 0 &&
+            importPlan(files, props.sender).then(
               (plan) => setOpenId(plan.id),
               (err) =>
                 notifications.show({

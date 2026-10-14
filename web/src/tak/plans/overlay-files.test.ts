@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { expect, test } from "vitest";
 import { type CotEvent, type TakItem, toChange } from "../cot.ts";
-import { gpxToEvents, itemsToKml, kmlToEvents } from "./overlay-files.ts";
+import { geojsonToEvents, gpxToEvents, itemsToKml, kmlToEvents } from "./overlay-files.ts";
 
 const sender = { uid: "BattleLog-Eversti", callsign: "Eversti" };
 
@@ -128,4 +128,108 @@ test("a circle exports as a closed ring around its centre", () => {
 
 test("a file that isn't XML is refused", () => {
   expect(() => kmlToEvents("<kml", sender)).toThrow();
+});
+
+const GEOJSON = JSON.stringify({
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { title: "OP", description: "Klo 06", "marker-color": "#f00" },
+      geometry: {
+        type: "MultiPoint",
+        coordinates: [
+          [22.25, 60.45],
+          [999, 60],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { NAME: "Alue", stroke: "00ff00", "stroke-width": 5, "fill-opacity": 0.25 },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [22, 60],
+            [22.1, 60],
+            [22.1, 60.1],
+            [22, 60],
+          ],
+          [
+            [22.02, 60.02],
+            [22.05, 60.02],
+            [22.05, 60.05],
+            [22.02, 60.02],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: null,
+      geometry: {
+        type: "GeometryCollection",
+        geometries: [
+          {
+            type: "MultiLineString",
+            coordinates: [
+              [
+                [22.1, 60.4],
+                [22.2, 60.5],
+              ],
+            ],
+          },
+        ],
+      },
+    },
+  ],
+});
+
+test("GeoJSON features become markers, closed shapes and lines with their names and simplestyle", () => {
+  const [marker, area, line, ...rest] = geojsonToEvents(GEOJSON, sender).map(itemOf);
+  expect(rest).toEqual([]);
+  expect(marker).toMatchObject({
+    type: "b-m-p-s-m",
+    callsign: "OP",
+    remarks: "Klo 06",
+    geometry: { type: "Point", coordinates: [22.25, 60.45] },
+    stroke: { color: "#ff0000" },
+  });
+  expect(area).toMatchObject({
+    type: "u-d-f",
+    callsign: "Alue",
+    stroke: { color: "#00ff00" },
+    strokeWidth: 5,
+    fill: { opacity: 0.25 },
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [22, 60],
+          [22.1, 60],
+          [22.1, 60.1],
+          [22, 60],
+        ],
+      ],
+    },
+  });
+  expect(line).toMatchObject({ type: "u-d-f", geometry: { type: "LineString" } });
+});
+
+test("a bare GeoJSON geometry in ETRS-TM35FIN is reprojected, and another CRS is refused", () => {
+  const crs = (name: string) => ({ type: "name", properties: { name } });
+  const point = { type: "Point", coordinates: [385000, 6672000] };
+  const [marker] = geojsonToEvents(
+    { ...point, crs: crs("urn:ogc:def:crs:EPSG::3067") },
+    sender,
+  ).map(itemOf);
+  const [lon, lat] = (marker as TakItem).geometry.coordinates as number[];
+  expect(lon).toBeCloseTo(24.927458, 6);
+  expect(lat).toBeCloseTo(60.168666, 6);
+  expect(() => geojsonToEvents({ ...point, crs: crs("EPSG:2393") }, sender)).toThrow(
+    /Unsupported coordinate system/,
+  );
+  expect(() => geojsonToEvents("{", sender)).toThrow(/Not a readable file/);
+  expect(() => geojsonToEvents("[]", sender)).toThrow(/Not a GeoJSON file/);
 });
