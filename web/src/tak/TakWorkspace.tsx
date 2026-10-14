@@ -27,6 +27,7 @@ import {
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { api, type EventResponse } from "../api.ts";
 import { useIsMobile } from "../dashboard/mobile.ts";
 import { answerPick, cancelPick, usePickRequest } from "../map-pick.ts";
 import { ACCENT } from "../theme.ts";
@@ -388,7 +389,25 @@ export const TakWorkspace = ({
       if (found) return found;
     }
   };
-  const selectedEvent = shownEvent(selectedEventId);
+  const drawnEvent = shownEvent(selectedEventId);
+  const drawn = !!drawnEvent;
+  // An event opened from elsewhere (an item's log entries) needn't be on a shown layer.
+  const [fetchedEvent, setFetchedEvent] = useState<EventResponse>();
+  useEffect(() => {
+    if (!selectedEventId || drawn) return;
+    let alive = true;
+    api.events[":eventId"]
+      .$get({ param: { eventId: selectedEventId } })
+      .then(async (res) => {
+        if (res.status === 200 && alive) setFetchedEvent(await res.json());
+      })
+      .catch((err: unknown) => console.warn("Loading the selected event failed", err));
+    return () => {
+      alive = false;
+    };
+  }, [selectedEventId, drawn]);
+  const selectedEvent =
+    drawnEvent ?? (fetchedEvent?.eventId === selectedEventId ? fetchedEvent : undefined);
   const truncatedLayers = new Set(
     [...layerEvents].flatMap(([id, events]) => (events.truncated ? [id] : [])),
   );
@@ -941,6 +960,7 @@ export const TakWorkspace = ({
     />
   );
 
+  const eventPoint = selectedEvent?.locationPoint;
   const eventDetails = !wall && !selectedOutside && !selected && selectedEvent && (
     <EventDetails
       key={selectedEvent.eventId}
@@ -951,10 +971,7 @@ export const TakWorkspace = ({
         )
         .map((l) => l.definition.name)}
       coordFormat={settings.coordFormat}
-      onCenter={() =>
-        selectedEvent.locationPoint &&
-        flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat])
-      }
+      onCenter={eventPoint ? () => flyTo([eventPoint.lng, eventPoint.lat]) : undefined}
       onClose={() => selectEvent(undefined)}
     />
   );
@@ -985,6 +1002,7 @@ export const TakWorkspace = ({
       tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
       onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}
       replayAt={replayFrame?.at}
+      onOpenEvent={selectEvent}
       onCenter={() => centreOn(selected)}
       onClose={() => setSelectedUid(undefined)}
     />

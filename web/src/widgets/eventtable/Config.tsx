@@ -113,6 +113,15 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
           checked={config.allowFiltering}
           onChange={(e) => onChange({ ...config, allowFiltering: e.currentTarget.checked })}
         />
+        <Switch
+          size="xs"
+          label="Follow the map selection"
+          description="While a TAK item is selected, only events linked to it"
+          checked={config.followTakSelection ?? false}
+          onChange={(e) =>
+            onChange({ ...config, followTakSelection: e.currentTarget.checked || undefined })
+          }
+        />
       </Group>
 
       <Text fz="sm" fw={600}>

@@ -12,7 +12,9 @@ import type { EventResponse } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { useLiveEvents } from "../../live-events.ts";
 import { StaleNotice } from "../../StaleNotice.tsx";
+import { linkedTo } from "../../tak/links.ts";
 import { formatShortDateTime } from "../../time.ts";
+import { TakSelectionPill } from "./TakSelectionPill.tsx";
 import {
   columnWidth,
   dataValue,
@@ -163,8 +165,11 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const [fullscreen, setFullscreen] = useState(false);
   // Mounted once and kept: unmounting on close would skip the exit transition.
   const [everOpened, setEverOpened] = useState(false);
-  const query = queryFor(config);
-  const match = (row: EventResponse) => matchesFeed(row, config);
+  const { tak } = dashboardRoute.useSearch();
+  const followed = config.followTakSelection ? tak : undefined;
+  const link = followed ? linkedTo(followed) : undefined;
+  const query = { ...queryFor(config), ...link?.query };
+  const match = (row: EventResponse) => matchesFeed(row, config) && (!link || link.match(row));
   const { events, failed, arrived } = useLiveEvents({ limit: config.rows, query, match });
   const navigate = dashboardRoute.useNavigate();
 
@@ -205,6 +210,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
       </ActionIcon>
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
         {failed && <StaleNotice />}
+        {followed && <TakSelectionPill uid={followed} events={events} />}
         <FeedTable
           columns={config.columns}
           events={events}

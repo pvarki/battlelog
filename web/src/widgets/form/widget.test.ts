@@ -6,8 +6,10 @@ import descriptor, {
   datetimeLocalValue,
   eventToValues,
   type FormConfig,
+  type FormField,
   missingRequired,
   pendingWriteBacks,
+  takPickValues,
   writeBackData,
 } from "./widget.ts";
 
@@ -340,4 +342,46 @@ test("write-back sets text and the submitted reference, keeping other data", () 
     mission,
   });
   expect(pendingWriteBacks(missionForm, {})).toEqual([]);
+});
+
+const takField = {
+  id: "i",
+  kind: "data",
+  label: "Item",
+  input: "tak",
+  options: [],
+  takSetsLocation: true,
+} as const satisfies FormField;
+const takForm: FormConfig = {
+  reportType: "sighting",
+  fields: [takField, { id: "p", kind: "event", field: "locationPoint" }],
+};
+
+const link = {
+  uid: "drone-1",
+  callsign: "Hawk",
+  cotType: "a-f-A",
+  observedAt: "2026-10-14T12:00:00.000Z",
+};
+
+test("a TAK item field validates", () => {
+  expect(descriptor.configSchema.safeParse(takForm).success).toBe(true);
+});
+
+test("a TAK item field stores its link under data.tak and loads it back for editing", () => {
+  const values = takPickValues(takForm, takField, link, { lat: 60.2, lng: 24.9 });
+  expect(values).toEqual({ i: link, p: { lat: 60.2, lng: 24.9 } });
+  const payload = buildEvent(takForm, values);
+  expect(payload.data).toEqual({ tak: link });
+  expect(payload.locationPoint).toEqual({ lat: 60.2, lng: 24.9 });
+  expect(eventToValues(takForm, stored(payload))).toEqual(values);
+  expect(buildPatch(takForm, { p: values.p }, stored(payload)).data).toBeNull();
+});
+
+test("a TAK item pick leaves Coordinates alone unless the field asks for it", () => {
+  const point = { lat: 1, lng: 2 };
+  expect(takPickValues(takForm, { ...takField, takSetsLocation: undefined }, link, point)).toEqual({
+    i: link,
+  });
+  expect(takPickValues(takForm, takField, link, undefined)).toEqual({ i: link });
 });

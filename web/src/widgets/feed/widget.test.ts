@@ -6,6 +6,11 @@ test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
 });
 
+test("following the map selection is a valid option", () => {
+  const config = { ...descriptor.defaultConfig, followTakSelection: true };
+  expect(descriptor.configSchema.parse(config).followTakSelection).toBe(true);
+});
+
 test("schema migrates legacy string columns to column objects", () => {
   const parsed = descriptor.configSchema.safeParse({ columns: ["time", "header"] });
   expect(parsed.success && parsed.data.columns).toEqual([
