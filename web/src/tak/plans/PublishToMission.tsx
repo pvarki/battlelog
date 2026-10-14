@@ -67,7 +67,7 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
               message: [
                 unconfirmed > 0 && `${unconfirmed} not confirmed by TAK.`,
                 notInMission.length > 0 &&
-                  `Sent but not filed in the mission: ${notInMission.map(labelFor).join(", ")}.`,
+                  `Sent but not filed in the feed: ${notInMission.map(labelFor).join(", ")}.`,
                 "Those stay in the plan; publish again to retry.",
               ]
                 .filter(Boolean)
@@ -92,20 +92,20 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
         disabled={drafts.length === 0 || !!disabledReason}
         title={disabledReason}
       >
-        Publish into mission…
+        Publish into a feed…
       </Button>
       <Modal
         opened={opened}
         onClose={() => setOpened(false)}
-        title={`Publish ${plan.name} into a mission`}
+        title={`Publish ${plan.name} into a Data Sync feed`}
         centered
       >
         <Stack gap="sm">
           <SegmentedControl
             size="xs"
             data={[
-              { value: "existing", label: "Existing mission" },
-              { value: "new", label: "New mission" },
+              { value: "existing", label: "Existing feed" },
+              { value: "new", label: "New feed" },
             ]}
             value={target}
             onChange={(value) => setTarget(value as Target)}
@@ -113,8 +113,8 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
           {target === "existing" ? (
             <Select
               size="xs"
-              label="Mission"
-              placeholder={writable.length ? "Choose a mission" : "No missions"}
+              label="Feed"
+              placeholder={writable.length ? "Choose a feed" : "No feeds"}
               data={writable.map((m) => m.name)}
               value={chosen}
               onChange={setChosen}
@@ -132,8 +132,8 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
             />
           )}
           <Text fz="xs" c="dimmed">
-            The items go to TAK as when publishing, then join the mission; staged deletes leave it.
-            You're subscribed to the mission if you aren't yet.
+            The items go to TAK as when publishing, then join the feed; staged deletes leave it.
+            You're subscribed to the feed if you aren't yet.
           </Text>
           <Group justify="flex-end" gap="xs">
             <Button size="xs" variant="default" onClick={() => setOpened(false)}>

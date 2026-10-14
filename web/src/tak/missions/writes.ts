@@ -157,8 +157,8 @@ export const subscribeDeniedMessage = (mission: Mission | undefined, withPasswor
   withPassword
     ? "TAK refused the password."
     : mission?.passwordProtected
-      ? "The mission needs a password."
-      : "The mission is invite-only: ask an owner to invite you.";
+      ? "The feed needs a password."
+      : "The feed is invite-only: ask an owner to invite you.";
 
 /** Subscription per mission name; null when not subscribed, missing until asked. */
 let subscriptions: ReadonlyMap<string, Subscription | null> = new Map();
@@ -287,7 +287,7 @@ const writeAsOwner = async (name: string, clientUid: string, write: TakWrite) =>
 /** The mission as TAK now has it; throws when it no longer exists. */
 const readBack = async (name: string): Promise<Mission> => {
   const mission = (await refreshMissions([name])).find((m) => m.name === name);
-  if (!mission) throw new Error(`Mission ${name} is gone`);
+  if (!mission) throw new Error(`Feed ${name} is gone`);
   return mission;
 };
 
@@ -299,7 +299,7 @@ export const createMission = async (name: string, settings: NewMission, clientUi
     if (err instanceof TakRequestError && err.status === 403) return "restricted";
     throw err;
   });
-  if (existing) throw new Error(`A mission named ${name} already exists`);
+  if (existing) throw new Error(`A feed named ${name} already exists`);
   const created = await takSend(createMissionRequest(name, settings, clientUid));
   // TAK subscribes the creator as owner.
   const subscription = parseSubscription(JSON.parse(created));

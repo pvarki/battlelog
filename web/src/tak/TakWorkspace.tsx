@@ -109,7 +109,7 @@ import { useNow } from "./use-now.ts";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
-  missions: { label: "Missions", Icon: IconFolders, key: "2" },
+  missions: { label: "Data Sync", Icon: IconFolders, key: "2" },
   plans: { label: "Plans", Icon: IconClipboardList, key: "3" },
   layers: { label: "Layers", Icon: IconStack2, key: "4" },
   chat: { label: "Chat", Icon: IconMessage, key: "5" },

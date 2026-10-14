@@ -60,19 +60,19 @@ export const AddToMission = ({ item, missions, clientUid }: Props) => {
         leftSection={<IconFolderPlus size={14} />}
         onClick={() => setOpened(true)}
       >
-        Add to mission…
+        Add to feed…
       </Button>
       <Modal
         opened={opened}
         onClose={() => setOpened(false)}
-        title={`Add ${labelOf(item)} to a mission`}
+        title={`Add ${labelOf(item)} to a Data Sync feed`}
         centered
       >
         <Stack gap="sm">
           <Select
             size="xs"
-            label="Mission"
-            placeholder={candidates.length ? "Choose a mission" : "No other missions"}
+            label="Feed"
+            placeholder={candidates.length ? "Choose a feed" : "No other feeds"}
             data={options}
             value={chosen}
             onChange={setChosen}
@@ -80,8 +80,8 @@ export const AddToMission = ({ item, missions, clientUid }: Props) => {
             comboboxProps={{ withinPortal: true }}
           />
           <Text fz="xs" c="dimmed">
-            Only missions you're subscribed to take items: TAK ignores changes from users who
-            aren't. Subscribe in the Missions drawer.
+            Only feeds you're subscribed to take items: TAK ignores changes from users who aren't.
+            Subscribe in Data Sync.
           </Text>
           <Group justify="flex-end" gap="xs">
             <Button size="xs" variant="default" onClick={() => setOpened(false)}>

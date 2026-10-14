@@ -260,7 +260,7 @@ const DeleteMission = ({
         disabled={disabled}
         onClick={() => setConfirming(true)}
       >
-        Delete mission
+        Delete feed
       </Button>
       <Modal
         opened={confirming}
@@ -270,8 +270,8 @@ const DeleteMission = ({
       >
         <Stack gap="sm">
           <Text fz="sm">
-            The mission is removed from TAK for every user, with its list of items, files and log.
-            The map items themselves stay.
+            The feed is removed from TAK for every user, with its list of items, files and log. The
+            map items themselves stay.
           </Text>
           <Group justify="flex-end" gap="xs">
             <Button size="xs" variant="default" onClick={() => setConfirming(false)} data-autofocus>
@@ -377,7 +377,7 @@ const PasswordControls = ({
         size="xs"
         style={{ flex: 1, minWidth: 120 }}
         placeholder={mission.passwordProtected ? "New password" : "Password"}
-        aria-label="Mission password"
+        aria-label="Feed password"
         autoComplete="new-password"
         value={password}
         onChange={(e) => setPasswordText(e.currentTarget.value)}
@@ -559,7 +559,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
           variant="subtle"
           color="gray"
           onClick={() => props.onOpen(undefined)}
-          aria-label="Back to missions"
+          aria-label="Back to feeds"
         >
           <IconArrowLeft size={16} />
         </ActionIcon>
@@ -601,8 +601,8 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                 <PasswordInput
                   size="xs"
                   style={{ flex: 1, minWidth: 120 }}
-                  placeholder="Mission password"
-                  aria-label="Mission password"
+                  placeholder="Feed password"
+                  aria-label="Feed password"
                   autoComplete="off"
                   value={password}
                   onChange={(e) => setPasswordText(e.currentTarget.value)}
@@ -632,7 +632,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                   mission={mission}
                   disabled={busy}
                   onDelete={() =>
-                    void run("Mission not deleted", () => deleteMission(mission, clientUid)).then(
+                    void run("Feed not deleted", () => deleteMission(mission, clientUid)).then(
                       (ok) => ok && props.onOpen(undefined),
                     )
                   }
@@ -641,7 +641,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
             </Group>
           ) : (
             <Text fz="xs" c="dimmed">
-              No callsign: open BattleLog from the deploy app to change missions.
+              No callsign: open BattleLog from the deploy app to change feeds.
             </Text>
           )}
           {clientUid && !subscribed && (
@@ -652,7 +652,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
           )}
           {subscribed && !writable && (
             <Text fz="xs" c="dimmed">
-              You're a read-only subscriber: an owner can let you change the mission.
+              You're a read-only subscriber: an owner can let you change the feed.
             </Text>
           )}
           <Section
@@ -660,7 +660,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
           >
             {contents?.kind === "no-access" && (
               <Text fz="xs" c="dimmed" p="xs">
-                TAK didn't let you read this mission
+                TAK didn't let you read this feed
                 {mission.passwordProtected || mission.inviteOnly
                   ? " (password or invitation needed)"
                   : ""}
@@ -692,7 +692,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                   </div>
                   {writable && (
                     <RemoveButton
-                      label={`Remove ${labelOf(item)} from the mission`}
+                      label={`Remove ${labelOf(item)} from the feed`}
                       disabled={!canWrite}
                       onClick={() =>
                         void run("Item not removed", () =>
@@ -728,7 +728,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                 </div>
                 {writable && (
                   <RemoveButton
-                    label={`Remove ${file.name} from the mission`}
+                    label={`Remove ${file.name} from the feed`}
                     disabled={!canWrite}
                     onClick={() =>
                       void run("File not removed", () =>
@@ -812,7 +812,7 @@ const NewMission = ({
       inviteOnly,
       password: password || undefined,
     };
-    if (await run("Mission not created", () => createMission(trimmed, settings, clientUid))) {
+    if (await run("Feed not created", () => createMission(trimmed, settings, clientUid))) {
       setOpened(false);
       setName("");
       setDescription("");
@@ -825,7 +825,7 @@ const NewMission = ({
   return (
     <>
       <Tooltip
-        label="No callsign: open BattleLog from the deploy app to create missions"
+        label="No callsign: open BattleLog from the deploy app to create feeds"
         disabled={!!clientUid}
         withArrow
       >
@@ -836,10 +836,10 @@ const NewMission = ({
           disabled={!clientUid}
           onClick={() => setOpened(true)}
         >
-          New mission
+          New feed
         </Button>
       </Tooltip>
-      <Modal opened={opened} onClose={() => setOpened(false)} title="New mission" centered>
+      <Modal opened={opened} onClose={() => setOpened(false)} title="New feed" centered>
         <Stack gap="sm">
           <TextInput
             label="Name"
@@ -907,7 +907,7 @@ const MissionList = (props: Props) => {
   if (missions === null)
     return listFailed ? (
       <Text fz="sm" c="dimmed" p="xs">
-        Couldn't load missions from TAK.
+        Couldn't load Data Sync feeds from TAK.
       </Text>
     ) : (
       <Loader size="xs" m="xs" />
@@ -915,7 +915,7 @@ const MissionList = (props: Props) => {
   if (missions.length === 0)
     return (
       <Text fz="sm" c="dimmed" p="xs">
-        No missions on this TAK server yet.
+        No Data Sync feeds on this TAK server yet.
       </Text>
     );
   const sorted = [...missions].sort((a, b) => b.changedAt - a.changedAt);
@@ -1007,7 +1007,10 @@ export const MissionsDrawer = (props: Props) => {
   if (open) return <MissionDetail {...props} mission={open} />;
   return (
     <Stack gap="xs" h="100%">
-      <Group justify="flex-end">
+      <Group justify="space-between" wrap="nowrap">
+        <Text fz="xs" c="dimmed">
+          Feeds are missions on TAK Server.
+        </Text>
         <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
       </Group>
       {props.clientUid && (

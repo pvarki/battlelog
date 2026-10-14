@@ -141,6 +141,6 @@ test("read-only subscribers can't write", () => {
 test("a refused subscribe says what's missing", () => {
   const locked = { passwordProtected: true } as Mission;
   expect(subscribeDeniedMessage(locked, true)).toBe("TAK refused the password.");
-  expect(subscribeDeniedMessage(locked, false)).toBe("The mission needs a password.");
+  expect(subscribeDeniedMessage(locked, false)).toBe("The feed needs a password.");
   expect(subscribeDeniedMessage(undefined, false)).toMatch(/invite-only/);
 });

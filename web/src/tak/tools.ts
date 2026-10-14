@@ -14,7 +14,7 @@ export type TakTool = (typeof TAK_TOOLS)[number];
 
 export const TOOL_LABEL: Record<TakTool, string> = {
   items: "Items list",
-  missions: "Missions",
+  missions: "Data Sync",
   plans: "Plans",
   layers: "Layers",
   draw: "Drawing",

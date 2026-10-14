@@ -181,7 +181,7 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
             disabledReason={props.publishReason}
           />
           <Text fz="xs" c="dimmed">
-            Publishes them and files them in a mission, for those who follow it.
+            Publishes them and files them in a Data Sync feed, for those who follow it.
           </Text>
         </Stack>
       )}

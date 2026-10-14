@@ -347,7 +347,7 @@ export const ItemDetails = ({
             </Field>
           )}
           <ItemLogEntries uid={item.uid} onOpenEvent={onOpenEvent} />
-          {missions.length > 0 && <Field label="Missions">{missions.join(", ")}</Field>}
+          {missions.length > 0 && <Field label="Data Sync feeds">{missions.join(", ")}</Field>}
           <Field label="UID">
             <span className="tak-mono" style={{ overflowWrap: "anywhere" }}>
               {item.uid}

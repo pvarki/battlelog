@@ -91,8 +91,8 @@ const MapConfigForm = ({ config, onChange }: WidgetConfigProps<MapConfig>) => {
         clearable
       />
       <MultiSelect
-        label="Missions shown"
-        description="Shown besides the missions this browser shows"
+        label="Data Sync feeds shown"
+        description="Shown besides the feeds this browser shows"
         data={[...new Set([...missionNames, ...config.missions])]}
         value={config.missions}
         onChange={(missions) => onChange({ ...config, missions })}
@@ -131,7 +131,7 @@ const MapConfigForm = ({ config, onChange }: WidgetConfigProps<MapConfig>) => {
             clearable
           />
           <Select
-            placeholder="A mission's items"
+            placeholder="A Data Sync feed's items"
             data={[...new Set([...missionNames, ...(follow.mission ? [follow.mission] : [])])]}
             value={follow.mission ?? null}
             onChange={(mission) => setFollow({ mission: mission ?? undefined })}
