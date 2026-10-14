@@ -4,14 +4,13 @@ import {
   Group,
   Loader,
   ScrollArea,
-  SegmentedControl,
   Stack,
   Text,
   Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { IconEye, IconEyeOff, IconLock } from "@tabler/icons-react";
+import { IconEye, IconEyeOff, IconListTree, IconLock } from "@tabler/icons-react";
 import { useEffect } from "react";
 import type { TakItem } from "../cot.ts";
 import { formatAge } from "../items.ts";
@@ -190,21 +189,25 @@ export const MissionsDrawer = (props: MissionsDrawerProps) => {
         <Text fz="xs" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
           Feeds are missions on TAK Server.
         </Text>
+        <Tooltip
+          label={view === "tree" ? "Shown as a tree: show as a list" : "Show as a tree"}
+          withArrow
+        >
+          <ActionIcon
+            variant={view === "tree" ? "light" : "subtle"}
+            color={view === "tree" ? "accent" : "gray"}
+            aria-label="Show feeds as a tree"
+            aria-pressed={view === "tree"}
+            onClick={() => setView(view === "tree" ? "list" : "tree")}
+          >
+            <IconListTree size={16} />
+          </ActionIcon>
+        </Tooltip>
         <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
       </Group>
       {props.clientUid && (
         <MyInvitations state={props.state} clientUid={props.clientUid} onOpen={props.onOpen} />
       )}
-      <SegmentedControl
-        size="xs"
-        value={view}
-        onChange={(v) => setView(v as ListView)}
-        data={[
-          { value: "list", label: "List" },
-          { value: "tree", label: "Tree" },
-        ]}
-        aria-label="Show feeds as"
-      />
       <MissionList {...props} view={view} />
     </Stack>
   );
