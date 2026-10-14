@@ -5,7 +5,6 @@ import {
   type FilterSpecification,
   type GeoJSONSource,
   Map as MapLibreMap,
-  type MapMouseEvent,
   NavigationControl,
   Popup,
   ScaleControl,
@@ -42,9 +41,16 @@ type Props = {
   /** Night use: the bright MML maps glare next to a dark UI. */
   dim: boolean;
   mgrsGrid: boolean;
-  selectedUid: string | undefined;
-  /** Every item under a click, topmost first, and where on the map it was. */
-  onPick: (uids: string[], at: { x: number; y: number }) => void;
+  selectedUids: readonly string[];
+  /** Every item under a click, topmost first, where on the screen and map it was, and whether Shift was held. */
+  onPick: (pick: {
+    uids: string[];
+    at: { x: number; y: number };
+    position: Position;
+    shift: boolean;
+  }) => void;
+  /** Shift-dragging draws a box and picks every item in it; without this, Shift-drag zooms. */
+  onBoxSelect?: (uids: string[]) => void;
   onReady: (map: MapLibreMap | undefined) => void;
   /** A fixed starting view; the map then doesn't remember where the viewer left it. */
   view?: MapView;
@@ -73,6 +79,62 @@ const INTERACTIVE_LAYERS = [
   "tak-tactical-fills",
 ];
 const ACCENT = "#8abbff";
+
+type ScreenBox = [[number, number], [number, number]];
+
+const uidsIn = (map: MapLibreMap, box: ScreenBox) => [
+  ...new Set(
+    map
+      .queryRenderedFeatures(box, { layers: INTERACTIVE_LAYERS })
+      .flatMap((f) => (f.properties?.uid ? [f.properties.uid as string] : [])),
+  ),
+];
+
+// A few pixels of slack: thin lines are otherwise nearly impossible to hit.
+const uidsAt = (map: MapLibreMap, { x, y }: { x: number; y: number }) =>
+  uidsIn(map, [
+    [x - CLICK_SLACK_PX, y - CLICK_SLACK_PX],
+    [x + CLICK_SLACK_PX, y + CLICK_SLACK_PX],
+  ]);
+
+/** Draws a box from `start` while the pointer drags, then hands over the items inside it. */
+const dragSelectBox = (
+  map: MapLibreMap,
+  start: { x: number; y: number },
+  onSelect: (uids: string[]) => void,
+) => {
+  const container = map.getContainer();
+  const outline = document.createElement("div");
+  outline.className = "tak-select-box";
+  container.appendChild(outline);
+  let box: ScreenBox = [
+    [start.x, start.y],
+    [start.x, start.y],
+  ];
+  const onMove = (e: MouseEvent) => {
+    const rect = container.getBoundingClientRect();
+    const [x, y] = [e.clientX - rect.left, e.clientY - rect.top];
+    box = [
+      [Math.min(start.x, x), Math.min(start.y, y)],
+      [Math.max(start.x, x), Math.max(start.y, y)],
+    ];
+    Object.assign(outline.style, {
+      left: `${box[0][0]}px`,
+      top: `${box[0][1]}px`,
+      width: `${box[1][0] - box[0][0]}px`,
+      height: `${box[1][1] - box[0][1]}px`,
+    });
+  };
+  const onUp = () => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    outline.remove();
+    const [[left, top], [right, bottom]] = box;
+    if (right - left > CLICK_SLACK_PX || bottom - top > CLICK_SLACK_PX) onSelect(uidsIn(map, box));
+  };
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+};
 
 const savedView = () => {
   try {
@@ -350,8 +412,9 @@ export const MapCanvas = ({
   overlay,
   dim,
   mgrsGrid: showMgrsGrid,
-  selectedUid,
+  selectedUids,
   onPick,
+  onBoxSelect,
   onReady,
   view,
   passive = false,
@@ -365,8 +428,8 @@ export const MapCanvas = ({
   const [bearing, setBearing] = useState(0);
   const itemsByUid = useRef(new Map<string, TakItem>());
   itemsByUid.current = new Map(items.map((i) => [i.uid, i]));
-  const callbacks = useRef({ onPick, onReady, passive, cursor });
-  callbacks.current = { onPick, onReady, passive, cursor };
+  const callbacks = useRef({ onPick, onBoxSelect, onReady, passive, cursor });
+  callbacks.current = { onPick, onBoxSelect, onReady, passive, cursor };
   // The map is created once; pinning a new view applies on the next open.
   const startView = useRef(view);
 
@@ -382,21 +445,6 @@ export const MapCanvas = ({
     m.keyboard.enable();
 
     const hover = new Popup({ closeButton: false, closeOnClick: false, offset: 14 });
-    // A few pixels of slack: thin lines are otherwise nearly impossible to hit.
-    const uidsAt = (e: MapMouseEvent) => {
-      const { x, y } = e.point;
-      const hits = m.queryRenderedFeatures(
-        [
-          [x - CLICK_SLACK_PX, y - CLICK_SLACK_PX],
-          [x + CLICK_SLACK_PX, y + CLICK_SLACK_PX],
-        ],
-        { layers: INTERACTIVE_LAYERS },
-      );
-      return [
-        ...new Set(hits.flatMap((f) => (f.properties?.uid ? [f.properties.uid as string] : []))),
-      ];
-    };
-    const uidAt = (e: MapMouseEvent) => uidsAt(e)[0];
 
     m.on("load", () => {
       addMgrsGridLayers(m);
@@ -409,11 +457,25 @@ export const MapCanvas = ({
     if (!startView.current) m.on("moveend", () => saveView(m));
     m.on("rotateend", () => setBearing(m.getBearing()));
     m.on("click", (e) => {
-      if (!callbacks.current.passive) callbacks.current.onPick(uidsAt(e), e.point);
+      if (callbacks.current.passive) return;
+      callbacks.current.onPick({
+        uids: uidsAt(m, e.point),
+        at: e.point,
+        position: [e.lngLat.lng, e.lngLat.lat],
+        shift: e.originalEvent.shiftKey,
+      });
+    });
+    m.on("mousedown", (e) => {
+      const { onBoxSelect, passive } = callbacks.current;
+      if (passive || !onBoxSelect || !e.originalEvent.shiftKey || e.originalEvent.button !== 0)
+        return;
+      // Keeps MapLibre's own Shift-drag (box zoom) and panning out of it.
+      e.preventDefault();
+      dragSelectBox(m, e.point, onBoxSelect);
     });
     m.on("mousemove", (e) => {
       callbacks.current.cursor.set([e.lngLat.lng, e.lngLat.lat]);
-      const uid = callbacks.current.passive ? undefined : uidAt(e);
+      const uid = callbacks.current.passive ? undefined : uidsAt(m, e.point)[0];
       const item = uid ? itemsByUid.current.get(uid) : undefined;
       m.getCanvas().style.cursor = item ? "pointer" : "";
       if (!item) {
@@ -521,13 +583,16 @@ export const MapCanvas = ({
     (map.getSource("tak-tracks") as GeoJSONSource).setData(tracks);
   }, [map, tracks]);
 
+  // A new array each render; the filter changes only when its members do.
+  const selectedKey = JSON.stringify(selectedUids);
   useEffect(() => {
     if (!map) return;
-    const filter = ["==", ["get", "uid"], selectedUid ?? ""] as FilterSpecification;
+    const uids: string[] = JSON.parse(selectedKey);
+    const filter = ["in", ["get", "uid"], ["literal", uids]] as FilterSpecification;
     map.setFilter("tak-selected-point", filter);
     map.setFilter("tak-selected-shape", filter);
     map.setFilter("tak-selected-tactical", filter);
-  }, [map, selectedUid]);
+  }, [map, selectedKey]);
 
   return (
     <>

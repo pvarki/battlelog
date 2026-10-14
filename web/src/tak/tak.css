@@ -373,3 +373,11 @@
   stroke-linejoin: round;
   filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.8));
 }
+
+.tak-select-box {
+  position: absolute;
+  z-index: 2;
+  border: 1px dashed #8abbff;
+  background: rgb(138 187 255 / 0.15);
+  pointer-events: none;
+}

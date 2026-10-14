@@ -152,8 +152,12 @@ export const deletePlan = (plan: Plan) => {
   void persist({ id: plan.id, deleted: true });
 };
 
+// Several changes in one go each start from the plan the previous one saved.
+const latest = (plan: Plan) => state.plans.find((p) => p.id === plan.id) ?? plan;
+
 /** Adds or replaces (same uid) a draft; a changed existing item keeps its first known base. */
-export const addToPlan = (plan: Plan, entry: PlanEntry) => {
+export const addToPlan = (stale: Plan, entry: PlanEntry) => {
+  const plan = latest(stale);
   const previous = plan.entries.find((e) => e.event.uid === entry.event.uid);
   const kept = { ...entry, basedOn: previous?.basedOn ?? entry.basedOn };
   save({
@@ -162,8 +166,10 @@ export const addToPlan = (plan: Plan, entry: PlanEntry) => {
   });
 };
 
-export const removeFromPlan = (plan: Plan, uid: string) =>
+export const removeFromPlan = (stale: Plan, uid: string) => {
+  const plan = latest(stale);
   save({ ...plan, entries: plan.entries.filter((e) => e.event.uid !== uid) });
+};
 
 /** The plan with every draft re-issued now, keeping each one's lifetime, so receivers take it as current. */
 export const reissuePlan = (plan: Plan, now = Date.now()): Plan => ({

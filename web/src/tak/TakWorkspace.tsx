@@ -29,14 +29,15 @@ import { useIsMobile } from "../dashboard/mobile.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
 import { type ChatRecipient, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
-import { publish } from "./commands.ts";
+import { deleteEvent, publish } from "./commands.ts";
 import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
 import { recipientGroups } from "./contacts/SendTo.tsx";
 import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
-import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
+import { DrawToolbar, UndoButton } from "./drawing/DrawToolbar.tsx";
 import { editGeometryEvent, editTarget } from "./drawing/edit-geometry.ts";
 import { MeasurePanel } from "./drawing/MeasurePanel.tsx";
+import { centreOfItems, movedEvent, offsetBetween } from "./drawing/move-items.ts";
 import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
 import {
   newBullseyeEvent,
@@ -48,6 +49,7 @@ import {
   type ShapeStyle,
 } from "./drawing/new-items.ts";
 import { defaultRingsLook, RingsDialog, type RingsLook } from "./drawing/RingsDialog.tsx";
+import { SelectionPanel } from "./drawing/SelectionPanel.tsx";
 import { cotTypeOf, sidcOf } from "./drawing/symbol-catalogue.ts";
 import { TacticalGraphicDialog } from "./drawing/TacticalGraphicDialog.tsx";
 import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-graphics.ts";
@@ -90,6 +92,7 @@ import {
 import { useMapSettings } from "./settings.ts";
 import type { MapView, TakTool } from "./tools.ts";
 import { trackFeatures } from "./tracks.ts";
+import { describeStep, type UndoStep, undoEvents, withStep } from "./undo.ts";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
@@ -308,8 +311,7 @@ export const TakWorkspace = ({
         activePlan ? draftItems(activePlan, liveItems) : [],
       );
   /** Where new items and changes go: the active plan, or straight to TAK. */
-  const submit = (event: CotEvent) => {
-    if (replaying) return;
+  const send = (event: CotEvent) => {
     if (!activePlan) return void publish(event);
     const existing = liveItems.find((i) => i.uid === event.uid) ?? missionItem(event.uid);
     const planned = activePlan.entries.some((e) => e.event.uid === event.uid);
@@ -318,6 +320,15 @@ export const TakWorkspace = ({
       return removeFromPlan(activePlan, event.uid);
     addToPlan(activePlan, { event, basedOn: existing?.time });
   };
+  const [undoSteps, setUndoSteps] = useState<UndoStep[]>([]);
+  /** Sends one action's writes and remembers how to take them back. */
+  const submitAll = (events: CotEvent[]) => {
+    if (events.length === 0 || replaying) return;
+    const changes = events.map((after) => ({ before: currentItem(after.uid), after }));
+    setUndoSteps((steps) => withStep(steps, { planId: activePlan?.id, changes }));
+    for (const event of events) send(event);
+  };
+  const submit = (event: CotEvent) => submitAll([event]);
   const submitLabel = activePlan ? `Add to ${activePlan.name}` : "Save to TAK";
   const mapRef = useRef<MapLibreMap>(undefined);
   const [map, setMap] = useState<MapLibreMap>();
@@ -335,14 +346,57 @@ export const TakWorkspace = ({
       if (found) return found;
     }
   };
-  const selected = selectedUid
-    ? (items.find((i) => i.uid === selectedUid) ?? missionItem(selectedUid))
-    : undefined;
+  const currentItem = (uid: string) => items.find((i) => i.uid === uid) ?? missionItem(uid);
+  const selected = selectedUid ? currentItem(selectedUid) : undefined;
   const readOnlyReason = (item: TakItem) => {
     if (replayReason) return replayReason;
     if (item.team) return "A TAK user's own position comes from their device";
     if (!callsign) return "No callsign: open BattleLog from the deploy app to change TAK items";
     if (!activePlan && status.connection !== "live") return "Not connected to TAK";
+  };
+  const canChange = (item: TakItem) => !readOnlyReason(item);
+  const latestStep = undoSteps.at(-1);
+  const undoReason = replayReason
+    ? replayReason
+    : !callsign
+      ? "No callsign: open BattleLog from the deploy app to change TAK items"
+      : latestStep && latestStep.planId !== activePlan?.id
+        ? latestStep.planId
+          ? `The latest change went into plan ${plans.plans.find((p) => p.id === latestStep.planId)?.name ?? "(deleted)"}: make it active to undo it`
+          : "The latest change went straight to TAK: switch to Live to undo it"
+        : !activePlan && status.connection !== "live"
+          ? "Not connected to TAK"
+          : undefined;
+  const undo = () => {
+    if (!latestStep || undoReason) return;
+    setUndoSteps(undoSteps.slice(0, -1));
+    for (const event of undoEvents(latestStep, canChange)) send(event);
+  };
+  const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
+  const [movingGroup, setMovingGroup] = useState(false);
+  const groupItems = items.filter((i) => grouped.has(i.uid));
+  const movableItems = groupItems.filter((i) => canChange(i) && editTarget(i));
+  const deletableItems = groupItems.filter(canChange);
+  /** The item selected on its own becomes the first of the group. */
+  const groupBase = () => new Set(grouped.size || !selectedUid ? grouped : [selectedUid]);
+  const toggleGrouped = (uid: string) => {
+    const next = groupBase();
+    if (!next.delete(uid)) next.add(uid);
+    setGrouped(next);
+    setSelectedUid(undefined);
+  };
+  const addToGroup = (uids: string[]) => {
+    setGrouped(new Set([...groupBase(), ...uids]));
+    setSelectedUid(undefined);
+  };
+  const clearGroup = () => {
+    setGrouped(new Set());
+    setMovingGroup(false);
+  };
+  const moveGroupTo = (target: Position) => {
+    const by = offsetBetween(centreOfItems(movableItems), target);
+    submitAll(movableItems.map((item) => movedEvent(item, by)));
+    setMovingGroup(false);
   };
   const contacts = recipientGroups(
     liveItems.filter((i) => i.team && i.callsign && i.callsign !== callsign),
@@ -414,8 +468,16 @@ export const TakWorkspace = ({
       : undefined;
     return newBullseyeEvent({ ...placed, rings }, sender, Date.now(), uid);
   };
+  const movedPreview = (target: Position) => {
+    const by = offsetBetween(centreOfItems(movableItems), target);
+    return movableItems.flatMap((item) => {
+      const change = toChange(movedEvent(item, by));
+      return change?.kind === "upsert" ? [change.item] : [];
+    });
+  };
   /** The shape being drawn as it will look once saved. */
   const previewOf = (sketch: Drawn | undefined, cursor: Position | undefined): TakItem[] => {
+    if (movingGroup) return cursor ? movedPreview(cursor) : [];
     const shape = drawing.drawn ?? sketch;
     // A symbol chosen before placing rides under the pointer until the click.
     const placing = drawing.tool === "marker" && !drawing.drawn ? drawing.symbol : undefined;
@@ -531,8 +593,10 @@ export const TakWorkspace = ({
       bearing: map.getBearing(),
     });
   };
+  const busy = !!(drawing.tool || drawing.editing || measure.active);
 
   const pick = (item: TakItem) => {
+    clearGroup();
     setSelectedUid(item.uid);
     centreOn(item);
     if (isMobile) setDrawer(null);
@@ -558,11 +622,19 @@ export const TakWorkspace = ({
         else if (measure.active) measure.stop();
         else if (drawing.editing) drawing.clear();
         else if (drawing.tool && !drawing.drawn) drawing.clear();
+        else if (movingGroup) setMovingGroup(false);
+        else if (grouped.size) clearGroup();
         else if (selectedUid) setSelectedUid(undefined);
         else setDrawer(null);
         return;
       }
-      if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTyping(e.target)) return;
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z" && has("draw")) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "/") {
         e.preventDefault();
         searchRef.current?.focus();
@@ -633,6 +705,8 @@ export const TakWorkspace = ({
         items={items}
         selectedUid={selectedUid}
         onPick={pick}
+        grouped={grouped}
+        onToggleGrouped={has("draw") && !busy ? (item) => toggleGrouped(item.uid) : undefined}
         hidden={settings.hidden}
         onToggleGroup={settings.toggleGroup}
       />
@@ -658,6 +732,15 @@ export const TakWorkspace = ({
         )}
       </LayersDrawer>
     );
+
+  const undoButton = (
+    <UndoButton
+      subject={latestStep && describeStep(latestStep)}
+      destination={activePlan ? `plan ${activePlan.name}` : "TAK"}
+      disabledReason={undoReason}
+      onUndo={undo}
+    />
+  );
 
   const details = !wall && selected && (
     <ItemDetails
@@ -741,12 +824,19 @@ export const TakWorkspace = ({
           overlay={overlaySource && { source: overlaySource, opacity: settings.overlayOpacity }}
           dim={settings.dim}
           mgrsGrid={settings.mgrsGrid}
-          selectedUid={selectedUid}
-          onPick={(uids, at) => {
-            if (drawing.tool || drawing.editing || measure.active) return;
+          selectedUids={[...(selectedUid ? [selectedUid] : []), ...grouped]}
+          onPick={({ uids, at, position, shift }) => {
+            if (movingGroup) return moveGroupTo(position);
+            if (busy) return;
+            if (shift && has("draw")) {
+              if (uids[0]) toggleGrouped(uids[0]);
+              return;
+            }
+            clearGroup();
             setChooser(uids.length > 1 ? { uids, at } : undefined);
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
           }}
+          onBoxSelect={has("draw") && !busy && !movingGroup ? addToGroup : undefined}
           onReady={(ready) => {
             mapRef.current = ready;
             setMap(ready);
@@ -849,6 +939,27 @@ export const TakWorkspace = ({
                 },
               }
             }
+            selection={
+              groupItems.length > 0 ? (
+                <SelectionPanel
+                  count={groupItems.length}
+                  movable={movableItems.length}
+                  deletable={deletableItems.length}
+                  moving={movingGroup}
+                  onMove={() => setMovingGroup(true)}
+                  onCancelMove={() => setMovingGroup(false)}
+                  onDelete={() => {
+                    submitAll(deletableItems.map((item) => deleteEvent(item)));
+                    clearGroup();
+                  }}
+                  onClear={clearGroup}
+                  planName={activePlan?.name}
+                >
+                  {undoButton}
+                </SelectionPanel>
+              ) : undefined
+            }
+            undo={undoButton}
             measuring={measure.active}
             onToggleMeasure={() => {
               if (measure.active) return measure.stop();
