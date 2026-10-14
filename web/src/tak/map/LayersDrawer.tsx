@@ -38,8 +38,13 @@ export const LayersDrawer = ({ settings, sources, map, basemap, eventLayers }: P
           <Stack gap={6}>
             {sources.map((source) => (
               <Group key={source.id} gap="xs" wrap="nowrap" justify="space-between">
-                <Radio size="xs" value={source.id} label={source.label} />
-                {source.origin !== "builtin" && (
+                <Radio
+                  size="xs"
+                  value={source.id}
+                  label={source.label}
+                  description={source.origin === "tak" ? "From TAK" : undefined}
+                />
+                {(source.origin === "custom" || source.origin === "offline") && (
                   <ActionIcon
                     variant="subtle"
                     color="gray"

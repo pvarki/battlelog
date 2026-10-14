@@ -229,7 +229,7 @@ const SPOT_MAP = "COT_MAPPING_SPOTMAP";
 
 /**
  * The icon for an item's point, drawn on first use. ATAK `usericon` paths
- * draw from an imported icon set; until one is (or if none has the icon),
+ * draw from an imported icon set or TAK Server's; until one is (or if none has the icon),
  * they fall back like ATAK without the set to the 2525 symbol for the type.
  */
 export const iconFor = (map: MapLibreMap, item: TakItem, stale: boolean): MapImage => {
