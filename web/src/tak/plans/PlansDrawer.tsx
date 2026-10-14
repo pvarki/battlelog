@@ -4,6 +4,7 @@ import {
   Button,
   FileButton,
   Group,
+  Modal,
   ScrollArea,
   Stack,
   Text,
@@ -58,6 +59,7 @@ type Props = {
 const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: () => void }) => {
   const now = useNow(10_000);
   const [publishing, setPublishing] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const active = props.state.activeId === plan.id;
   const drafts = props.draftsOf(plan);
   const conflicts = drafts.filter((d) => d.conflict).length;
@@ -154,6 +156,46 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
           ))
         )}
       </ScrollArea>
+      <Stack gap={4}>
+        <Button
+          size="xs"
+          onClick={() => void publishAll()}
+          loading={publishing}
+          disabled={drafts.length === 0 || !!props.publishReason}
+          title={props.publishReason}
+        >
+          Publish {drafts.length} to TAK
+        </Button>
+        <Text fz="xs" c="dimmed">
+          Everyone on TAK sees the items now, and they leave the plan.
+        </Text>
+      </Stack>
+      {props.clientUid && (
+        <Stack gap={4}>
+          <PublishToMission
+            plan={plan}
+            drafts={drafts.map((d) => d.item)}
+            missions={props.missions}
+            clientUid={props.clientUid}
+            disabledReason={props.publishReason}
+          />
+          <Text fz="xs" c="dimmed">
+            Publishes them and files them in a mission, for those who follow it.
+          </Text>
+        </Stack>
+      )}
+      <Stack gap={4}>
+        <SendTo
+          what={plan.name}
+          contacts={props.contacts}
+          note="It arrives as a data package; the plan stays a draft here."
+          disabledReason={drafts.length === 0 ? "The plan is empty" : props.publishReason}
+          onSend={(callsigns) => sendPlan(plan, props.sender, callsigns)}
+        />
+        <Text fz="xs" c="dimmed">
+          Only the people you pick get a copy to import; nothing is published.
+        </Text>
+      </Stack>
       <Group gap="xs" grow>
         <Button
           size="xs"
@@ -181,41 +223,37 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
         >
           KML
         </Button>
-        <Button
-          size="xs"
-          variant="default"
-          color="danger"
-          leftSection={<IconTrash size={14} />}
-          onClick={() => deletePlan(plan)}
-        >
-          Discard
-        </Button>
       </Group>
-      <SendTo
-        what={plan.name}
-        contacts={props.contacts}
-        note="It arrives as a data package; the plan stays a draft here."
-        disabledReason={drafts.length === 0 ? "The plan is empty" : props.publishReason}
-        onSend={(callsigns) => sendPlan(plan, props.sender, callsigns)}
-      />
       <Button
         size="xs"
-        onClick={() => void publishAll()}
-        loading={publishing}
-        disabled={drafts.length === 0 || !!props.publishReason}
-        title={props.publishReason}
+        variant="subtle"
+        color="danger"
+        leftSection={<IconTrash size={14} />}
+        onClick={() => setDiscarding(true)}
       >
-        Publish {drafts.length} to TAK
+        Discard plan
       </Button>
-      {props.clientUid && (
-        <PublishToMission
-          plan={plan}
-          drafts={drafts.map((d) => d.item)}
-          missions={props.missions}
-          clientUid={props.clientUid}
-          disabledReason={props.publishReason}
-        />
-      )}
+      <Modal
+        opened={discarding}
+        onClose={() => setDiscarding(false)}
+        title={`Discard ${plan.name}?`}
+      >
+        <Stack gap="sm">
+          <Text fz="sm">
+            {drafts.length === 0
+              ? "The plan is empty."
+              : `Its ${drafts.length} draft${drafts.length === 1 ? "" : "s"} exist only in this browser and can't be recovered.`}
+          </Text>
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={() => setDiscarding(false)}>
+              Keep
+            </Button>
+            <Button color="danger" onClick={() => deletePlan(plan)}>
+              Discard
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 };

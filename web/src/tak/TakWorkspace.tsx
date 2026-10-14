@@ -14,13 +14,13 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import {
   IconAddressBook,
-  IconAlertTriangle,
   IconClipboardList,
   IconCurrentLocation,
   IconFolders,
   IconHistory,
   IconList,
   IconMessage,
+  IconPlugConnectedX,
   IconStack2,
 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
@@ -204,7 +204,8 @@ const withDrafts = (items: TakItem[], drafts: Draft[]) => {
 const ConnectionBanner = ({ status }: { status: TakStatus }) => {
   if (status.connection !== "down") return null;
   return (
-    <Alert color="danger" variant="filled" icon={<IconAlertTriangle size={18} />}>
+    // Amber and outlined: filled red is kept for emergencies, which must stand out above this.
+    <Alert color="warning" variant="outline" icon={<IconPlugConnectedX size={18} />}>
       {status.everConnected
         ? "Connection to TAK lost — reconnecting. The map shows the last known picture."
         : "Can't connect to TAK. Open BattleLog from the deploy app so your device certificate is used. TAK may also be unreachable."}
@@ -825,7 +826,7 @@ export const TakWorkspace = ({
               onClick={() => toggleDrawer(id)}
               title={embedded ? label : `${label} (${key})`}
             >
-              <Indicator label={badges[id]} size={16} color="red" disabled={!badges[id]}>
+              <Indicator label={badges[id]} size={16} color="primary" disabled={!badges[id]}>
                 <Icon size={20} stroke={1.5} />
               </Indicator>
               <span>{label}</span>

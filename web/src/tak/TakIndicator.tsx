@@ -8,7 +8,7 @@ import { type TakConnection, useTakStatus } from "./session.ts";
 const LOOK = {
   live: { Icon: IconPointFilled, c: "success.4", label: "TAK live" },
   connecting: { Icon: IconLoader2, c: "warning.4", label: "TAK connecting" },
-  down: { Icon: IconPlugConnectedX, c: "danger.4", label: "TAK disconnected" },
+  down: { Icon: IconPlugConnectedX, c: "warning.4", label: "TAK disconnected" },
 } as const;
 
 /** TAK health and the user's callsign in the header, while a TAK view is open. */
@@ -18,14 +18,8 @@ export const TakIndicator = () => {
   const previous = useRef<TakConnection>(connection);
 
   useEffect(() => {
-    if (connection === "down" && previous.current === "live") {
-      notifications.show({
-        color: "red",
-        title: "TAK connection lost",
-        message: "The map shows the last known picture until TAK is back.",
-        autoClose: 8000,
-      });
-    } else if (connection === "live" && previous.current === "down" && everConnected) {
+    // A lost connection already shows on the map and in the status bar; only the return is news.
+    if (connection === "live" && previous.current === "down" && everConnected) {
       notifications.show({ color: "teal", message: "TAK reconnected" });
     }
     previous.current = connection;
