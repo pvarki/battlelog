@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { strToU8, zipSync } from "fflate";
-import { expect, test } from "vitest";
-import { iconsetPath, parseIconset } from "./iconsets.ts";
+import { expect, test, vi } from "vitest";
+import { iconsetImage, iconsetPath, parseIconset } from "./iconsets.ts";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -65,4 +65,22 @@ test("oversized icons are never inflated", () => {
   expect(() => parseIconset(zipSync({ "iconset.xml": XML, "A/big.png": big }))).toThrow(
     "no PNG or JPEG",
   );
+});
+
+test("icons of sets not imported come from TAK, and a miss is asked for once", async () => {
+  const fetch = vi.fn(async (_url: string) => new Response(null, { status: 404 }));
+  vi.stubGlobal("fetch", fetch);
+  const path = "not-imported/Group/missing.png";
+  await vi.waitFor(() => {
+    iconsetImage(path);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  await new Promise((resolve) => setTimeout(resolve));
+  expect(iconsetImage(path)).toBeUndefined();
+  iconsetImage("COT_MAPPING_SPOTMAP/b-m-p-s-m/-65536");
+  expect(fetch).toHaveBeenCalledOnce();
+  expect(fetch.mock.calls[0]?.[0]).toMatch(
+    /\/Marti\/api\/icon\/not-imported\/Group\/missing\.png$/,
+  );
+  vi.unstubAllGlobals();
 });

@@ -168,7 +168,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   // Other tabs announce this same user; BattleLog never lists itself.
   const liveItems = picture.filter((i) => i.uid !== takSender(callsign).uid);
   const settings = useMapSettings();
-  const mapSources = useMapSources(settings.customSources);
+  const clientUid = callsign ? takSender(callsign).uid : undefined;
+  const mapSources = useMapSources(settings.customSources, clientUid);
   const sourceById = (id: string | null) => mapSources.find((s) => s.id === id);
   const basemap = sourceById(settings.basemap) ?? (sourceById(DEFAULT_BASEMAP) as MapSource);
   const overlaySource = sourceById(settings.overlay);
@@ -186,7 +187,6 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
-  const clientUid = callsign ? takSender(callsign).uid : undefined;
   useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])], clientUid);
   useMissionSubscriptions([...shownMissions], clientUid);
   const missions = useMissions();

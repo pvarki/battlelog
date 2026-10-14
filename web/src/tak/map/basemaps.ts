@@ -1,6 +1,7 @@
 import type { RasterSourceSpecification } from "maplibre-gl";
 import { type CustomSource, toMapSource } from "./custom-sources.ts";
 import { useOfflineMaps } from "./offline-maps.ts";
+import { useTakMapSources } from "./tak-sources.ts";
 
 /**
  * Background maps. Each is a raster tile source, so offline use later means
@@ -26,8 +27,8 @@ export type MapSource = {
   id: string;
   label: string;
   spec: RasterSourceSpecification;
-  /** Added in this browser, so the viewer may remove it. */
-  origin: "builtin" | "custom" | "offline";
+  /** custom and offline: added in this browser, so the viewer may remove them; tak: given by TAK Server. */
+  origin: "builtin" | "custom" | "offline" | "tak";
 };
 
 const mml = (label: string, wmtsLayer: string, format: "png" | "jpg", kapsiLayer: string) => ({
@@ -61,9 +62,13 @@ export const BUILTIN_SOURCES: MapSource[] = Object.entries(BASEMAPS).map(
 
 export const DEFAULT_BASEMAP = "topographic";
 
-/** Every map this viewer can choose: built in, added by URL, and offline files. */
-export const useMapSources = (custom: CustomSource[]): MapSource[] => [
+/** Every map this viewer can choose: built in, added by URL, offline files, and from TAK. */
+export const useMapSources = (
+  custom: CustomSource[],
+  clientUid: string | undefined,
+): MapSource[] => [
   ...BUILTIN_SOURCES,
-  ...custom.map(toMapSource),
+  ...custom.map((source) => toMapSource(source)),
   ...useOfflineMaps(),
+  ...useTakMapSources(clientUid),
 ];

@@ -1,11 +1,13 @@
 import { strFromU8, unzipSync } from "fflate";
 import { useSyncExternalStore } from "react";
+import { readCapped, TakRequestError, takBaseUrl } from "../rest.ts";
 
 /**
  * ATAK icon sets: zips of `iconset.xml` plus one folder of images per group.
  * Markers name an icon as `<iconset uid>/<group>/<file>`; ATAK finds it by
  * set uid and file name alone, so file names are unique within a set. Sets
- * are imported by the user and kept in this browser (IndexedDB).
+ * are imported by the user and kept in this browser (IndexedDB); icons of
+ * other sets are fetched from TAK Server, which may have them.
  */
 
 export type IconsetIcon = {
@@ -209,22 +211,58 @@ export type IconsetImage = { key: string; bitmap: ImageBitmap; natural: boolean 
 
 const bitmaps = new Map<string, ImageBitmap | "decoding" | "failed">();
 
+const fetchServerIcon = async ([uid, group, file]: string[]): Promise<ImageBitmap> => {
+  const path = `/Marti/api/icon/${[uid, group, file].map((s) => encodeURIComponent(s ?? "")).join("/")}`;
+  const res = await fetch(`${takBaseUrl()}${path}`, { credentials: "include" });
+  if (!res.ok) throw new TakRequestError(path, res.status);
+  const image = await readCapped(res, MAX_ICON_BYTES, () => new Error("Icon is too large"));
+  const mime = imageMime(image);
+  if (!mime) throw new Error("Icon is not a PNG or JPEG");
+  return createImageBitmap(new Blob([image], { type: mime }));
+};
+
+// By path, misses included: a set TAK doesn't have is asked for once per page, not per redraw.
+const serverIcons = new Map<string, IconsetImage | "fetching" | "missing">();
+
+/** An icon from a set only TAK Server has, fetched on first use. */
+const serverIcon = (segments: string[]): IconsetImage | undefined => {
+  const path = segments.join("/");
+  const cached = serverIcons.get(path);
+  if (cached) return typeof cached === "string" ? undefined : cached;
+  // COT_MAPPING_* paths name ATAK's built-in symbols, which no server set holds.
+  if (segments.length !== 3 || path.startsWith("COT_MAPPING_")) {
+    serverIcons.set(path, "missing");
+    return undefined;
+  }
+  serverIcons.set(path, "fetching");
+  fetchServerIcon(segments).then(
+    (bitmap) => {
+      serverIcons.set(path, { key: `tak|${path}`, bitmap, natural: false });
+      notify();
+    },
+    () => serverIcons.set(path, "missing"),
+  );
+  return undefined;
+};
+
 /**
  * The image for an ATAK `iconsetpath`, or undefined until its set is loaded
  * and the image decoded (listeners of onIconsetImage hear when it is), or
- * when no imported set has it.
+ * when neither an imported set nor TAK Server has it.
  */
 export const iconsetImage = (path: string): IconsetImage | undefined => {
   void load();
+  if (!state.loaded) return undefined;
   const segments = path.split("/");
   index ??= new Map(
     state.sets.map((s) => [s.uid, { set: s, icons: new Map(s.icons.map((i) => [i.file, i])) }]),
   );
   const indexed = index.get(segments[0] ?? "");
+  if (!indexed) return serverIcon(segments);
   const file = segments.length > 1 ? segments[segments.length - 1] : undefined;
-  const iconset = indexed?.set;
-  const icon = file === undefined ? undefined : indexed?.icons.get(file);
-  if (!iconset || !icon) return undefined;
+  const iconset = indexed.set;
+  const icon = file === undefined ? undefined : indexed.icons.get(file);
+  if (!icon) return undefined;
   const key = `${iconset.uid}|${iconset.imported}|${icon.file}`;
   const bitmap = bitmaps.get(key);
   if (bitmap instanceof ImageBitmap) return { key, bitmap, natural: iconset.skipResize };

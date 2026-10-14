@@ -119,7 +119,7 @@ export const TakMapView = ({
       callsign ? { ...takSender(callsign), team: settings.team, role: settings.role } : undefined,
     );
   }, [callsign, settings.team, settings.role]);
-  const sources = useMapSources(settings.customSources);
+  const sources = useMapSources(settings.customSources, callsign ? selfUid : undefined);
   const sourceById = (id: string | null | undefined) => sources.find((s) => s.id === id);
 
   // What a viewer changes with the layer toggles lasts until they leave the page.

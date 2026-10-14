@@ -51,23 +51,23 @@ export const tileUrls = (
   return { tiles, scheme };
 };
 
-const text = (root: Element, tag: string) =>
-  root.getElementsByTagName(tag)[0]?.textContent?.trim() || undefined;
+/** A map source's settings by ATAK's XML tag names, which TAK Server's map layers share. */
+export type SourceFields = (name: string) => string | undefined;
 
-const wmsUrl = (root: Element) => {
-  const base = text(root, "url");
-  const layers = text(root, "layers") ?? text(root, "layer");
+const wmsUrl = (text: SourceFields) => {
+  const base = text("url");
+  const layers = text("layers") ?? text("layer");
   if (!base || !layers) throw new MapSourceError("The WMS source has no url or layers.");
-  const crs = text(root, "coordinateSystem");
+  const crs = text("coordinateSystem");
   if (crs && !WEB_MERCATOR.has(crs.toUpperCase()))
     throw new MapSourceError(`Only Web Mercator WMS sources work here, not ${crs}.`);
-  const format = text(root, "format") ?? `image/${text(root, "tileType") ?? "png"}`;
+  const format = text("format") ?? `image/${text("tileType") ?? "png"}`;
   const query = new URLSearchParams({
     SERVICE: "WMS",
-    VERSION: text(root, "version") ?? "1.1.1",
+    VERSION: text("version") ?? "1.1.1",
     REQUEST: "GetMap",
     LAYERS: layers,
-    STYLES: text(root, "styles") ?? "",
+    STYLES: text("styles") ?? "",
     SRS: "EPSG:3857",
     WIDTH: "256",
     HEIGHT: "256",
@@ -78,28 +78,36 @@ const wmsUrl = (root: Element) => {
   return `${base}${joiner}${query}&BBOX={bbox-epsg-3857}`;
 };
 
+export const sourceFromFields = (text: SourceFields, wms: boolean, id: string): CustomSource => {
+  const template = wms ? wmsUrl(text) : text("url");
+  if (!template) throw new MapSourceError("The map source has no url.");
+  const serverParts = text("serverParts")?.split(/\s+/);
+  const { tiles, scheme } = tileUrls(template, serverParts);
+  const inverted = text("invertYCoordinate")?.toLowerCase() === "true";
+  return {
+    id,
+    label: text("name") ?? "Imported map",
+    tiles,
+    minzoom: zoom(text("minZoom"), 0),
+    maxzoom: zoom(text("maxZoom"), 19),
+    scheme: inverted ? "tms" : scheme,
+  };
+};
+
 /** ATAK's `<customMapSource>` / `<customWmsMapSource>` XML, as dropped into its imagery folder. */
 export const parseAtakMapSource = (xml: string, id: string): CustomSource => {
   const root = new DOMParser().parseFromString(xml, "application/xml").documentElement;
   const kind = root?.nodeName;
   if (kind !== "customMapSource" && kind !== "customWmsMapSource")
     throw new MapSourceError("Not an ATAK map source file.");
-  const template = kind === "customWmsMapSource" ? wmsUrl(root) : text(root, "url");
-  if (!template) throw new MapSourceError("The map source has no url.");
-  const serverParts = text(root, "serverParts")?.split(/\s+/);
-  const { tiles, scheme } = tileUrls(template, serverParts);
-  const inverted = text(root, "invertYCoordinate")?.toLowerCase() === "true";
-  return {
-    id,
-    label: text(root, "name") ?? "Imported map",
-    tiles,
-    minzoom: zoom(text(root, "minZoom"), 0),
-    maxzoom: zoom(text(root, "maxZoom"), 19),
-    scheme: inverted ? "tms" : scheme,
-  };
+  const text = (tag: string) => root.getElementsByTagName(tag)[0]?.textContent?.trim() || undefined;
+  return sourceFromFields(text, kind === "customWmsMapSource", id);
 };
 
-export const toMapSource = (source: CustomSource): MapSource => {
+export const toMapSource = (
+  source: CustomSource,
+  origin: MapSource["origin"] = "custom",
+): MapSource => {
   const spec: RasterSourceSpecification = {
     type: "raster",
     tiles: source.tiles,
@@ -108,5 +116,5 @@ export const toMapSource = (source: CustomSource): MapSource => {
     maxzoom: source.maxzoom,
     scheme: source.scheme,
   };
-  return { id: source.id, label: source.label, spec, origin: "custom" };
+  return { id: source.id, label: source.label, spec, origin };
 };
