@@ -1,4 +1,4 @@
-import type { Map as MapLibreMap } from "maplibre-gl";
+import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import {
   TerraDraw,
@@ -63,6 +63,30 @@ const drawnFrom = (
     return { kind: "circle", centre, radius: Math.round(distance(centre, ring[0] as Position)) };
   }
   return { kind: tool === "rectangle" ? "rectangle" : "polygon", points: ring };
+};
+
+// About a fingertip: how close a click must land on the first point to close a line there.
+const CLOSE_PX = 16;
+
+/**
+ * The line's points closed back to its start when `click` landed on the first
+ * point; undefined otherwise. terra-draw has already committed the click (and
+ * may hold a provisional copy of it), so trailing points at the click are dropped.
+ */
+export const closedAtStart = (
+  coordinates: Position[],
+  click: Position,
+  pixelDistance: (a: Position, b: Position) => number,
+): Position[] | undefined => {
+  const start = coordinates[0];
+  if (!start || pixelDistance(start, click) > CLOSE_PX) return undefined;
+  const points = [...coordinates];
+  while (
+    points.length > 1 &&
+    pixelDistance(points[points.length - 1] as Position, click) <= CLOSE_PX
+  )
+    points.pop();
+  return points.length >= 3 ? [...points, start] : undefined;
 };
 
 const selectFlags = (tool: Tool, item: TakItem) => {
@@ -185,8 +209,37 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       // One item at a time: stop drawing while the user names and styles it.
       terra.setMode("static");
     });
+    // ATAK closes a line by tapping its start point; terra-draw only finishes on the last one.
+    const closeAtStart = (e: MapMouseEvent) => {
+      const current = toolRef.current;
+      if (current !== "line" && current !== "route") return;
+      const drawing = terra
+        .getSnapshot()
+        .find((f) => f.geometry.type === "LineString" && f.properties.currentlyDrawing);
+      if (!drawing) return;
+      const pixels = (a: Position, b: Position) => map.project(a).dist(map.project(b));
+      const points = closedAtStart(
+        drawing.geometry.coordinates as Position[],
+        [e.lngLat.lng, e.lngLat.lat],
+        pixels,
+      );
+      if (!points) return;
+      terra.clear();
+      terra.setMode("static");
+      terra.addFeatures([
+        {
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: points },
+          properties: { mode: "linestring" },
+        },
+      ]);
+      sketch.set(undefined);
+      setDrawn({ kind: current, points });
+    };
+    map.on("click", closeAtStart);
     draw.current = terra;
     return () => {
+      map.off("click", closeAtStart);
       terra.stop();
       draw.current = undefined;
     };

@@ -27,11 +27,12 @@ const ICONS = {
 
 const HINT: Record<Tool, string> = {
   marker: "Click where the marker goes.",
-  line: "Click to add points; click the last point again to finish.",
+  line: "Click to add points; click the last point again to finish, or the first to close the line.",
   polygon: "Click to add corners; click the first corner to close.",
   rectangle: "Click one corner, then the opposite corner.",
   circle: "Click the centre, then click again at the edge.",
-  route: "Click each checkpoint in order; click the last one again to finish.",
+  route:
+    "Click each checkpoint in order; click the last one again to finish, or the first to make a loop.",
 };
 
 const SYMBOL_HINT = "Click where the symbol goes.";
