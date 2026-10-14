@@ -27,45 +27,32 @@ import {
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { api, type EventResponse } from "../api.ts";
 import { answerPick, cancelPick, usePickRequest } from "../map-pick.ts";
 import { ACCENT } from "../theme.ts";
 import { useIsMobile } from "../viewport.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
 import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
-import { deleteEvent, publish } from "./commands.ts";
+import { deleteEvent } from "./commands.ts";
 import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
 import { recipientGroups } from "./contacts/SendTo.tsx";
-import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
+import { type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
 import { DrawToolbar, UndoButton } from "./drawing/DrawToolbar.tsx";
 import { editGeometryEvent, editTarget } from "./drawing/edit-geometry.ts";
 import { MeasurePanel } from "./drawing/MeasurePanel.tsx";
 import { centreOfItems, movedEvent, offsetBetween } from "./drawing/move-items.ts";
-import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
-import {
-  newBullseyeEvent,
-  newMarkerEvent,
-  newRangeBearingEvent,
-  newRangeRingsEvent,
-  newRouteEvent,
-  newShapeEvent,
-  type ShapeStyle,
-} from "./drawing/new-items.ts";
-import { defaultRingsLook, RingsDialog, type RingsLook } from "./drawing/RingsDialog.tsx";
+import { newRangeBearingEvent } from "./drawing/new-items.ts";
+import { defaultRingsLook } from "./drawing/RingsDialog.tsx";
 import { SelectionPanel } from "./drawing/SelectionPanel.tsx";
-import { cotTypeOf, sidcOf } from "./drawing/symbol-catalogue.ts";
-import { TacticalGraphicDialog } from "./drawing/TacticalGraphicDialog.tsx";
-import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-graphics.ts";
 import { type Drawn, TOOLS, useDrawing } from "./drawing/useDrawing.ts";
+import { useDrawingWorkflow } from "./drawing/useDrawingWorkflow.tsx";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { EventDetails } from "./event-layers/EventDetails.tsx";
-import { EventLayerFeeds, type LayerEvents } from "./event-layers/EventLayerFeeds.tsx";
+import { EventLayerFeeds } from "./event-layers/EventLayerFeeds.tsx";
 import { EventLayersSection } from "./event-layers/EventLayersSection.tsx";
-import { featureCollection, layerFeatures } from "./event-layers/layers.ts";
-import { useEventLayers } from "./event-layers/store.ts";
+import { useShownEventLayers } from "./event-layers/useShownEventLayers.ts";
 import { takSender, useCallsign } from "./identity.ts";
 import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
@@ -78,10 +65,11 @@ import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
-import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
+import { useMissions, useMissionsSync } from "./missions/store.ts";
 import { useMissionSubscriptions } from "./missions/writes.ts";
+import { draftItems, workspacePicture } from "./picture.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
-import { addToPlan, draftOf, type Plan, removeFromPlan, usePlans } from "./plans/plans.ts";
+import { usePlans } from "./plans/plans.ts";
 import { OwnPositionPanel } from "./position/OwnPositionPanel.tsx";
 import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
@@ -95,7 +83,6 @@ import {
   sendCot,
   setTakPresence,
   type TakStatus,
-  takStore,
   useTakItems,
   useTakSession,
   useTakStatus,
@@ -104,8 +91,8 @@ import {
 import { useMapSettings } from "./settings.ts";
 import type { MapView, TakTool } from "./tools.ts";
 import { trackFeatures } from "./tracks.ts";
-import { describeStep, type UndoStep, undoEvents, withStep } from "./undo.ts";
-import { useNow } from "./use-now.ts";
+import { describeStep } from "./undo.ts";
+import { useTakWrites } from "./use-tak-writes.ts";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
@@ -123,95 +110,11 @@ const FIT_PADDING_PX = 60;
 // Close enough for a building-sized shape to fill the view; MML maps go to 19.
 const FIT_MAX_ZOOM = 18;
 
-const KIND_NAME: Record<Drawn["kind"], string> = {
-  marker: "Marker",
-  line: "Line",
-  polygon: "Area",
-  rectangle: "Rectangle",
-  circle: "Circle",
-  route: "Route",
-};
-
-/** How a shape looks while it's being drawn: the new-item dialog's defaults. */
-const PREVIEW_STYLE: ShapeStyle = {
-  name: "",
-  remarks: "",
-  stroke: "#ffff00",
-  strokeWeight: 3,
-  strokeStyle: "solid",
-  fillOpacity: 0.25,
-  labelsOn: false,
-};
 const WALL_SYMBOL_SCALE = 1.5;
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-
-/**
- * The live picture plus the items of missions shown on the map. A mission
- * item that is also live is the same uid; the live copy wins.
- */
-const withMissionItems = (live: TakItem[], missions: MissionsState, shown: ReadonlySet<string>) => {
-  const seen = new Set(live.map((i) => i.uid));
-  const extra: TakItem[] = [];
-  for (const [name, contents] of missions.contents) {
-    if (!shown.has(name) || contents.kind !== "loaded") continue;
-    for (const item of contents.items) {
-      if (!seen.has(item.uid)) {
-        seen.add(item.uid);
-        extra.push(item);
-      }
-    }
-  }
-  return extra.length ? [...live, ...extra] : live;
-};
-
-type Draft = { item: TakItem; conflict: boolean; deleted: boolean };
-
-/**
- * A plan's drafts as map items, named so they can't be mistaken for what TAK
- * has. A staged delete shows the item it removes, or what the delete names.
- */
-// One item per stored draft, so re-rendering doesn't hand the map "new" items that changed nothing.
-const draftItemCache = new WeakMap<CotEvent, TakItem>();
-const draftItemOf = (event: CotEvent, item: TakItem) => {
-  let cached = draftItemCache.get(event);
-  if (!cached) {
-    cached = { ...item, draft: true };
-    draftItemCache.set(event, cached);
-  }
-  return cached;
-};
-
-const draftItems = (plan: Plan, live: TakItem[]): Draft[] =>
-  plan.entries.flatMap(({ event, basedOn }): Draft[] => {
-    const change = toChange(event);
-    if (!change || change.kind === "offline") return [];
-    const current = live.find((i) => i.uid === event.uid);
-    const conflict = basedOn !== undefined && !!current && current.time > basedOn;
-    if (change.kind === "upsert")
-      return [{ item: draftItemOf(event, change.item), conflict, deleted: false }];
-    const item: TakItem = current ?? {
-      uid: event.uid,
-      type: event.type,
-      time: event.time,
-      stale: event.stale,
-      geometry: { type: "Point", coordinates: [0, 0] },
-      event,
-    };
-    return [{ item: { ...item, draft: true }, conflict, deleted: true }];
-  });
-
-/** Live items with the active plan's drafts in place of (or beside) them; staged deletes hide theirs. */
-const withDrafts = (items: TakItem[], drafts: Draft[]) => {
-  if (drafts.length === 0) return items;
-  const drafted = new Set(drafts.map((d) => d.item.uid));
-  return [
-    ...items.filter((i) => !drafted.has(i.uid)),
-    ...drafts.flatMap((d) => (d.deleted ? [] : [d.item])),
-  ];
-};
 
 const ConnectionBanner = ({ status }: { status: TakStatus }) => {
   if (status.connection !== "down") return null;
@@ -277,8 +180,6 @@ type Props = {
 export type Selection = { tak?: string; event?: string };
 
 const selectionKey = (s: Selection) => `${s.tak ?? ""}|${s.event ?? ""}`;
-
-const LAYER_CLOCK_MS = 60_000;
 
 /**
  * The TAK client: map, item list, layers and item details around one shared
@@ -358,94 +259,36 @@ export const TakWorkspace = ({
   const replaying = replay.windowMs !== undefined;
   const replayFrame = replaying ? replay.frame : undefined;
   const replayReason = replaying ? "Replaying history: go back to live to change TAK" : undefined;
-  const eventLayers = useEventLayers();
   const shownLayerIds = fixedEventLayers ? new Set(fixedEventLayers) : settings.shownEventLayers;
-  const shownLayers = (eventLayers ?? []).filter((l) => shownLayerIds.has(l.eventId));
-  const [layerEvents, setLayerEvents] = useState<ReadonlyMap<string, LayerEvents>>(new Map());
-  const onLayerEvents = (layerId: string, events: LayerEvents | undefined) =>
-    setLayerEvents((current) => {
-      if (current.get(layerId) === events) return current;
-      const next = new Map(current);
-      if (events) next.set(layerId, events);
-      else next.delete(layerId);
-      return next;
+  const {
+    eventLayers,
+    shownLayers,
+    layerEvents,
+    onLayerEvents,
+    eventFeatures,
+    selectedEvent,
+    truncatedLayers,
+  } = useShownEventLayers({ shownLayerIds, replayAt: replayFrame?.at, selectedEventId });
+  const { items, missionItem, currentItem } = workspacePicture({
+    replaying,
+    replayItems: replayFrame?.items,
+    selfUid: takSender(callsign).uid,
+    liveItems,
+    missions,
+    shownMissions,
+    activePlan,
+  });
+  const { submitAll, submit, readOnlyReason, canChange, latestStep, undoReason, undo } =
+    useTakWrites({
+      activePlan,
+      plans: plans.plans,
+      liveItems,
+      missionItem,
+      replaying,
+      replayReason,
+      callsign,
+      connection: status.connection,
     });
-  const layerClock = useNow(LAYER_CLOCK_MS);
-  const eventFeatures = featureCollection(
-    shownLayers.flatMap((layer) =>
-      layerFeatures(
-        layer,
-        layerEvents.get(layer.eventId)?.events ?? [],
-        replayFrame?.at ?? layerClock,
-      ),
-    ),
-  );
-  const shownEvent = (eventId: string | undefined) => {
-    if (!eventId) return undefined;
-    const drawn = eventFeatures.features.some((f) => f.properties.eventId === eventId);
-    if (!drawn) return undefined;
-    for (const layer of shownLayers) {
-      const found = layerEvents.get(layer.eventId)?.events.find((e) => e.eventId === eventId);
-      if (found) return found;
-    }
-  };
-  const drawnEvent = shownEvent(selectedEventId);
-  const drawn = !!drawnEvent;
-  // An event opened from elsewhere (an item's log entries) needn't be on a shown layer.
-  const [fetchedEvent, setFetchedEvent] = useState<EventResponse>();
-  useEffect(() => {
-    if (!selectedEventId || drawn) return;
-    let alive = true;
-    api.events[":eventId"]
-      .$get({ param: { eventId: selectedEventId } })
-      .then(async (res) => {
-        if (res.status === 200 && alive) setFetchedEvent(await res.json());
-      })
-      .catch((err: unknown) => console.warn("Loading the selected event failed", err));
-    return () => {
-      alive = false;
-    };
-  }, [selectedEventId, drawn]);
-  const selectedEvent =
-    drawnEvent ?? (fetchedEvent?.eventId === selectedEventId ? fetchedEvent : undefined);
-  const truncatedLayers = new Set(
-    [...layerEvents].flatMap(([id, events]) => (events.truncated ? [id] : [])),
-  );
-  // The rest of the workspace (contacts, chat, emergencies) stays live while replaying.
-  const items = replaying
-    ? (replayFrame?.items ?? []).filter((i) => i.uid !== takSender(callsign).uid)
-    : withDrafts(
-        withMissionItems(liveItems, missions, shownMissions),
-        activePlan ? draftItems(activePlan, liveItems) : [],
-      );
-  /** Where new items and changes go: the active plan, or straight to TAK. */
-  const send = (event: CotEvent) => {
-    if (!activePlan) return void publish(event);
-    const existing = liveItems.find((i) => i.uid === event.uid) ?? missionItem(event.uid);
-    const planned = activePlan.entries.some((e) => e.event.uid === event.uid);
-    // Deleting an item that exists only in the plan just drops its draft.
-    if (toChange(event)?.kind === "delete" && !existing && planned)
-      return removeFromPlan(activePlan, event.uid);
-    addToPlan(activePlan, { event, basedOn: existing?.time });
-  };
-  const [undoSteps, setUndoSteps] = useState<UndoStep[]>([]);
-  /** Sends one action's writes and remembers how to take them back. */
-  const submitAll = (events: CotEvent[]) => {
-    if (events.length === 0 || replaying) return;
-    // From the store and the stored plan: two quick changes would both see the last render's state.
-    const changes = events.map((after) => {
-      const draft = activePlan ? (draftOf(activePlan, after.uid) ?? null) : undefined;
-      const drafted = draft && toChange(draft.event);
-      const before =
-        (drafted?.kind === "upsert" ? drafted.item : undefined) ??
-        takStore.get(after.uid) ??
-        missionItem(after.uid);
-      return { before, after, draft };
-    });
-    setUndoSteps((steps) => withStep(steps, { planId: activePlan?.id, changes }));
-    for (const event of events) send(event);
-  };
-  const submit = (event: CotEvent) => submitAll([event]);
   const submitLabel = activePlan ? `Add to ${activePlan.name}` : "Save to TAK";
   const mapRef = useRef<MapLibreMap>(undefined);
   const [map, setMap] = useState<MapLibreMap>();
@@ -460,47 +303,7 @@ export const TakWorkspace = ({
   const [cursor] = useState(createCursor);
   const measure = useMeasure(map, cursor);
   const searchRef = useRef<HTMLInputElement>(null);
-  const missionItem = (uid: string) => {
-    for (const contents of missions.contents.values()) {
-      const found = contents.kind === "loaded" && contents.items.find((i) => i.uid === uid);
-      if (found) return found;
-    }
-  };
-  const currentItem = (uid: string) => items.find((i) => i.uid === uid) ?? missionItem(uid);
   const selected = selectedUid ? currentItem(selectedUid) : undefined;
-  const readOnlyReason = (item: TakItem) => {
-    if (replayReason) return replayReason;
-    if (item.team) return "A TAK user's own position comes from their device";
-    if (!callsign) return "No callsign: open BattleLog from the deploy app to change TAK items";
-    if (!activePlan && status.connection !== "live") return "Not connected to TAK";
-  };
-  const canChange = (item: TakItem) => !readOnlyReason(item);
-  const latestStep = undoSteps.at(-1);
-  const undoReason = replayReason
-    ? replayReason
-    : !callsign
-      ? "No callsign: open BattleLog from the deploy app to change TAK items"
-      : latestStep && latestStep.planId !== activePlan?.id
-        ? latestStep.planId
-          ? `The latest change went into plan ${plans.plans.find((p) => p.id === latestStep.planId)?.name ?? "(deleted)"}: make it active to undo it`
-          : "The latest change went straight to TAK: switch to Live to undo it"
-        : !activePlan && status.connection !== "live"
-          ? "Not connected to TAK"
-          : undefined;
-  const undo = () => {
-    if (!latestStep || undoReason) return;
-    setUndoSteps(undoSteps.slice(0, -1));
-    if (latestStep.planId && activePlan) {
-      // A plan's undo puts its drafts back as they were; re-staging old versions would publish them.
-      for (const { before, after, draft } of latestStep.changes) {
-        if (before && !canChange(before)) continue;
-        if (draft) addToPlan(activePlan, draft);
-        else removeFromPlan(activePlan, after.uid);
-      }
-      return;
-    }
-    for (const event of undoEvents(latestStep, canChange)) send(event);
-  };
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
   const [lassoing, setLassoing] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -583,26 +386,12 @@ export const TakWorkspace = ({
     .sort((a, b) => a.callsign.localeCompare(b.callsign));
   const nameFor = (label: string) =>
     `${label} ${liveItems.filter((i) => i.callsign?.startsWith(`${label} `)).length + 1}`;
-  const [tacticalLook, setTacticalLook] = useState<TacticalLook>();
-  const pointsOf = (shape: Drawn | undefined) => (shape && "points" in shape ? shape.points : []);
-  const tacticalPoints = pointsOf(drawing.drawn);
-  const tacticalEvent = (points: Position[], uid?: string) =>
-    drawing.graphic && tacticalLook
-      ? newTacticalGraphicEvent(drawing.graphic, points, tacticalLook, sender, Date.now(), uid)
-      : undefined;
-  const [chosenStyle, setChosenStyle] = useState<ShapeStyle>();
-  const ringsKind =
-    drawing.tool === "rings" || drawing.tool === "bullseye" ? drawing.tool : undefined;
-  const [ringsLook, setRingsLook] = useState<RingsLook>();
-  const ringsEvent = (uid?: string) => {
-    if (!ringsKind || !ringsLook || drawing.drawn?.kind !== "marker") return undefined;
-    const placed = { ...ringsLook, centre: drawing.drawn.position };
-    if (ringsKind === "rings") return newRangeRingsEvent(placed, sender, Date.now(), uid);
-    const rings = ringsLook.showRings
-      ? { spacing: ringsLook.spacing, count: ringsLook.count }
-      : undefined;
-    return newBullseyeEvent({ ...placed, rings }, sender, Date.now(), uid);
-  };
+  const {
+    previewOf: drawingPreview,
+    dialog: drawingDialog,
+    setTacticalLook,
+    setRingsLook,
+  } = useDrawingWorkflow({ drawing, sender, nameFor, submit, submitLabel });
   const movedPreview = (target: Position) => {
     const by = offsetBetween(centreOfItems(movableItems), target);
     return movableItems.flatMap((item) => {
@@ -610,103 +399,8 @@ export const TakWorkspace = ({
       return change?.kind === "upsert" ? [change.item] : [];
     });
   };
-  /** The shape being drawn as it will look once saved. */
-  const previewOf = (sketch: Drawn | undefined, cursor: Position | undefined): TakItem[] => {
-    if (movingGroup) return cursor ? movedPreview(cursor) : [];
-    const shape = drawing.drawn ?? sketch;
-    // A symbol chosen before placing rides under the pointer until the click.
-    const placing = drawing.tool === "marker" && !drawing.drawn ? drawing.symbol : undefined;
-    const event = placing
-      ? cursor &&
-        newMarkerEvent(
-          {
-            position: cursor,
-            name: "",
-            remarks: "",
-            kind: "symbol",
-            color: "",
-            symbol: { sidc: sidcOf(placing), type: cotTypeOf(placing) },
-          },
-          sender,
-          Date.now(),
-          "preview",
-        )
-      : ringsKind
-        ? ringsEvent("preview")
-        : drawing.graphic
-          ? pointsOf(shape).length > 1
-            ? tacticalEvent(pointsOf(shape), "preview")
-            : undefined
-          : shape && shape.kind !== "marker" && shape.kind !== "route"
-            ? newShapeEvent(
-                shape,
-                (drawing.drawn && chosenStyle) || {
-                  ...PREVIEW_STYLE,
-                  name: nameFor(KIND_NAME[shape.kind]),
-                },
-                sender,
-                Date.now(),
-                "preview",
-              )
-            : undefined;
-    const change = event && toChange(event);
-    if (change?.kind !== "upsert") return [];
-    return [placing ? { ...change.item, hideLabel: true } : change.item];
-  };
-  const newItemDialog = drawing.drawn && (
-    <NewItemDialog
-      drawn={drawing.drawn}
-      defaultName={nameFor(KIND_NAME[drawing.drawn.kind])}
-      onCancel={drawing.clear}
-      onStyle={setChosenStyle}
-      saveLabel={submitLabel}
-      initialSymbol={drawing.symbol}
-      onSaveShape={(style) => {
-        if (drawing.drawn && drawing.drawn.kind !== "marker" && drawing.drawn.kind !== "route")
-          submit(newShapeEvent(drawing.drawn, style, sender));
-        drawing.clear();
-      }}
-      onSaveMarker={(marker) => {
-        if (drawing.drawn?.kind === "marker")
-          submit(newMarkerEvent({ ...marker, position: drawing.drawn.position }, sender));
-        drawing.clear();
-      }}
-      onSaveRoute={(route) => {
-        if (drawing.drawn?.kind === "route")
-          submit(newRouteEvent({ ...route, points: drawing.drawn.points }, sender));
-        drawing.clear();
-      }}
-    />
-  );
-  const tacticalDialog = drawing.drawn && drawing.graphic && tacticalLook && (
-    <TacticalGraphicDialog
-      graphic={drawing.graphic}
-      pointCount={tacticalPoints.length}
-      value={tacticalLook}
-      onChange={setTacticalLook}
-      onCancel={drawing.clear}
-      saveLabel={submitLabel}
-      onSave={() => {
-        const event = tacticalEvent(tacticalPoints);
-        if (event) submit(event);
-        drawing.clear();
-      }}
-    />
-  );
-  const ringsDialog = ringsKind && ringsLook && drawing.drawn && (
-    <RingsDialog
-      kind={ringsKind}
-      value={ringsLook}
-      onChange={setRingsLook}
-      onCancel={drawing.clear}
-      saveLabel={submitLabel}
-      onSave={() => {
-        const event = ringsEvent();
-        if (event) submit(event);
-        drawing.clear();
-      }}
-    />
-  );
+  const previewOf = (sketch: Drawn | undefined, cursor: Position | undefined): TakItem[] =>
+    movingGroup ? (cursor ? movedPreview(cursor) : []) : drawingPreview(sketch, cursor);
   const callsignOf = (uid: string) => liveItems.find((i) => i.uid === uid)?.callsign;
   const missionsOf = (uid: string) =>
     (missions.missions ?? []).filter((m) => m.itemUids.includes(uid)).map((m) => m.name);
@@ -1325,7 +1019,7 @@ export const TakWorkspace = ({
         </>
       )}
 
-      {drawing.graphic ? tacticalDialog : ringsDialog || newItemDialog}
+      {drawingDialog}
       {!wall && (
         <StatusBar
           cursor={cursor}
