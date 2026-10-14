@@ -11,6 +11,8 @@ type Props = {
   callsign: string | null | undefined;
   coordFormat: CoordFormat;
   itemCount: number;
+  /** Where changes go when not straight to TAK. */
+  planName?: string;
 };
 
 export const CONNECTION_TEXT = {
@@ -21,7 +23,14 @@ export const CONNECTION_TEXT = {
 };
 
 /** The freshness line operators glance at: where the cursor is, and how current the picture is. */
-export const StatusBar = ({ status, callsign, cursor: pointer, coordFormat, itemCount }: Props) => {
+export const StatusBar = ({
+  status,
+  callsign,
+  cursor: pointer,
+  coordFormat,
+  itemCount,
+  planName,
+}: Props) => {
   const now = useNow(1000);
   const cursor = useCursor(pointer);
 
@@ -48,6 +57,10 @@ export const StatusBar = ({ status, callsign, cursor: pointer, coordFormat, item
       )}
       <Text fz="xs" c="dimmed">
         {itemCount} items
+      </Text>
+      {/* Where a change goes, visible with the drawing tools closed too. */}
+      <Text fz="xs" c={planName ? "accent.4" : "dimmed"} fw={planName ? 600 : undefined}>
+        {planName ? `Changes go to plan ${planName}` : "Changes go to TAK"}
       </Text>
       <Text fz="xs" ml="auto" c={callsign ? undefined : "warning.4"}>
         {callsign === undefined

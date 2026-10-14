@@ -20,6 +20,7 @@ import {
   IconHistory,
   IconList,
   IconMessage,
+  IconPencil,
   IconPlugConnectedX,
   IconStack2,
 } from "@tabler/icons-react";
@@ -274,6 +275,11 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const writerUid = callsign && !replaying ? sender.uid : undefined;
   const chatMessages = useChatMessages();
   // Remembered across reloads now that chat is: a restored message read yesterday stays read.
+  // Closed by default: most time on the map is spent watching it, not drawing on it.
+  const [drawOpen, setDrawOpen] = useLocalStorage({
+    key: "battlelog.tak.drawOpen",
+    defaultValue: false,
+  });
   const [chatReadAt, setChatReadAt] = useLocalStorage({
     key: "battlelog.tak.chatReadAt",
     defaultValue: 0,
@@ -378,6 +384,25 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     void loadTrack(uid);
   };
 
+  // Whatever is under way keeps its tools in view, whether or not they were opened.
+  const toolbarShown =
+    drawOpen ||
+    !!drawing.tool ||
+    !!drawing.editing ||
+    measure.active ||
+    lassoing ||
+    movingGroup ||
+    grouped.size > 0;
+  /** Closing the tools ends what they were doing, as Esc would; a drawn shape awaiting its dialog stays. */
+  const toggleDrawing = () => {
+    if (!toolbarShown) return setDrawOpen(true);
+    setDrawOpen(false);
+    measure.stop();
+    setLassoing(false);
+    clearGroup();
+    if (drawing.editing || !drawing.drawn) drawing.clear();
+  };
+
   const toggleDrawer = (id: DrawerId) => {
     setChatWith(undefined);
     setDrawer((open) => (open === id ? null : id));
@@ -408,6 +433,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       if (isTyping(e.target)) return;
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
+        setDrawOpen(true);
         undo();
         return;
       }
@@ -417,6 +443,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         searchRef.current?.focus();
       }
       if (e.key === "?") setShowShortcuts((open) => !open);
+      if (e.key.toLowerCase() === "d") toggleDrawing();
       if (e.key.toLowerCase() === "c" && selected) centreOn(selected);
       if (e.key.toLowerCase() === "c" && selectedEvent?.locationPoint)
         flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat]);
@@ -600,6 +627,15 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             </UnstyledButton>
           );
         })}
+        <UnstyledButton
+          className="tak-rail-button"
+          aria-pressed={toolbarShown}
+          onClick={toggleDrawing}
+          title="Drawing tools (D)"
+        >
+          <IconPencil size={20} stroke={1.5} />
+          <span>Draw</span>
+        </UnstyledButton>
       </nav>
 
       {!isMobile && drawer && (
@@ -693,7 +729,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         <ShortcutsDialog
           opened={showShortcuts}
           onClose={() => setShowShortcuts(false)}
-          drawers={drawers.map((id) => DRAWERS[id])}
+          drawers={[...drawers.map((id) => DRAWERS[id]), { label: "the drawing tools", key: "D" }]}
         />
         <div className="tak-overlay">
           <div className="tak-search-slot">
@@ -710,94 +746,96 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             {replaying && <ReplayBanner replay={replay} />}
             <ConnectionBanner status={status} />
           </div>
-          <DrawToolbar
-            tool={drawing.tool}
-            onChoose={(tool) => {
-              measure.stop();
-              setLassoing(false);
-              drawing.choose(tool);
-              if (tool === "rings" || tool === "bullseye")
-                setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
-            }}
-            graphic={drawing.graphic}
-            symbol={drawing.symbol}
-            onChooseSymbol={(symbol) => {
-              measure.stop();
-              drawing.choose("marker", undefined, symbol);
-            }}
-            onChooseGraphic={(graphic) => {
-              measure.stop();
-              drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
-              if (graphic)
-                setTacticalLook({
-                  name: nameFor(graphic.name),
-                  affiliation: "friendly",
-                  remarks: "",
-                });
-            }}
-            disabledReason={activePlan ? replayReason : drawReason}
-            planName={activePlan?.name}
-            editing={
-              drawing.editing && {
-                name: labelOf(drawing.editing),
-                saveLabel: submitLabel,
-                onCancel: drawing.clear,
-                onSave: () => {
-                  const item = drawing.editing;
-                  const edited = drawing.edited();
-                  if (item && edited) submit(editGeometryEvent(item, edited));
-                  drawing.clear();
-                },
-              }
-            }
-            selection={
-              groupItems.length > 0 ? (
-                <SelectionPanel
-                  count={groupItems.length}
-                  movable={movableItems.length}
-                  deletable={deletableItems.length}
-                  moving={movingGroup}
-                  onMove={() => setMovingGroup(true)}
-                  onCancelMove={() => setMovingGroup(false)}
-                  onDelete={() => {
-                    submitAll(deletableItems.map((item) => deleteEvent(item)));
-                    clearGroup();
-                  }}
-                  onClear={clearGroup}
-                  planName={activePlan?.name}
-                >
-                  {undoButton}
-                </SelectionPanel>
-              ) : undefined
-            }
-            undo={undoButton}
-            measuring={measure.active}
-            lassoing={lassoing}
-            onToggleLasso={() => {
-              measure.stop();
-              drawing.choose(undefined);
-              setLassoing(!lassoing);
-            }}
-            onToggleMeasure={() => {
-              if (measure.active) return measure.stop();
-              drawing.choose(undefined);
-              measure.start();
-            }}
-          >
-            <MeasurePanel
-              points={measure.points}
-              closed={measure.closed}
-              onClosedChange={measure.setClosed}
-              cursor={cursor}
-              onClear={measure.clear}
-              onSave={() => {
-                const [from, to] = measure.points;
-                if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
+          {toolbarShown && (
+            <DrawToolbar
+              tool={drawing.tool}
+              onChoose={(tool) => {
                 measure.stop();
+                setLassoing(false);
+                drawing.choose(tool);
+                if (tool === "rings" || tool === "bullseye")
+                  setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
               }}
-              saveDisabledReason={activePlan ? replayReason : drawReason}
-            />
-          </DrawToolbar>
+              graphic={drawing.graphic}
+              symbol={drawing.symbol}
+              onChooseSymbol={(symbol) => {
+                measure.stop();
+                drawing.choose("marker", undefined, symbol);
+              }}
+              onChooseGraphic={(graphic) => {
+                measure.stop();
+                drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
+                if (graphic)
+                  setTacticalLook({
+                    name: nameFor(graphic.name),
+                    affiliation: "friendly",
+                    remarks: "",
+                  });
+              }}
+              disabledReason={activePlan ? replayReason : drawReason}
+              planName={activePlan?.name}
+              editing={
+                drawing.editing && {
+                  name: labelOf(drawing.editing),
+                  saveLabel: submitLabel,
+                  onCancel: drawing.clear,
+                  onSave: () => {
+                    const item = drawing.editing;
+                    const edited = drawing.edited();
+                    if (item && edited) submit(editGeometryEvent(item, edited));
+                    drawing.clear();
+                  },
+                }
+              }
+              selection={
+                groupItems.length > 0 ? (
+                  <SelectionPanel
+                    count={groupItems.length}
+                    movable={movableItems.length}
+                    deletable={deletableItems.length}
+                    moving={movingGroup}
+                    onMove={() => setMovingGroup(true)}
+                    onCancelMove={() => setMovingGroup(false)}
+                    onDelete={() => {
+                      submitAll(deletableItems.map((item) => deleteEvent(item)));
+                      clearGroup();
+                    }}
+                    onClear={clearGroup}
+                    planName={activePlan?.name}
+                  >
+                    {undoButton}
+                  </SelectionPanel>
+                ) : undefined
+              }
+              undo={undoButton}
+              measuring={measure.active}
+              lassoing={lassoing}
+              onToggleLasso={() => {
+                measure.stop();
+                drawing.choose(undefined);
+                setLassoing(!lassoing);
+              }}
+              onToggleMeasure={() => {
+                if (measure.active) return measure.stop();
+                drawing.choose(undefined);
+                measure.start();
+              }}
+            >
+              <MeasurePanel
+                points={measure.points}
+                closed={measure.closed}
+                onClosedChange={measure.setClosed}
+                cursor={cursor}
+                onClear={measure.clear}
+                onSave={() => {
+                  const [from, to] = measure.points;
+                  if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
+                  measure.stop();
+                }}
+                saveDisabledReason={activePlan ? replayReason : drawReason}
+              />
+            </DrawToolbar>
+          )}
         </div>
         {replaying && <ReplayBar replay={replay} />}
         {chooser && (
@@ -852,6 +890,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         callsign={callsign}
         coordFormat={settings.coordFormat}
         itemCount={items.length}
+        planName={activePlan?.name}
       />
     </div>
   );
