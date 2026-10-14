@@ -22,6 +22,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api, type EventResponse } from "../../api.ts";
+import { useIsMobile } from "../../dashboard/mobile.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
@@ -285,10 +286,17 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
 
   const visible = config.fields.filter((f): f is VisibleField => f.kind !== "fixed");
 
+  const isMobile = useIsMobile();
   return (
     <>
       <FormPrint fields={config.fields} />
-      <Modal opened={!!picking?.inModal} onClose={stopPicking} title="Pick a location" size="xl">
+      <Modal
+        opened={!!picking?.inModal}
+        onClose={stopPicking}
+        title="Pick a location"
+        size="xl"
+        fullScreen={isMobile}
+      >
         <Stack gap="xs">
           <Button
             size="xs"
