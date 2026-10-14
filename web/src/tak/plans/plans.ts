@@ -163,22 +163,26 @@ export const addToPlan = (plan: Plan, entry: PlanEntry) => {
 export const removeFromPlan = (plan: Plan, uid: string) =>
   save({ ...plan, entries: plan.entries.filter((e) => e.event.uid !== uid) });
 
+/** The plan with every draft re-issued now, keeping each one's lifetime, so receivers take it as current. */
+export const reissuePlan = (plan: Plan, now = Date.now()): Plan => ({
+  ...plan,
+  entries: plan.entries.map((entry) => ({
+    ...entry,
+    event: {
+      ...entry.event,
+      time: now,
+      start: now,
+      stale: now + (entry.event.stale - entry.event.time),
+    },
+  })),
+});
+
 /**
  * Sends every draft to TAK, re-issued now. Drafts TAK confirms leave the plan;
  * the rest stay so nothing is lost. Returns how many went out.
  */
 export const publishPlan = async (plan: Plan): Promise<{ sent: number; kept: number }> => {
-  const now = Date.now();
-  const results = await Promise.all(
-    plan.entries.map((entry) =>
-      publish({
-        ...entry.event,
-        time: now,
-        start: now,
-        stale: now + (entry.event.stale - entry.event.time),
-      }),
-    ),
-  );
+  const results = await Promise.all(reissuePlan(plan).entries.map((entry) => publish(entry.event)));
   const published = new Set(plan.entries.filter((_, i) => results[i]));
   // Drafts added or changed while publishing aren't the ones TAK confirmed: keep them.
   const current = state.plans.find((p) => p.id === plan.id);

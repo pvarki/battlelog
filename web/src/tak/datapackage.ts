@@ -1,5 +1,6 @@
 import { zipSync } from "fflate";
 import type { CotEvent, TakItem } from "./cot.ts";
+import type { Sender } from "./drawing/new-items.ts";
 import { FILE_SHARE_TYPE, sha256Hex } from "./inbox/fileshare.ts";
 import { labelOf } from "./items.ts";
 import { safeZipName } from "./plans/plans.ts";
@@ -45,7 +46,7 @@ export const attachmentPackage = (
 /** The file-share announcement; no recipients means every TAK user in the sender's groups. */
 export const fileShareEvent = (
   share: { fileName: string; hash: string; size: number; name: string },
-  sender: { uid: string; callsign: string },
+  sender: Sender,
   recipients: string[],
   now = Date.now(),
 ): CotEvent => {
@@ -67,6 +68,35 @@ export const fileShareEvent = (
   };
 };
 
+/**
+ * Uploads a data package to TAK and announces it to `recipients` (callsigns;
+ * empty = everyone), the way ATAK sends a package to chosen contacts.
+ */
+export const sendDataPackage = async (
+  zip: Uint8Array<ArrayBuffer>,
+  zipName: string,
+  name: string,
+  sender: Sender,
+  recipients: string[],
+) => {
+  const hash = await sha256Hex(zip);
+  const form = new FormData();
+  form.append("assetfile", new Blob([zip], { type: "application/x-zip-compressed" }), zipName);
+  const query = new URLSearchParams({ hash, filename: zipName, creatorUid: sender.uid });
+  const res = await fetch(`${takBaseUrl()}/Marti/sync/missionupload?${query}`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  if (!res.ok) throw new TakRequestError("/Marti/sync/missionupload", res.status);
+  const announcement = fileShareEvent(
+    { fileName: zipName, hash, size: zip.length, name },
+    sender,
+    recipients,
+  );
+  if (!sendCot(announcement)) throw new Error("Not connected to TAK");
+};
+
 /** Packages the photo for the item, uploads it and announces it to `recipients` (callsigns; empty = everyone). */
 export const sendPhotoPackage = async (
   item: TakItem,
@@ -76,26 +106,11 @@ export const sendPhotoPackage = async (
 ) => {
   const fileName = photo.name || "photo.jpg";
   const zip = attachmentPackage(item, fileName, new Uint8Array(await photo.arrayBuffer()));
-  const hash = await sha256Hex(zip.slice());
-  const zipName = `${fileName.replace(/\.[^.]*$/, "")}.zip`;
-  const senderUid = `BattleLog-${callsign}`;
-  const form = new FormData();
-  form.append(
-    "assetfile",
-    new Blob([zip.slice()], { type: "application/x-zip-compressed" }),
-    zipName,
-  );
-  const query = new URLSearchParams({ hash, filename: zipName, creatorUid: senderUid });
-  const res = await fetch(`${takBaseUrl()}/Marti/sync/missionupload?${query}`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
-  });
-  if (!res.ok) throw new TakRequestError("/Marti/sync/missionupload", res.status);
-  const announcement = fileShareEvent(
-    { fileName: zipName, hash, size: zip.length, name: `${labelOf(item)}: ${fileName}` },
-    { uid: senderUid, callsign },
+  await sendDataPackage(
+    zip.slice(),
+    `${fileName.replace(/\.[^.]*$/, "")}.zip`,
+    `${labelOf(item)}: ${fileName}`,
+    { uid: `BattleLog-${callsign}`, callsign },
     recipients,
   );
-  if (!sendCot(announcement)) throw new Error("Not connected to TAK");
 };

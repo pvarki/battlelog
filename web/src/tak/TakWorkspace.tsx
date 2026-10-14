@@ -30,6 +30,7 @@ import { type ChatRecipient, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
 import { publish } from "./commands.ts";
 import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
+import { recipientGroups } from "./contacts/SendTo.tsx";
 import { type CotEvent, type Position, type TakItem, toChange } from "./cot.ts";
 import { sendTestMarker } from "./dev-test-write.ts";
 import { DrawToolbar } from "./drawing/DrawToolbar.tsx";
@@ -326,13 +327,9 @@ export const TakWorkspace = ({
     if (!callsign) return "No callsign: open BattleLog from the deploy app to change TAK items";
     if (!activePlan && status.connection !== "live") return "Not connected to TAK";
   };
-  const contacts = [
-    ...new Set(
-      liveItems.flatMap((i) =>
-        i.team && i.callsign && i.callsign !== callsign ? [i.callsign] : [],
-      ),
-    ),
-  ].sort();
+  const contacts = recipientGroups(
+    liveItems.filter((i) => i.team && i.callsign && i.callsign !== callsign),
+  );
   const drawReason = !callsign
     ? "No callsign: open BattleLog from the deploy app to draw on TAK"
     : status.connection !== "live"
@@ -558,6 +555,7 @@ export const TakWorkspace = ({
         onPick={pick}
         publishReason={drawReason}
         sender={sender}
+        contacts={contacts}
       />
     ) : id === "missions" ? (
       <MissionsDrawer
@@ -611,6 +609,7 @@ export const TakWorkspace = ({
       readOnlyReason={readOnlyReason(selected)}
       callsign={callsign}
       contacts={contacts}
+      sendReason={drawReason}
       onSubmit={submit}
       submitLabel={submitLabel}
       onEditShape={
@@ -621,7 +620,7 @@ export const TakWorkspace = ({
             }
           : undefined
       }
-      livePhotos={!activePlan}
+      planActive={!!activePlan}
       tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
       onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}
       onCenter={() => flyTo(anchorOf(selected))}
