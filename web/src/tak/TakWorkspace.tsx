@@ -22,6 +22,7 @@ import {
   IconMessage,
   IconPencil,
   IconPlugConnectedX,
+  IconSettings,
   IconStack2,
 } from "@tabler/icons-react";
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
@@ -62,6 +63,7 @@ import { centreOnItem, flyToPosition } from "./map/camera.ts";
 import { createCursor } from "./map/cursor.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
+import { MapImageButton } from "./map/MapImageButton.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { useMissions, useMissionsSync } from "./missions/store.ts";
@@ -74,6 +76,7 @@ import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
 import { DEFAULT_REPLAY_WINDOW_MS, useReplay } from "./replay/useReplay.ts";
 import { SearchBox } from "./SearchBox.tsx";
+import { SettingsDrawer } from "./SettingsDrawer.tsx";
 import { ShortcutsDialog } from "./ShortcutsDialog.tsx";
 import { StatusBar } from "./StatusBar.tsx";
 import {
@@ -101,6 +104,7 @@ const DRAWERS = {
   layers: { label: "Layers", Icon: IconStack2, key: "4" },
   chat: { label: "Chat", Icon: IconMessage, key: "5" },
   contacts: { label: "Contacts", Icon: IconAddressBook, key: "6" },
+  settings: { label: "Settings", Icon: IconSettings, key: "7" },
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
@@ -519,13 +523,12 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         hidden={settings.hidden}
         onToggleGroup={settings.toggleGroup}
       />
-    ) : (
+    ) : id === "layers" ? (
       <LayersDrawer
         settings={settings}
         sources={mapSources}
         map={map}
         basemap={basemap}
-        clientUid={writerUid}
         eventLayers={
           <EventLayersSection
             layers={eventLayers}
@@ -534,7 +537,9 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             truncated={truncatedLayers}
           />
         }
-      >
+      />
+    ) : (
+      <SettingsDrawer settings={settings} clientUid={writerUid}>
         {import.meta.env.DEV && callsign && (
           <Button
             size="xs"
@@ -547,7 +552,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             Dev: send test marker at map centre
           </Button>
         )}
-      </LayersDrawer>
+      </SettingsDrawer>
     );
 
   const undoButton = (
@@ -616,6 +621,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             <UnstyledButton
               key={id}
               className="tak-rail-button"
+              data-end={id === "settings" || undefined}
               aria-pressed={drawer === id}
               onClick={() => toggleDrawer(id)}
               title={`${label} (${key})`}
@@ -714,6 +720,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
               >
                 <IconHistory size={18} />
               </ActionIcon>
+              {map && <MapImageButton map={map} coordFormat={settings.coordFormat} />}
             </div>,
             mapControls,
           )}

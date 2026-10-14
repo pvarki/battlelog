@@ -20,7 +20,15 @@ import {
 import { type MouseEvent, type ReactNode, useState } from "react";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
-import { describeType, formatAge, labelOf, STATUS_LABEL, statusOf, teamColor } from "../items.ts";
+import {
+  describeType,
+  formatAge,
+  type ItemStatus,
+  labelOf,
+  STATUS_LABEL,
+  statusOf,
+  teamColor,
+} from "../items.ts";
 import { groupOf, groupTree, isHidden, type Group as OverlayGroup } from "../overlays.ts";
 import { kmlBlob } from "../plans/overlay-files.ts";
 import { useNow } from "../use-now.ts";
@@ -47,6 +55,19 @@ const matches = (item: TakItem, query: string) => {
 const byName = (a: TakItem, b: TakItem) =>
   (a.team ?? "").localeCompare(b.team ?? "") ||
   labelOf(a).localeCompare(labelOf(b), undefined, { numeric: true });
+
+/** Stale or disconnected; nothing while online. */
+export const StatusBadge = ({ status }: { status: ItemStatus }) =>
+  status === "online" ? null : (
+    <Badge
+      size="xs"
+      variant="outline"
+      color={status === "offline" ? "gray" : "warning"}
+      style={{ flexShrink: 0 }}
+    >
+      {STATUS_LABEL[status]}
+    </Badge>
+  );
 
 export const ItemRow = ({
   item,
@@ -89,11 +110,7 @@ export const ItemRow = ({
           <Text fz="xs" c="dimmed">
             {formatAge(now - item.time)}
           </Text>
-          {status !== "online" && (
-            <Badge size="xs" variant="outline" color={status === "offline" ? "gray" : "warning"}>
-              {STATUS_LABEL[status]}
-            </Badge>
-          )}
+          <StatusBadge status={status} />
         </Stack>
       </Group>
     </UnstyledButton>

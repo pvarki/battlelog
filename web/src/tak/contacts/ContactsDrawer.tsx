@@ -1,16 +1,16 @@
-import { ActionIcon, Badge, Group, ScrollArea, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Group, ScrollArea, Stack, Text, TextInput } from "@mantine/core";
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Position, TakItem } from "../cot.ts";
 import { formatBearing } from "../drawing/measure.ts";
 import { bearing, distance, formatDistance } from "../geo.ts";
+import { StatusBadge } from "../items/ItemsDrawer.tsx";
 import {
   anchorOf,
   formatAge,
   hasPosition,
   type ItemStatus,
-  STATUS_LABEL,
   shortDevice,
   statusOf,
   teamColor,
@@ -76,20 +76,14 @@ const ContactRow = ({
     <div className="tak-row" data-faded={status !== "online" || undefined}>
       <Group gap="xs" wrap="nowrap" justify="space-between">
         <Stack gap={0} style={{ minWidth: 0 }}>
-          <Text fz="sm" fw={600} truncate>
-            {contact.callsign ?? contact.uid}
-          </Text>
-          <Text fz="xs" c="dimmed" truncate>
-            {details.join(" · ")}
-          </Text>
-          <Text component="div" fz="xs" c="dimmed" truncate>
-            {status === "online" ? (
-              `seen ${formatAge(now - contact.time)} ago`
-            ) : (
-              <Badge size="xs" variant="outline" color={status === "offline" ? "gray" : "warning"}>
-                {STATUS_LABEL[status]} · {formatAge(now - contact.time)}
-              </Badge>
-            )}
+          <Group gap={6} wrap="nowrap">
+            <Text fz="sm" fw={600} truncate>
+              {contact.callsign ?? contact.uid}
+            </Text>
+            <StatusBadge status={status} />
+          </Group>
+          <Text fz="xs" c="dimmed">
+            {formatAge(now - contact.time)} ago
             {at && from && (
               <span className="tak-mono">
                 {" · "}
@@ -97,6 +91,11 @@ const ContactRow = ({
               </span>
             )}
           </Text>
+          {details.length > 0 && (
+            <Text fz="xs" c="dimmed" truncate>
+              {details.join(" · ")}
+            </Text>
+          )}
         </Stack>
         <Group gap={2} wrap="nowrap" style={{ flexShrink: 0 }}>
           <ActionIcon

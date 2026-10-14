@@ -9,18 +9,19 @@ import {
   Stack,
   Text,
   TextInput,
+  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconArrowLeft, IconDownload, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
-import { formatDateTime } from "../../time.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
 import type { Sender } from "../identity.ts";
 import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
+import { count, formatAge } from "../items.ts";
 import type { Mission } from "../missions/missions.ts";
 import { sendPlan } from "../send.ts";
 import { useNow } from "../use-now.ts";
@@ -262,17 +263,15 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
 /** Plans: drafts kept in this browser and published to TAK together. */
 export const PlansDrawer = (props: Props) => {
   const [openId, setOpenId] = useState<string>();
+  const now = useNow(60_000);
   const open = props.state.plans.find((p) => p.id === openId);
   if (open) return <PlanDetail {...props} plan={open} onBack={() => setOpenId(undefined)} />;
   return (
     <Stack gap="xs" h="100%">
-      <Group gap="xs" grow>
-        <Button
-          size="xs"
-          onClick={() => setOpenId(createPlan(`Plan ${props.state.plans.length + 1}`).id)}
-        >
-          New plan
-        </Button>
+      <Group justify="space-between" wrap="nowrap">
+        <Text fz="xs" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
+          Drafts to publish to TAK.
+        </Text>
         <FileButton
           accept={IMPORT_ACCEPT}
           multiple
@@ -290,11 +289,21 @@ export const PlansDrawer = (props: Props) => {
           }
         >
           {(p) => (
-            <Button {...p} size="xs" variant="default" leftSection={<IconUpload size={14} />}>
-              Import
-            </Button>
+            <Tooltip label="Import a data package, KML, GPX, GeoJSON or shapefile" withArrow>
+              <ActionIcon {...p} variant="subtle" color="gray" aria-label="Import a plan">
+                <IconUpload size={16} />
+              </ActionIcon>
+            </Tooltip>
           )}
         </FileButton>
+        <Button
+          size="xs"
+          variant="default"
+          leftSection={<IconPlus size={14} />}
+          onClick={() => setOpenId(createPlan(`Plan ${props.state.plans.length + 1}`).id)}
+        >
+          New plan
+        </Button>
       </Group>
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         <InboxSection onOpenPlan={setOpenId} />
@@ -317,7 +326,7 @@ export const PlansDrawer = (props: Props) => {
                 )}
               </Group>
               <Text fz="xs" c="dimmed">
-                {plan.entries.length} items · edited {formatDateTime(plan.updated)}
+                {count(plan.entries.length, "item")} · edited {formatAge(now - plan.updated)} ago
               </Text>
             </UnstyledButton>
           ))

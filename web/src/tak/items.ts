@@ -178,6 +178,9 @@ export const describeType = (item: TakItem): string => {
 export const shortDevice = (device: string): string => device.replace(/\s*\(.*$/, "");
 
 /** "12 s", "4 min", "3 h", "2 d" ago. */
+/** "1 item", "2 items": for nouns that take an s. */
+export const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
 export const formatAge = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000));
   if (s < 60) return `${s} s`;

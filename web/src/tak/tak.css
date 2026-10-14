@@ -33,6 +33,11 @@
   font-size: 12px;
 }
 
+/* Settings sits apart from the drawers about the picture. */
+.tak-workspace:not([data-mobile]) .tak-rail-button[data-end] {
+  margin-top: auto;
+}
+
 .tak-rail-button:hover {
   background: var(--mantine-color-dark-5);
   color: var(--mantine-color-dark-0);
@@ -163,7 +168,7 @@
 }
 
 .tak-group-heading {
-  margin: 10px 4px 4px;
+  margin: 10px 0 4px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;

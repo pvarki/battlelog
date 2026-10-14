@@ -13,7 +13,7 @@ import { useLocalStorage } from "@mantine/hooks";
 import { IconEye, IconEyeOff, IconListTree, IconLock } from "@tabler/icons-react";
 import { useEffect } from "react";
 import type { TakItem } from "../cot.ts";
-import { formatAge } from "../items.ts";
+import { count, formatAge } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { missionTree, useMissionParents } from "./hierarchy.ts";
 import { MissionDetail } from "./MissionDetail.tsx";
@@ -36,8 +36,6 @@ export type MissionsDrawerProps = {
   /** Who this browser writes to TAK as; undefined without a callsign. */
   clientUid: string | undefined;
 };
-
-const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 const ShowToggle = ({
   mission,
