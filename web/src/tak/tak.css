@@ -343,8 +343,26 @@
   z-index: 2;
 }
 
-.tak-locate[aria-pressed="true"] {
+.tak-locate[aria-pressed="true"],
+.tak-replay[aria-pressed="true"] {
   color: #8abbff;
+}
+
+.tak-replay {
+  position: absolute;
+  top: 146px;
+  right: 10px;
+  z-index: 2;
+}
+
+/* Above MapLibre's scale and attribution, which share the bottom of the map. */
+.tak-replay-bar {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, calc(100% - 20px));
+  z-index: 2;
 }
 
 /* ATAK's self marker: an arrow unlike any team member's dot. */

@@ -18,6 +18,7 @@ import {
   IconClipboardList,
   IconCurrentLocation,
   IconFolders,
+  IconHistory,
   IconList,
   IconMessage,
   IconStack2,
@@ -71,6 +72,8 @@ import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { addToPlan, type Plan, removeFromPlan, usePlans } from "./plans/plans.ts";
 import { OwnPositionPanel } from "./position/OwnPositionPanel.tsx";
 import { useOwnPosition } from "./position/useOwnPosition.ts";
+import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
+import { DEFAULT_REPLAY_WINDOW_MS, useReplay } from "./replay/useReplay.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { CONNECTION_TEXT, StatusBar } from "./StatusBar.tsx";
 import {
@@ -293,12 +296,20 @@ export const TakWorkspace = ({
   const plans = usePlans();
   // Without the plans tool there's no sign of a plan, so nothing may quietly go into one.
   const activePlan = has("plans") ? plans.plans.find((p) => p.id === plans.activeId) : undefined;
-  const items = withDrafts(
-    withMissionItems(liveItems, missions, shownMissions),
-    activePlan ? draftItems(activePlan, liveItems) : [],
-  );
+  const replay = useReplay();
+  const replaying = replay.windowMs !== undefined;
+  const replayFrame = replaying ? replay.frame : undefined;
+  const replayReason = replaying ? "Replaying history: go back to live to change TAK" : undefined;
+  // The rest of the workspace (contacts, chat, emergencies) stays live while replaying.
+  const items = replaying
+    ? (replayFrame?.items ?? []).filter((i) => i.uid !== takSender(callsign).uid)
+    : withDrafts(
+        withMissionItems(liveItems, missions, shownMissions),
+        activePlan ? draftItems(activePlan, liveItems) : [],
+      );
   /** Where new items and changes go: the active plan, or straight to TAK. */
   const submit = (event: CotEvent) => {
+    if (replaying) return;
     if (!activePlan) return void publish(event);
     const existing = liveItems.find((i) => i.uid === event.uid) ?? missionItem(event.uid);
     const planned = activePlan.entries.some((e) => e.event.uid === event.uid);
@@ -328,6 +339,7 @@ export const TakWorkspace = ({
     ? (items.find((i) => i.uid === selectedUid) ?? missionItem(selectedUid))
     : undefined;
   const readOnlyReason = (item: TakItem) => {
+    if (replayReason) return replayReason;
     if (item.team) return "A TAK user's own position comes from their device";
     if (!callsign) return "No callsign: open BattleLog from the deploy app to change TAK items";
     if (!activePlan && status.connection !== "live") return "Not connected to TAK";
@@ -335,11 +347,12 @@ export const TakWorkspace = ({
   const contacts = recipientGroups(
     liveItems.filter((i) => i.team && i.callsign && i.callsign !== callsign),
   );
-  const drawReason = !callsign
+  const sendReason = !callsign
     ? "No callsign: open BattleLog from the deploy app to draw on TAK"
     : status.connection !== "live"
       ? "Not connected to TAK"
       : undefined;
+  const drawReason = replayReason ?? sendReason;
   const sender = takSender(callsign);
   const chatMessages = useChatMessages();
   // Remembered across reloads now that chat is: a restored message read yesterday stays read.
@@ -568,7 +581,7 @@ export const TakWorkspace = ({
         messages={chatMessages}
         selfUid={sender.uid}
         contacts={chatContacts}
-        sendReason={drawReason}
+        sendReason={sendReason}
         onSend={(text, to) => sendCot(newChatEvent(text, to, sender))}
         initialRoom={chatWith}
       />
@@ -653,7 +666,7 @@ export const TakWorkspace = ({
       coordFormat={settings.coordFormat}
       missions={missionsOf(selected.uid)}
       allMissions={missions.missions ?? []}
-      clientUid={callsign ? sender.uid : undefined}
+      clientUid={callsign && !replaying ? sender.uid : undefined}
       readOnlyReason={readOnlyReason(selected)}
       callsign={callsign}
       contacts={contacts}
@@ -671,6 +684,7 @@ export const TakWorkspace = ({
       planActive={!!activePlan}
       tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
       onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}
+      replayAt={replayFrame?.at}
       onCenter={() => centreOn(selected)}
       onClose={() => setSelectedUid(undefined)}
     />
@@ -719,7 +733,7 @@ export const TakWorkspace = ({
           items={items.filter((i) => i.uid !== drawing.editing?.uid)}
           tracks={trackFeatures(
             settings.showAllTracks ? items : items.filter((i) => trackedUids.has(i.uid)),
-            tracks,
+            replayFrame?.tracks ?? tracks,
             hidden,
           )}
           hidden={hidden}
@@ -741,6 +755,7 @@ export const TakWorkspace = ({
           view={view}
           passive={wall}
           symbolScale={wall ? WALL_SYMBOL_SCALE : 1}
+          replayAt={replayFrame?.at}
         />
         {has("search") && (
           <div className="tak-search-slot">
@@ -764,6 +779,25 @@ export const TakWorkspace = ({
         >
           <IconCurrentLocation size={18} />
         </ActionIcon>
+        {!wall && !embedded && (
+          <ActionIcon
+            className="tak-replay"
+            variant="default"
+            size="md"
+            aria-label="Replay history"
+            title="Replay history"
+            aria-pressed={replaying}
+            onClick={() => {
+              if (replaying) return replay.stop();
+              drawing.clear();
+              measure.stop();
+              replay.setWindowMs(DEFAULT_REPLAY_WINDOW_MS);
+            }}
+          >
+            <IconHistory size={18} />
+          </ActionIcon>
+        )}
+        {replaying && <ReplayBar replay={replay} />}
         {chooser && (
           <PickChooser
             items={chooser.uids.flatMap((uid) => items.find((i) => i.uid === uid) ?? [])}
@@ -800,7 +834,7 @@ export const TakWorkspace = ({
                   remarks: "",
                 });
             }}
-            disabledReason={activePlan ? undefined : drawReason}
+            disabledReason={activePlan ? replayReason : drawReason}
             planName={activePlan?.name}
             editing={
               drawing.editing && {
@@ -833,11 +867,12 @@ export const TakWorkspace = ({
                 if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
                 measure.stop();
               }}
-              saveDisabledReason={activePlan ? undefined : drawReason}
+              saveDisabledReason={activePlan ? replayReason : drawReason}
             />
           </DrawToolbar>
         )}
         <div className="tak-banners">
+          {replaying && <ReplayBanner replay={replay} />}
           <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
           {!wall && <ConnectionBanner status={status} />}
         </div>

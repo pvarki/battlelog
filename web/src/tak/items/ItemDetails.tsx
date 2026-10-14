@@ -51,6 +51,7 @@ import { useNow } from "../use-now.ts";
 import { AttachPhoto } from "./AttachPhoto.tsx";
 import { DeleteItem } from "./DeleteItem.tsx";
 import { EditItem } from "./EditItem.tsx";
+import { ExportTrack } from "./ExportTrack.tsx";
 import { VideoFeed } from "./VideoFeed.tsx";
 
 type Props = {
@@ -80,6 +81,8 @@ type Props = {
   allMissions: Mission[];
   /** Who this browser writes to TAK as; undefined without a callsign. */
   clientUid: string | undefined;
+  /** The moment shown when replaying history; undefined when live. */
+  replayAt?: number;
   onCenter: () => void;
   onClose: () => void;
 };
@@ -121,10 +124,12 @@ export const ItemDetails = ({
   missions,
   allMissions,
   clientUid,
+  replayAt,
   onCenter,
   onClose,
 }: Props) => {
-  const now = useNow(10_000);
+  const liveNow = useNow(10_000);
+  const now = replayAt ?? liveNow;
   const [editing, setEditing] = useState<false | { status?: UnitStatus }>(false);
   const write = useWrites().get(item.uid);
   const received = useAttachments(item.uid);
@@ -316,6 +321,7 @@ export const ItemDetails = ({
               onChange={onToggleTrack}
             />
           )}
+          {canMove && !item.draft && <ExportTrack item={item} />}
           {isUnit && !readOnlyReason && status2525 !== "destroyed" && (
             <Button
               variant="light"
