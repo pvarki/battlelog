@@ -19,10 +19,12 @@ import type { MapView } from "../tools.ts";
 import { useNow } from "../use-now.ts";
 import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
+import { addEventLayers, eventsAt } from "./event-layers.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
-import { type ScreenPoint, uidsInOutline } from "./lasso.ts";
 import { createPictureDrawer, LABEL_ZOOM_FILTER, toSources } from "./layers.ts";
 import { mgrsGrid } from "./mgrs-grid.ts";
+import { showRasters } from "./rasters.ts";
+import { dragSelectBox, followLasso, uidsAt } from "./selection.ts";
 import { keptLabelImage, labelImage } from "./symbols.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
@@ -79,183 +81,6 @@ const sameMembers = <T,>(a: readonly T[], b: readonly T[]) =>
 const FINLAND = { center: [25.5, 64] as [number, number], zoom: 4.5, bearing: 0 };
 // Fading depends on the clock as well as on data: re-evaluate even when nothing arrives.
 const FADE_CHECK_MS = 30_000;
-const CLICK_SLACK_PX = 4;
-const INTERACTIVE_LAYERS = [
-  "tak-points",
-  "tak-shape-lines",
-  "tak-shape-fills",
-  "tak-tactical-labels",
-  "tak-tactical-lines",
-  "tak-tactical-fills",
-];
-
-type ScreenBox = [[number, number], [number, number]];
-
-const uidsIn = (map: MapLibreMap, box: ScreenBox) => [
-  ...new Set(
-    map
-      .queryRenderedFeatures(box, { layers: INTERACTIVE_LAYERS })
-      .flatMap((f) => (f.properties?.uid ? [f.properties.uid as string] : [])),
-  ),
-];
-
-// A few pixels of slack: thin lines are otherwise nearly impossible to hit.
-const slackBox = ({ x, y }: { x: number; y: number }): ScreenBox => [
-  [x - CLICK_SLACK_PX, y - CLICK_SLACK_PX],
-  [x + CLICK_SLACK_PX, y + CLICK_SLACK_PX],
-];
-const uidsAt = (map: MapLibreMap, point: { x: number; y: number }) => uidsIn(map, slackBox(point));
-
-const eventsAt = (map: MapLibreMap, point: { x: number; y: number }) =>
-  map
-    .queryRenderedFeatures(slackBox(point), { layers: ["bl-event-points"] })
-    .map((f) => f.properties as EventFeature["properties"]);
-
-const EVENT_LABEL_MIN_ZOOM = 10;
-
-/** BattleLog events: coloured dots with a white ring, so they never pass for TAK symbols. */
-const addEventLayers = (map: MapLibreMap) => {
-  map.addSource("bl-events", { type: "geojson", data: empty });
-  map.addLayer({
-    id: "bl-selected-event",
-    type: "circle",
-    source: "bl-events",
-    filter: ["==", ["get", "eventId"], ""],
-    paint: {
-      "circle-radius": 13,
-      "circle-color": "transparent",
-      "circle-stroke-color": ACCENT,
-      "circle-stroke-width": 3,
-    },
-  });
-  map.addLayer({
-    id: "bl-event-points",
-    type: "circle",
-    source: "bl-events",
-    paint: {
-      "circle-radius": 7,
-      "circle-color": ["get", "color"],
-      "circle-stroke-color": "#ffffff",
-      "circle-stroke-width": 2,
-    },
-  });
-  map.addLayer({
-    id: "bl-event-labels",
-    type: "symbol",
-    source: "bl-events",
-    minzoom: EVENT_LABEL_MIN_ZOOM,
-    layout: {
-      "icon-image": ["get", "icon"],
-      "icon-anchor": "left",
-      "icon-offset": [12, 0],
-    },
-  });
-};
-
-/** Draws a box from `start` while the pointer drags, then hands over the items inside it. */
-const dragSelectBox = (
-  map: MapLibreMap,
-  start: { x: number; y: number },
-  onSelect: (uids: string[]) => void,
-) => {
-  const container = map.getContainer();
-  const outline = document.createElement("div");
-  outline.className = "tak-select-box";
-  container.appendChild(outline);
-  let box: ScreenBox = [
-    [start.x, start.y],
-    [start.x, start.y],
-  ];
-  const onMove = (e: MouseEvent) => {
-    const rect = container.getBoundingClientRect();
-    const [x, y] = [e.clientX - rect.left, e.clientY - rect.top];
-    box = [
-      [Math.min(start.x, x), Math.min(start.y, y)],
-      [Math.max(start.x, x), Math.max(start.y, y)],
-    ];
-    Object.assign(outline.style, {
-      left: `${box[0][0]}px`,
-      top: `${box[0][1]}px`,
-      width: `${box[1][0] - box[0][0]}px`,
-      height: `${box[1][1] - box[0][1]}px`,
-    });
-  };
-  const onUp = () => {
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-    outline.remove();
-    const [[left, top], [right, bottom]] = box;
-    if (right - left > CLICK_SLACK_PX || bottom - top > CLICK_SLACK_PX) onSelect(uidsIn(map, box));
-  };
-  document.addEventListener("mousemove", onMove);
-  document.addEventListener("mouseup", onUp);
-};
-
-const LASSO_STEP_PX = 3;
-
-/** Lasso mode: pointer drags draw an outline instead of panning; returns the cleanup. */
-const followLasso = (map: MapLibreMap, onSelect: (uids: string[]) => void) => {
-  const container = map.getCanvasContainer();
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.classList.add("tak-lasso");
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-  svg.appendChild(line);
-  map.getContainer().appendChild(svg);
-  map.dragPan.disable();
-  container.style.cursor = "crosshair";
-  let outline: ScreenPoint[] | undefined;
-
-  const pointOf = (e: PointerEvent): ScreenPoint => {
-    const rect = container.getBoundingClientRect();
-    return [e.clientX - rect.left, e.clientY - rect.top];
-  };
-  const draw = () => line.setAttribute("points", (outline ?? []).map((p) => p.join(",")).join(" "));
-  const onDown = (e: PointerEvent) => {
-    if (e.button !== 0) return;
-    outline = [pointOf(e)];
-    draw();
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onUp);
-  };
-  const onMove = (e: PointerEvent) => {
-    if (!outline) return;
-    const [x, y] = pointOf(e);
-    const [lx, ly] = outline.at(-1) as ScreenPoint;
-    if (Math.hypot(x - lx, y - ly) < LASSO_STEP_PX) return;
-    outline.push([x, y]);
-    draw();
-  };
-  const onUp = () => {
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-    document.removeEventListener("pointercancel", onUp);
-    const drawn = outline;
-    outline = undefined;
-    draw();
-    if (!drawn || drawn.length < 3) return;
-    const xs = drawn.map(([x]) => x);
-    const ys = drawn.map(([, y]) => y);
-    const features = map.queryRenderedFeatures(
-      [
-        [Math.min(...xs), Math.min(...ys)],
-        [Math.max(...xs), Math.max(...ys)],
-      ],
-      { layers: INTERACTIVE_LAYERS },
-    );
-    onSelect(uidsInOutline(map, features, drawn));
-  };
-  container.addEventListener("pointerdown", onDown);
-  return () => {
-    container.removeEventListener("pointerdown", onDown);
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-    document.removeEventListener("pointercancel", onUp);
-    svg.remove();
-    container.style.cursor = "";
-    map.dragPan.enable();
-  };
-};
 
 const savedView = () => {
   try {
@@ -276,24 +101,6 @@ const saveView = (map: MapLibreMap) => {
   } catch {
     // storage denied: the next visit starts from the default view
   }
-};
-
-const shownRasters = new WeakMap<MapLibreMap, Map<string, string>>();
-
-/** Puts `source` on the raster layer `id` (or takes it off), keeping basemap below overlay below the rest. */
-const showRaster = (map: MapLibreMap, id: "basemap" | "overlay", source: MapSource | undefined) => {
-  const shown = shownRasters.get(map) ?? new Map<string, string>();
-  shownRasters.set(map, shown);
-  const key = source ? JSON.stringify(source.spec) : "";
-  if (shown.get(id) === key) return;
-  shown.set(id, key);
-  if (map.getLayer(id)) map.removeLayer(id);
-  if (map.getSource(id)) map.removeSource(id);
-  if (!source) return;
-  map.addSource(id, source.spec);
-  const layers = map.getStyle().layers.map((l) => l.id);
-  const below = id === "basemap" ? layers[0] : layers[layers.indexOf("basemap") + 1];
-  map.addLayer({ id, type: "raster", source: id }, below);
 };
 
 const ITEM_SOURCES = [
@@ -626,14 +433,7 @@ export const MapCanvas = ({
 
   useEffect(() => {
     if (!map) return;
-    showRaster(map, "basemap", basemap);
-    showRaster(map, "overlay", overlay?.source);
-    for (const id of ["basemap", "overlay"]) {
-      if (!map.getLayer(id)) continue;
-      map.setPaintProperty(id, "raster-brightness-max", dim ? 0.55 : 1);
-      map.setPaintProperty(id, "raster-saturation", dim ? -0.4 : 0);
-    }
-    if (overlay) map.setPaintProperty("overlay", "raster-opacity", overlay.opacity);
+    showRasters(map, basemap, overlay, dim);
   }, [map, basemap, overlay, dim]);
 
   const lassoing = !!onLasso;
