@@ -63,6 +63,13 @@ const readShape = (record: DataView, project: (xy: XY) => XY): Geometry | null =
   const [partCount, pointCount] = [record.getInt32(36, true), record.getInt32(40, true)];
   const all = points(44 + partCount * 4, pointCount);
   const partStarts = Array.from({ length: partCount }, (_, i) => record.getInt32(44 + i * 4, true));
+  // Parts must tile the points once: overlapping indexes would let a tiny file copy its points endlessly.
+  const ascending = partStarts.every((start, i) => start > (partStarts[i - 1] ?? -1));
+  if (
+    partCount > 0 &&
+    (partStarts[0] !== 0 || !ascending || (partStarts.at(-1) ?? 0) >= pointCount)
+  )
+    throw new RangeError("Bad part indexes");
   const parts = partStarts.map((start, i) => all.slice(start, partStarts[i + 1] ?? pointCount));
   if (kind === 3) return { type: "MultiLineString", coordinates: parts };
   const outers = parts.filter(isClockwise);
@@ -81,6 +88,7 @@ const readShp = (bytes: Uint8Array, prj: string | undefined): (Geometry | null)[
   const geometries: (Geometry | null)[] = [];
   for (let offset = HEADER_BYTES; offset + 8 <= bytes.byteLength; ) {
     const length = viewOf(bytes, offset, 8).getInt32(4) * 2;
+    if (length < 4) throw new RangeError("Bad record length");
     geometries.push(readShape(viewOf(bytes, offset + 8, length), project));
     offset += 8 + length;
   }

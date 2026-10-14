@@ -115,10 +115,12 @@ const store = async (file: File): Promise<File> => {
   return handle.getFile();
 };
 
-/** Adds a PMTiles map, or replaces the one with the same file name. */
+/** Adds a PMTiles map. A stored map is never overwritten: a failed write would lose it. */
 export const addOfflineMap = async (file: File): Promise<MapSource> => {
-  await register(file);
   await load();
+  if (maps.some((m) => m.id === `offline:${file.name}`))
+    throw new OfflineMapError(`A map named ${file.name} is already stored; remove it first.`);
+  await register(file);
   const source = await register(await store(file));
   publish([...maps.filter((m) => m.id !== source.id), source]);
   return source;

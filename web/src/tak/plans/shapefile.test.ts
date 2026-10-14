@@ -177,3 +177,10 @@ test("a projected shapefile without a .prj, or a damaged one, is refused", () =>
   );
   expect(() => readShapefile({ shp: strToU8("not a shapefile") })).toThrow(/Not a shapefile/);
 });
+
+test("part indexes that overlap are refused instead of copying points over and over", () => {
+  const line = partsRecord(3, [outer, outer, outer]);
+  new DataView(line.buffer, line.byteOffset).setInt32(52, 0, true);
+  const shp = shpOf([line], TM35FIN_BBOX);
+  expect(() => readShapefile({ shp, prj: TM35FIN_PRJ })).toThrow(/damaged/);
+});
