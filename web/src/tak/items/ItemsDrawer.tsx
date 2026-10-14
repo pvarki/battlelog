@@ -150,7 +150,7 @@ export const ItemsDrawer = ({
           <ActionIcon
             variant="subtle"
             color="gray"
-            size="sm"
+            size="md"
             aria-label={`Show ${group.label} on the map`}
             aria-pressed={!ownHidden}
             title={ownHidden ? "Not on the map" : "Shown on the map"}
