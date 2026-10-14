@@ -1,5 +1,6 @@
 import type { Sender } from "../identity.ts";
 import { MISSION_CHANGE_TYPE, parseMissionChanges } from "../missions/changes.ts";
+import type { MissionFile } from "../missions/missions.ts";
 import { fetchMission } from "../missions/missions.ts";
 import type { CotEvent } from "../protocol/cot-event.ts";
 import { takGetText, takSend } from "../rest.ts";
@@ -15,8 +16,11 @@ import {
 const EXCHECK = "/Marti/api/excheck";
 const query = (params: Record<string, string>) => new URLSearchParams(params).toString();
 
-/** Templates are the files of TAK's `exchecktemplates` Data Sync feed. */
+/** Templates are the files of TAK's `exchecktemplates` Data Sync feed, filed under their uid. */
 export const fetchTemplates = async () => (await fetchMission("exchecktemplates"))?.files ?? [];
+
+/** TAK files a template under its uid; its name is the first keyword. */
+export const templateName = (file: MissionFile) => file.keywords[0] || file.name;
 
 export const fetchChecklist = async (uid: string): Promise<Checklist> =>
   parseChecklist(await takGetText(`${EXCHECK}/checklist/${encodeURIComponent(uid)}`));
@@ -71,8 +75,12 @@ export const setTaskComplete = (
     xml: taskWithStatus(task, complete, sender.callsign, new Date()),
   });
 
-export const stopChecklist = (uid: string) =>
-  takSend({ method: "POST", path: `${EXCHECK}/${encodeURIComponent(uid)}/stop` });
+// Without clientUid TAK answers 200 but leaves the checklist active (verified on 5.8).
+export const stopChecklist = (sender: Sender, uid: string) =>
+  takSend({
+    method: "POST",
+    path: `${EXCHECK}/${encodeURIComponent(uid)}/stop?${query({ clientUid: sender.uid })}`,
+  });
 
 const listeners = new Set<(missions: string[]) => void>();
 

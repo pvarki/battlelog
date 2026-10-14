@@ -234,7 +234,8 @@ export const ChecklistDetail = ({
               <StopChecklist
                 checklist={checklist}
                 onStop={() =>
-                  void run("Checklist not stopped", () => stopChecklist(uid)).then(
+                  writer &&
+                  void run("Checklist not stopped", () => stopChecklist(writer, uid)).then(
                     (ok) => ok && onBack(),
                   )
                 }

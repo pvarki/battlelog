@@ -21,7 +21,13 @@ import { useNow } from "../../use-now.ts";
 import type { Sender } from "../identity.ts";
 import type { MissionFile } from "../missions/missions.ts";
 import { useWrite } from "../missions/shared.tsx";
-import { createTemplate, fetchActiveChecklists, fetchTemplates, startChecklist } from "./api.ts";
+import {
+  createTemplate,
+  fetchActiveChecklists,
+  fetchTemplates,
+  startChecklist,
+  templateName,
+} from "./api.ts";
 import { ChecklistDetail, NO_CALLSIGN } from "./ChecklistDetail.tsx";
 import { type Checklist, progress } from "./excheck.ts";
 
@@ -90,12 +96,12 @@ const NewChecklist = ({
           <Select
             label="Template"
             placeholder={templates === undefined ? "Loading…" : "Pick a template"}
-            data={(templates ?? []).map((t) => ({ value: t.uid, label: t.name }))}
+            data={(templates ?? []).map((t) => ({ value: t.uid, label: templateName(t) }))}
             value={templateUid}
             onChange={(value) => {
               setTemplateUid(value);
               const picked = templates?.find((t) => t.uid === value);
-              if (picked && !trimmed) setName(picked.name);
+              if (picked && !trimmed) setName(templateName(picked));
             }}
             error={
               templates === null

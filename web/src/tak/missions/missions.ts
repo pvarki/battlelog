@@ -17,6 +17,7 @@ export type MissionFile = {
   hash: string;
   size: number;
   submitter?: string;
+  keywords: string[];
   time: number;
 };
 
@@ -91,6 +92,7 @@ const missionSchema = z.object({
           hash: z.string(),
           size: z.number().catch(0),
           submitter: text,
+          keywords: z.array(z.string()).catch([]),
         }),
       }),
     )
