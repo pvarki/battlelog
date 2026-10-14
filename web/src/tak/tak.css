@@ -212,10 +212,17 @@
 }
 
 .tak-row {
-  display: block;
-  width: 100%;
   padding: 5px 6px;
   border-radius: 6px;
+}
+
+/* Zero specificity: a row that is a Mantine Group keeps its flex layout. */
+:where(.tak-row) {
+  display: block;
+}
+
+:where(button.tak-row) {
+  width: 100%;
 }
 
 .tak-row:hover {

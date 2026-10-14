@@ -45,7 +45,8 @@ const matches = (item: TakItem, query: string) => {
 };
 
 const byName = (a: TakItem, b: TakItem) =>
-  (a.team ?? "").localeCompare(b.team ?? "") || labelOf(a).localeCompare(labelOf(b));
+  (a.team ?? "").localeCompare(b.team ?? "") ||
+  labelOf(a).localeCompare(labelOf(b), undefined, { numeric: true });
 
 export const ItemRow = ({
   item,

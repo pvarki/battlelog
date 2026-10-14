@@ -140,7 +140,7 @@ export const ContactsDrawer = ({
     .sort(
       (a, b) =>
         STATUS_ORDER[statusOf(a, now)] - STATUS_ORDER[statusOf(b, now)] ||
-        (a.callsign ?? "").localeCompare(b.callsign ?? ""),
+        (a.callsign ?? "").localeCompare(b.callsign ?? "", undefined, { numeric: true }),
     );
   const byTeam = new Map<string, TakItem[]>();
   for (const c of shown) byTeam.set(c.team ?? "", [...(byTeam.get(c.team ?? "") ?? []), c]);
@@ -170,10 +170,10 @@ export const ContactsDrawer = ({
         )}
         {teams.map((team) => (
           <section key={team} className="tak-group" aria-label={team}>
-            <Text fz="xs" fw={600} c="dimmed" px={6} pt={4}>
+            <div className="tak-group-heading">
               <span className="tak-swatch" style={{ background: teamColor(team) }} />
               {team} <span className="tak-group-count">{byTeam.get(team)?.length}</span>
-            </Text>
+            </div>
             {byTeam.get(team)?.map((contact) => (
               <ContactRow
                 key={contact.uid}

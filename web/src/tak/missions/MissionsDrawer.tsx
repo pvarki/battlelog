@@ -37,6 +37,8 @@ export type MissionsDrawerProps = {
   clientUid: string | undefined;
 };
 
+const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
 const ShowToggle = ({
   mission,
   shown,
@@ -113,8 +115,8 @@ const MissionList = ({ view, ...props }: MissionsDrawerProps & { view: ListView 
               </Text>
             </Group>
             <Text fz="xs" c="dimmed" truncate>
-              {mission.itemUids.length} items · {mission.files.length} files · changed{" "}
-              {formatAge(now - mission.changedAt)} ago
+              {count(mission.itemUids.length, "item")} · {count(mission.files.length, "file")} ·
+              changed {formatAge(now - mission.changedAt)} ago
             </Text>
           </UnstyledButton>
           <ShowToggle
