@@ -7,7 +7,7 @@ import type { TakItem } from "../cot.ts";
 export type RecipientGroup = { group: string; items: string[] };
 
 /** TAK users' callsigns grouped by team, as Contacts lists them; each callsign once. */
-export const recipientGroups = (users: TakItem[]): RecipientGroup[] => {
+export const recipientGroups = (users: Pick<TakItem, "callsign" | "team">[]): RecipientGroup[] => {
   const byTeam = new Map<string, Set<string>>();
   const seen = new Set<string>();
   for (const { callsign, team } of users) {
