@@ -775,6 +775,8 @@ export const TakWorkspace = ({
   useEffect(() => {
     if (!selection || outsideKey === lastOutside.current) return;
     lastOutside.current = outsideKey;
+    // Our own pick coming back through the URL.
+    if (outsideKey === insideKey) return;
     setSelectedUidState(selection.tak);
     setSelectedEventId(selection.tak ? undefined : selection.event);
     setSelectedOutside(true);
