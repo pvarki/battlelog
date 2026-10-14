@@ -15,6 +15,7 @@ import { useLocalStorage } from "@mantine/hooks";
 import {
   IconAddressBook,
   IconClipboardList,
+  IconCrosshair,
   IconCurrentLocation,
   IconFolders,
   IconHistory,
@@ -27,6 +28,7 @@ import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useIsMobile } from "../dashboard/mobile.ts";
+import { answerPick, cancelPick, usePickRequest } from "../map-pick.ts";
 import { ACCENT } from "../theme.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
 import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
@@ -267,6 +269,8 @@ type Props = {
   onSelect?: (selection: Selection) => void;
   /** Whether a selection made outside the map brings it into view. */
   centreOnSelection?: boolean;
+  /** Answers a form's "Pick on map" request (see map-pick.ts). */
+  pickable?: boolean;
 };
 
 export type Selection = { tak?: string; event?: string };
@@ -293,8 +297,10 @@ export const TakWorkspace = ({
   selection,
   onSelect,
   centreOnSelection = true,
+  pickable,
 }: Props) => {
   const wall = display === "wall";
+  const pickRequest = usePickRequest(!!pickable && !wall);
   const has = (tool: TakTool) => !wall && (!tools || tools.has(tool));
   const drawers = (Object.keys(DRAWERS) as DrawerId[]).filter(has);
   useTakSession();
@@ -722,6 +728,21 @@ export const TakWorkspace = ({
   };
   const busy = !!(drawing.tool || drawing.editing || measure.active);
 
+  // A pick takes the next click, so nothing else may be waiting for it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new request stops the modes
+  useEffect(() => {
+    if (!pickRequest) return;
+    measure.stop();
+    setLassoing(false);
+    setMovingGroup(false);
+    if (!drawing.drawn) drawing.clear();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelPick();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [pickRequest]);
+
   // Two-way with `selection`: a change from outside selects (and shows) it here, a pick here goes out.
   const outsideKey = selection && selectionKey(selection);
   const insideKey = selectionKey({ tak: selectedUid, event: selectedEventId });
@@ -971,6 +992,7 @@ export const TakWorkspace = ({
       data-embedded={embedded || undefined}
       data-wall={wall || undefined}
       data-no-rail={drawers.length === 0 || undefined}
+      data-picking={!!pickRequest || undefined}
     >
       <nav className="tak-rail" aria-label="Map tools" hidden={drawers.length === 0}>
         {drawers.map((id) => {
@@ -1017,6 +1039,7 @@ export const TakWorkspace = ({
           mgrsGrid={settings.mgrsGrid}
           selectedUids={[...(selectedUid ? [selectedUid] : []), ...grouped]}
           onPick={({ uids, eventIds, at, position, shift }) => {
+            if (pickRequest) return answerPick(position);
             if (movingGroup) return moveGroupTo(position);
             if (busy) return;
             if (shift && has("draw")) {
@@ -1106,6 +1129,16 @@ export const TakWorkspace = ({
             <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
             {replaying && <ReplayBanner replay={replay} />}
             {!wall && <ConnectionBanner status={status} />}
+            {pickRequest && (
+              <Alert variant="filled" icon={<IconCrosshair size={18} />}>
+                <Group justify="space-between" wrap="nowrap">
+                  <Text fz="sm">Click the map to set: {pickRequest.label}</Text>
+                  <Button size="compact-xs" variant="white" onClick={cancelPick}>
+                    Cancel
+                  </Button>
+                </Group>
+              </Alert>
+            )}
           </div>
           {has("draw") && (
             <DrawToolbar

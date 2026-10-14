@@ -288,6 +288,11 @@
   height: 100%;
 }
 
+/* Over MapCanvas's inline hover cursor. */
+.tak-workspace[data-picking] .maplibregl-canvas {
+  cursor: crosshair !important;
+}
+
 .tak-rail[hidden] {
   display: none;
 }

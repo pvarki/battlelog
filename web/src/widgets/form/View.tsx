@@ -1,9 +1,12 @@
 import {
+  ActionIcon,
   Alert,
   Button,
   Checkbox,
   Group,
   Input,
+  Loader,
+  Modal,
   NumberInput,
   Select,
   Stack,
@@ -13,14 +16,17 @@ import {
   TextInput,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
+import { notifications } from "@mantine/notifications";
+import { IconCurrentLocation, IconMapPin } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api, type EventResponse } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
 import { useLiveEvents } from "../../live-events.ts";
+import { answerPick, canPick, requestPick } from "../../map-pick.ts";
 import { Placeholder } from "../../Placeholder.tsx";
 import { matchesFeed, queryFor } from "../feed/widget.ts";
 import { FormPrint } from "./Print.tsx";
@@ -46,6 +52,13 @@ import {
 type Status = "idle" | "sending" | "sent" | "saved" | "error";
 
 const dashboardRoute = getRouteApi("/d/$dashboardId");
+
+// Only a form whose pick finds no map on screen pays for loading one.
+const TakWorkspace = lazy(() =>
+  import("../../tak/TakWorkspace.tsx").then((m) => ({ default: m.TakWorkspace })),
+);
+
+const toMicroDegrees = (degrees: number) => Math.round(degrees * 1e6) / 1e6;
 
 /**
  * Sets the rules' fields on the picked event, merged into its current data
@@ -135,6 +148,45 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     setValues((prev) => ({ ...prev, [id]: v }));
     // Typing into a flagged field clears its error immediately.
     setMissingIds((ids) => ids.filter((x) => x !== id));
+  };
+
+  /** The field waiting for a map click; `inModal` when no map on screen could take it. */
+  const [picking, setPicking] = useState<{ fieldId: string; inModal: boolean }>();
+  const withdrawPick = useRef<() => void>(undefined);
+  useEffect(() => () => withdrawPick.current?.(), []);
+
+  const stopPicking = () => {
+    withdrawPick.current?.();
+    setPicking(undefined);
+  };
+
+  const pickOnMap = (field: VisibleField) => {
+    const again = picking?.fieldId === field.id;
+    stopPicking();
+    if (again) return;
+    const started = generation.current;
+    const inModal = !canPick();
+    withdrawPick.current = requestPick({
+      label: fieldLabel(field),
+      onPick: ([lng, lat]) => {
+        setPicking(undefined);
+        if (generation.current !== started) return;
+        set(field.id, { lat: toMicroDegrees(lat), lng: toMicroDegrees(lng) });
+      },
+      onCancel: () => setPicking(undefined),
+    });
+    setPicking({ fieldId: field.id, inModal });
+  };
+
+  const locateMe = () => {
+    if (!navigator.geolocation) {
+      notifications.show({ color: "red", message: "This browser can't share your location" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => answerPick([coords.longitude, coords.latitude]),
+      () => notifications.show({ color: "red", message: "Could not get your location" }),
+    );
   };
 
   const cancelEdit = () => {
@@ -236,6 +288,24 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   return (
     <>
       <FormPrint fields={config.fields} />
+      <Modal opened={!!picking?.inModal} onClose={stopPicking} title="Pick a location" size="xl">
+        <Stack gap="xs">
+          <Button
+            size="xs"
+            variant="light"
+            leftSection={<IconCurrentLocation size={14} />}
+            style={{ alignSelf: "flex-start" }}
+            onClick={locateMe}
+          >
+            Use my location
+          </Button>
+          <div style={{ height: "60vh" }}>
+            <Suspense fallback={<Loader size="sm" />}>
+              <TakWorkspace tools={new Set()} embedded pickable />
+            </Suspense>
+          </div>
+        </Stack>
+      </Modal>
       <Stack h="100%" gap="xs" p="xs" className="screen-only">
         {offered && (
           <Alert p="xs" title={`Event “${offered.header}” selected`}>
@@ -312,6 +382,8 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
                 value={values[f.id]}
                 error={missingIds.includes(f.id) ? "Required" : undefined}
                 onChange={(v) => set(f.id, v)}
+                picking={picking?.fieldId === f.id}
+                onPickOnMap={() => pickOnMap(f)}
               />
             ))
           )}
@@ -351,11 +423,15 @@ const FieldInput = ({
   value,
   error,
   onChange,
+  picking,
+  onPickOnMap,
 }: {
   field: VisibleField;
   value: unknown;
   error?: string;
   onChange: (v: unknown) => void;
+  picking: boolean;
+  onPickOnMap: () => void;
 }) => {
   const common = {
     label: fieldLabel(field),
@@ -479,9 +555,10 @@ const FieldInput = ({
       const p = (value as { lat?: number | string; lng?: number | string }) ?? {};
       return (
         <Input.Wrapper {...common}>
-          <Group gap="xs" grow>
+          <Group gap="xs" wrap="nowrap">
             <NumberInput
               aria-label="Latitude"
+              style={{ flex: 1 }}
               placeholder="Lat"
               size="xs"
               hideControls
@@ -493,6 +570,7 @@ const FieldInput = ({
             />
             <NumberInput
               aria-label="Longitude"
+              style={{ flex: 1 }}
               placeholder="Lng"
               size="xs"
               hideControls
@@ -502,6 +580,16 @@ const FieldInput = ({
               value={p.lng ?? ""}
               onChange={(v) => onChange({ ...p, lng: v === "" ? undefined : v })}
             />
+            <ActionIcon
+              size="input-xs"
+              variant={picking ? "filled" : "default"}
+              aria-label="Pick on map"
+              aria-pressed={picking}
+              title="Pick on map"
+              onClick={onPickOnMap}
+            >
+              <IconMapPin size={16} />
+            </ActionIcon>
           </Group>
         </Input.Wrapper>
       );

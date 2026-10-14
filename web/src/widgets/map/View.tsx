@@ -19,6 +19,7 @@ const MapWidgetView = ({ config, editMode, updateConfig }: WidgetViewProps<MapCo
         tools={new Set(config.tools)}
         view={config.view}
         embedded
+        pickable
         onMap={setMap}
         display={config.display}
         hiddenGroups={config.groups?.length ? hiddenExcept(config.groups) : undefined}
