@@ -146,3 +146,16 @@ test("removing an expired item marks it for deletion from the saved picture", ()
   expect(store.takeDirty()).toEqual(["a"]);
   expect(store.recordOf("a")).toBeUndefined();
 });
+
+test("a restored picture over the item cap drops its oldest items, and saves that", () => {
+  const store = createTakStore({ maxItems: 1 });
+  store.restore(
+    [
+      { uid: "old", item: item("old", 100) },
+      { uid: "new", item: item("new", 200) },
+    ],
+    300,
+  );
+  expect(snapshot(store).map((i) => i.uid)).toEqual(["new"]);
+  expect(store.takeDirty()).toEqual(["old"]);
+});

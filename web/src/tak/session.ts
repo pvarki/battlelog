@@ -3,7 +3,14 @@ import { receiveChat } from "./chat/store.ts";
 import { type CotEvent, toChange } from "./cot.ts";
 import { loadCallsign } from "./identity.ts";
 import { receiveFileShare } from "./inbox/store.ts";
-import { loadPicture, pictureScope, savePicture, savingEnabled } from "./picture-cache.ts";
+import {
+  forgetPicture,
+  forgetSavedPictures,
+  loadPicture,
+  pictureScope,
+  savePicture,
+  savingEnabled,
+} from "./picture-cache.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
 import { fetchArchive, fetchHistory, takBaseUrl } from "./rest.ts";
 import { createTakStore, DAY_MS } from "./store.ts";
@@ -69,6 +76,9 @@ let scope: string | undefined;
 let syncedThrough: number | undefined;
 let restored: Promise<void> | undefined;
 let saving: Promise<void> = Promise.resolve();
+/** This tab writes the saved picture; other tabs keep theirs in memory only. */
+let writer = false;
+let claimed = false;
 
 const applyEvent = (event: CotEvent) => {
   if (receiveChat(event)) return;
@@ -80,7 +90,8 @@ const applyEvent = (event: CotEvent) => {
 const save = (through?: number): Promise<void> => {
   saving = saving.then(async () => {
     const uids = takStore.takeDirty();
-    if (!scope || !savingEnabled() || (uids.length === 0 && through === undefined)) return;
+    if (!scope || !writer || !savingEnabled() || (uids.length === 0 && through === undefined))
+      return;
     const changes = uids.map((uid) => ({ uid, record: takStore.recordOf(uid) }));
     try {
       await savePicture(scope, changes, through);
@@ -92,17 +103,59 @@ const save = (through?: number): Promise<void> => {
   return saving;
 };
 
-const restore = async () => {
-  if (!savingEnabled()) return;
+/**
+ * One tab at a time writes the saved picture, so a tab that missed a delete
+ * can't overwrite it. When the writer's tab closes the next one takes over,
+ * saving its whole picture with how far its history reaches.
+ */
+const claimWriter = (lockScope: string) => {
+  if (claimed) return;
+  claimed = true;
+  const take = async () => {
+    writer = true;
+    takStore.markAllDirty();
+    await save(syncedThrough);
+  };
+  if (!navigator.locks) return void take();
+  void navigator.locks.request(`battlelog-tak-picture:${lockScope}`, async () => {
+    await take();
+    await new Promise(() => {}); // held until this tab closes
+  });
+};
+
+const openScope = async (): Promise<string | undefined> => {
   const callsign = await loadCallsign().catch(() => null);
-  if (!callsign) return;
-  scope = pictureScope(takBaseUrl(), callsign);
+  if (callsign) scope = pictureScope(takBaseUrl(), callsign);
+  return scope;
+};
+
+const restore = async () => {
+  if (!savingEnabled() || !(await openScope()) || !scope) return;
   const saved = await loadPicture(scope).catch(() => undefined);
-  if (!saved?.records.length) return;
-  takStore.restore(saved.records);
-  takStore.flush();
-  syncedThrough = saved.syncedThrough;
-  setStatus({ savedThrough: saved.syncedThrough });
+  // Older than the history TAK can replay, deletes made since could be missed: start over.
+  const catchable = (saved?.syncedThrough ?? 0) > Date.now() - BACKFILL_DAYS * DAY_MS;
+  if (saved?.records.length && catchable) {
+    takStore.restore(saved.records);
+    takStore.flush();
+    syncedThrough = saved.syncedThrough;
+    setStatus({ savedThrough: saved.syncedThrough });
+  } else if (saved?.records.length) {
+    await forgetPicture(scope).catch(() => undefined);
+  }
+  claimWriter(scope);
+};
+
+/** Saving turned on writes the whole picture at once; off deletes what's saved. */
+export const setPictureSaving = async (enabled: boolean) => {
+  if (!enabled) {
+    saving = saving.then(forgetSavedPictures).catch(() => undefined);
+    return saving;
+  }
+  if (!scope && !(await openScope())) return;
+  if (!claimed && scope) return claimWriter(scope);
+  if (!writer) return;
+  takStore.markAllDirty();
+  return save(syncedThrough);
 };
 
 /**

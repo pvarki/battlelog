@@ -2,7 +2,7 @@ import { ActionIcon, Group, Radio, Select, Slider, Stack, Switch, Text } from "@
 import { IconTrash } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { COORD_FORMATS, type CoordFormat } from "../coords.ts";
-import { forgetSavedPictures } from "../picture-cache.ts";
+import { setPictureSaving } from "../session.ts";
 import type { MapSettings } from "../settings.ts";
 import { DEFAULT_BASEMAP, type MapSource } from "./basemaps.ts";
 import { IconsetsSection } from "./IconsetsSection.tsx";
@@ -114,7 +114,7 @@ export const LayersDrawer = ({ settings, sources, children }: Props) => {
         onChange={(e) => {
           const keep = e.currentTarget.checked;
           settings.setSavePicture(keep);
-          if (!keep) void forgetSavedPictures();
+          void setPictureSaving(keep);
         }}
       />
 

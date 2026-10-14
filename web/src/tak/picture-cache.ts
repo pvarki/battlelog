@@ -108,6 +108,16 @@ export const savePicture = async (
   await done(tx);
 };
 
+/** Deletes one saved picture, e.g. one too old to catch up from. */
+export const forgetPicture = async (scope: string): Promise<void> => {
+  const db = await openDb();
+  if (!db) return;
+  const tx = db.transaction([RECORDS, SCOPES], "readwrite");
+  tx.objectStore(RECORDS).delete(scopeRange(scope));
+  tx.objectStore(SCOPES).delete(scope);
+  await done(tx);
+};
+
 /** Deletes every saved picture in this browser; turning saving off calls it. */
 export const forgetSavedPictures = async (): Promise<void> => {
   const db = await openDb();

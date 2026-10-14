@@ -164,6 +164,7 @@ export const createTakStore = ({
         items.set(uid, item);
       if (track && !tracks.has(uid)) tracks.set(uid, track);
     }
+    while (items.size > maxItems) evictOldest();
     sweep(now);
     changed();
   };
@@ -178,6 +179,12 @@ export const createTakStore = ({
       const uids = [...dirty];
       dirty.clear();
       return uids;
+    },
+    /** Everything the store keeps counts as changed, so the next save writes the whole picture. */
+    markAllDirty: () => {
+      for (const marks of [items, tombstones, disconnects, tracks]) {
+        for (const uid of marks.keys()) dirty.add(uid);
+      }
     },
     markDirty: (uids: string[]) => {
       for (const uid of uids) dirty.add(uid);
