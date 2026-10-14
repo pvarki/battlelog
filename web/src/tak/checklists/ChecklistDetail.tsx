@@ -12,7 +12,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconArrowLeft, IconPlayerStop } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useEffectEvent, useRef, useState } from "react";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
@@ -34,6 +34,9 @@ import {
 const POLL_MS = 30_000;
 
 export const NO_CALLSIGN = "No callsign: open BattleLog from the deploy app to change checklists";
+
+/** Why checklists can't be changed when there's no writer: no callsign, or history replaying. */
+export const ReadOnlyReason = createContext(NO_CALLSIGN);
 
 const TaskRow = ({
   task,
@@ -135,25 +138,28 @@ export const ChecklistDetail = ({
 }) => {
   const [checklist, setChecklist] = useState<Checklist | null>();
   const { busy, run } = useWrite();
+  const readOnlyReason = useContext(ReadOnlyReason);
+  // Polls, change notices and the read after a write share it: only the newest read may land.
+  const generation = useRef(0);
+  const reload = async () => {
+    const request = ++generation.current;
+    try {
+      const loaded = await fetchChecklist(uid);
+      if (request === generation.current) setChecklist(loaded);
+    } catch (err) {
+      console.warn(`TAK checklist ${uid} failed`, err);
+      if (request === generation.current) setChecklist((current) => current ?? null);
+    }
+  };
+  const reloadNow = useEffectEvent(() => void reload());
   useEffect(() => {
-    let latest = 0;
-    const load = () => {
-      const request = ++latest;
-      fetchChecklist(uid).then(
-        (loaded) => request === latest && setChecklist(loaded),
-        (err) => {
-          console.warn(`TAK checklist ${uid} failed`, err);
-          if (request === latest) setChecklist((current) => current ?? null);
-        },
-      );
-    };
-    load();
-    const timer = setInterval(load, POLL_MS);
+    reloadNow();
+    const timer = setInterval(reloadNow, POLL_MS);
     const unlisten = onChecklistChange(
-      (missions) => (missions.length === 0 || missions.includes(uid)) && load(),
+      (missions) => (missions.length === 0 || missions.includes(uid)) && reloadNow(),
     );
     return () => {
-      latest = -1;
+      generation.current++;
       clearInterval(timer);
       unlisten();
     };
@@ -170,7 +176,7 @@ export const ChecklistDetail = ({
     if (!writer) return;
     void run("Task not updated", async () => {
       await setTaskComplete(writer, uid, task, !isComplete(task));
-      setChecklist(await fetchChecklist(uid));
+      await reload();
     });
   };
   const header = (
@@ -223,7 +229,7 @@ export const ChecklistDetail = ({
                 key={task.uid}
                 task={task}
                 columns={checklist.columns}
-                writeReason={writer ? undefined : NO_CALLSIGN}
+                writeReason={writer ? undefined : readOnlyReason}
                 busy={busy}
                 onToggle={() => toggle(task)}
               />

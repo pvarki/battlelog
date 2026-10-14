@@ -35,6 +35,7 @@ import { useIsMobile } from "../viewport.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
 import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
+import { NO_CALLSIGN } from "./checklists/ChecklistDetail.tsx";
 import { ChecklistsDrawer } from "./checklists/ChecklistsDrawer.tsx";
 import { deleteEvent } from "./commands.ts";
 import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
@@ -511,7 +512,10 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         clientUid={writerUid}
       />
     ) : id === "checklists" ? (
-      <ChecklistsDrawer writer={callsign ? sender : undefined} />
+      <ChecklistsDrawer
+        writer={writerUid ? sender : undefined}
+        readOnlyReason={replayReason ?? NO_CALLSIGN}
+      />
     ) : id === "missions" ? (
       <MissionsDrawer
         state={missions}
@@ -787,7 +791,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                 );
                 if (sent) fenceAlerts.dismiss(alert.id);
               }}
-              sendReason={sendReason}
+              sendReason={replayReason ?? sendReason}
             />
             {replaying && <ReplayBanner replay={replay} />}
             <ConnectionBanner status={status} />

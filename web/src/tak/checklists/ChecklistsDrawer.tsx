@@ -14,7 +14,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
@@ -28,7 +28,7 @@ import {
   startChecklist,
   templateName,
 } from "./api.ts";
-import { ChecklistDetail, NO_CALLSIGN } from "./ChecklistDetail.tsx";
+import { ChecklistDetail, ReadOnlyReason } from "./ChecklistDetail.tsx";
 import { type Checklist, progress } from "./excheck.ts";
 
 const POLL_MS = 60_000;
@@ -41,19 +41,22 @@ const NewButton = ({
   label: string;
   writer: Sender | undefined;
   onClick: () => void;
-}) => (
-  <Tooltip label={NO_CALLSIGN} disabled={!!writer} withArrow>
-    <Button
-      size="xs"
-      variant="default"
-      leftSection={<IconPlus size={14} />}
-      disabled={!writer}
-      onClick={onClick}
-    >
-      {label}
-    </Button>
-  </Tooltip>
-);
+}) => {
+  const readOnlyReason = useContext(ReadOnlyReason);
+  return (
+    <Tooltip label={readOnlyReason} disabled={!!writer} withArrow>
+      <Button
+        size="xs"
+        variant="default"
+        leftSection={<IconPlus size={14} />}
+        disabled={!writer}
+        onClick={onClick}
+      >
+        {label}
+      </Button>
+    </Tooltip>
+  );
+};
 
 const NewChecklist = ({
   writer,
@@ -253,7 +256,20 @@ const ChecklistList = ({
 };
 
 /** ExCheck: TAK's shared checklists, started from templates and ticked off by anyone. */
-export const ChecklistsDrawer = ({ writer }: { writer: Sender | undefined }) => {
+export const ChecklistsDrawer = ({
+  writer,
+  readOnlyReason,
+}: {
+  writer: Sender | undefined;
+  /** Shown on disabled controls when there's no writer. */
+  readOnlyReason: string;
+}) => (
+  <ReadOnlyReason.Provider value={readOnlyReason}>
+    <Checklists writer={writer} />
+  </ReadOnlyReason.Provider>
+);
+
+const Checklists = ({ writer }: { writer: Sender | undefined }) => {
   const [open, setOpen] = useState<string>();
   const [checklists, setChecklists] = useState<Checklist[] | null>();
   const writerUid = writer?.uid;

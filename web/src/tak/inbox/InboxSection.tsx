@@ -192,9 +192,7 @@ export const InboxSection = ({
               pkg={pkg}
               detail={`${pkg.by || "Unknown"} · ${formatSize(pkg.size)} · ${formatDateTime(pkg.submitted)}`}
               onDelete={
-                clientUid && isOwnPackage(pkg, { callsign, clientUid })
-                  ? () => setDeleting(pkg)
-                  : undefined
+                clientUid && isOwnPackage(pkg, callsign) ? () => setDeleting(pkg) : undefined
               }
               onOpenPlan={onOpenPlan}
             />

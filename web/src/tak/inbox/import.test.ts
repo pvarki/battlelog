@@ -17,14 +17,13 @@ const pkg: TakPackage = {
   creatorUid: "ANDROID-1",
 };
 
-test("only packages this user uploaded, from BattleLog or under their name, are theirs", () => {
-  const me = { callsign: "Eversti", clientUid: "BattleLog-Eversti" };
-  expect(isOwnPackage(pkg, me)).toBe(true);
-  expect(isOwnPackage({ ...pkg, by: "eetu", creatorUid: "BattleLog-Eversti" }, me)).toBe(true);
-  expect(isOwnPackage({ ...pkg, by: "eetu" }, me)).toBe(false);
-  expect(isOwnPackage({ ...pkg, by: "", creatorUid: "" }, { callsign: "", clientUid: "" })).toBe(
+test("only packages TAK says this user submitted count as theirs", () => {
+  expect(isOwnPackage(pkg, "Eversti")).toBe(true);
+  // The creator uid is the uploader's claim, so it never makes a package ours.
+  expect(isOwnPackage({ ...pkg, by: "eetu", creatorUid: "BattleLog-Eversti" }, "Eversti")).toBe(
     false,
   );
+  expect(isOwnPackage({ ...pkg, by: "" }, "")).toBe(false);
 });
 
 test("a package is deleted by its hash", () => {

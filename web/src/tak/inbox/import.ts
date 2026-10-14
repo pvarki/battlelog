@@ -127,13 +127,11 @@ export const fetchTakPackages = async (signal?: AbortSignal): Promise<TakPackage
 
 /**
  * TAK lets anyone sharing a group delete a package, so BattleLog offers it
- * only for packages this user uploaded, from BattleLog or under their own name.
+ * only for packages this user uploaded. Only the submitter, which TAK takes from
+ * the certificate, counts: the creator uid is whatever the uploader claimed.
  */
-export const isOwnPackage = (
-  pkg: TakPackage,
-  me: { callsign: string | null | undefined; clientUid: string | undefined },
-) =>
-  (!!me.clientUid && pkg.creatorUid === me.clientUid) || (!!me.callsign && pkg.by === me.callsign);
+export const isOwnPackage = (pkg: TakPackage, callsign: string | null | undefined) =>
+  !!callsign && pkg.by === callsign;
 
 export const deletePackageRequest = (hash: string): TakWrite => ({
   method: "DELETE",
