@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type TakItem, toChange } from "../cot.ts";
 import { parseCotXml } from "../protocol/cot-xml.ts";
-import { TakRequestError, takBaseUrl, takGetText } from "../rest.ts";
+import { fetchLatestCot, TakRequestError, takBaseUrl, takGetText } from "../rest.ts";
 
 /** TAK missions (ATAK's Data Sync): shared folders of map items, files and a log. */
 
@@ -104,6 +104,13 @@ export const fetchMissionItems = async (name: string, signal?: AbortSignal): Pro
     const change = toChange(event);
     return change?.kind === "upsert" ? [change.item] : [];
   });
+
+/** One mission item as TAK now has it; undefined when TAK has no map item for the uid. */
+export const fetchMissionItem = async (uid: string): Promise<TakItem | undefined> => {
+  const event = await fetchLatestCot(uid);
+  const change = event && toChange(event);
+  return change?.kind === "upsert" ? change.item : undefined;
+};
 
 const logSchema = z.object({
   id: z.string(),

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { TakRequestError, takBaseUrl, takGetText, uploadFile } from "../rest.ts";
 import { type Mission, missionPath } from "./missions.ts";
 import { refreshMissions } from "./store.ts";
@@ -140,6 +140,23 @@ export const subscribe = async (name: string, clientUid: string) => {
   );
   if (!token) throw new Error("TAK subscribed without a mission token");
   setSubscription(name, token);
+};
+
+/**
+ * Subscribes this client to the missions shown on its map, as ATAK does when
+ * it syncs one, so TAK streams their changes instead of BattleLog refetching
+ * them. A mission it may not join stays on polling.
+ */
+export const useMissionSubscriptions = (names: string[], clientUid: string | undefined) => {
+  const key = names.join("\n");
+  useEffect(() => {
+    if (!clientUid || !key) return;
+    for (const name of key.split("\n")) {
+      loadSubscription(name, clientUid)
+        .then((token) => (token ? undefined : subscribe(name, clientUid)))
+        .catch((err) => console.warn(`Couldn't subscribe to TAK mission ${name}`, err));
+    }
+  }, [key, clientUid]);
 };
 
 export const unsubscribe = async (name: string, clientUid: string) => {

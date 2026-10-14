@@ -1,16 +1,17 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { receiveChat } from "./chat/store.ts";
 import { type CotEvent, toChange } from "./cot.ts";
-import { loadCallsign } from "./identity.ts";
 import { receiveFileShare } from "./inbox/store.ts";
+import { receiveMissionChange } from "./missions/store.ts";
 import {
+  currentScope,
   forgetPicture,
   forgetSavedPictures,
   loadPicture,
-  pictureScope,
   savePicture,
   savingEnabled,
 } from "./picture-cache.ts";
+import { newPresenceEvent, SELF_TYPE, type SelfIdentity } from "./position/self-sa.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
 import { fetchArchive, fetchHistory, takBaseUrl } from "./rest.ts";
 import { createTakStore, DAY_MS } from "./store.ts";
@@ -46,6 +47,8 @@ const BACKFILL_DAYS = 7;
 // Events stored just before the last sync can reach the archive a little late.
 const SYNC_OVERLAP_MS = 5 * 60_000;
 const SAVE_INTERVAL_MS = 1_000;
+// Well inside a report's two-minute stale time, so the user never greys out on TAK.
+const PRESENCE_INTERVAL_MS = 60_000;
 const RECONNECT_DELAY_MS = 5_000;
 const SWEEP_INTERVAL_MS = 60_000;
 
@@ -74,6 +77,11 @@ let saveTimer: ReturnType<typeof setInterval> | undefined;
 let scope: string | undefined;
 /** TAK's history is in the store up to here; the next backfill starts from it. */
 let syncedThrough: number | undefined;
+let presence: SelfIdentity | undefined;
+/** The latest report with a real position, while the user shares it. */
+let positionReport: CotEvent | undefined;
+let lastReportAt = 0;
+let presenceTimer: ReturnType<typeof setInterval> | undefined;
 let restored: Promise<void> | undefined;
 let saving: Promise<void> = Promise.resolve();
 /** This tab writes the saved picture; other tabs keep theirs in memory only. */
@@ -124,8 +132,7 @@ const claimWriter = (lockScope: string) => {
 };
 
 const openScope = async (): Promise<string | undefined> => {
-  const callsign = await loadCallsign().catch(() => null);
-  if (callsign) scope = pictureScope(takBaseUrl(), callsign);
+  scope = await currentScope();
   return scope;
 };
 
@@ -187,6 +194,39 @@ const backfill = async (signal: AbortSignal) => {
   if (!signal.aborted) setStatus({ backfillDaysLeft: 0, savedThrough: undefined });
 };
 
+/**
+ * Tells TAK this connection is the user: TAK routes mission updates by the uid
+ * a connection reports as. Sent on connect, then whenever nothing else has
+ * reported for a while; with the latest shared position, or none.
+ */
+const announce = (force: boolean) => {
+  const now = Date.now();
+  if (!presence || socket?.readyState !== WebSocket.OPEN) return;
+  if (!force && now - lastReportAt < PRESENCE_INTERVAL_MS) return;
+  const report = positionReport
+    ? {
+        ...positionReport,
+        time: now,
+        start: now,
+        stale: now + (positionReport.stale - positionReport.time),
+      }
+    : newPresenceEvent(presence, navigator.platform, now);
+  sendCot(report);
+};
+
+/**
+ * Who this tab is on TAK, and whether it shares its position (undefined:
+ * unchanged, for a map without the sharing switch). Turning sharing off sends
+ * a report without a position, so the last one doesn't linger on TAK.
+ */
+export const setTakPresence = (self: SelfIdentity | undefined, sharing?: boolean) => {
+  const known = presence?.uid === self?.uid;
+  presence = self;
+  const stoppedSharing = sharing === false && !!positionReport;
+  if (stoppedSharing) positionReport = undefined;
+  if (stoppedSharing || !known) announce(true);
+};
+
 const saveWhenHidden = () => {
   if (document.visibilityState === "hidden") void save();
 };
@@ -204,6 +244,7 @@ const connect = () => {
   setStatus({ connection: "connecting" });
   ws.onopen = () => {
     setStatus({ connection: "live", everConnected: true, lastMessageAt: Date.now() });
+    announce(true);
     backfillAbort?.abort();
     backfillAbort = new AbortController();
     void backfill(backfillAbort.signal);
@@ -211,8 +252,11 @@ const connect = () => {
   ws.onmessage = (e: MessageEvent<ArrayBuffer>) => {
     const { events, error } = decodeTakMessages(new Uint8Array(e.data));
     if (error) console.warn("TAK message unreadable", error);
-    // Only live: a replayed announcement would re-offer a package already handled.
-    for (const event of events) if (!receiveFileShare(event)) applyEvent(event);
+    // Only live: a replayed announcement would re-offer a package already handled, and
+    // a replayed mission change is already in the mission as loaded.
+    for (const event of events) {
+      if (!receiveFileShare(event) && !receiveMissionChange(event)) applyEvent(event);
+    }
     setStatus({ lastMessageAt: Date.now() });
   };
   ws.onclose = () => {
@@ -230,6 +274,7 @@ const start = () => {
   });
   sweepTimer = setInterval(() => takStore.sweep(), SWEEP_INTERVAL_MS);
   saveTimer = setInterval(() => void save(), SAVE_INTERVAL_MS);
+  presenceTimer = setInterval(() => announce(false), PRESENCE_INTERVAL_MS / 2);
   document.addEventListener("visibilitychange", saveWhenHidden);
 };
 
@@ -241,6 +286,7 @@ const stop = () => {
   clearTimeout(retryTimer);
   clearInterval(sweepTimer);
   clearInterval(saveTimer);
+  clearInterval(presenceTimer);
   document.removeEventListener("visibilitychange", saveWhenHidden);
   void save();
   setStatus({ connection: "idle", backfillDaysLeft: 0 });
@@ -289,6 +335,10 @@ export const loadTrack = async (uid: string) => {
 export const sendCot = (event: CotEvent): boolean => {
   if (socket?.readyState !== WebSocket.OPEN) return false;
   socket.send(encodeTakMessage(event));
+  if (event.uid === presence?.uid && event.type === SELF_TYPE) {
+    lastReportAt = Date.now();
+    if (event.lat !== 0 || event.lon !== 0) positionReport = event;
+  }
   applyEvent(event);
   return true;
 };

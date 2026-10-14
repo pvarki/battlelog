@@ -55,7 +55,7 @@ export const newSelfSaEvent = (
     `<takv device="browser" platform="BattleLog" os="${escapeXml(device.os)}"/>`,
     `<contact endpoint="*:-1:stcp" callsign="${callsign}"/>`,
     `<uid Droid="${callsign}"/>`,
-    `<precisionlocation geopointsrc="GPS" altsrc="${fix.hae === undefined ? "???" : "GPS"}"/>`,
+    `<precisionlocation geopointsrc="${fix.accuracy >= UNKNOWN ? "???" : "GPS"}" altsrc="${fix.hae === undefined ? "???" : "GPS"}"/>`,
     `<__group name="${escapeXml(self.team)}" role="${escapeXml(self.role)}"/>`,
     device.battery === undefined ? "" : `<status battery="${device.battery}"/>`,
     `<track course="${fix.course ?? 0}" speed="${fix.speed ?? 0}"/>`,
@@ -75,6 +75,14 @@ export const newSelfSaEvent = (
     detail,
   };
 };
+
+/**
+ * A position report without a position, as ATAK and WinTAK send without a
+ * fix: it tells TAK this connection is the user (mission updates need that)
+ * without putting them anywhere on the map.
+ */
+export const newPresenceEvent = (self: SelfIdentity, os: string, now = Date.now()): CotEvent =>
+  newSelfSaEvent({ position: [0, 0], accuracy: UNKNOWN }, self, { os }, now);
 
 /** ATAK's pacing: often while moving, a heartbeat while still. */
 export const isSendDue = (

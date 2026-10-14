@@ -1,3 +1,6 @@
+import type { TakItem } from "./cot.ts";
+import { loadCallsign } from "./identity.ts";
+import { takBaseUrl } from "./rest.ts";
 import type { StoredUid } from "./store.ts";
 
 /**
@@ -12,14 +15,21 @@ import type { StoredUid } from "./store.ts";
 const DB_NAME = "battlelog-tak-picture";
 const RECORDS = "records";
 const SCOPES = "scopes";
+const MISSIONS = "missions";
+const STORES = [RECORDS, SCOPES, MISSIONS];
 export const SAVING_KEY = "battlelog.tak.savePicture";
 
 type ScopeRecord = { scope: string; syncedThrough?: number };
 type PictureRecord = StoredUid & { scope: string };
+type MissionRecord = { scope: string; name: string; version: string; items: TakItem[] };
 
 export type SavedPicture = { records: StoredUid[]; syncedThrough?: number };
 
-export const pictureScope = (takUrl: string, callsign: string) => `${takUrl}|${callsign}`;
+/** Which saved picture is this user's on this TAK server; undefined without a callsign. */
+export const currentScope = async (): Promise<string | undefined> => {
+  const callsign = await loadCallsign().catch(() => null);
+  return callsign ? `${takBaseUrl()}|${callsign}` : undefined;
+};
 
 export const savingEnabled = (): boolean => {
   try {
@@ -47,10 +57,15 @@ let dbPromise: Promise<IDBDatabase | undefined> | undefined;
 const openDb = (): Promise<IDBDatabase | undefined> => {
   dbPromise ??= new Promise((resolve) => {
     try {
-      const open = indexedDB.open(DB_NAME, 1);
+      const open = indexedDB.open(DB_NAME, 2);
       open.onupgradeneeded = () => {
-        open.result.createObjectStore(RECORDS, { keyPath: ["scope", "uid"] });
-        open.result.createObjectStore(SCOPES, { keyPath: "scope" });
+        const db = open.result;
+        const create = (name: string, keyPath: string | string[]) => {
+          if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
+        };
+        create(RECORDS, ["scope", "uid"]);
+        create(SCOPES, "scope");
+        create(MISSIONS, ["scope", "name"]);
       };
       open.onsuccess = () => {
         // Another tab upgrading the schema: let it, and reopen on the next use.
@@ -112,9 +127,10 @@ export const savePicture = async (
 export const forgetPicture = async (scope: string): Promise<void> => {
   const db = await openDb();
   if (!db) return;
-  const tx = db.transaction([RECORDS, SCOPES], "readwrite");
+  const tx = db.transaction(STORES, "readwrite");
   tx.objectStore(RECORDS).delete(scopeRange(scope));
   tx.objectStore(SCOPES).delete(scope);
+  tx.objectStore(MISSIONS).delete(scopeRange(scope));
   await done(tx);
 };
 
@@ -122,8 +138,29 @@ export const forgetPicture = async (scope: string): Promise<void> => {
 export const forgetSavedPictures = async (): Promise<void> => {
   const db = await openDb();
   if (!db) return;
-  const tx = db.transaction([RECORDS, SCOPES], "readwrite");
-  tx.objectStore(RECORDS).clear();
-  tx.objectStore(SCOPES).clear();
+  const tx = db.transaction(STORES, "readwrite");
+  for (const store of STORES) tx.objectStore(store).clear();
+  await done(tx);
+};
+
+/** A mission's items as last loaded, with the version they match; undefined when none is saved. */
+export const loadSavedMission = async (
+  name: string,
+): Promise<{ version: string; items: TakItem[] } | undefined> => {
+  const scope = savingEnabled() ? await currentScope() : undefined;
+  const db = scope ? await openDb() : undefined;
+  if (!db || !scope) return undefined;
+  const tx = db.transaction(MISSIONS);
+  return request(
+    tx.objectStore(MISSIONS).get([scope, name]) as IDBRequest<MissionRecord | undefined>,
+  );
+};
+
+export const saveMission = async (name: string, version: string, items: TakItem[]) => {
+  const scope = savingEnabled() ? await currentScope() : undefined;
+  const db = scope ? await openDb() : undefined;
+  if (!db || !scope) return;
+  const tx = db.transaction(MISSIONS, "readwrite");
+  tx.objectStore(MISSIONS).put({ scope, name, version, items });
   await done(tx);
 };

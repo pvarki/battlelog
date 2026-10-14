@@ -1,12 +1,23 @@
 import { useEffect, useId, useSyncExternalStore } from "react";
 import type { TakItem } from "../cot.ts";
-import { fetchMissionItems, fetchMissions, isAccessDenied, type Mission } from "./missions.ts";
+import { loadSavedMission, saveMission } from "../picture-cache.ts";
+import type { CotEvent } from "../protocol/cot-event.ts";
+import { MISSION_CHANGE_TYPE, parseMissionChanges } from "./changes.ts";
+import {
+  fetchMissionItem,
+  fetchMissionItems,
+  fetchMissions,
+  isAccessDenied,
+  type Mission,
+} from "./missions.ts";
 
 /**
- * Missions polled from TAK while something holds them. Reading a mission's
- * contents doesn't subscribe to it (that is a write in TAK), so changes arrive
- * by polling the list; a mission's items are refetched only when its newest
- * change moves, and only for the missions somebody wants.
+ * Missions from TAK while something holds them, and the items of the missions
+ * somebody wants. A mission's items load once (or from the copy saved in this
+ * browser) and then follow its changes: from TAK's change notices for
+ * subscribed missions, and from the list's item uids, polled as a safety net.
+ * Only added items are fetched, one by one; a full download happens only for
+ * a mission seen for the first time or changed beyond `MAX_ITEM_FETCHES`.
  */
 
 export type MissionContents =
@@ -23,6 +34,7 @@ export type MissionsState = {
 };
 
 const POLL_MS = 60_000;
+const MAX_ITEM_FETCHES = 50;
 
 let state: MissionsState = { missions: null, listFailed: false, contents: new Map() };
 const listeners = new Set<() => void>();
@@ -43,6 +55,28 @@ const setContents = (name: string, contents: MissionContents) => {
   const next = new Map(state.contents);
   next.set(name, contents);
   set({ contents: next });
+  if (contents.kind === "loaded") {
+    void saveMission(name, contents.version, contents.items).catch((err) =>
+      console.warn(`Saving TAK mission ${name} failed`, err),
+    );
+  }
+};
+
+const fetchItems = async (uids: string[]) =>
+  (await Promise.all(uids.map((uid) => fetchMissionItem(uid).catch(() => undefined)))).filter(
+    (item): item is TakItem => !!item,
+  );
+
+/**
+ * `items` brought in line with the mission's uids: removed ones dropped, added
+ * ones fetched. Undefined when too many were added to fetch one by one.
+ */
+const reconciled = async (items: TakItem[], mission: Mission) => {
+  const uids = new Set(mission.itemUids);
+  const have = new Set(items.map((i) => i.uid));
+  const added = mission.itemUids.filter((uid) => !have.has(uid));
+  if (added.length > MAX_ITEM_FETCHES) return undefined;
+  return [...items.filter((i) => uids.has(i.uid)), ...(await fetchItems(added))];
 };
 
 // The latest request per mission; an older response arriving later is dropped.
@@ -57,7 +91,12 @@ const refreshContents = async (mission: Mission) => {
   latestRequest.set(mission.name, request);
   if (current?.kind !== "loaded") setContents(mission.name, { kind: "loading" });
   try {
-    const items = await fetchMissionItems(mission.name);
+    const known =
+      current?.kind === "loaded"
+        ? current.items
+        : (await loadSavedMission(mission.name).catch(() => undefined))?.items;
+    const items =
+      (known && (await reconciled(known, mission))) ?? (await fetchMissionItems(mission.name));
     if (latestRequest.get(mission.name) !== request) return;
     setContents(mission.name, { kind: "loaded", version: mission.version, items });
   } catch (err) {
@@ -144,3 +183,36 @@ export const useMissions = (): MissionsState =>
     },
     () => state,
   );
+
+const applyChange = async (name: string, change: (items: TakItem[]) => Promise<TakItem[]>) => {
+  const current = state.contents.get(name);
+  if (current?.kind !== "loaded") return;
+  const items = await change(current.items);
+  // A full reload while the change was fetched knows better.
+  if (state.contents.get(name) !== current) return;
+  setContents(name, { ...current, items });
+};
+
+/**
+ * TAK's change notice for a subscribed mission; true when `event` was one.
+ * Item adds and removals apply at once; anything else (files, the mission
+ * itself) refreshes the list, which reconciles the rest.
+ */
+export const receiveMissionChange = (event: CotEvent): boolean => {
+  if (event.type !== MISSION_CHANGE_TYPE) return false;
+  let refreshList = false;
+  for (const { mission, type, uid } of parseMissionChanges(event)) {
+    if (type === "ADD_CONTENT" && uid) {
+      void applyChange(mission, async (items) => [
+        ...items.filter((i) => i.uid !== uid),
+        ...(await fetchItems([uid])),
+      ]);
+    } else if (type === "REMOVE_CONTENT" && uid) {
+      void applyChange(mission, async (items) => items.filter((i) => i.uid !== uid));
+    } else {
+      refreshList = true;
+    }
+  }
+  if (refreshList) void refreshMissions().catch(() => undefined);
+  return true;
+};

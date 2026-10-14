@@ -14,6 +14,15 @@ const fetchCallsign = async (): Promise<string | null> => {
   return (await res.json()).callsign;
 };
 
+/**
+ * Who BattleLog speaks as on TAK. The uid is its own, apart from the person's
+ * ATAK; the callsign carries a -BL tag so TAK users can tell the two apart.
+ */
+export const takSender = (callsign: string | null | undefined) => ({
+  uid: `BattleLog-${callsign}`,
+  callsign: callsign ? `${callsign}-BL` : "",
+});
+
 /** The callsign, fetched once per page; a failed fetch is retried on the next call. */
 export const loadCallsign = (): Promise<string | null> => {
   cached ??= fetchCallsign().catch((err) => {

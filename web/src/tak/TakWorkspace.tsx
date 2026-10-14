@@ -48,7 +48,7 @@ import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-g
 import { type Drawn, useDrawing } from "./drawing/useDrawing.ts";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
-import { useCallsign } from "./identity.ts";
+import { takSender, useCallsign } from "./identity.ts";
 import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
@@ -61,6 +61,7 @@ import { MapCanvas } from "./map/MapCanvas.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { type MissionsState, useMissions, useMissionsSync } from "./missions/store.ts";
+import { useMissionSubscriptions } from "./missions/writes.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { addToPlan, type Plan, removeFromPlan, usePlans } from "./plans/plans.ts";
 import { OwnPositionPanel } from "./position/OwnPositionPanel.tsx";
@@ -70,6 +71,7 @@ import { CONNECTION_TEXT, StatusBar } from "./StatusBar.tsx";
 import {
   loadTrack,
   sendCot,
+  setTakPresence,
   type TakStatus,
   useTakItems,
   useTakSession,
@@ -277,6 +279,7 @@ export const TakWorkspace = ({
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
   useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])]);
+  useMissionSubscriptions([...shownMissions], callsign ? takSender(callsign).uid : undefined);
   const missions = useMissions();
   const plans = usePlans();
   // Without the plans tool there's no sign of a plan, so nothing may quietly go into one.
@@ -332,7 +335,7 @@ export const TakWorkspace = ({
     : status.connection !== "live"
       ? "Not connected to TAK"
       : undefined;
-  const sender = { uid: `BattleLog-${callsign}`, callsign: callsign ?? "" };
+  const sender = takSender(callsign);
   const chatMessages = useChatMessages();
   const [chatReadCount, setChatReadCount] = useState(0);
   const unreadChats =
@@ -343,6 +346,14 @@ export const TakWorkspace = ({
     if (drawer === "chat") setChatReadCount(chatMessages.length);
   }, [drawer, chatMessages.length]);
   const [chatWith, setChatWith] = useState<ChatRecipient>();
+  const sharing = has("contacts") ? settings.sharePosition && !!callsign : undefined;
+  useEffect(() => {
+    const self = takSender(callsign);
+    setTakPresence(
+      callsign ? { ...self, team: settings.team, role: settings.role } : undefined,
+      sharing,
+    );
+  }, [callsign, settings.team, settings.role, sharing]);
   const ownPosition = useOwnPosition(
     map,
     // Only where the switch is in reach: no sharing a user can't see or stop.
