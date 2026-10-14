@@ -7,7 +7,9 @@ import {
   Group,
   Loader,
   Modal,
+  PasswordInput,
   ScrollArea,
+  Select,
   Stack,
   Switch,
   Text,
@@ -32,18 +34,37 @@ import type { TakItem } from "../cot.ts";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { formatAge, labelOf } from "../items.ts";
 import { useNow } from "../use-now.ts";
-import { fetchMissionLog, fileUrl, type Mission, type MissionLogEntry } from "./missions.ts";
-import type { MissionsState } from "./store.ts";
+import {
+  fetchInvitations,
+  fetchMembers,
+  fetchMissionLog,
+  fileUrl,
+  INVITEE_TYPES,
+  type InviteeType,
+  MISSION_ROLES,
+  type Mission,
+  type MissionInvitation,
+  type MissionLogEntry,
+  type MissionMember,
+  type MissionRole,
+  ROLE_LABELS,
+} from "./missions.ts";
+import { type MissionsState, refreshMissions } from "./store.ts";
 import {
   addFile,
   addLogEntry,
   canDelete,
+  canWriteAs,
   createMission,
   deleteMission,
+  invite,
   loadSubscription,
   removeFile,
   removeItem,
+  setPassword,
+  setRole,
   subscribe,
+  uninvite,
   unsubscribe,
   useSubscriptions,
 } from "./writes.ts";
@@ -272,14 +293,257 @@ const DeleteMission = ({
   );
 };
 
+const roleOptions = MISSION_ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }));
+
+const INVITEE_LABELS: Record<InviteeType, string> = {
+  callsign: "Callsign",
+  clientUid: "Client uid",
+  group: "Group",
+};
+
+const InviteForm = ({
+  disabled,
+  onInvite,
+}: {
+  disabled: boolean;
+  onInvite: (type: InviteeType, invitee: string, role: MissionRole) => Promise<boolean>;
+}) => {
+  const [type, setType] = useState<InviteeType>("callsign");
+  const [invitee, setInvitee] = useState("");
+  const [role, chooseRole] = useState<MissionRole>("MISSION_SUBSCRIBER");
+  const trimmed = invitee.trim();
+  const send = async () => {
+    if (await onInvite(type, trimmed, role)) setInvitee("");
+  };
+  return (
+    <Group gap="xs" align="flex-end" p="xs">
+      <Select
+        size="xs"
+        w={110}
+        aria-label="Invite by"
+        data={INVITEE_TYPES.map((t) => ({ value: t, label: INVITEE_LABELS[t] }))}
+        value={type}
+        onChange={(value) => value && setType(value as InviteeType)}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+      />
+      <TextInput
+        size="xs"
+        style={{ flex: 1, minWidth: 120 }}
+        placeholder={INVITEE_LABELS[type]}
+        aria-label="Invitee"
+        value={invitee}
+        onChange={(e) => setInvitee(e.currentTarget.value)}
+      />
+      <Select
+        size="xs"
+        w={110}
+        aria-label="Role for the invitee"
+        data={roleOptions}
+        value={role}
+        onChange={(value) => value && chooseRole(value as MissionRole)}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: true }}
+      />
+      <Button
+        size="xs"
+        variant="default"
+        disabled={disabled || !trimmed}
+        onClick={() => void send()}
+      >
+        Invite
+      </Button>
+    </Group>
+  );
+};
+
+const PasswordControls = ({
+  mission,
+  disabled,
+  onSet,
+}: {
+  mission: Mission;
+  disabled: boolean;
+  onSet: (password: string | undefined) => Promise<boolean>;
+}) => {
+  const [password, setPasswordText] = useState("");
+  const save = async () => {
+    if (await onSet(password)) setPasswordText("");
+  };
+  return (
+    <Group gap="xs" align="flex-end" p="xs">
+      <PasswordInput
+        size="xs"
+        style={{ flex: 1, minWidth: 120 }}
+        placeholder={mission.passwordProtected ? "New password" : "Password"}
+        aria-label="Mission password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => setPasswordText(e.currentTarget.value)}
+      />
+      <Button
+        size="xs"
+        variant="default"
+        disabled={disabled || !password}
+        onClick={() => void save()}
+      >
+        {mission.passwordProtected ? "Change password" : "Set password"}
+      </Button>
+      {mission.passwordProtected && (
+        <Button
+          size="xs"
+          variant="subtle"
+          color="gray"
+          disabled={disabled}
+          onClick={() => void onSet(undefined)}
+        >
+          Remove password
+        </Button>
+      )}
+    </Group>
+  );
+};
+
+/** Subscribers and their roles; owners also manage roles, invitations and the password. */
+const MissionMembers = ({
+  mission,
+  clientUid,
+  owner,
+  callsignOf,
+}: {
+  mission: Mission;
+  clientUid: string;
+  owner: boolean;
+  callsignOf: Props["callsignOf"];
+}) => {
+  const { busy, run } = useWrite();
+  const [reloads, setReloads] = useState(0);
+  const [members, setMembers] = useState<MissionMember[] | "failed">();
+  const [invitations, setInvitations] = useState<MissionInvitation[]>([]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `reloads` is how a change asks to load again.
+  useEffect(() => {
+    const abort = new AbortController();
+    fetchMembers(mission.name, abort.signal).then(setMembers, () => {
+      if (!abort.signal.aborted) setMembers("failed");
+    });
+    if (owner) {
+      fetchInvitations(mission.name, abort.signal).then(setInvitations, () => setInvitations([]));
+    }
+    return () => abort.abort();
+  }, [mission.name, owner, reloads]);
+  const change = (failureTitle: string, write: () => Promise<unknown>) =>
+    run(failureTitle, write).then((ok) => {
+      if (ok) setReloads((n) => n + 1);
+      return ok;
+    });
+  return (
+    <Section title="Members">
+      {mission.defaultRole && (
+        <Text fz="xs" c="dimmed" px="xs">
+          New subscribers join as {ROLE_LABELS[mission.defaultRole]}.
+        </Text>
+      )}
+      {members === undefined && <Loader size="xs" m="xs" />}
+      {members === "failed" && (
+        <Text fz="xs" c="dimmed" p="xs">
+          Couldn't load the members.
+        </Text>
+      )}
+      {Array.isArray(members) &&
+        members.map((member) => {
+          const me = member.clientUid === clientUid;
+          const name = callsignOf(member.clientUid) ?? member.username ?? member.clientUid;
+          return (
+            <Group key={member.clientUid} gap="xs" wrap="nowrap" className="tak-row">
+              <Text fz="sm" truncate style={{ flex: 1, minWidth: 0 }}>
+                {me ? `${name} (you)` : name}
+              </Text>
+              {owner && !me ? (
+                <Select
+                  size="xs"
+                  w={120}
+                  aria-label={`Role of ${name}`}
+                  data={roleOptions}
+                  value={member.role ?? null}
+                  allowDeselect={false}
+                  disabled={busy}
+                  onChange={(role) =>
+                    role &&
+                    void change(`Role of ${name} not changed`, () =>
+                      setRole(mission.name, member.clientUid, role as MissionRole, clientUid),
+                    )
+                  }
+                  comboboxProps={{ withinPortal: true }}
+                />
+              ) : (
+                <Text fz="xs" c="dimmed">
+                  {member.role ? ROLE_LABELS[member.role] : ""}
+                </Text>
+              )}
+            </Group>
+          );
+        })}
+      {owner && (
+        <>
+          {invitations.map((invitation) => (
+            <Group
+              key={`${invitation.type}:${invitation.invitee}`}
+              gap="xs"
+              wrap="nowrap"
+              className="tak-row"
+            >
+              <Text fz="sm" truncate style={{ flex: 1, minWidth: 0 }}>
+                Invited: {INVITEE_LABELS[invitation.type].toLowerCase()} {invitation.invitee}
+              </Text>
+              <Text fz="xs" c="dimmed">
+                {invitation.role ? ROLE_LABELS[invitation.role] : ""}
+              </Text>
+              <RemoveButton
+                label={`Withdraw the invitation of ${invitation.invitee}`}
+                disabled={busy}
+                onClick={() =>
+                  void change("Invitation not withdrawn", () =>
+                    uninvite(mission.name, invitation.type, invitation.invitee, clientUid),
+                  )
+                }
+              />
+            </Group>
+          ))}
+          <InviteForm
+            disabled={busy}
+            onInvite={(type, invitee, role) =>
+              change(`${invitee} not invited`, () =>
+                invite(mission.name, type, invitee, role, clientUid),
+              )
+            }
+          />
+          <PasswordControls
+            mission={mission}
+            disabled={busy}
+            onSet={(password) =>
+              change(password ? "Password not set" : "Password not removed", () =>
+                setPassword(mission.name, password, clientUid),
+              )
+            }
+          />
+        </>
+      )}
+    </Section>
+  );
+};
+
 const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
   const now = useNow(10_000);
   const { busy, run } = useWrite();
   const [logKey, setLogKey] = useState(0);
+  const [password, setPasswordText] = useState("");
   const { clientUid } = props;
-  const token = useSubscriptions().get(mission.name);
-  const subscribed = typeof token === "string";
-  const canWrite = !!clientUid && subscribed && !busy;
+  const subscription = useSubscriptions().get(mission.name);
+  const subscribed = !!subscription;
+  const role = subscription?.role;
+  const owner = role === "MISSION_OWNER";
+  const writable = !!clientUid && subscribed && canWriteAs(role);
+  const canWrite = writable && !busy;
   useEffect(() => {
     if (clientUid) void loadSubscription(mission.name, clientUid).catch(() => undefined);
   }, [mission.name, clientUid]);
@@ -311,6 +575,8 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
           <Text fz="xs" c="dimmed">
             Created {new Date(mission.createTime).toLocaleDateString("fi-FI")}
             {creator ? ` by ${creator}` : ""}
+            {mission.inviteOnly ? " · invite-only" : ""}
+            {mission.passwordProtected ? " · password-protected" : ""}
           </Text>
           {mission.keywords.length > 0 && (
             <Group gap={4}>
@@ -328,7 +594,18 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
             onChange={() => props.onToggleShown(mission.name)}
           />
           {clientUid ? (
-            <Group gap="xs">
+            <Group gap="xs" align="flex-end">
+              {mission.passwordProtected && !subscribed && (
+                <PasswordInput
+                  size="xs"
+                  style={{ flex: 1, minWidth: 120 }}
+                  placeholder="Mission password"
+                  aria-label="Mission password"
+                  autoComplete="off"
+                  value={password}
+                  onChange={(e) => setPasswordText(e.currentTarget.value)}
+                />
+              )}
               <Button
                 size="xs"
                 variant={subscribed ? "default" : "filled"}
@@ -336,12 +613,19 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                 onClick={() =>
                   void (subscribed
                     ? run("Couldn't unsubscribe", () => unsubscribe(mission.name, clientUid))
-                    : run("Couldn't subscribe", () => subscribe(mission.name, clientUid)))
+                    : run("Couldn't subscribe", () =>
+                        subscribe(mission.name, clientUid, password || undefined, mission),
+                      ).then((ok) => ok && setPasswordText("")))
                 }
               >
                 {subscribed ? "Unsubscribe" : "Subscribe"}
               </Button>
-              {canDelete(mission, clientUid) && (
+              {role && (
+                <Text fz="xs" c="dimmed">
+                  Your role: {ROLE_LABELS[role]}
+                </Text>
+              )}
+              {canDelete(mission, clientUid, role) && (
                 <DeleteMission
                   mission={mission}
                   disabled={busy}
@@ -364,13 +648,21 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
               aren't subscribed.
             </Text>
           )}
+          {subscribed && !writable && (
+            <Text fz="xs" c="dimmed">
+              You're a read-only subscriber: an owner can let you change the mission.
+            </Text>
+          )}
           <Section
             title={`Items ${contents?.kind === "loaded" ? contents.items.length : mission.itemUids.length}`}
           >
             {contents?.kind === "no-access" && (
               <Text fz="xs" c="dimmed" p="xs">
                 TAK didn't let you read this mission
-                {mission.restricted ? " (password or invitation needed)" : ""}.
+                {mission.passwordProtected || mission.inviteOnly
+                  ? " (password or invitation needed)"
+                  : ""}
+                .
               </Text>
             )}
             {contents?.kind === "failed" && (
@@ -396,7 +688,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                       onPick={() => props.onPick(item)}
                     />
                   </div>
-                  {subscribed && clientUid && (
+                  {writable && (
                     <RemoveButton
                       label={`Remove ${labelOf(item)} from the mission`}
                       disabled={!canWrite}
@@ -409,7 +701,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                   )}
                 </Group>
               ))}
-            {contents?.kind === "loaded" && contents.items.length === 0 && subscribed && (
+            {contents?.kind === "loaded" && contents.items.length === 0 && writable && (
               <Text fz="xs" c="dimmed" p="xs">
                 Add items from their details on the map.
               </Text>
@@ -432,7 +724,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                     {file.submitter ? ` · ${file.submitter}` : ""}
                   </Text>
                 </div>
-                {subscribed && clientUid && (
+                {writable && (
                   <RemoveButton
                     label={`Remove ${file.name} from the mission`}
                     disabled={!canWrite}
@@ -445,7 +737,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
                 )}
               </Group>
             ))}
-            {subscribed && clientUid && (
+            {writable && (
               <FileButton
                 onChange={(file) =>
                   file && void run("File not added", () => addFile(mission.name, file, clientUid))
@@ -466,7 +758,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
             )}
           </Section>
           <Section title="Log">
-            {subscribed && clientUid && (
+            {writable && (
               <NewLogEntry
                 disabled={!canWrite}
                 onAdd={async (text) => {
@@ -480,6 +772,15 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
             )}
             <MissionLog key={logKey} name={mission.name} callsignOf={props.callsignOf} />
           </Section>
+          {clientUid && (
+            <MissionMembers
+              key={mission.name}
+              mission={mission}
+              clientUid={clientUid}
+              owner={owner}
+              callsignOf={props.callsignOf}
+            />
+          )}
         </Stack>
       </ScrollArea>
     </Stack>
@@ -496,16 +797,26 @@ const NewMission = ({
   const [opened, setOpened] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [defaultRole, setDefaultRole] = useState<MissionRole>("MISSION_SUBSCRIBER");
+  const [inviteOnly, setInviteOnly] = useState(false);
+  const [password, setPasswordText] = useState("");
   const { busy, run } = useWrite();
   const trimmed = name.trim();
   const create = async () => {
     if (!clientUid) return;
-    if (
-      await run("Mission not created", () => createMission(trimmed, description.trim(), clientUid))
-    ) {
+    const settings = {
+      description: description.trim(),
+      defaultRole,
+      inviteOnly,
+      password: password || undefined,
+    };
+    if (await run("Mission not created", () => createMission(trimmed, settings, clientUid))) {
       setOpened(false);
       setName("");
       setDescription("");
+      setDefaultRole("MISSION_SUBSCRIBER");
+      setInviteOnly(false);
+      setPasswordText("");
       onCreated(trimmed);
     }
   };
@@ -542,8 +853,32 @@ const NewMission = ({
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
           />
+          <Select
+            label="New subscribers join as"
+            data={roleOptions}
+            value={defaultRole}
+            onChange={(value) => value && setDefaultRole(value as MissionRole)}
+            allowDeselect={false}
+            comboboxProps={{ withinPortal: true }}
+          />
+          <PasswordInput
+            label="Password"
+            description="Optional: subscribers must enter it to join"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPasswordText(e.currentTarget.value)}
+          />
+          <Switch
+            label="Invite-only"
+            description="Hidden from other users until you invite them"
+            checked={inviteOnly}
+            onChange={(e) => setInviteOnly(e.currentTarget.checked)}
+          />
           <Text fz="xs" c="dimmed">
-            Everyone on TAK can see and subscribe to it; you can delete it later.
+            {inviteOnly
+              ? "Only the users you invite can see and join it"
+              : "Everyone on TAK can see it"}
+            ; you're its owner and can delete it later.
           </Text>
           <Group justify="flex-end" gap="xs">
             <Button size="xs" variant="default" onClick={() => setOpened(false)}>
@@ -591,7 +926,12 @@ const MissionList = (props: Props) => {
             onClick={() => props.onOpen(mission.name)}
           >
             <Group gap={4} wrap="nowrap">
-              {mission.restricted && <IconLock size={12} aria-label="Restricted" />}
+              {(mission.passwordProtected || mission.inviteOnly) && (
+                <IconLock
+                  size={12}
+                  aria-label={mission.inviteOnly ? "Invite-only" : "Password-protected"}
+                />
+              )}
               <Text fz="sm" fw={600} truncate>
                 {mission.name}
               </Text>
@@ -612,6 +952,53 @@ const MissionList = (props: Props) => {
   );
 };
 
+/** Invitations this client hasn't taken up yet, each joined with one click. */
+const MyInvitations = ({
+  state,
+  clientUid,
+  onOpen,
+}: {
+  state: MissionsState;
+  clientUid: string;
+  onOpen: (name: string) => void;
+}) => {
+  const subscriptions = useSubscriptions();
+  const { busy, run } = useWrite();
+  const key = state.invitations.join("\n");
+  useEffect(() => {
+    for (const name of key.split("\n")) {
+      if (name) void loadSubscription(name, clientUid).catch(() => undefined);
+    }
+  }, [key, clientUid]);
+  const pending = state.invitations.filter((name) => !subscriptions.get(name));
+  if (pending.length === 0) return null;
+  const join = async (name: string) => {
+    const mission = state.missions?.find((m) => m.name === name);
+    await subscribe(name, clientUid, undefined, mission);
+    await refreshMissions([name]);
+  };
+  return (
+    <Section title="Invitations for me">
+      {pending.map((name) => (
+        <Group key={name} gap="xs" wrap="nowrap" className="tak-row">
+          <Text fz="sm" fw={600} truncate style={{ flex: 1, minWidth: 0 }}>
+            {name}
+          </Text>
+          <Button
+            size="xs"
+            disabled={busy}
+            onClick={() =>
+              void run(`Couldn't join ${name}`, () => join(name)).then((ok) => ok && onOpen(name))
+            }
+          >
+            Join
+          </Button>
+        </Group>
+      ))}
+    </Section>
+  );
+};
+
 /** TAK missions (Data Sync): what each holds, which ones the map shows, and changes to them. */
 export const MissionsDrawer = (props: Props) => {
   const open = props.state.missions?.find((m) => m.name === props.open);
@@ -621,6 +1008,9 @@ export const MissionsDrawer = (props: Props) => {
       <Group justify="flex-end">
         <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
       </Group>
+      {props.clientUid && (
+        <MyInvitations state={props.state} clientUid={props.clientUid} onOpen={props.onOpen} />
+      )}
       <MissionList {...props} />
     </Stack>
   );

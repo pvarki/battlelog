@@ -14,14 +14,38 @@ export type MissionFile = {
   time: number;
 };
 
+export const MISSION_ROLES = [
+  "MISSION_OWNER",
+  "MISSION_SUBSCRIBER",
+  "MISSION_READONLY_SUBSCRIBER",
+] as const;
+export type MissionRole = (typeof MISSION_ROLES)[number];
+
+export const ROLE_LABELS: Record<MissionRole, string> = {
+  MISSION_OWNER: "Owner",
+  MISSION_SUBSCRIBER: "Subscriber",
+  MISSION_READONLY_SUBSCRIBER: "Read-only",
+};
+
+/** TAK sends a role as `{ type, permissions }`; an unknown one reads as undefined. */
+const roleSchema = z
+  .union([z.string(), z.object({ type: z.string() }).transform((r) => r.type)])
+  .optional()
+  .catch(undefined)
+  .transform((type) => MISSION_ROLES.find((role) => role === type));
+
 export type Mission = {
   name: string;
   description?: string;
   creatorUid?: string;
   createTime: number;
   keywords: string[];
-  /** Password-protected or invite-only: listed, but its contents may be refused. */
-  restricted: boolean;
+  /** Listed, but TAK refuses its contents to non-subscribers. */
+  passwordProtected: boolean;
+  /** Hidden from TAK's list; only invited users see it. */
+  inviteOnly: boolean;
+  /** The role a new subscriber gets. */
+  defaultRole?: MissionRole;
   itemUids: string[];
   files: MissionFile[];
   /** Newest change to its items or files. */
@@ -49,6 +73,7 @@ const missionSchema = z.object({
   keywords: z.array(z.string()).catch([]),
   passwordProtected: z.boolean().catch(false),
   inviteOnly: z.boolean().catch(false),
+  defaultRole: roleSchema,
   uids: z.array(z.object({ data: z.string(), timestamp: time })).catch([]),
   contents: z
     .array(
@@ -82,7 +107,9 @@ export const parseMissionList = (json: unknown): Mission[] => {
         creatorUid: m.creatorUid,
         createTime: m.createTime,
         keywords: m.keywords,
-        restricted: m.passwordProtected || m.inviteOnly,
+        passwordProtected: m.passwordProtected,
+        inviteOnly: m.inviteOnly,
+        defaultRole: m.defaultRole,
         itemUids: m.uids.map((u) => u.data),
         files: m.contents.map((c) => ({ ...c.data, time: c.timestamp })),
         changedAt: Math.max(m.createTime, ...changes),
@@ -95,8 +122,77 @@ export const parseMissionList = (json: unknown): Mission[] => {
 
 export const missionPath = (name: string) => `/Marti/api/missions/${encodeURIComponent(name)}`;
 
+const getJson = async (path: string, signal?: AbortSignal): Promise<unknown> =>
+  JSON.parse((await takGetText(path, signal)) || "{}");
+
 export const fetchMissions = async (signal?: AbortSignal) =>
-  parseMissionList(JSON.parse((await takGetText("/Marti/api/missions", signal)) || "{}"));
+  parseMissionList(await getJson("/Marti/api/missions", signal));
+
+/** One mission by name, e.g. an invite-only one TAK leaves out of its list; undefined when refused or gone. */
+export const fetchMission = async (name: string): Promise<Mission | undefined> => {
+  try {
+    return parseMissionList(await getJson(missionPath(name)))[0];
+  } catch (err) {
+    if (isAccessDenied(err)) return undefined;
+    throw err;
+  }
+};
+
+export type MissionMember = { clientUid: string; username?: string; role?: MissionRole };
+
+const memberSchema = z.object({ clientUid: z.string().min(1), username: text, role: roleSchema });
+
+/** Subscribers with their roles, from `GET /Marti/api/missions/{name}/subscriptions/roles`. */
+export const parseMembers = (json: unknown): MissionMember[] => {
+  const data = (json as { data?: unknown })?.data;
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((raw) => {
+    const parsed = memberSchema.safeParse(raw);
+    return parsed.success ? [parsed.data] : [];
+  });
+};
+
+export const fetchMembers = async (name: string, signal?: AbortSignal) =>
+  parseMembers(await getJson(`${missionPath(name)}/subscriptions/roles`, signal));
+
+export const INVITEE_TYPES = ["callsign", "clientUid", "group"] as const;
+export type InviteeType = (typeof INVITEE_TYPES)[number];
+
+export type MissionInvitation = { type: InviteeType; invitee: string; role?: MissionRole };
+
+const invitationSchema = z.object({
+  type: z.enum(INVITEE_TYPES),
+  invitee: z.string().min(1),
+  role: roleSchema,
+});
+
+/** A mission's open invitations; the per-invitee tokens TAK includes are dropped. */
+export const parseInvitations = (json: unknown): MissionInvitation[] => {
+  const data = (json as { data?: unknown })?.data;
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((raw) => {
+    const parsed = invitationSchema.safeParse(raw);
+    return parsed.success ? [parsed.data] : [];
+  });
+};
+
+export const fetchInvitations = async (name: string, signal?: AbortSignal) =>
+  parseInvitations(await getJson(`${missionPath(name)}/invitations`, signal));
+
+/** Names of the missions `clientUid` is invited to: TAK answers names, or invitations naming their mission. */
+export const parseInvitedMissions = (json: unknown): string[] => {
+  const data = (json as { data?: unknown })?.data;
+  if (!Array.isArray(data)) return [];
+  const names = data.map((entry) =>
+    typeof entry === "string" ? entry : (entry as { missionName?: unknown })?.missionName,
+  );
+  return [...new Set(names.filter((n): n is string => typeof n === "string" && !!n))];
+};
+
+export const fetchInvitedMissions = async (clientUid: string, signal?: AbortSignal) =>
+  parseInvitedMissions(
+    await getJson(`/Marti/api/missions/invitations?${new URLSearchParams({ clientUid })}`, signal),
+  );
 
 /** The mission's map items; TAK refuses (403) restricted missions we're not part of. */
 export const fetchMissionItems = async (name: string, signal?: AbortSignal): Promise<TakItem[]> =>
@@ -123,9 +219,7 @@ export const fetchMissionLog = async (
   name: string,
   signal?: AbortSignal,
 ): Promise<MissionLogEntry[]> => {
-  const data = (
-    JSON.parse((await takGetText(`${missionPath(name)}/log`, signal)) || "{}") as { data?: unknown }
-  ).data;
+  const data = ((await getJson(`${missionPath(name)}/log`, signal)) as { data?: unknown })?.data;
   if (!Array.isArray(data)) return [];
   return data
     .flatMap((raw) => {

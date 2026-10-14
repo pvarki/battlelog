@@ -296,8 +296,9 @@ export const TakWorkspace = ({
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
-  useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])]);
-  useMissionSubscriptions([...shownMissions], callsign ? takSender(callsign).uid : undefined);
+  const clientUid = callsign ? takSender(callsign).uid : undefined;
+  useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])], clientUid);
+  useMissionSubscriptions([...shownMissions], clientUid);
   const missions = useMissions();
   const plans = usePlans();
   // Without the plans tool there's no sign of a plan, so nothing may quietly go into one.

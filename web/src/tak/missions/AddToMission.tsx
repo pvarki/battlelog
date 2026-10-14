@@ -5,7 +5,7 @@ import type { TakItem } from "../cot.ts";
 import { labelOf } from "../items.ts";
 import { notifyFailure } from "./MissionsDrawer.tsx";
 import type { Mission } from "./missions.ts";
-import { addItem, loadSubscription, useSubscriptions } from "./writes.ts";
+import { addItem, canWriteAs, loadSubscription, useSubscriptions } from "./writes.ts";
 
 type Props = {
   item: TakItem;
@@ -29,13 +29,13 @@ export const AddToMission = ({ item, missions, clientUid }: Props) => {
   }, [opened, candidateKey, clientUid]);
 
   const options = candidates.map((m) => {
-    const token = subscriptions.get(m.name);
-    const subscribed = typeof token === "string";
-    return {
-      value: m.name,
-      label: subscribed ? m.name : `${m.name} (subscribe first)`,
-      disabled: !subscribed,
-    };
+    const subscription = subscriptions.get(m.name);
+    const why = !subscription
+      ? " (subscribe first)"
+      : canWriteAs(subscription.role)
+        ? ""
+        : " (read-only)";
+    return { value: m.name, label: m.name + why, disabled: !!why };
   });
 
   const add = async () => {

@@ -4,6 +4,8 @@ import { loadSavedMission, saveMission } from "../picture-cache.ts";
 import type { CotEvent } from "../protocol/cot-event.ts";
 import { MISSION_CHANGE_TYPE, parseMissionChanges } from "./changes.ts";
 import {
+  fetchInvitedMissions,
+  fetchMission,
   fetchMissionItem,
   fetchMissionItems,
   fetchMissions,
@@ -31,18 +33,26 @@ export type MissionsState = {
   missions: Mission[] | null;
   listFailed: boolean;
   contents: ReadonlyMap<string, MissionContents>;
+  /** Missions this client is invited to, by name. */
+  invitations: string[];
 };
 
 // A safety net: subscribed missions stream their changes, and the list is 300 KB on a busy server.
 const POLL_MS = 5 * 60_000;
 const MAX_ITEM_FETCHES = 50;
 
-let state: MissionsState = { missions: null, listFailed: false, contents: new Map() };
+let state: MissionsState = {
+  missions: null,
+  listFailed: false,
+  contents: new Map(),
+  invitations: [],
+};
 const listeners = new Set<() => void>();
 // Per holder (the Map page, each map widget): what it wants loaded.
 const wantedBy = new Map<string, ReadonlySet<string>>();
 const isWanted = (name: string) => [...wantedBy.values()].some((names) => names.has(name));
 let holders = 0;
+let clientUid: string | undefined;
 // True from a poll's start until the loop stops, so a quick unmount/remount can't start a second loop.
 let polling = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -131,25 +141,46 @@ const refreshWanted = () => {
   }
 };
 
-const applyList = (missions: Mission[]) => {
+/**
+ * TAK's list and the invite-only missions it leaves out: those this client is
+ * invited to, wanted, or named in `also`, each fetched by name.
+ */
+const fetchAll = async (also: string[]) => {
+  const [listed, invitations] = await Promise.all([
+    fetchMissions(),
+    clientUid ? fetchInvitedMissions(clientUid).catch(() => state.invitations) : state.invitations,
+  ]);
+  const listedNames = new Set(listed.map((m) => m.name));
+  const wanted = [...wantedBy.values()].flatMap((names) => [...names]);
+  const hidden = [...new Set([...invitations, ...wanted, ...also])].filter(
+    (name) => !listedNames.has(name),
+  );
+  const fetched = await Promise.all(
+    hidden.map((name) => fetchMission(name).catch(() => undefined)),
+  );
+  const missions = [...listed, ...fetched.filter((m): m is Mission => !!m)];
+  return { missions, invitations };
+};
+
+const applyList = ({ missions, invitations }: Awaited<ReturnType<typeof fetchAll>>) => {
   // A deleted or renamed mission takes its items off the map with it.
   const names = new Set(missions.map((m) => m.name));
   const contents = new Map([...state.contents].filter(([name]) => names.has(name)));
-  set({ missions, listFailed: false, contents });
+  set({ missions, listFailed: false, contents, invitations });
   refreshWanted();
 };
 
-/** Refetches the list now, e.g. to read back a write, and returns it. */
-export const refreshMissions = async (): Promise<Mission[]> => {
-  const missions = await fetchMissions();
-  applyList(missions);
-  return missions;
+/** Refetches the list now, e.g. to read back a write to one of `also`, and returns it. */
+export const refreshMissions = async (also: string[] = []): Promise<Mission[]> => {
+  const all = await fetchAll(also);
+  applyList(all);
+  return all.missions;
 };
 
 const poll = async () => {
   timer = undefined;
   try {
-    applyList(await fetchMissions());
+    applyList(await fetchAll([]));
   } catch (err) {
     console.warn("TAK mission list failed", err);
     set({ listFailed: true });
@@ -160,9 +191,13 @@ const poll = async () => {
 
 /**
  * Keeps the mission list fresh while mounted and loads the contents of the
- * named missions (those shown on the map or open in the drawer).
+ * named missions (those shown on the map or open in the drawer). With
+ * `uid`, the list includes the invite-only missions that client is invited to.
  */
-export const useMissionsSync = (names: string[]) => {
+export const useMissionsSync = (names: string[], uid?: string) => {
+  useEffect(() => {
+    if (uid) clientUid = uid;
+  }, [uid]);
   useEffect(() => {
     holders++;
     if (!polling) {
