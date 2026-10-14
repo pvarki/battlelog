@@ -8,3 +8,6 @@ allowBuilds:
   protobufjs: true
 overrides:
   '@grpc/grpc-js': 1.14.5
+  # Dev-only tools pinned past advisories their own releases haven't picked up.
+  '@esbuild-kit/core-utils>esbuild': ^0.25.0
+  'hyperid>uuid': ^11.1.1
