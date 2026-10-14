@@ -6,36 +6,47 @@ import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { dashboardRoute } from "../../routes.tsx";
 import { viewOf } from "../../tak/map/MapCanvas.tsx";
 import { hiddenExcept } from "../../tak/overlays.ts";
-import { TakWorkspace } from "../../tak/TakWorkspace.tsx";
-import type { MapConfig } from "./widget.ts";
+import { TakMapView } from "../../tak/TakMapView.tsx";
+import { effectiveMap, type MapConfig } from "./widget.ts";
 
 const MapWidgetView = ({ config, editMode, updateConfig }: WidgetViewProps<MapConfig>) => {
   const [map, setMap] = useState<MapLibreMap>();
   const { event, tak } = dashboardRoute.useSearch();
   const navigate = dashboardRoute.useNavigate();
+  const effective = effectiveMap(config);
   return (
     <div className="tak-widget">
-      <TakWorkspace
-        tools={new Set(config.tools)}
+      <TakMapView
         view={config.view}
-        embedded
-        pickable
-        onMap={setMap}
-        display={config.display}
-        hiddenGroups={config.groups?.length ? hiddenExcept(config.groups) : undefined}
         basemap={config.basemap}
+        overlay={config.overlay}
+        dim={config.dim}
+        mgrsGrid={config.mgrsGrid}
+        tracks={config.tracks}
+        hiddenGroups={config.groups?.length ? hiddenExcept(config.groups) : undefined}
         missions={config.missions}
-        follow={config.follow}
         eventLayers={config.eventLayers}
+        follow={config.follow}
+        symbolScale={effective.symbolScale}
+        controls={effective.controls}
+        panZoom={effective.panZoom}
+        select={effective.select}
+        cardActions={effective.cardActions}
         selection={{ event, tak }}
         // An event picked here keeps the TAK selection that widgets following it narrow to.
-        onSelect={(next) =>
-          navigate({
-            search: (prev) => (next.event ? { ...prev, event: next.event } : { ...prev, ...next }),
-            replace: true,
-          })
+        onSelect={
+          effective.shareSelection
+            ? (next) =>
+                navigate({
+                  search: (prev) =>
+                    next.event ? { ...prev, event: next.event } : { ...prev, ...next },
+                  replace: true,
+                })
+            : undefined
         }
-        centreOnSelection={config.centreOnSelection ?? true}
+        centreOnSelection={effective.centreOnSelection}
+        answerPicks={effective.answerPicks}
+        onMap={setMap}
       />
       {editMode && map && (
         <Button

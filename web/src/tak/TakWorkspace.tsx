@@ -15,7 +15,6 @@ import { useLocalStorage } from "@mantine/hooks";
 import {
   IconAddressBook,
   IconClipboardList,
-  IconCrosshair,
   IconCurrentLocation,
   IconFolders,
   IconHistory,
@@ -27,7 +26,6 @@ import {
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { answerPick, cancelPick, usePickRequest } from "../map-pick.ts";
 import { ACCENT } from "../theme.ts";
 import { useIsMobile } from "../viewport.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
@@ -57,10 +55,10 @@ import { takSender, useCallsign } from "./identity.ts";
 import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
-import { anchorOf, extentOf, hasPosition, labelOf } from "./items.ts";
+import { labelOf } from "./items.ts";
 import { DEFAULT_BASEMAP, type MapSource, useMapSources } from "./map/basemaps.ts";
+import { centreOnItem, flyToPosition } from "./map/camera.ts";
 import { createCursor } from "./map/cursor.ts";
-import { type Follow, followedItems, positionsOf, useFollow } from "./map/follow.ts";
 import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
@@ -76,7 +74,7 @@ import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
 import { DEFAULT_REPLAY_WINDOW_MS, useReplay } from "./replay/useReplay.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { ShortcutsDialog } from "./ShortcutsDialog.tsx";
-import { CONNECTION_TEXT, StatusBar } from "./StatusBar.tsx";
+import { StatusBar } from "./StatusBar.tsx";
 import {
   holdPositionSharing,
   loadTrack,
@@ -89,9 +87,10 @@ import {
   useTakTracks,
 } from "./session.ts";
 import { useMapSettings } from "./settings.ts";
-import type { MapView, TakTool } from "./tools.ts";
+import type { MapView } from "./tools.ts";
 import { trackFeatures } from "./tracks.ts";
 import { describeStep } from "./undo.ts";
+import { type Selection, useCentreWhenReady, useSelection } from "./use-selection.ts";
 import { useTakWrites } from "./use-tak-writes.ts";
 
 const DRAWERS = {
@@ -104,13 +103,6 @@ const DRAWERS = {
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
-
-const FOCUS_ZOOM = 14;
-const FIT_PADDING_PX = 60;
-// Close enough for a building-sized shape to fill the view; MML maps go to 19.
-const FIT_MAX_ZOOM = 18;
-
-const WALL_SYMBOL_SCALE = 1.5;
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
@@ -149,65 +141,19 @@ const Panel = ({
 );
 
 type Props = {
-  /** What's switched on; all of it when absent (the Map page). */
-  tools?: ReadonlySet<TakTool>;
+  /** Where the map opens, e.g. from an "Open in Map" link; absent = where this browser left it. */
   view?: MapView;
-  /** Inside a dashboard widget: fills its box and leaves the page's keys alone. */
-  embedded?: boolean;
-  onMap?: (map: MapLibreMap | undefined) => void;
-  /** "wall": a picture to read from across the room, with no chrome and nothing to click. */
-  display?: "normal" | "wall";
-  /** Overrides this browser's hidden overlay groups. */
-  hiddenGroups?: ReadonlySet<string>;
-  /** Overrides this browser's background map, by source id. */
-  basemap?: string;
-  /** Shown besides the missions this browser shows. */
-  missions?: readonly string[];
-  /** Keeps these items in view as they move. */
-  follow?: Follow;
-  /** The BattleLog layers shown, fixed; absent = this browser's choice. */
-  eventLayers?: readonly string[];
-  /**
-   * What's selected, held outside (a dashboard keeps it in the URL so other
-   * widgets follow): one TAK item or one BattleLog event, never both.
-   */
+  /** Held in the page's URL, so a link can open the map on something. */
   selection?: Selection;
   onSelect?: (selection: Selection) => void;
-  /** Whether a selection made outside the map brings it into view. */
-  centreOnSelection?: boolean;
-  /** Answers a form's "Pick on map" request (see map-pick.ts). */
-  pickable?: boolean;
 };
 
-export type Selection = { tak?: string; event?: string };
-
-const selectionKey = (s: Selection) => `${s.tak ?? ""}|${s.event ?? ""}`;
-
 /**
- * The TAK client: map, item list, layers and item details around one shared
- * TAK session. The Map page shows all of it; a dashboard widget shows the
- * tools it was configured with.
+ * The TAK client on the Map page: map, item list, layers, drawing and item
+ * details around one shared TAK session. Dashboards show `TakMapView` instead.
  */
-export const TakWorkspace = ({
-  tools,
-  view,
-  embedded,
-  onMap,
-  display,
-  hiddenGroups,
-  basemap: fixedBasemap,
-  missions: extraMissions = [],
-  follow,
-  eventLayers: fixedEventLayers,
-  selection,
-  onSelect,
-  centreOnSelection = true,
-  pickable,
-}: Props) => {
-  const wall = display === "wall";
-  const pickRequest = usePickRequest(!!pickable && !wall);
-  const has = (tool: TakTool) => !wall && (!tools || tools.has(tool));
-  const drawers = (Object.keys(DRAWERS) as DrawerId[]).filter(has);
+export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
+  const drawers = Object.keys(DRAWERS) as DrawerId[];
   useTakSession();
   const picture = useTakItems();
   const tracks = useTakTracks();
@@ -219,38 +165,19 @@ export const TakWorkspace = ({
   const settings = useMapSettings();
   const mapSources = useMapSources(settings.customSources);
   const sourceById = (id: string | null) => mapSources.find((s) => s.id === id);
-  const pinnedBasemap = sourceById(fixedBasemap ?? null);
-  const basemap =
-    pinnedBasemap ?? sourceById(settings.basemap) ?? (sourceById(DEFAULT_BASEMAP) as MapSource);
+  const basemap = sourceById(settings.basemap) ?? (sourceById(DEFAULT_BASEMAP) as MapSource);
   const overlaySource = sourceById(settings.overlay);
-  const hidden = hiddenGroups ?? settings.hidden;
-  const shownMissions = new Set([
-    ...settings.shownMissions,
-    ...extraMissions,
-    ...(follow?.mission ? [follow.mission] : []),
-  ]);
+  const hidden = settings.hidden;
+  const shownMissions = new Set(settings.shownMissions);
   const isMobile = useIsMobile();
-  // A widget opens on its map: a drawer would cover most of a small one.
-  const [chosenDrawer, setDrawer] = useState<DrawerId | null>(
-    isMobile || embedded || !has("items") ? null : "items",
-  );
-  // A widget switched to fewer tools (or to wall display) closes what it no longer has.
-  const drawer = chosenDrawer && drawers.includes(chosenDrawer) ? chosenDrawer : null;
-  const [selectedUid, setSelectedUidState] = useState<string>();
-  const [selectedEventId, setSelectedEventId] = useState<string>();
-  // A selection made in another widget is highlighted, not opened: details would hide the map it's shown on.
-  const [selectedOutside, setSelectedOutside] = useState(false);
-  /** Selecting a TAK item lets go of any selected event, and back. */
-  const setSelectedUid = (uid: string | undefined) => {
-    setSelectedUidState(uid);
-    setSelectedOutside(false);
-    if (uid) setSelectedEventId(undefined);
-  };
-  const selectEvent = (eventId: string | undefined) => {
-    setSelectedEventId(eventId);
-    setSelectedOutside(false);
-    if (eventId) setSelectedUidState(undefined);
-  };
+  const [drawer, setDrawer] = useState<DrawerId | null>(isMobile ? null : "items");
+  const {
+    selectedUid,
+    selectedEventId,
+    selectUid: setSelectedUid,
+    selectEvent,
+    pendingCentre,
+  } = useSelection({ selection, onSelect });
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [openMission, setOpenMission] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
@@ -259,13 +186,12 @@ export const TakWorkspace = ({
   useMissionSubscriptions([...shownMissions], clientUid);
   const missions = useMissions();
   const plans = usePlans();
-  // Without the plans tool there's no sign of a plan, so nothing may quietly go into one.
-  const activePlan = has("plans") ? plans.plans.find((p) => p.id === plans.activeId) : undefined;
+  const activePlan = plans.plans.find((p) => p.id === plans.activeId);
   const replay = useReplay();
   const replaying = replay.windowMs !== undefined;
   const replayFrame = replaying ? replay.frame : undefined;
   const replayReason = replaying ? "Replaying history: go back to live to change TAK" : undefined;
-  const shownLayerIds = fixedEventLayers ? new Set(fixedEventLayers) : settings.shownEventLayers;
+  const shownLayerIds = settings.shownEventLayers;
   const {
     eventLayers,
     shownLayers,
@@ -301,10 +227,6 @@ export const TakWorkspace = ({
   // Locate and Replay sit in MapLibre's own control stack, under zoom and compass whatever their size.
   const mapControls =
     map?.getContainer().querySelector<HTMLElement>(".maplibregl-ctrl-top-right") ?? undefined;
-  const followMissionUids = new Set(
-    missions.missions?.find((m) => m.name === follow?.mission)?.itemUids,
-  );
-  useFollow(map, follow ? positionsOf(followedItems(items, follow, followMissionUids)) : []);
   const drawing = useDrawing(map);
   const [cursor] = useState(createCursor);
   const measure = useMeasure(map, cursor);
@@ -365,7 +287,7 @@ export const TakWorkspace = ({
     if (drawer === "chat" && newestChat > chatReadAt) setChatReadAt(newestChat);
   }, [drawer, newestChat, chatReadAt, setChatReadAt]);
   const [chatWith, setChatWith] = useState<ChatRoom>();
-  const sharing = has("contacts") && settings.sharePosition && !!callsign;
+  const sharing = settings.sharePosition && !!callsign;
   useEffect(() => {
     const self = takSender(callsign);
     setTakPresence(callsign ? { ...self, team: settings.team, role: settings.role } : undefined);
@@ -373,8 +295,7 @@ export const TakWorkspace = ({
   useEffect(() => (sharing ? holdPositionSharing() : undefined), [sharing]);
   const ownPosition = useOwnPosition(
     map,
-    // Only where the switch is in reach: no sharing a user can't see or stop.
-    has("contacts") && settings.sharePosition && callsign
+    settings.sharePosition && callsign
       ? { ...sender, team: settings.team, role: settings.role }
       : undefined,
   );
@@ -411,10 +332,7 @@ export const TakWorkspace = ({
   const missionsOf = (uid: string) =>
     (missions.missions ?? []).filter((m) => m.itemUids.includes(uid)).map((m) => m.name);
 
-  const flyTo = (position: Position) => {
-    const map = mapRef.current;
-    map?.flyTo({ center: position, zoom: Math.max(map.getZoom(), FOCUS_ZOOM) });
-  };
+  const flyTo = (position: Position) => mapRef.current && flyToPosition(mapRef.current, position);
 
   // A searched coordinate keeps a pin until the next search, Esc, or a click on it.
   const goToPin = useRef<Marker>(undefined);
@@ -433,79 +351,18 @@ export const TakWorkspace = ({
     goToPin.current = pin;
   };
 
-  /** A shape fills the view, centred; a marker is flown to at a readable zoom. */
-  const centreOn = (item: TakItem) => {
-    const map = mapRef.current;
-    const extent = extentOf(item);
-    if (!map || !extent) return hasPosition(item) && flyTo(anchorOf(item));
-    // Picking opens the details panel, which narrows the map on the next frame: fit to that map.
-    requestAnimationFrame(() => {
-      map.resize();
-      const { clientWidth: width, clientHeight: height } = map.getContainer();
-      map.fitBounds(extent, {
-        padding: Math.min(FIT_PADDING_PX, width / 6, height / 6),
-        maxZoom: FIT_MAX_ZOOM,
-        bearing: map.getBearing(),
-      });
-    });
-  };
+  const centreOn = (item: TakItem) => mapRef.current && centreOnItem(mapRef.current, item);
   const busy = !!(drawing.tool || drawing.editing || measure.active);
 
-  // A pick takes the next click, so nothing else may be waiting for it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new request stops the modes
-  useEffect(() => {
-    if (!pickRequest) return;
-    measure.stop();
-    setLassoing(false);
-    setMovingGroup(false);
-    if (!drawing.drawn) drawing.clear();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancelPick();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [pickRequest]);
-
-  // Two-way with `selection`: a change from outside selects (and shows) it here, a pick here goes out.
-  // With both set, the event wins: the TAK item is then the context other widgets narrow to.
-  const outside = selection && {
-    tak: selection.event ? undefined : selection.tak,
-    event: selection.event,
-  };
-  const outsideKey = outside && selectionKey(outside);
-  const insideKey = selectionKey({ tak: selectedUid, event: selectedEventId });
-  const lastOutside = useRef<string>(undefined);
-  const lastInside = useRef(insideKey);
-  /** An outside selection still to bring into view once the map and its data have it. */
-  const pendingCentre = useRef<Selection>(undefined);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new outside selection moves the map
-  useEffect(() => {
-    if (!outside || outsideKey === lastOutside.current) return;
-    lastOutside.current = outsideKey;
-    // Our own pick coming back through the URL.
-    if (outsideKey === insideKey) return;
-    setSelectedUidState(outside.tak);
-    setSelectedEventId(outside.event);
-    setSelectedOutside(true);
-    pendingCentre.current = centreOnSelection ? outside : undefined;
-  }, [outsideKey]);
-  useEffect(() => {
-    const target = pendingCentre.current;
-    if (!target || !mapRef.current) return;
+  useCentreWhenReady(pendingCentre, (target) => {
+    if (!mapRef.current) return false;
     const item = target.tak ? currentItem(target.tak) : undefined;
     const point =
-      target.event && selectedEvent?.eventId === target.event && selectedEvent.locationPoint;
+      target.event && selectedEvent?.eventId === target.event && selectedEvent?.locationPoint;
     if (item) centreOn(item);
     else if (point) flyTo([point.lng, point.lat]);
-    else return;
-    pendingCentre.current = undefined;
+    return !!(item || point);
   });
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reports picks made here, nothing else
-  useEffect(() => {
-    if (insideKey === lastInside.current) return;
-    lastInside.current = insideKey;
-    if (insideKey !== outsideKey) onSelect?.({ tak: selectedUid, event: selectedEventId });
-  }, [insideKey]);
 
   const pick = (item: TakItem) => {
     clearGroup();
@@ -527,7 +384,6 @@ export const TakWorkspace = ({
   };
 
   useEffect(() => {
-    if (embedded) return;
     const onKey = (e: KeyboardEvent) => {
       // A dialog owns its keys, Esc included: closing one mustn't also clear the map.
       if (
@@ -550,7 +406,7 @@ export const TakWorkspace = ({
         return;
       }
       if (isTyping(e.target)) return;
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z" && has("draw")) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
         e.preventDefault();
         undo();
         return;
@@ -632,7 +488,7 @@ export const TakWorkspace = ({
         selectedUid={selectedUid}
         onPick={pick}
         grouped={grouped}
-        onToggleGrouped={has("draw") && !busy ? (item) => toggleGrouped(item.uid) : undefined}
+        onToggleGrouped={busy ? undefined : (item) => toggleGrouped(item.uid)}
         hidden={settings.hidden}
         onToggleGroup={settings.toggleGroup}
       />
@@ -642,13 +498,12 @@ export const TakWorkspace = ({
         sources={mapSources}
         map={map}
         basemap={basemap}
-        basemapPinned={!!pinnedBasemap}
         clientUid={writerUid}
         eventLayers={
           <EventLayersSection
             layers={eventLayers}
             shown={shownLayerIds}
-            onToggle={fixedEventLayers ? undefined : settings.toggleEventLayer}
+            onToggle={settings.toggleEventLayer}
             truncated={truncatedLayers}
           />
         }
@@ -678,7 +533,7 @@ export const TakWorkspace = ({
   );
 
   const eventPoint = selectedEvent?.locationPoint;
-  const eventDetails = !wall && !selectedOutside && !selected && selectedEvent && (
+  const eventDetails = !selected && selectedEvent && (
     <EventDetails
       key={selectedEvent.eventId}
       event={selectedEvent}
@@ -693,7 +548,7 @@ export const TakWorkspace = ({
     />
   );
 
-  const details = !wall && !selectedOutside && selected && (
+  const details = selected && (
     <ItemDetails
       key={selected.uid}
       item={selected}
@@ -708,7 +563,7 @@ export const TakWorkspace = ({
       onSubmit={submit}
       submitLabel={submitLabel}
       onEditShape={
-        has("draw") && editTarget(selected)
+        editTarget(selected)
           ? () => {
               // The details sheet would cover the map being edited.
               if (drawing.edit(selected) && isMobile) setSelectedUid(undefined);
@@ -726,15 +581,8 @@ export const TakWorkspace = ({
   );
 
   return (
-    <div
-      className="tak-workspace"
-      data-mobile={isMobile || undefined}
-      data-embedded={embedded || undefined}
-      data-wall={wall || undefined}
-      data-no-rail={drawers.length === 0 || undefined}
-      data-picking={!!pickRequest || undefined}
-    >
-      <nav className="tak-rail" aria-label="Map tools" hidden={drawers.length === 0}>
+    <div className="tak-workspace" data-mobile={isMobile || undefined}>
+      <nav className="tak-rail" aria-label="Map tools">
         {drawers.map((id) => {
           const { label, Icon, key } = DRAWERS[id];
           return (
@@ -743,7 +591,7 @@ export const TakWorkspace = ({
               className="tak-rail-button"
               aria-pressed={drawer === id}
               onClick={() => toggleDrawer(id)}
-              title={embedded ? label : `${label} (${key})`}
+              title={`${label} (${key})`}
             >
               <Indicator label={badges[id]} size={16} color="primary" disabled={!badges[id]}>
                 <Icon size={20} stroke={1.5} />
@@ -779,10 +627,9 @@ export const TakWorkspace = ({
           mgrsGrid={settings.mgrsGrid}
           selectedUids={[...(selectedUid ? [selectedUid] : []), ...grouped]}
           onPick={({ uids, eventIds, at, position, shift }) => {
-            if (pickRequest) return answerPick(position);
             if (movingGroup) return moveGroupTo(position);
             if (busy) return;
-            if (shift && has("draw")) {
+            if (shift) {
               if (uids[0]) toggleGrouped(uids[0]);
               return;
             }
@@ -792,16 +639,15 @@ export const TakWorkspace = ({
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
             if (!uids.length) selectEvent(undefined);
           }}
-          onBoxSelect={has("draw") && !busy && !movingGroup ? addToGroup : undefined}
-          onLasso={lassoing && has("draw") && !busy && !movingGroup ? addToGroup : undefined}
+          onBoxSelect={!busy && !movingGroup ? addToGroup : undefined}
+          onLasso={lassoing && !busy && !movingGroup ? addToGroup : undefined}
           onReady={(ready) => {
             mapRef.current = ready;
             setMap(ready);
-            onMap?.(ready);
           }}
           view={view}
-          passive={wall}
-          symbolScale={wall ? WALL_SYMBOL_SCALE : 1}
+          // An "Open in Map" link moves this map like any other visit would.
+          rememberView
           replayAt={replayFrame?.at}
           events={eventFeatures}
           selectedEventId={selectedEventId}
@@ -814,37 +660,33 @@ export const TakWorkspace = ({
         {mapControls &&
           createPortal(
             <div className="maplibregl-ctrl tak-map-buttons">
-              {!wall && (
-                <ActionIcon
-                  className="tak-locate"
-                  variant="default"
-                  size="md"
-                  aria-label="Locate me"
-                  title="Locate me (shown only to you)"
-                  aria-pressed={ownPosition.locating}
-                  onClick={ownPosition.toggleLocate}
-                >
-                  <IconCurrentLocation size={18} />
-                </ActionIcon>
-              )}
-              {!wall && !embedded && (
-                <ActionIcon
-                  className="tak-replay"
-                  variant="default"
-                  size="md"
-                  aria-label="Replay history"
-                  title="Replay history"
-                  aria-pressed={replaying}
-                  onClick={() => {
-                    if (replaying) return replay.stop();
-                    drawing.clear();
-                    measure.stop();
-                    replay.setWindowMs(DEFAULT_REPLAY_WINDOW_MS);
-                  }}
-                >
-                  <IconHistory size={18} />
-                </ActionIcon>
-              )}
+              <ActionIcon
+                className="tak-locate"
+                variant="default"
+                size="md"
+                aria-label="Locate me"
+                title="Locate me (shown only to you)"
+                aria-pressed={ownPosition.locating}
+                onClick={ownPosition.toggleLocate}
+              >
+                <IconCurrentLocation size={18} />
+              </ActionIcon>
+              <ActionIcon
+                className="tak-replay"
+                variant="default"
+                size="md"
+                aria-label="Replay history"
+                title="Replay history"
+                aria-pressed={replaying}
+                onClick={() => {
+                  if (replaying) return replay.stop();
+                  drawing.clear();
+                  measure.stop();
+                  replay.setWindowMs(DEFAULT_REPLAY_WINDOW_MS);
+                }}
+              >
+                <IconHistory size={18} />
+              </ActionIcon>
             </div>,
             mapControls,
           )}
@@ -854,122 +696,108 @@ export const TakWorkspace = ({
           drawers={drawers.map((id) => DRAWERS[id])}
         />
         <div className="tak-overlay">
-          {has("search") && (
-            <div className="tak-search-slot">
-              <SearchBox
-                ref={searchRef}
-                items={items}
-                coordFormat={settings.coordFormat}
-                onPickItem={pick}
-                onGoTo={goTo}
-              />
-            </div>
-          )}
+          <div className="tak-search-slot">
+            <SearchBox
+              ref={searchRef}
+              items={items}
+              coordFormat={settings.coordFormat}
+              onPickItem={pick}
+              onGoTo={goTo}
+            />
+          </div>
           <div className="tak-banners">
             <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
             {replaying && <ReplayBanner replay={replay} />}
-            {!wall && <ConnectionBanner status={status} />}
-            {pickRequest && (
-              <Alert variant="filled" icon={<IconCrosshair size={18} />}>
-                <Group justify="space-between" wrap="nowrap">
-                  <Text fz="sm">Click the map to set: {pickRequest.label}</Text>
-                  <Button size="compact-xs" variant="white" onClick={cancelPick}>
-                    Cancel
-                  </Button>
-                </Group>
-              </Alert>
-            )}
+            <ConnectionBanner status={status} />
           </div>
-          {has("draw") && (
-            <DrawToolbar
-              tool={drawing.tool}
-              onChoose={(tool) => {
-                measure.stop();
-                setLassoing(false);
-                drawing.choose(tool);
-                if (tool === "rings" || tool === "bullseye")
-                  setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
-              }}
-              graphic={drawing.graphic}
-              symbol={drawing.symbol}
-              onChooseSymbol={(symbol) => {
-                measure.stop();
-                drawing.choose("marker", undefined, symbol);
-              }}
-              onChooseGraphic={(graphic) => {
-                measure.stop();
-                drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
-                if (graphic)
-                  setTacticalLook({
-                    name: nameFor(graphic.name),
-                    affiliation: "friendly",
-                    remarks: "",
-                  });
-              }}
-              disabledReason={activePlan ? replayReason : drawReason}
-              planName={activePlan?.name}
-              editing={
-                drawing.editing && {
-                  name: labelOf(drawing.editing),
-                  saveLabel: submitLabel,
-                  onCancel: drawing.clear,
-                  onSave: () => {
-                    const item = drawing.editing;
-                    const edited = drawing.edited();
-                    if (item && edited) submit(editGeometryEvent(item, edited));
-                    drawing.clear();
-                  },
-                }
+          <DrawToolbar
+            tool={drawing.tool}
+            onChoose={(tool) => {
+              measure.stop();
+              setLassoing(false);
+              drawing.choose(tool);
+              if (tool === "rings" || tool === "bullseye")
+                setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
+            }}
+            graphic={drawing.graphic}
+            symbol={drawing.symbol}
+            onChooseSymbol={(symbol) => {
+              measure.stop();
+              drawing.choose("marker", undefined, symbol);
+            }}
+            onChooseGraphic={(graphic) => {
+              measure.stop();
+              drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
+              if (graphic)
+                setTacticalLook({
+                  name: nameFor(graphic.name),
+                  affiliation: "friendly",
+                  remarks: "",
+                });
+            }}
+            disabledReason={activePlan ? replayReason : drawReason}
+            planName={activePlan?.name}
+            editing={
+              drawing.editing && {
+                name: labelOf(drawing.editing),
+                saveLabel: submitLabel,
+                onCancel: drawing.clear,
+                onSave: () => {
+                  const item = drawing.editing;
+                  const edited = drawing.edited();
+                  if (item && edited) submit(editGeometryEvent(item, edited));
+                  drawing.clear();
+                },
               }
-              selection={
-                groupItems.length > 0 ? (
-                  <SelectionPanel
-                    count={groupItems.length}
-                    movable={movableItems.length}
-                    deletable={deletableItems.length}
-                    moving={movingGroup}
-                    onMove={() => setMovingGroup(true)}
-                    onCancelMove={() => setMovingGroup(false)}
-                    onDelete={() => {
-                      submitAll(deletableItems.map((item) => deleteEvent(item)));
-                      clearGroup();
-                    }}
-                    onClear={clearGroup}
-                    planName={activePlan?.name}
-                  >
-                    {undoButton}
-                  </SelectionPanel>
-                ) : undefined
-              }
-              undo={undoButton}
-              measuring={measure.active}
-              lassoing={lassoing}
-              onToggleLasso={() => {
+            }
+            selection={
+              groupItems.length > 0 ? (
+                <SelectionPanel
+                  count={groupItems.length}
+                  movable={movableItems.length}
+                  deletable={deletableItems.length}
+                  moving={movingGroup}
+                  onMove={() => setMovingGroup(true)}
+                  onCancelMove={() => setMovingGroup(false)}
+                  onDelete={() => {
+                    submitAll(deletableItems.map((item) => deleteEvent(item)));
+                    clearGroup();
+                  }}
+                  onClear={clearGroup}
+                  planName={activePlan?.name}
+                >
+                  {undoButton}
+                </SelectionPanel>
+              ) : undefined
+            }
+            undo={undoButton}
+            measuring={measure.active}
+            lassoing={lassoing}
+            onToggleLasso={() => {
+              measure.stop();
+              drawing.choose(undefined);
+              setLassoing(!lassoing);
+            }}
+            onToggleMeasure={() => {
+              if (measure.active) return measure.stop();
+              drawing.choose(undefined);
+              measure.start();
+            }}
+          >
+            <MeasurePanel
+              points={measure.points}
+              closed={measure.closed}
+              onClosedChange={measure.setClosed}
+              cursor={cursor}
+              onClear={measure.clear}
+              onSave={() => {
+                const [from, to] = measure.points;
+                if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
                 measure.stop();
-                drawing.choose(undefined);
-                setLassoing(!lassoing);
               }}
-              onToggleMeasure={() => {
-                if (measure.active) return measure.stop();
-                drawing.choose(undefined);
-                measure.start();
-              }}
-            >
-              <MeasurePanel
-                points={measure.points}
-                closed={measure.closed}
-                onClosedChange={measure.setClosed}
-                cursor={cursor}
-                onClear={measure.clear}
-                onSave={() => {
-                  const [from, to] = measure.points;
-                  if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
-                  measure.stop();
-                }}
-                saveDisabledReason={activePlan ? replayReason : drawReason}
-              />
-            </DrawToolbar>
-          )}
+              saveDisabledReason={activePlan ? replayReason : drawReason}
+            />
+          </DrawToolbar>
         </div>
         {replaying && <ReplayBar replay={replay} />}
         {chooser && (
@@ -981,15 +809,6 @@ export const TakWorkspace = ({
               setSelectedUid(item.uid);
             }}
             onClose={() => setChooser(undefined)}
-          />
-        )}
-        {wall && (
-          <span
-            className="tak-connection-dot"
-            data-connection={status.connection}
-            role="status"
-            aria-label={CONNECTION_TEXT[status.connection]}
-            title={CONNECTION_TEXT[status.connection]}
           />
         )}
       </div>
@@ -1027,15 +846,13 @@ export const TakWorkspace = ({
       )}
 
       {drawingDialog}
-      {!wall && (
-        <StatusBar
-          cursor={cursor}
-          status={status}
-          callsign={callsign}
-          coordFormat={settings.coordFormat}
-          itemCount={items.length}
-        />
-      )}
+      <StatusBar
+        cursor={cursor}
+        status={status}
+        callsign={callsign}
+        coordFormat={settings.coordFormat}
+        itemCount={items.length}
+      />
     </div>
   );
 };

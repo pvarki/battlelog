@@ -299,10 +299,18 @@ export const eventExplorerRoute = createRoute({
   component: EventExplorerPage,
 });
 
+// What "Open in Map" carries over: the selection and the view (`lng,lat,zoom[,bearing]`).
+const mapSearchSchema = z.object({
+  tak: z.string().min(1).max(200).optional().catch(undefined),
+  event: z.string().uuid().optional().catch(undefined),
+  at: z.string().max(80).optional().catch(undefined),
+});
+
 // Lazy: MapLibre is a large chunk that only the map needs.
 export const mapRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/map",
+  validateSearch: (search: unknown) => mapSearchSchema.parse(search),
   component: lazyRouteComponent(() => import("./pages/MapPage.tsx"), "MapPage"),
 });
 

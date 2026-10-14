@@ -16,7 +16,8 @@ export const EmergencyBanner = ({
 }: {
   items: TakItem[];
   map: MapLibreMap | undefined;
-  onCenter: (item: TakItem) => void;
+  /** Absent on a map nobody clicks, like a wall screen. */
+  onCenter?: (item: TakItem) => void;
 }) => {
   const now = useNow(AGE_REFRESH_MS);
   const emergencies = activeEmergencies(items, now);
@@ -39,9 +40,11 @@ export const EmergencyBanner = ({
                 {formatAge(now - item.time)} ago
               </Text>
             </Text>
-            <Button size="compact-xs" variant="white" color="red" onClick={() => onCenter(item)}>
-              Center
-            </Button>
+            {onCenter && (
+              <Button size="compact-xs" variant="white" color="red" onClick={() => onCenter(item)}>
+                Center
+              </Button>
+            )}
           </Group>
         ))}
       </Stack>

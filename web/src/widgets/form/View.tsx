@@ -60,9 +60,10 @@ type Status = "idle" | "sending" | "sent" | "saved" | "error";
 const dashboardRoute = getRouteApi("/d/$dashboardId");
 
 // Only a form whose pick finds no map on screen pays for loading one.
-const TakWorkspace = lazy(() =>
-  import("../../tak/TakWorkspace.tsx").then((m) => ({ default: m.TakWorkspace })),
+const TakMapView = lazy(() =>
+  import("../../tak/TakMapView.tsx").then((m) => ({ default: m.TakMapView })),
 );
+const PICKER_CONTROLS = new Set(["search", "layers", "zoom", "status"] as const);
 
 const toMicroDegrees = (degrees: number) => Math.round(degrees * 1e6) / 1e6;
 
@@ -335,7 +336,14 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
           </Button>
           <div style={{ height: "60vh" }}>
             <Suspense fallback={<Loader size="sm" />}>
-              <TakWorkspace tools={new Set()} embedded pickable />
+              <TakMapView
+                controls={PICKER_CONTROLS}
+                panZoom
+                select={false}
+                cardActions={new Set()}
+                centreOnSelection={false}
+                answerPicks
+              />
             </Suspense>
           </div>
         </Stack>

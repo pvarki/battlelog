@@ -290,73 +290,21 @@
   transform: translate(8px, 8px);
 }
 
-.tak-workspace[data-embedded] {
-  height: 100%;
-}
-
-/* Over MapCanvas's inline hover cursor. */
-.tak-workspace[data-picking] .maplibregl-canvas {
-  cursor: crosshair !important;
-}
-
-.tak-rail[hidden] {
-  display: none;
-}
-
 .tak-widget {
   position: relative;
   height: 100%;
-  container-type: size;
 }
 
-@container (max-width: 700px) {
-  .tak-statusbar > :not(:first-child):not(:nth-child(2)) {
-    display: none;
-  }
-}
-
-/*
- * A widget too narrow for drawer, map and details side by side: panels open over
- * the map instead of beside it. A positioned grid's absolute child is placed in
- * its grid area, so "main" keeps them between the rail and the status bar.
- */
-@container (max-width: 760px) {
-  .tak-drawer,
-  .tak-details {
-    grid-area: main;
-    position: absolute;
-    z-index: 4;
-    width: min(320px, 85cqw, 100%);
-    box-shadow: 0 0 16px rgba(0, 0, 0, 0.5);
-  }
-
-  .tak-drawer {
-    inset: 0 auto 0 0;
-  }
-
-  .tak-details {
-    inset: 0 0 0 auto;
-  }
-
-  /* Instructions while a tool is in use stay; the idle tip is one keypress away (?). */
-  .tak-idle-hint {
-    display: none;
-  }
-}
-
-/* A narrow map keeps the draw tools to one row that scrolls sideways, not a block over the map. */
-@container (max-width: 760px) {
-  .tak-draw-tools {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-  }
-}
-
+/* A phone keeps the draw tools to one row that scrolls sideways, not a block over the map. */
 .tak-workspace[data-mobile] .tak-draw-tools {
   flex-wrap: nowrap;
   justify-content: flex-start;
   overflow-x: auto;
+}
+
+/* Instructions while a tool is in use stay; the idle tip is one keypress away (?). */
+.tak-workspace[data-mobile] .tak-idle-hint {
+  display: none;
 }
 
 /* No pointer, no cursor position: give its slot to the connection line. */
@@ -390,30 +338,6 @@
 .tak-chat-message[data-own] {
   align-self: flex-end;
   background: var(--mantine-color-dark-4);
-}
-
-.tak-workspace[data-wall] .maplibregl-ctrl-top-right,
-.tak-workspace[data-wall] .maplibregl-ctrl-bottom-left {
-  display: none;
-}
-
-.tak-connection-dot {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 2;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--mantine-color-warning-4);
-}
-
-.tak-connection-dot[data-connection="live"] {
-  background: var(--mantine-color-success-4);
-}
-
-.tak-connection-dot[data-connection="down"] {
-  background: var(--mantine-color-danger-4);
 }
 
 .tak-map-buttons {
@@ -469,4 +393,71 @@
   border: 1px dashed var(--mantine-color-accent-4);
   background: rgb(138 187 255 / 0.15);
   pointer-events: none;
+}
+
+/* TakMapView: a dashboard's read-only map, edge to edge with floating controls. */
+.tak-view {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--mantine-color-dark-7);
+}
+
+.tak-view > .tak-map {
+  position: absolute;
+  inset: 0;
+}
+
+/* Over MapCanvas's inline hover cursor. */
+.tak-view[data-picking] .maplibregl-canvas {
+  cursor: crosshair !important;
+}
+
+/* Above MapLibre's scale and attribution, which share the bottom of the map. */
+.tak-view-bottom {
+  position: absolute;
+  left: 10px;
+  right: 50px;
+  bottom: 34px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.tak-view-bottom > * {
+  pointer-events: auto;
+}
+
+.tak-view-card {
+  width: min(340px, 100%);
+}
+
+.tak-view-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(17, 20, 24, 0.85);
+  color: var(--mantine-color-dark-0);
+  font-size: var(--mantine-font-size-xs);
+}
+
+.tak-view-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mantine-color-warning-4);
+}
+
+.tak-view-status[data-connection="live"]::before {
+  background: var(--mantine-color-success-4);
+}
+
+.tak-view-status[data-connection="down"]::before {
+  background: var(--mantine-color-danger-4);
 }

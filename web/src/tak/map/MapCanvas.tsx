@@ -61,8 +61,14 @@ type Props = {
   /** While set, dragging draws a lasso (mouse or finger) instead of panning, and hands over the items inside. */
   onLasso?: (uids: string[]) => void;
   onReady: (map: MapLibreMap | undefined) => void;
-  /** A fixed starting view; the map then doesn't remember where the viewer left it. */
+  /** Where the map opens; absent = where this browser last left a map. */
   view?: MapView;
+  /** Whether moving the map is remembered for the next map opened without a view; default: only without one. */
+  rememberView?: boolean;
+  /** The zoom and compass buttons; default shown. Read once: change it by remounting. */
+  zoomButtons?: boolean;
+  /** Dragging, scrolling and pinching move the map; default on. Off, the view only changes from code. */
+  panZoom?: boolean;
   /** A wall display: no hover names, and clicks pick nothing. */
   passive?: boolean;
   /** Icons and their labels, larger for reading from across a room. */
@@ -346,6 +352,9 @@ export const MapCanvas = ({
   onLasso,
   onReady,
   view,
+  rememberView,
+  zoomButtons = true,
+  panZoom = true,
   passive = false,
   symbolScale = 1,
   replayAt,
@@ -363,6 +372,8 @@ export const MapCanvas = ({
   callbacks.current = { onPick, onBoxSelect, onReady, passive, cursor };
   // The map is created once; pinning a new view applies on the next open.
   const startView = useRef(view);
+  const remember = useRef(rememberView ?? !view);
+  const showZoomButtons = useRef(zoomButtons);
 
   useEffect(() => {
     const m = new MapLibreMap({
@@ -373,7 +384,8 @@ export const MapCanvas = ({
       ...(startView.current ?? savedView()),
       attributionControl: { compact: true },
     });
-    m.addControl(new NavigationControl({ visualizePitch: false }), "top-right");
+    if (showZoomButtons.current)
+      m.addControl(new NavigationControl({ visualizePitch: false }), "top-right");
     m.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
     m.keyboard.enable();
     // Compact attribution opens expanded until the first drag; on a small widget it hides the map.
@@ -395,7 +407,7 @@ export const MapCanvas = ({
       setBearing(m.getBearing());
       callbacks.current.onReady(m);
     });
-    if (!startView.current) m.on("moveend", () => saveView(m));
+    if (remember.current) m.on("moveend", () => saveView(m));
     m.on("rotateend", () => setBearing(m.getBearing()));
     m.on("click", (e) => {
       if (callbacks.current.passive) return;
@@ -444,6 +456,31 @@ export const MapCanvas = ({
     if (!map) return;
     showRasters(map, basemap, overlay, dim);
   }, [map, basemap, overlay, dim]);
+
+  useEffect(() => {
+    if (!map) return;
+    const {
+      dragPan,
+      scrollZoom,
+      boxZoom,
+      dragRotate,
+      keyboard,
+      doubleClickZoom,
+      touchPitch,
+      touchZoomRotate,
+    } = map;
+    for (const handler of [
+      dragPan,
+      scrollZoom,
+      boxZoom,
+      dragRotate,
+      keyboard,
+      doubleClickZoom,
+      touchPitch,
+    ])
+      panZoom ? handler.enable() : handler.disable();
+    panZoom ? touchZoomRotate.enable() : touchZoomRotate.disable();
+  }, [map, panZoom]);
 
   const lassoing = !!onLasso;
   const lassoCallback = useRef(onLasso);
