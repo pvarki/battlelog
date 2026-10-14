@@ -17,7 +17,7 @@ import {
   IconEyeOff,
   IconSearch,
 } from "@tabler/icons-react";
-import { type ReactNode, useState } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
 import { describeType, formatAge, labelOf, STATUS_LABEL, statusOf, teamColor } from "../items.ts";
@@ -29,6 +29,9 @@ type Props = {
   items: TakItem[];
   selectedUid: string | undefined;
   onPick: (item: TakItem) => void;
+  /** Items picked together with Shift-click, to move or delete as a group. */
+  grouped?: ReadonlySet<string>;
+  onToggleGrouped?: (item: TakItem) => void;
   hidden: ReadonlySet<string>;
   onToggleGroup: (key: string) => void;
 };
@@ -53,7 +56,7 @@ export const ItemRow = ({
   item: TakItem;
   selected: boolean;
   now: number;
-  onPick: () => void;
+  onPick: (event: MouseEvent) => void;
 }) => {
   const status = statusOf(item, now);
   return (
@@ -97,7 +100,15 @@ export const ItemRow = ({
 };
 
 /** Every item in ATAK's overlay groups: the keyboard route to anything on the map, and what it shows. */
-export const ItemsDrawer = ({ items, selectedUid, onPick, hidden, onToggleGroup }: Props) => {
+export const ItemsDrawer = ({
+  items,
+  selectedUid,
+  onPick,
+  grouped,
+  onToggleGrouped,
+  hidden,
+  onToggleGroup,
+}: Props) => {
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const now = useNow(10_000);
@@ -155,8 +166,8 @@ export const ItemsDrawer = ({ items, selectedUid, onPick, hidden, onToggleGroup 
                 key={item.uid}
                 item={item}
                 now={now}
-                selected={item.uid === selectedUid}
-                onPick={() => onPick(item)}
+                selected={item.uid === selectedUid || !!grouped?.has(item.uid)}
+                onPick={(e) => (e.shiftKey && onToggleGrouped ? onToggleGrouped : onPick)(item)}
               />
             ))}
           </div>

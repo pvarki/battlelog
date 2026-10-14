@@ -1,5 +1,6 @@
 import { Badge, Button, Group, Paper, Text, Tooltip } from "@mantine/core";
 import {
+  IconArrowBackUp,
   IconCircle,
   IconLine,
   IconMapPin,
@@ -57,7 +58,51 @@ type Props = {
   children?: ReactNode;
   /** While an existing item's shape is being edited: its name and how to end the edit. */
   editing?: { name: string; saveLabel: string; onSave: () => void; onCancel: () => void };
+  /** Several items picked together: shown in place of the drawing tools. */
+  selection?: ReactNode;
+  undo?: ReactNode;
 };
+
+/**
+ * Undoes the latest change made in this session by writing again, so
+ * whoever sees the item sees the undo too.
+ */
+export const UndoButton = ({
+  subject,
+  destination,
+  disabledReason,
+  onUndo,
+}: {
+  /** What the latest change was to; undefined when there is nothing to undo. */
+  subject: string | undefined;
+  /** Where the undo goes: TAK, or the plan being prepared. */
+  destination: string;
+  disabledReason: string | undefined;
+  onUndo: () => void;
+}) => (
+  <Tooltip
+    label={
+      disabledReason ??
+      (subject
+        ? `Undo the latest change, to ${subject} (Ctrl+Z): sends the earlier version to ${destination} again, or deletes what was new.`
+        : "Nothing changed in this session yet")
+    }
+    multiline
+    w={280}
+    withArrow
+  >
+    <Button
+      size="compact-xs"
+      variant="subtle"
+      color="gray"
+      leftSection={<IconArrowBackUp size={14} />}
+      disabled={!!disabledReason || !subject}
+      onClick={onUndo}
+    >
+      Undo
+    </Button>
+  </Tooltip>
+);
 
 /** Drawing tools over the map; the active tool shows how to use it. */
 export const DrawToolbar = ({
@@ -73,6 +118,8 @@ export const DrawToolbar = ({
   onToggleMeasure,
   children,
   editing,
+  selection,
+  undo,
 }: Props) => (
   <Paper className="tak-draw-toolbar" shadow="sm" p={4} withBorder>
     {editing ? (
@@ -95,20 +142,23 @@ export const DrawToolbar = ({
         </Text>
       </>
     ) : (
-      <ToolButtons
-        tool={tool}
-        graphic={graphic}
-        onChooseGraphic={onChooseGraphic}
-        symbol={symbol}
-        onChooseSymbol={onChooseSymbol}
-        onChoose={onChoose}
-        disabledReason={disabledReason}
-        planName={planName}
-        measuring={measuring}
-        onToggleMeasure={onToggleMeasure}
-      >
-        {children}
-      </ToolButtons>
+      (selection ?? (
+        <ToolButtons
+          tool={tool}
+          graphic={graphic}
+          onChooseGraphic={onChooseGraphic}
+          symbol={symbol}
+          onChooseSymbol={onChooseSymbol}
+          onChoose={onChoose}
+          disabledReason={disabledReason}
+          planName={planName}
+          measuring={measuring}
+          onToggleMeasure={onToggleMeasure}
+          undo={undo}
+        >
+          {children}
+        </ToolButtons>
+      ))
     )}
   </Paper>
 );
@@ -125,7 +175,8 @@ const ToolButtons = ({
   measuring,
   onToggleMeasure,
   children,
-}: Omit<Props, "editing">) => (
+  undo,
+}: Omit<Props, "editing" | "selection">) => (
   <>
     <Group gap={4} justify="center">
       <Badge
@@ -178,6 +229,7 @@ const ToolButtons = ({
       >
         Measure
       </Button>
+      {undo}
       {(tool || measuring) && (
         <Button
           size="compact-xs"
