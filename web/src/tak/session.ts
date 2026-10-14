@@ -194,6 +194,22 @@ const backfill = async (signal: AbortSignal) => {
   if (!signal.aborted) setStatus({ backfillDaysLeft: 0, savedThrough: undefined });
 };
 
+const restartBackfill = () => {
+  backfillAbort?.abort();
+  backfillAbort = new AbortController();
+  void backfill(backfillAbort.signal);
+};
+
+/**
+ * Fetches TAK's whole history window again, e.g. after a group change made
+ * more of it visible. Items only seen through a group turned off stay until
+ * they go stale.
+ */
+export const refetchTakHistory = () => {
+  syncedThrough = undefined;
+  if (socket?.readyState === WebSocket.OPEN) restartBackfill();
+};
+
 /**
  * Tells TAK this connection is the user: TAK routes mission updates by the uid
  * a connection reports as. Sent on connect, then whenever nothing else has
@@ -245,9 +261,7 @@ const connect = () => {
   ws.onopen = () => {
     setStatus({ connection: "live", everConnected: true, lastMessageAt: Date.now() });
     announce(true);
-    backfillAbort?.abort();
-    backfillAbort = new AbortController();
-    void backfill(backfillAbort.signal);
+    restartBackfill();
   };
   ws.onmessage = (e: MessageEvent<ArrayBuffer>) => {
     const { events, error } = decodeTakMessages(new Uint8Array(e.data));

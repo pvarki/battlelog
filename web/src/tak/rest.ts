@@ -27,6 +27,30 @@ export const takGetText = async (path: string, signal?: AbortSignal): Promise<st
   return res.text();
 };
 
+export type TakWrite = {
+  method: "PUT" | "POST" | "DELETE";
+  path: string;
+  body?: unknown;
+};
+
+/** Sends a change to TAK; `missionToken` authorizes writes to a subscribed mission. */
+export const takSend = async (
+  { method, path, body }: TakWrite,
+  missionToken?: string,
+): Promise<string> => {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (missionToken) headers.MissionAuthorization = `Bearer ${missionToken}`;
+  const res = await fetch(`${takBaseUrl()}${path}`, {
+    method,
+    credentials: "include",
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw new TakRequestError(path.split("?")[0] as string, res.status);
+  return res.text();
+};
+
 /** CoT events TAK archived between `start` and `end`; TAK caps the window at 24 h. */
 export const fetchArchive = async (start: Date, end: Date, signal?: AbortSignal) => {
   // Drawings and deletes are only returned with isFiltered=false.

@@ -5,6 +5,7 @@ import { COORD_FORMATS, type CoordFormat } from "../coords.ts";
 import { setPictureSaving } from "../session.ts";
 import type { MapSettings } from "../settings.ts";
 import { DEFAULT_BASEMAP, type MapSource } from "./basemaps.ts";
+import { GroupsSection } from "./GroupsSection.tsx";
 import { IconsetsSection } from "./IconsetsSection.tsx";
 import { MapSourcesSection } from "./MapSourcesSection.tsx";
 import { removeOfflineMap } from "./offline-maps.ts";
@@ -12,6 +13,8 @@ import { removeOfflineMap } from "./offline-maps.ts";
 type Props = {
   settings: MapSettings;
   sources: MapSource[];
+  /** This connection's uid on TAK; undefined without a callsign. */
+  clientUid: string | undefined;
   /** Developer tools; only passed in dev builds. */
   children?: ReactNode;
 };
@@ -20,7 +23,7 @@ const Heading = ({ children }: { children: ReactNode }) => (
   <Text className="tak-group-heading">{children}</Text>
 );
 
-export const LayersDrawer = ({ settings, sources, children }: Props) => {
+export const LayersDrawer = ({ settings, sources, clientUid, children }: Props) => {
   const remove = (source: MapSource) => {
     if (settings.basemap === source.id) settings.setBasemap(DEFAULT_BASEMAP);
     if (settings.overlay === source.id) settings.setOverlay(null);
@@ -127,6 +130,8 @@ export const LayersDrawer = ({ settings, sources, children }: Props) => {
         allowDeselect={false}
         comboboxProps={{ withinPortal: true }}
       />
+
+      <GroupsSection clientUid={clientUid} />
 
       <MapSourcesSection settings={settings} />
 

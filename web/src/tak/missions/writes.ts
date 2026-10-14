@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { TakRequestError, takBaseUrl, takGetText, uploadFile } from "../rest.ts";
+import { TakRequestError, type TakWrite, takGetText, takSend, uploadFile } from "../rest.ts";
 import { type Mission, missionPath } from "./missions.ts";
 import { refreshMissions } from "./store.ts";
 
@@ -8,12 +8,6 @@ import { refreshMissions } from "./store.ts";
  * an item added by a client uid that isn't subscribed and stores nothing, so
  * every write needs a subscription and is confirmed by reading the mission back.
  */
-
-export type TakWrite = {
-  method: "PUT" | "POST" | "DELETE";
-  path: string;
-  body?: unknown;
-};
 
 const query = (params: Record<string, string>) => new URLSearchParams(params).toString();
 
@@ -78,20 +72,6 @@ export const parseToken = (json: unknown): string | undefined => {
   return typeof token === "string" && token ? token : undefined;
 };
 
-const send = async ({ method, path, body }: TakWrite, token?: string): Promise<string> => {
-  const headers: Record<string, string> = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (token) headers.MissionAuthorization = `Bearer ${token}`;
-  const res = await fetch(`${takBaseUrl()}${path}`, {
-    method,
-    credentials: "include",
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!res.ok) throw new TakRequestError(path.split("?")[0] as string, res.status);
-  return res.text();
-};
-
 /** Mission token per mission name; null when not subscribed, missing until asked. */
 let subscriptions: ReadonlyMap<string, string | null> = new Map();
 const listeners = new Set<() => void>();
@@ -136,7 +116,7 @@ export const loadSubscription = (name: string, clientUid: string): Promise<strin
 
 export const subscribe = async (name: string, clientUid: string) => {
   const token = parseToken(
-    JSON.parse(await send({ method: "PUT", path: subscriptionPath(name, clientUid) })),
+    JSON.parse(await takSend({ method: "PUT", path: subscriptionPath(name, clientUid) })),
   );
   if (!token) throw new Error("TAK subscribed without a mission token");
   setSubscription(name, token);
@@ -160,7 +140,7 @@ export const useMissionSubscriptions = (names: string[], clientUid: string | und
 };
 
 export const unsubscribe = async (name: string, clientUid: string) => {
-  await send({ method: "DELETE", path: subscriptionPath(name, clientUid) });
+  await takSend({ method: "DELETE", path: subscriptionPath(name, clientUid) });
   setSubscription(name, null);
 };
 
@@ -173,7 +153,7 @@ export class NotSubscribedError extends Error {
 const writeAsSubscriber = async (name: string, clientUid: string, write: TakWrite) => {
   const token = await loadSubscription(name, clientUid);
   if (!token) throw new NotSubscribedError(name);
-  return send(write, token);
+  return takSend(write, token);
 };
 
 /** The mission as TAK now has it; throws when it no longer exists. */
@@ -192,7 +172,7 @@ export const createMission = async (name: string, description: string, clientUid
     throw err;
   });
   if (existing) throw new Error(`A mission named ${name} already exists`);
-  const created = await send(createMissionRequest(name, description, clientUid));
+  const created = await takSend(createMissionRequest(name, description, clientUid));
   // TAK subscribes the creator as owner.
   setSubscription(name, parseToken(JSON.parse(created)) ?? null);
   await readBack(name);
@@ -226,7 +206,7 @@ export const addLogEntry = async (name: string, content: string, clientUid: stri
 };
 
 export const deleteMission = async (name: string, clientUid: string) => {
-  await send(deleteMissionRequest(name, clientUid));
+  await takSend(deleteMissionRequest(name, clientUid));
   if ((await refreshMissions()).some((m) => m.name === name)) throw unconfirmed("the deletion");
   setSubscription(name, null);
 };
