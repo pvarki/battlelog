@@ -241,7 +241,7 @@ const Panel = ({
       </Text>
       <CloseButton size="sm" onClick={onClose} aria-label={`Close ${title}`} />
     </Group>
-    <div style={{ flex: 1, minHeight: 0 }}>{children}</div>
+    <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</div>
   </Stack>
 );
 

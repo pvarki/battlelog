@@ -6,6 +6,7 @@
     "rail drawer main details"
     "status status status status";
   height: calc(100dvh - var(--app-shell-header-height, 48px));
+  overflow: hidden;
   background: var(--mantine-color-dark-7);
 }
 
@@ -50,13 +51,15 @@
 
 .tak-drawer {
   grid-area: drawer;
-  width: 320px;
+  /* A narrow widget keeps some map beside its drawer; cqw is the viewport outside a widget. */
+  width: min(320px, 65cqw);
   border-right: 1px solid var(--mantine-color-dark-4);
 }
 
 .tak-details {
   grid-area: details;
-  width: 340px;
+  width: min(340px, 65cqw);
+  overflow-y: auto;
   border-left: 1px solid var(--mantine-color-dark-4);
 }
 
