@@ -3,7 +3,7 @@ import { unzipSync, zipSync } from "fflate";
 import { expect, test } from "vitest";
 import type { CotEvent } from "../cot.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
-import { addToPlan, createPlan, exportPlan, importPlan } from "./plans.ts";
+import { addToPlan, createPlan, exportPlan, importPlan, missionChanges } from "./plans.ts";
 
 const sender = { uid: "BattleLog-Eversti", callsign: "Eversti" };
 
@@ -67,6 +67,20 @@ test("importing keeps map items and drops deletes and other control messages", a
   const blob = exportPlan({ ...plan, entries: [{ event }, { event: del }] });
   const imported = await importPlan([new File([await blob.arrayBuffer()], "mixed.zip")], sender);
   expect(imported.entries.map((e) => e.event.uid)).toEqual(["draft-1"]);
+});
+
+test("drafts join a mission and staged deletes leave it only when they were in it", () => {
+  const deleteOf = (uid: string): CotEvent => ({
+    ...event,
+    uid,
+    type: "t-x-d-d",
+    detail: `<link uid="${uid}" relation="none"/><__forcedelete/>`,
+  });
+  const entries = [{ event }, { event: deleteOf("in-mission") }, { event: deleteOf("elsewhere") }];
+  expect(missionChanges(entries, ["in-mission"])).toEqual({
+    add: ["draft-1"],
+    remove: ["in-mission"],
+  });
 });
 
 test("a package whose CoT expands past the limit is refused", async () => {

@@ -122,6 +122,10 @@ export const subscribe = async (name: string, clientUid: string) => {
   setSubscription(name, token);
 };
 
+export const ensureSubscribed = async (name: string, clientUid: string) => {
+  if (!(await loadSubscription(name, clientUid))) await subscribe(name, clientUid);
+};
+
 /**
  * Subscribes this client to the missions shown on its map, as ATAK does when
  * it syncs one, so TAK streams their changes instead of BattleLog refetching
@@ -132,9 +136,9 @@ export const useMissionSubscriptions = (names: string[], clientUid: string | und
   useEffect(() => {
     if (!clientUid || !key) return;
     for (const name of key.split("\n")) {
-      loadSubscription(name, clientUid)
-        .then((token) => (token ? undefined : subscribe(name, clientUid)))
-        .catch((err) => console.warn(`Couldn't subscribe to TAK mission ${name}`, err));
+      ensureSubscribed(name, clientUid).catch((err) =>
+        console.warn(`Couldn't subscribe to TAK mission ${name}`, err),
+      );
     }
   }, [key, clientUid]);
 };
@@ -178,14 +182,34 @@ export const createMission = async (name: string, description: string, clientUid
   await readBack(name);
 };
 
+/** Adds the items in one change; resolves to those TAK didn't take. */
+export const addItems = async (name: string, uids: string[], clientUid: string) => {
+  await writeAsSubscriber(name, clientUid, addContentsRequest(name, { uids }, clientUid));
+  const stored = new Set((await readBack(name)).itemUids);
+  return uids.filter((uid) => !stored.has(uid));
+};
+
 export const addItem = async (name: string, uid: string, clientUid: string) => {
-  await writeAsSubscriber(name, clientUid, addContentsRequest(name, { uids: [uid] }, clientUid));
-  if (!(await readBack(name)).itemUids.includes(uid)) throw unconfirmed("the added item");
+  if ((await addItems(name, [uid], clientUid)).length) throw unconfirmed("the added item");
 };
 
 export const removeItem = async (name: string, uid: string, clientUid: string) => {
   await writeAsSubscriber(name, clientUid, removeContentRequest(name, { uid }, clientUid));
   if ((await readBack(name)).itemUids.includes(uid)) throw unconfirmed("the removal");
+};
+
+/**
+ * Removes the items one request each, as TAK takes them; resolves to those
+ * still in the mission. The read-back, not each request, says what landed.
+ */
+export const removeItems = async (name: string, uids: string[], clientUid: string) => {
+  for (const uid of uids) {
+    await writeAsSubscriber(name, clientUid, removeContentRequest(name, { uid }, clientUid)).catch(
+      () => undefined,
+    );
+  }
+  const stored = new Set((await readBack(name)).itemUids);
+  return uids.filter((uid) => stored.has(uid));
 };
 
 export const addFile = async (name: string, file: File, clientUid: string) => {

@@ -37,6 +37,9 @@ test("items and files are added in the body and removed by query", () => {
     path: "/Marti/api/missions/RECON/contents?creatorUid=BattleLog-Eversti",
     body: { uids: ["u1"] },
   });
+  expect(addContentsRequest("RECON", { uids: ["u1", "u2"] }, me).body).toEqual({
+    uids: ["u1", "u2"],
+  });
   expect(removeContentRequest("RECON", { hash: "ab12" }, me).path).toBe(
     "/Marti/api/missions/RECON/contents?hash=ab12&creatorUid=BattleLog-Eversti",
   );

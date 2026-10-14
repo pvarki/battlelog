@@ -19,9 +19,11 @@ import { download } from "../download.ts";
 import type { Sender } from "../drawing/new-items.ts";
 import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
+import type { Mission } from "../missions/missions.ts";
 import { sendPlan } from "../send.ts";
 import { useNow } from "../use-now.ts";
 import { kmlBlob } from "./overlay-files.ts";
+import { PublishToMission } from "./PublishToMission.tsx";
 import {
   createPlan,
   deletePlan,
@@ -48,6 +50,9 @@ type Props = {
   sender: Sender;
   /** TAK users a plan can be sent to. */
   contacts: RecipientGroup[];
+  missions: Mission[];
+  /** Who this browser writes to TAK missions as; undefined without a callsign. */
+  clientUid: string | undefined;
 };
 
 const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: () => void }) => {
@@ -202,6 +207,15 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
       >
         Publish {drafts.length} to TAK
       </Button>
+      {props.clientUid && (
+        <PublishToMission
+          plan={plan}
+          drafts={drafts.map((d) => d.item)}
+          missions={props.missions}
+          clientUid={props.clientUid}
+          disabledReason={props.publishReason}
+        />
+      )}
     </Stack>
   );
 };

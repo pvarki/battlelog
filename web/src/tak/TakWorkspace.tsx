@@ -555,6 +555,8 @@ export const TakWorkspace = ({
         publishReason={drawReason}
         sender={sender}
         contacts={contacts}
+        missions={missions.missions ?? []}
+        clientUid={callsign ? sender.uid : undefined}
       />
     ) : id === "missions" ? (
       <MissionsDrawer
