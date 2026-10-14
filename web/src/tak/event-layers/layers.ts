@@ -6,7 +6,7 @@ import { matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { optionSchema, STATUS_COLORS, type StatusColor } from "../../event-binding/options.ts";
 import { getPath } from "../../event-binding/paths.ts";
 import { type EventQuery, eventQueryShape, queryFilter } from "../../event-binding/query.ts";
-import type { LiveEventsOptions } from "../../live-events.ts";
+import type { LiveEventsOptions } from "../../events/live-events.ts";
 
 /**
  * A BattleLog layer: the located events matching a query, drawn on the TAK

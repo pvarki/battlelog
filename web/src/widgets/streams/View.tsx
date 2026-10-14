@@ -1,6 +1,6 @@
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { Player } from "../../media/Player.tsx";
-import { Placeholder } from "../../Placeholder.tsx";
 import { resolveType, type StreamsConfig } from "./widget.ts";
 
 const StreamsView = ({ config, onConfigure }: WidgetViewProps<StreamsConfig>) => {

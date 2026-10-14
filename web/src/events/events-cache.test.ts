@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { EventResponse } from "./api.ts";
+import type { EventResponse } from "../api.ts";
 import {
   CURSOR_MAX_AGE_MS,
   idCutoff,

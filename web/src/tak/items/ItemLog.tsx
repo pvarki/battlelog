@@ -14,9 +14,9 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useState } from "react";
-import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api } from "../../api.ts";
-import { useLiveEvents } from "../../live-events.ts";
+import { CREDIBILITY, RELIABILITY } from "../../events/admiralty.ts";
+import { useLiveEvents } from "../../events/live-events.ts";
 import { formatDateTime, formatShortDateTime } from "../../time.ts";
 import type { TakItem } from "../cot.ts";
 import { anchorOf, hasPosition, labelOf } from "../items.ts";

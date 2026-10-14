@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { EventResponse } from "../../api.ts";
 import { queryFilter } from "../../event-binding/query.ts";
-import { useLiveEvents } from "../../live-events.ts";
+import { useLiveEvents } from "../../events/live-events.ts";
 import { useNow } from "../use-now.ts";
 import { type EventLayer, layerFetch, MAX_LAYER_EVENTS } from "./layers.ts";
 

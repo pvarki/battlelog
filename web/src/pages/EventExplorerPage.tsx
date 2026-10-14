@@ -23,9 +23,10 @@ import {
 import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { CREDIBILITY, RELIABILITY } from "../admiralty.ts";
 import { api, type EventResponse } from "../api.ts";
-import { EventDetail } from "../EventDetail.tsx";
+import { EventDetail } from "../components/EventDetail.tsx";
+import { Placeholder } from "../components/Placeholder.tsx";
+import { CREDIBILITY, RELIABILITY } from "../events/admiralty.ts";
 import {
   activeChips,
   buildQuery,
@@ -35,8 +36,7 @@ import {
   type Filters,
   isUuid,
   PAGE,
-} from "../event-filters.ts";
-import { Placeholder } from "../Placeholder.tsx";
+} from "../events/event-filters.ts";
 import { formatDateTime } from "../time.ts";
 import { useIsMobile } from "../viewport.ts";
 

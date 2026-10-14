@@ -5,7 +5,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { dashboardsApi } from "../api.ts";
-import { Placeholder } from "../Placeholder.tsx";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { mobileWidgets, withWidgetConfig } from "./mobile.ts";
 import { getWidget, type WidgetDescriptor } from "./registry.ts";
 import { WidgetWrapper } from "./WidgetWrapper.tsx";

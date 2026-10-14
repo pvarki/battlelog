@@ -17,10 +17,10 @@ import {
 import { type ReactNode, useEffect, useRef } from "react";
 import { z } from "zod";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
+import { Placeholder } from "./components/Placeholder.tsx";
 import { DashboardNav } from "./dashboard/DashboardNav.tsx";
-import { validateEventSearch } from "./event-filters.ts";
-import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
-import { Placeholder } from "./Placeholder.tsx";
+import { validateEventSearch } from "./events/event-filters.ts";
+import { CONNECTION_LABEL, useConnectionState } from "./events/live-events.ts";
 import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";

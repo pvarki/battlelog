@@ -2,9 +2,7 @@ import type { Feature, FeatureCollection, LineString, Point } from "geojson";
 import { forward } from "mgrs";
 import proj4 from "proj4";
 import type { Position } from "../cot.ts";
-
-/** A longitude/latitude rectangle. */
-export type Bounds = { west: number; south: number; east: number; north: number };
+import type { Bounds } from "../geo.ts";
 
 export type GridLevel = "gzd" | "100km" | "10km" | "1km" | "100m";
 

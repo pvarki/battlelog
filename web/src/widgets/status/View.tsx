@@ -1,4 +1,5 @@
 import { Group, Loader, Stack, Text, Tooltip } from "@mantine/core";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { ChoiceChip, CountChip, countOf, ValueCell } from "../../event-binding/cells.tsx";
@@ -7,8 +8,7 @@ import type { ValueSpec } from "../../event-binding/options.ts";
 import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
 import { useBoundEvents } from "../../event-binding/useBoundEvents.ts";
-import { useLiveEvents } from "../../live-events.ts";
-import { Placeholder } from "../../Placeholder.tsx";
+import { useLiveEvents } from "../../events/live-events.ts";
 import { buildStatusTree, flattenTree } from "./tree.ts";
 import { type StatusConfig, type StatusGroup, type StatusRow, widgetDocument } from "./widget.ts";
 

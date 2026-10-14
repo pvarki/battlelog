@@ -1,4 +1,4 @@
-import type { EventResponse } from "./api.ts";
+import type { EventResponse } from "../api.ts";
 
 // NATO Admiralty Code scales (AJP-2.1 / STANAG 2511). Values are duplicated
 // from the server enums (@server alias is type-only), but the satisfies

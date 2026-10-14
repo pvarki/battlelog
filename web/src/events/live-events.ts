@@ -1,6 +1,6 @@
 import type { InferRequestType } from "hono/client";
 import { useEffect, useRef, useState } from "react";
-import { api, type EventResponse } from "./api.ts";
+import { api, type EventResponse } from "../api.ts";
 import { cacheEvents, loadCachedEvents, loadCursor, saveCursor } from "./events-cache.ts";
 
 type Listener = (row: EventResponse) => void;

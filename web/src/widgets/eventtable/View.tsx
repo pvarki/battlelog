@@ -15,15 +15,15 @@ import { IconChevronDown, IconChevronUp, IconFilter, IconFilterOff } from "@tabl
 import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 import type { EventResponse } from "../../api.ts";
+import { Placeholder } from "../../components/Placeholder.tsx";
+import { StaleNotice } from "../../components/StaleNotice.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { ValueCell } from "../../event-binding/cells.tsx";
 import { type EventFilter, matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import type { BoundState } from "../../event-binding/paths.ts";
 import { type EventQuery, queryFilter } from "../../event-binding/query.ts";
 import { HEADER_FIELD, useBoundEvents } from "../../event-binding/useBoundEvents.ts";
-import { useLiveEvents } from "../../live-events.ts";
-import { Placeholder } from "../../Placeholder.tsx";
-import { StaleNotice } from "../../StaleNotice.tsx";
+import { useLiveEvents } from "../../events/live-events.ts";
 import { linkedTo } from "../../tak/links.ts";
 import { formatShortDateTime } from "../../time.ts";
 import { TakSelectionPill } from "../feed/TakSelectionPill.tsx";

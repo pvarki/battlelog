@@ -1,7 +1,8 @@
 import type { LineString, Point, Position } from "geojson";
 import proj4 from "proj4";
 import { expect, test } from "vitest";
-import { type Bounds, clipPolyline, mgrsGrid } from "./mgrs-grid.ts";
+import type { Bounds } from "../geo.ts";
+import { clipPolyline, mgrsGrid } from "./mgrs-grid.ts";
 
 const ZONE_35 = "+proj=utm +zone=35 +datum=WGS84 +units=m +no_defs";
 const HELSINKI: Bounds = { west: 24.85, south: 60.12, east: 25.05, north: 60.22 };

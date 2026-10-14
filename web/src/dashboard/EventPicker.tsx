@@ -17,7 +17,7 @@ import { useDebouncedValue } from "@mantine/hooks";
 import { IconAlertTriangle, IconSearch } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { api, type EventResponse } from "../api.ts";
-import { isUuid } from "../event-filters.ts";
+import { isUuid } from "../events/event-filters.ts";
 import { formatShortDateTime } from "../time.ts";
 
 const RESULT_LIMIT = 50;

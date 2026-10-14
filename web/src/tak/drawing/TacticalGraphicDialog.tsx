@@ -9,7 +9,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import {
-  type Affiliation,
+  type GraphicSide,
   hasAffiliation,
   pointsProblem,
   type TacticalGraphic,
@@ -69,7 +69,7 @@ export const TacticalGraphicDialog = ({
               { value: "hostile", label: "Hostile" },
             ]}
             value={value.affiliation}
-            onChange={(v) => onChange({ ...value, affiliation: v as Affiliation })}
+            onChange={(v) => onChange({ ...value, affiliation: v as GraphicSide })}
           />
         )}
         <Textarea

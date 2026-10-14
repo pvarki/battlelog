@@ -19,6 +19,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { api, dashboardsApi } from "../api.ts";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { GRID_COLS, GRID_MARGIN, GRID_ROWS } from "../dashboard/grid.ts";
 import {
   canRedo as historyCanRedo,
@@ -36,7 +37,6 @@ import { TEMPLATE_TAG, templateEventFor, widgetEventPointers } from "../dashboar
 import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
 import { WidgetConfigPanel } from "../dashboard/WidgetConfigPanel.tsx";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
-import { Placeholder } from "../Placeholder.tsx";
 import { useWakeLock } from "../use-wake-lock.ts";
 import { useIsMobile } from "../viewport.ts";
 

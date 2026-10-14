@@ -1,5 +1,8 @@
 import type { Position } from "./cot.ts";
 
+/** A longitude/latitude rectangle. */
+export type Bounds = { west: number; south: number; east: number; north: number };
+
 export const EARTH_RADIUS_M = 6_371_008.8;
 const RAD = Math.PI / 180;
 /** Finnish Defence Forces mils (piirua), not NATO's 6400; one full turn. */

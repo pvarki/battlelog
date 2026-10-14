@@ -9,10 +9,10 @@ import {
   useState,
 } from "react";
 import type { EventResponse } from "../../api.ts";
+import { StaleNotice } from "../../components/StaleNotice.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { dataValue, matchesFeed, queryFor } from "../../event-binding/filter.ts";
-import { useLiveEvents } from "../../live-events.ts";
-import { StaleNotice } from "../../StaleNotice.tsx";
+import { useLiveEvents } from "../../events/live-events.ts";
 import { linkedTo } from "../../tak/links.ts";
 import { formatShortDateTime } from "../../time.ts";
 import { TakSelectionPill } from "./TakSelectionPill.tsx";

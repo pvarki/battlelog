@@ -3,7 +3,7 @@ import { IconDots } from "@tabler/icons-react";
 import { Component, type ReactNode, Suspense, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Widget } from "../api.ts";
-import { Placeholder } from "../Placeholder.tsx";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
 import { getWidget, validateWidgetConfig } from "./registry.ts";
 import { configTitle } from "./widget-base.ts";

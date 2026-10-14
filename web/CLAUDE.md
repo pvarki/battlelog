@@ -26,7 +26,8 @@ Dependencies point down this list; a lower system never imports a higher one.
 | `tak/session.ts`, `tak/store.ts` | The one TAK connection per tab and the picture it feeds. The store is framework-free. |
 | `tak/protocol/` | CoT XML and TAK protobuf. Imports nothing else from the app and nothing from React. |
 | `event-binding/` | Event queries (`filter.ts`), data paths, bound cells and versioned field writes. |
-| `live-events.ts`, `api.ts` | The BattleLog SSE stream and typed API client. |
+| `components/` | UI pieces several systems use (`Placeholder`, `StaleNotice`, `EventDetail`). |
+| `events/`, `api.ts` | BattleLog events: the SSE stream, offline cache, explorer filters; the typed API client (API types come from the server's schemas, never redeclared). |
 | `map-pick.ts`, `viewport.ts`, `form-utils.ts`, `media/` | Small shared pieces: pick-on-map requests, the mobile breakpoint, config-form text, the video player. |
 
 ## Invariants

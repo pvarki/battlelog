@@ -16,8 +16,8 @@ import {
   RoomMemberEvent,
 } from "matrix-js-sdk";
 import { type CSSProperties, useEffect, useReducer, useRef, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { Placeholder } from "../../Placeholder.tsx";
 import { formatDate } from "../../time.ts";
 import { Composer, type ComposerTarget } from "./Composer.tsx";
 import { EncryptionBanner, useUnlock, VerificationDialog } from "./Encryption.tsx";

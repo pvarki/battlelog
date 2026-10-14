@@ -1,7 +1,7 @@
 import { Badge, Button, Code, Stack, Text } from "@mantine/core";
 import type { ReactNode } from "react";
-import type { EventResponse } from "./api.ts";
-import { formatDateTime } from "./time.ts";
+import type { EventResponse } from "../api.ts";
+import { formatDateTime } from "../time.ts";
 
 const Field = ({ label, children }: { label: string; children: ReactNode }) => {
   if (children == null || children === "") return null;

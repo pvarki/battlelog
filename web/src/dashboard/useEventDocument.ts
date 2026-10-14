@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
-import { cacheEvents, loadCachedEventHead } from "../events-cache.ts";
-import { subscribeToEvents } from "../live-events.ts";
+import { cacheEvents, loadCachedEventHead } from "../events/events-cache.ts";
+import { subscribeToEvents } from "../events/live-events.ts";
 import type { WidgetDocumentDescriptor } from "./registry.ts";
 import { TEMPLATE_TAG } from "./transfer.ts";
 

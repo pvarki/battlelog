@@ -1,3 +1,4 @@
+import type { Bounds } from "../geo.ts";
 import type { MapSource } from "./basemaps.ts";
 
 /**
@@ -7,7 +8,6 @@ import type { MapSource } from "./basemaps.ts";
  */
 
 export type Tile = { z: number; x: number; y: number };
-export type Bounds = [west: number, south: number, east: number, north: number];
 
 /** More than this is a job for an offline map file, not the browser cache. */
 export const MAX_AREA_TILES = 3000;
@@ -21,7 +21,7 @@ const tileY = (lat: number, z: number) => {
   return Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * 2 ** z);
 };
 
-export const tilesIn = ([west, south, east, north]: Bounds, z: number): Tile[] => {
+export const tilesIn = ({ west, south, east, north }: Bounds, z: number): Tile[] => {
   const last = 2 ** z - 1;
   const clamp = (n: number) => Math.max(0, Math.min(last, n));
   const tiles: Tile[] = [];

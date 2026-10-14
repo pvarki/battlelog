@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EventResponse } from "./api.ts";
+import type { EventResponse } from "../api.ts";
 import { markArrived, mergeEvents, relevantRows } from "./live-events.ts";
 
 const row = (id: string, eventId: string): EventResponse =>

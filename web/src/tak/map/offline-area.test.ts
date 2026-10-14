@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { areaPlan, MAX_AREA_TILES, tilesIn, tileUrl } from "./offline-area.ts";
 
-const HELSINKI: [number, number, number, number] = [24.9, 60.15, 24.98, 60.19];
+const HELSINKI = { west: 24.9, south: 60.15, east: 24.98, north: 60.19 };
 
 test("the tiles covering an area at a zoom", () => {
   // 24.9°E–24.98°E straddles the x = 582/583 tile edge at zoom 10.

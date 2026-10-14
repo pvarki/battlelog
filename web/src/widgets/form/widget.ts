@@ -1,12 +1,12 @@
 import { IconForms } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
-import type { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import type { EventResponse } from "../../api.ts";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 import { setPath } from "../../event-binding/paths.ts";
 import { eventQueryShape } from "../../event-binding/query.ts";
+import type { CREDIBILITY, RELIABILITY } from "../../events/admiralty.ts";
 import type { TakLink } from "../../tak/links.ts";
 
 /** Built-in event columns the form can expose, with their input labels. */

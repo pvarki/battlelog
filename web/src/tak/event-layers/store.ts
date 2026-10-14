@@ -1,5 +1,5 @@
 import { api } from "../../api.ts";
-import { useLiveEvents } from "../../live-events.ts";
+import { useLiveEvents } from "../../events/live-events.ts";
 import {
   type EventLayer,
   LAYER_EVENT_TYPE,

@@ -2,11 +2,11 @@ import { Anchor, Box, Center, Group, Loader, Paper, Stack, Text, Title } from "@
 import { useLocalStorage } from "@mantine/hooks";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import type { DashboardResponse } from "../api.ts";
+import { Placeholder } from "../components/Placeholder.tsx";
+import { StaleNotice } from "../components/StaleNotice.tsx";
 import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
 import { RECENT_KEY } from "../dashboard/recent.ts";
-import { useLiveEvents } from "../live-events.ts";
-import { Placeholder } from "../Placeholder.tsx";
-import { StaleNotice } from "../StaleNotice.tsx";
+import { useLiveEvents } from "../events/live-events.ts";
 import { useIsMobile } from "../viewport.ts";
 import { FeedTable } from "../widgets/feed/View.tsx";
 import type { FeedColumn } from "../widgets/feed/widget.ts";

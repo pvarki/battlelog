@@ -1,4 +1,4 @@
-import type { EventResponse } from "./api.ts";
+import type { EventResponse } from "../api.ts";
 
 // Offline read cache: rows mirrored from the SSE stream and initial fetches,
 // so the log stays readable when the link drops. Read-only fallback — writes

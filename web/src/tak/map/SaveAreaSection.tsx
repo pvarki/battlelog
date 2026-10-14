@@ -23,7 +23,7 @@ export const SaveAreaSection = ({
   const start = async () => {
     const b = map.getBounds();
     const plan = areaPlan(
-      [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
+      { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() },
       Math.floor(map.getZoom()),
       source.spec.maxzoom ?? DEFAULT_MAX_ZOOM,
     );

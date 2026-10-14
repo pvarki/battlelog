@@ -1,6 +1,6 @@
 import type { InferRequestType } from "hono/client";
 import { z } from "zod";
-import type { api } from "./api.ts";
+import type { api } from "../api.ts";
 
 export const PAGE = 100;
 

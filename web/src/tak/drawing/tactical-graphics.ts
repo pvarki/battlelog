@@ -10,7 +10,7 @@ import { newShapeEvent } from "./new-items.ts";
  * first), whatever order is easiest to click.
  */
 
-export type Affiliation = "friendly" | "hostile";
+export type GraphicSide = "friendly" | "hostile";
 
 /**
  * How clicks map to the renderer's control points:
@@ -135,7 +135,7 @@ export const hintFor = (g: TacticalGraphic): string | undefined => g.order && HI
 /** Obstacles are green whoever placed them; the rest are blue or red by side, as in 2525. */
 export const hasAffiliation = (g: TacticalGraphic) => g.sidc[2] !== "M";
 
-const strokeFor = (g: TacticalGraphic, affiliation: Affiliation) =>
+const strokeFor = (g: TacticalGraphic, affiliation: GraphicSide) =>
   !hasAffiliation(g) ? "#00ff00" : affiliation === "hostile" ? "#ff0000" : "#0000ff";
 
 /** The clicked points in the order the renderer, and so ATAK, reads them. */
@@ -160,7 +160,7 @@ export const pointsProblem = (g: TacticalGraphic, count: number): string | undef
   return min === max ? `Needs exactly ${min} points` : `Needs at least ${min} points`;
 };
 
-export type TacticalLook = { name: string; affiliation: Affiliation; remarks: string };
+export type TacticalLook = { name: string; affiliation: GraphicSide; remarks: string };
 
 export const newTacticalGraphicEvent = (
   g: TacticalGraphic,
