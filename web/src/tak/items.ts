@@ -111,6 +111,8 @@ const OTHER_TYPE_NAME: [prefix: string, name: string][] = [
   ["b-m-p-c", "Checkpoint"],
   ["b-m-r", "Route"],
   ["b-m-p", "Map point"],
+  ["u-r-b-c-c", "Range rings"],
+  ["u-r-b-bullseye", "Bullseye"],
   ["u-d-c-c", "Circle"],
   ["u-d-c-e", "Ellipse"],
   ["u-d-r", "Rectangle"],

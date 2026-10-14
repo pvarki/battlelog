@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { expect, test } from "vitest";
-import { type CotEvent, type TakItem, toChange } from "../cot.ts";
+import { type CotEvent, type Position, type TakItem, toChange } from "../cot.ts";
 import {
   defaultWaypointNames,
+  newBullseyeEvent,
   newMarkerEvent,
   newRangeBearingEvent,
+  newRangeRingsEvent,
   newRouteEvent,
   newShapeEvent,
   type ShapeStyle,
@@ -202,4 +204,50 @@ test("a measured leg reads back as the range-and-bearing line ATAK would send", 
   const [, end] = item.geometry.coordinates;
   expect(end?.[0]).toBeCloseTo(25.018, 5);
   expect(end?.[1]).toBeCloseTo(60, 5);
+});
+
+test("range rings read back as one ring per spacing, as ATAK's R&B circle", () => {
+  const event = newRangeRingsEvent(
+    { centre: [25, 60], name: "Renkaat 1", color: "#ff0000", remarks: "", spacing: 500, count: 3 },
+    sender,
+    1_000,
+    "rr",
+  );
+  expect(event).toMatchObject({ uid: "rr", type: "u-r-b-c-c", lat: 60, lon: 25 });
+  expect(event.detail).toContain('<shape><ellipse major="500" minor="500" angle="360"/>');
+  const item = parsed(event);
+  expect(item).toMatchObject({
+    callsign: "Renkaat 1",
+    rangeRings: [500, 1000, 1500],
+    stroke: { color: "#ff0000", opacity: 1 },
+    geometry: { type: "Point", coordinates: [25, 60] },
+  });
+  expect(item.ellipse).toBeUndefined();
+});
+
+test("a bullseye reads back with its radius, bearing style and rings", () => {
+  const bullseye = {
+    centre: [25, 60] as Position,
+    name: "Maali",
+    color: "#ffffff",
+    remarks: "",
+    radius: 2000,
+    mils: true,
+    edgeToCenter: true,
+  };
+  const withRings = parsed(
+    newBullseyeEvent({ ...bullseye, rings: { spacing: 400, count: 4 } }, sender, 1_000, "be"),
+  );
+  expect(withRings).toMatchObject({
+    type: "u-r-b-bullseye",
+    callsign: "Maali",
+    bullseye: {
+      radius: 2000,
+      mils: true,
+      northRef: "T",
+      edgeToCenter: true,
+      rings: { spacing: 400, count: 4 },
+    },
+  });
+  expect(parsed(newBullseyeEvent(bullseye, sender)).bullseye?.rings).toBeUndefined();
 });

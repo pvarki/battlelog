@@ -3,6 +3,7 @@ import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
 import { destination, type Position, type Sensor, type TakItem } from "../cot.ts";
 import { hasPosition, labelOf, statusOf } from "../items.ts";
 import { groupOf, isHidden } from "../overlays.ts";
+import { BETWEEN_SPOKES, bullseyeMarks, bullseyeRadii, circleLine } from "./rings.ts";
 import {
   arrowhead,
   iconFor,
@@ -244,6 +245,44 @@ export const toSources = (
     if (!graphic && !tacticalReady(item)) graphicsPending = true;
     if (graphic) {
       tactical.push(...graphic);
+      continue;
+    }
+
+    const radii = item.rangeRings ?? (item.bullseye ? bullseyeRadii(item.bullseye) : undefined);
+    if (g.type === "Point" && radii) {
+      const centre = g.coordinates;
+      const strokeLine = (coordinates: Position[], strokeWidth: number) =>
+        shapes.push({
+          type: "Feature",
+          geometry: { type: "LineString", coordinates },
+          properties: {
+            uid,
+            draft,
+            stroke,
+            strokeOpacity: item.stroke?.opacity ?? 1,
+            strokeWidth,
+            strokeStyle: "solid",
+            fillOpacity: 0,
+          },
+        });
+      const labelsFrom = labelMinZoom(circleLine(centre, Math.max(...radii)));
+      const label = (at: Position, text: string) =>
+        lineLabels.push(
+          point(at, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
+        );
+      const ringLabelBearing = item.bullseye ? BETWEEN_SPOKES : 0;
+      for (const radius of radii) {
+        strokeLine(circleLine(centre, radius), item.strokeWidth ?? 2);
+        label(destination(centre, radius, ringLabelBearing), formatDistance(radius));
+      }
+      if (item.bullseye) {
+        const marks = bullseyeMarks(centre, item.bullseye);
+        for (const spoke of marks.lines) strokeLine(spoke, 1);
+        for (const bearingLabel of marks.labels) label(bearingLabel.at, bearingLabel.text);
+      }
+      const dot = referenceDot(map, stroke);
+      icon(uid, centre, dot, -1);
+      nameUnder(uid, centre, name, dot, labelsFrom);
       continue;
     }
 

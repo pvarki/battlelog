@@ -281,3 +281,31 @@ test("a sensor with an impossible field of view draws no cone", () => {
   expect(sensorWith("0")).toBeUndefined();
   expect(sensorWith("72.7")).toBeDefined();
 });
+
+test("a bullseye in other distance units, and range rings in any order", () => {
+  const bullseye = toChange({
+    ...base,
+    type: "u-r-b-bullseye",
+    detail:
+      '<bullseye mils="false" distance="2" bearingRef="M" distanceUnits="km" edgeToCenter="false" rangeRingVisible="true" hasRangeRings="true" ringDist="0.5" ringNumber="3" title="B"/>',
+  });
+  expect(bullseye?.kind === "upsert" && bullseye.item.bullseye).toEqual({
+    radius: 2000,
+    mils: false,
+    northRef: "M",
+    edgeToCenter: false,
+    rings: { spacing: 500, count: 3 },
+  });
+  const rings = toChange({
+    ...base,
+    type: "u-r-b-c-c",
+    detail:
+      '<shape><ellipse major="200" minor="200" angle="360"/><ellipse major="100" minor="100" angle="360"/></shape>',
+  });
+  expect(rings?.kind === "upsert" && rings.item.rangeRings).toEqual([100, 200]);
+});
+
+test("a bullseye without a radius is just a point", () => {
+  const change = toChange({ ...base, type: "u-r-b-bullseye", detail: "<bullseye/>" });
+  expect(change?.kind === "upsert" && change.item.bullseye).toBeUndefined();
+});

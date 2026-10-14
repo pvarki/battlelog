@@ -1,5 +1,12 @@
-import type { CotEvent, Position, StrokeStyle } from "../cot.ts";
+import {
+  BULLSEYE_TYPE,
+  type CotEvent,
+  type Position,
+  RANGE_RINGS_TYPE,
+  type StrokeStyle,
+} from "../cot.ts";
 import { bearing, distance } from "../geo.ts";
+import { ringRadii } from "../map/rings.ts";
 
 /**
  * New TAK items written the way ATAK writes them (compared against ATAK's own
@@ -87,6 +94,9 @@ const base = (uid: string, type: string, [lon, lat]: Position, now: number, life
 
 const remarksXml = (remarks: string) => `<remarks>${escapeXml(remarks)}</remarks>`;
 
+const creatorXml = (sender: Sender, now: number) =>
+  `<creator uid="${escapeXml(sender.uid)}" callsign="${escapeXml(sender.callsign)}" time="${iso(now)}" type="a-f-G-U-C"/>`;
+
 const centreOf = (points: Position[]): Position => {
   const sum = points.reduce(([x, y], [lon, lat]) => [x + lon, y + lat], [0, 0]);
   return [sum[0] / points.length, sum[1] / points.length];
@@ -125,7 +135,7 @@ export const newShapeEvent = (
     `<color value="${stroke}"/>`,
     `<labels_on value="${style.labelsOn}"/>`,
     `<__shapeExtras cpvis="true" editable="true"/>`,
-    `<creator uid="${escapeXml(sender.uid)}" callsign="${escapeXml(sender.callsign)}" time="${iso(now)}" type="a-f-G-U-C"/>`,
+    creatorXml(sender, now),
     remarksXml(style.remarks),
     "<archive/>",
   ].join("");
@@ -194,6 +204,88 @@ export const newRangeBearingEvent = (
   return { ...base(uid, "u-rb-a", from, now, DAY_MS), detail };
 };
 
+export type NewRangeRings = {
+  centre: Position;
+  name: string;
+  /** #rrggbb */
+  color: string;
+  remarks: string;
+  /** Metres between rings, and from the centre to the first. */
+  spacing: number;
+  count: number;
+};
+
+/** Range rings as ATAK's R&B circle: one `<ellipse>` per ring in `<shape>`. */
+export const newRangeRingsEvent = (
+  rings: NewRangeRings,
+  sender: Sender,
+  now = Date.now(),
+  uid: string = crypto.randomUUID(),
+): CotEvent => {
+  const stroke = toArgb(rings.color);
+  const ellipses = ringRadii(rings.spacing, rings.count)
+    .map((radius) => `<ellipse major="${radius}" minor="${radius}" angle="360"/>`)
+    .join("");
+  const detail = [
+    `<contact callsign="${escapeXml(rings.name)}"/>`,
+    `<shape>${ellipses}</shape>`,
+    `<strokeColor value="${stroke}"/>`,
+    `<strokeWeight value="2.0"/>`,
+    `<fillColor value="${toArgb(rings.color, 0)}"/>`,
+    `<color value="${stroke}"/>`,
+    `<labels_on value="true"/>`,
+    `<__shapeExtras cpvis="true" editable="true"/>`,
+    creatorXml(sender, now),
+    remarksXml(rings.remarks),
+    "<archive/>",
+  ].join("");
+  return { ...base(uid, RANGE_RINGS_TYPE, rings.centre, now, DAY_MS), detail };
+};
+
+export type NewBullseye = {
+  centre: Position;
+  name: string;
+  /** #rrggbb */
+  color: string;
+  remarks: string;
+  /** Metres. */
+  radius: number;
+  mils: boolean;
+  edgeToCenter: boolean;
+  rings?: { spacing: number; count: number };
+};
+
+/** ATAK's bullseye: a `<bullseye>` detail on the centre point, metres and true north. */
+export const newBullseyeEvent = (
+  bullseye: NewBullseye,
+  sender: Sender,
+  now = Date.now(),
+  uid: string = crypto.randomUUID(),
+): CotEvent => {
+  const { rings } = bullseye;
+  const attributes = [
+    `mils="${bullseye.mils}"`,
+    `distance="${bullseye.radius}"`,
+    `bearingRef="T"`,
+    `bullseyeUID="${crypto.randomUUID()}"`,
+    `distanceUnits="m"`,
+    `edgeToCenter="${bullseye.edgeToCenter}"`,
+    `rangeRingVisible="${!!rings}"`,
+    `hasRangeRings="${!!rings}"`,
+    rings ? `ringDist="${rings.spacing}" ringNumber="${rings.count}"` : "",
+    `title="${escapeXml(bullseye.name)}"`,
+  ].filter(Boolean);
+  const detail = [
+    `<contact callsign="${escapeXml(bullseye.name)}"/>`,
+    `<bullseye ${attributes.join(" ")}/>`,
+    `<strokeColor value="${toArgb(bullseye.color)}"/>`,
+    creatorXml(sender, now),
+    remarksXml(bullseye.remarks),
+    "<archive/>",
+  ].join("");
+  return { ...base(uid, BULLSEYE_TYPE, bullseye.centre, now, DAY_MS), detail };
+};
+
 export type NewRoute = {
   points: Position[];
   name: string;
@@ -233,7 +325,7 @@ export const newRouteEvent = (
     "<archive/>",
     `<labels_on value="false"/>`,
     `<color value="${color}"/>`,
-    `<creator uid="${escapeXml(sender.uid)}" callsign="${escapeXml(sender.callsign)}" time="${iso(now)}" type="a-f-G-U-C"/>`,
+    creatorXml(sender, now),
   ].join("");
   return { ...base(uid, "b-m-r", [0, 0], now, DAY_MS), detail };
 };

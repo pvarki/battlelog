@@ -38,16 +38,19 @@ import { editGeometryEvent, editTarget } from "./drawing/edit-geometry.ts";
 import { MeasurePanel } from "./drawing/MeasurePanel.tsx";
 import { NewItemDialog } from "./drawing/NewItemDialog.tsx";
 import {
+  newBullseyeEvent,
   newMarkerEvent,
   newRangeBearingEvent,
+  newRangeRingsEvent,
   newRouteEvent,
   newShapeEvent,
   type ShapeStyle,
 } from "./drawing/new-items.ts";
+import { defaultRingsLook, RingsDialog, type RingsLook } from "./drawing/RingsDialog.tsx";
 import { cotTypeOf, sidcOf } from "./drawing/symbol-catalogue.ts";
 import { TacticalGraphicDialog } from "./drawing/TacticalGraphicDialog.tsx";
 import { newTacticalGraphicEvent, type TacticalLook } from "./drawing/tactical-graphics.ts";
-import { type Drawn, useDrawing } from "./drawing/useDrawing.ts";
+import { type Drawn, TOOLS, useDrawing } from "./drawing/useDrawing.ts";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { takSender, useCallsign } from "./identity.ts";
@@ -385,6 +388,18 @@ export const TakWorkspace = ({
       ? newTacticalGraphicEvent(drawing.graphic, points, tacticalLook, sender, Date.now(), uid)
       : undefined;
   const [chosenStyle, setChosenStyle] = useState<ShapeStyle>();
+  const ringsKind =
+    drawing.tool === "rings" || drawing.tool === "bullseye" ? drawing.tool : undefined;
+  const [ringsLook, setRingsLook] = useState<RingsLook>();
+  const ringsEvent = (uid?: string) => {
+    if (!ringsKind || !ringsLook || drawing.drawn?.kind !== "marker") return undefined;
+    const placed = { ...ringsLook, centre: drawing.drawn.position };
+    if (ringsKind === "rings") return newRangeRingsEvent(placed, sender, Date.now(), uid);
+    const rings = ringsLook.showRings
+      ? { spacing: ringsLook.spacing, count: ringsLook.count }
+      : undefined;
+    return newBullseyeEvent({ ...placed, rings }, sender, Date.now(), uid);
+  };
   /** The shape being drawn as it will look once saved. */
   const previewOf = (sketch: Drawn | undefined, cursor: Position | undefined): TakItem[] => {
     const shape = drawing.drawn ?? sketch;
@@ -405,22 +420,24 @@ export const TakWorkspace = ({
           Date.now(),
           "preview",
         )
-      : drawing.graphic
-        ? pointsOf(shape).length > 1
-          ? tacticalEvent(pointsOf(shape), "preview")
-          : undefined
-        : shape && shape.kind !== "marker" && shape.kind !== "route"
-          ? newShapeEvent(
-              shape,
-              (drawing.drawn && chosenStyle) || {
-                ...PREVIEW_STYLE,
-                name: nameFor(KIND_NAME[shape.kind]),
-              },
-              sender,
-              Date.now(),
-              "preview",
-            )
-          : undefined;
+      : ringsKind
+        ? ringsEvent("preview")
+        : drawing.graphic
+          ? pointsOf(shape).length > 1
+            ? tacticalEvent(pointsOf(shape), "preview")
+            : undefined
+          : shape && shape.kind !== "marker" && shape.kind !== "route"
+            ? newShapeEvent(
+                shape,
+                (drawing.drawn && chosenStyle) || {
+                  ...PREVIEW_STYLE,
+                  name: nameFor(KIND_NAME[shape.kind]),
+                },
+                sender,
+                Date.now(),
+                "preview",
+              )
+            : undefined;
     const change = event && toChange(event);
     if (change?.kind !== "upsert") return [];
     return [placing ? { ...change.item, hideLabel: true } : change.item];
@@ -460,6 +477,20 @@ export const TakWorkspace = ({
       saveLabel={submitLabel}
       onSave={() => {
         const event = tacticalEvent(tacticalPoints);
+        if (event) submit(event);
+        drawing.clear();
+      }}
+    />
+  );
+  const ringsDialog = ringsKind && ringsLook && drawing.drawn && (
+    <RingsDialog
+      kind={ringsKind}
+      value={ringsLook}
+      onChange={setRingsLook}
+      onCancel={drawing.clear}
+      saveLabel={submitLabel}
+      onSave={() => {
+        const event = ringsEvent();
         if (event) submit(event);
         drawing.clear();
       }}
@@ -732,6 +763,8 @@ export const TakWorkspace = ({
             onChoose={(tool) => {
               measure.stop();
               drawing.choose(tool);
+              if (tool === "rings" || tool === "bullseye")
+                setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
             }}
             graphic={drawing.graphic}
             symbol={drawing.symbol}
@@ -773,6 +806,8 @@ export const TakWorkspace = ({
           >
             <MeasurePanel
               points={measure.points}
+              closed={measure.closed}
+              onClosedChange={measure.setClosed}
               cursor={cursor}
               onClear={measure.clear}
               onSave={() => {
@@ -828,7 +863,7 @@ export const TakWorkspace = ({
         </>
       )}
 
-      {drawing.graphic ? tacticalDialog : newItemDialog}
+      {drawing.graphic ? tacticalDialog : ringsDialog || newItemDialog}
       {!wall && (
         <StatusBar
           cursor={cursor}

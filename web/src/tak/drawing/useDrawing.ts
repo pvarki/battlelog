@@ -23,6 +23,8 @@ export const TOOLS = {
   rectangle: { label: "Rectangle", mode: "rectangle" },
   circle: { label: "Circle", mode: "circle" },
   route: { label: "Route", mode: "linestring" },
+  rings: { label: "Range rings", mode: "point" },
+  bullseye: { label: "Bullseye", mode: "point" },
 } as const;
 
 export type Tool = keyof typeof TOOLS;

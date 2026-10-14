@@ -1,12 +1,16 @@
-import { Badge, Button, Group, Paper, Text, Tooltip } from "@mantine/core";
+import { Badge, Button, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
 import {
+  IconChevronDown,
   IconCircle,
+  IconCircles,
   IconLine,
   IconMapPin,
   IconPolygon,
   IconRectangle,
   IconRoute,
   IconRuler2,
+  IconTarget,
+  IconTools,
   IconX,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -23,7 +27,14 @@ const ICONS = {
   rectangle: IconRectangle,
   circle: IconCircle,
   route: IconRoute,
+  rings: IconCircles,
+  bullseye: IconTarget,
 } as const;
+
+/** Under the Tools menu with Measure, so the toolbar stays short. */
+const MENU_TOOLS = ["rings", "bullseye"] as const satisfies Tool[];
+const isMenuTool = (tool: Tool | undefined) => MENU_TOOLS.some((id) => id === tool);
+const DRAW_TOOLS = (Object.keys(TOOLS) as Tool[]).filter((id) => !isMenuTool(id));
 
 const HINT: Record<Tool, string> = {
   marker: "Click where the marker goes.",
@@ -33,6 +44,8 @@ const HINT: Record<Tool, string> = {
   circle: "Click the centre, then click again at the edge.",
   route:
     "Click each checkpoint in order; click the last one again to finish, or the first to make a loop.",
+  rings: "Click the centre of the range rings.",
+  bullseye: "Click the centre of the bullseye.",
 };
 
 const SYMBOL_HINT = "Click where the symbol goes.";
@@ -140,7 +153,7 @@ const ToolButtons = ({
       >
         {planName ? `Plan: ${planName}` : "Live"}
       </Badge>
-      {(Object.keys(TOOLS) as Tool[]).map((id) => {
+      {DRAW_TOOLS.map((id) => {
         const Icon = ICONS[id];
         return (
           <Tooltip key={id} label={disabledReason} disabled={!disabledReason} withArrow>
@@ -168,16 +181,38 @@ const ToolButtons = ({
         onChange={onChooseGraphic}
         disabledReason={disabledReason}
       />
-      <Button
-        size="compact-xs"
-        variant={measuring ? "filled" : "subtle"}
-        color={measuring ? "primary" : "gray"}
-        leftSection={<IconRuler2 size={14} />}
-        aria-pressed={measuring}
-        onClick={onToggleMeasure}
-      >
-        Measure
-      </Button>
+      <Menu position="bottom-end" withinPortal>
+        <Menu.Target>
+          <Button
+            size="compact-xs"
+            variant={measuring || isMenuTool(tool) ? "filled" : "subtle"}
+            color={measuring || isMenuTool(tool) ? "primary" : "gray"}
+            leftSection={<IconTools size={14} />}
+            rightSection={<IconChevronDown size={12} />}
+          >
+            Tools
+          </Button>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item leftSection={<IconRuler2 size={14} />} onClick={onToggleMeasure}>
+            {measuring ? "Stop measuring" : "Measure"}
+          </Menu.Item>
+          {MENU_TOOLS.map((id) => {
+            const Icon = ICONS[id];
+            return (
+              <Menu.Item
+                key={id}
+                leftSection={<Icon size={14} />}
+                disabled={!!disabledReason}
+                title={disabledReason}
+                onClick={() => onChoose(tool === id ? undefined : id)}
+              >
+                {TOOLS[id].label}
+              </Menu.Item>
+            );
+          })}
+        </Menu.Dropdown>
+      </Menu>
       {(tool || measuring) && (
         <Button
           size="compact-xs"

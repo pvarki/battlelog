@@ -12,9 +12,27 @@ export const legsOf = (points: Position[]): Leg[] =>
 
 export const totalDistance = (legs: Leg[]): number => legs.reduce((sum, l) => sum + l.distance, 0);
 
-/** "45°T · 07-50 mils", mils written the Finnish way. */
-export const formatBearing = (degrees: number): string => {
+/** The length around the area the points enclose, back to the first point. */
+export const perimeter = (points: Position[]): number =>
+  totalDistance(legsOf([...points, points[0] as Position]));
+
+/** "07-50", mils written the Finnish way. */
+export const formatMils = (degrees: number): string => {
   const mils = Math.round(toMils(degrees)) % MILS_PER_TURN;
   const digits = String(mils).padStart(4, "0");
-  return `${Math.round(degrees) % 360}°T · ${digits.slice(0, 2)}-${digits.slice(2)} mils`;
+  return `${digits.slice(0, 2)}-${digits.slice(2)}`;
 };
+
+/** "45°T · 07-50 mils". */
+export const formatBearing = (degrees: number): string =>
+  `${Math.round(degrees) % 360}°T · ${formatMils(degrees)} mils`;
+
+const SQUARE_METRES_PER_HECTARE = 10_000;
+const SQUARE_METRES_PER_KM2 = 1_000_000;
+
+export const formatArea = (squareMetres: number): string =>
+  squareMetres < SQUARE_METRES_PER_HECTARE
+    ? `${Math.round(squareMetres)} m²`
+    : squareMetres < SQUARE_METRES_PER_KM2
+      ? `${(squareMetres / SQUARE_METRES_PER_HECTARE).toFixed(2)} ha`
+      : `${(squareMetres / SQUARE_METRES_PER_KM2).toFixed(2)} km²`;
