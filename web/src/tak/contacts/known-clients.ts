@@ -39,7 +39,8 @@ export const parseClients = (json: unknown): KnownClient[] => {
 export const fetchKnownClients = async (signal?: AbortSignal): Promise<KnownClient[]> => {
   const query = new URLSearchParams({
     secAgo: String(WINDOW_SECONDS),
-    showCurrentlyConnectedClients: "true",
+    // "true" would drop everyone disconnected (verified on TAK 5.8).
+    showCurrentlyConnectedClients: "false",
     showMostRecentOnly: "true",
   });
   const text = await takGetText(`/Marti/api/clientEndPoints?${query}`, signal);
