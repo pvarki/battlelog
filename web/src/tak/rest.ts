@@ -35,7 +35,7 @@ export const fetchArchive = async (start: Date, end: Date, signal?: AbortSignal)
     end: end.toISOString(),
     isFiltered: "false",
   });
-  return parseCotXml(await takGetText(`/Marti/api/cot/sa?${query}`, signal));
+  return parseCotXml(await takGetText(`/Marti/api/cot/sa?${query}`, signal), { strict: true });
 };
 
 /** The latest stored copy of one item, or undefined when TAK has none. */

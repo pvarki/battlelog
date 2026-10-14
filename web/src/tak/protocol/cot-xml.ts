@@ -3,12 +3,16 @@ import { type CotEvent, childNamed, MARKING_FIELDS } from "./cot-event.ts";
 /**
  * CoT XML as TAK's REST API returns it: one `<event>` or many (archive
  * queries concatenate them, each possibly with its own XML declaration).
- * Malformed input yields no events rather than throwing.
+ * Malformed input yields no events, or with `strict` throws: an archive
+ * window that fails to parse must not pass for one with nothing in it.
  */
-export const parseCotXml = (xml: string): CotEvent[] => {
+export const parseCotXml = (xml: string, { strict = false } = {}): CotEvent[] => {
   const body = xml.replace(/<\?xml[^?]*\?>/g, "");
   const doc = new DOMParser().parseFromString(`<events>${body}</events>`, "application/xml");
-  if (doc.getElementsByTagName("parsererror").length > 0) return [];
+  if (doc.getElementsByTagName("parsererror").length > 0) {
+    if (strict) throw new Error("TAK sent CoT XML that doesn't parse");
+    return [];
+  }
   const serializer = new XMLSerializer();
   // Archive queries wrap their events in TAK's own <events>; single lookups don't.
   return Array.from(doc.getElementsByTagName("event")).map((event) => {

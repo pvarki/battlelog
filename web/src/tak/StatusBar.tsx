@@ -36,7 +36,14 @@ export const StatusBar = ({ status, callsign, cursor: pointer, coordFormat, item
       </Text>
       {status.backfillDaysLeft > 0 && (
         <Text fz="xs" c="dimmed">
-          Loading history… {status.backfillDaysLeft} d left
+          {status.savedThrough
+            ? `Saved picture from ${formatAge(now - status.savedThrough)} ago · catching up…`
+            : `Loading history… ${status.backfillDaysLeft} d left`}
+        </Text>
+      )}
+      {status.historyFailed && (
+        <Text fz="xs" c="warning.4">
+          History incomplete · retried on reconnect
         </Text>
       )}
       <Text fz="xs" c="dimmed">

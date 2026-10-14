@@ -2,6 +2,7 @@ import { ActionIcon, Group, Radio, Select, Slider, Stack, Switch, Text } from "@
 import { IconTrash } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { COORD_FORMATS, type CoordFormat } from "../coords.ts";
+import { forgetSavedPictures } from "../picture-cache.ts";
 import type { MapSettings } from "../settings.ts";
 import { DEFAULT_BASEMAP, type MapSource } from "./basemaps.ts";
 import { IconsetsSection } from "./IconsetsSection.tsx";
@@ -103,6 +104,18 @@ export const LayersDrawer = ({ settings, sources, children }: Props) => {
         description="Where moving users and units went in the last 2 hours"
         checked={settings.showAllTracks}
         onChange={(e) => settings.setShowAllTracks(e.currentTarget.checked)}
+      />
+
+      <Switch
+        size="xs"
+        label="Keep the TAK picture in this browser"
+        description="The map opens with it and fetches only what's new. Off deletes the saved copy."
+        checked={settings.savePicture}
+        onChange={(e) => {
+          const keep = e.currentTarget.checked;
+          settings.setSavePicture(keep);
+          if (!keep) void forgetSavedPictures();
+        }}
       />
 
       <Select

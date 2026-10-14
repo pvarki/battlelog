@@ -1,7 +1,9 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { receiveChat } from "./chat/store.ts";
 import { type CotEvent, toChange } from "./cot.ts";
+import { loadCallsign } from "./identity.ts";
 import { receiveFileShare } from "./inbox/store.ts";
+import { loadPicture, pictureScope, savePicture, savingEnabled } from "./picture-cache.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
 import { fetchArchive, fetchHistory, takBaseUrl } from "./rest.ts";
 import { createTakStore, DAY_MS } from "./store.ts";
@@ -12,6 +14,9 @@ import { TRACK_MAX_AGE_MS, trackPointOf } from "./tracks.ts";
  * both directions, plus an archive backfill on every (re)connect so items
  * placed while we were away still show. It runs only while something holds it
  * (`useTakSession`), and every holder shares the same store.
+ *
+ * The picture is saved in this browser (`picture-cache.ts`): a visit starts
+ * from it and backfills only from where the last one got to.
  */
 
 export type TakConnection = "idle" | "connecting" | "live" | "down";
@@ -24,15 +29,27 @@ export type TakStatus = {
   lastMessageAt?: number;
   /** Archive days still to load after a connect; 0 when done. */
   backfillDaysLeft: number;
+  /** A history window failed to load; the gap is fetched again on the next connect. */
+  historyFailed: boolean;
+  /** How far TAK's history was fetched when the saved picture shown was stored. */
+  savedThrough?: number;
 };
 
 const BACKFILL_DAYS = 7;
+// Events stored just before the last sync can reach the archive a little late.
+const SYNC_OVERLAP_MS = 5 * 60_000;
+const SAVE_INTERVAL_MS = 1_000;
 const RECONNECT_DELAY_MS = 5_000;
 const SWEEP_INTERVAL_MS = 60_000;
 
 export const takStore = createTakStore({ markRetentionMs: (BACKFILL_DAYS + 1) * DAY_MS });
 
-let status: TakStatus = { connection: "idle", everConnected: false, backfillDaysLeft: 0 };
+let status: TakStatus = {
+  connection: "idle",
+  everConnected: false,
+  backfillDaysLeft: 0,
+  historyFailed: false,
+};
 const statusListeners = new Set<() => void>();
 
 const setStatus = (patch: Partial<TakStatus>) => {
@@ -45,6 +62,13 @@ let socket: WebSocket | undefined;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let sweepTimer: ReturnType<typeof setInterval> | undefined;
 let backfillAbort: AbortController | undefined;
+let saveTimer: ReturnType<typeof setInterval> | undefined;
+/** Where the saved picture lives; undefined while it isn't being saved. */
+let scope: string | undefined;
+/** TAK's history is in the store up to here; the next backfill starts from it. */
+let syncedThrough: number | undefined;
+let restored: Promise<void> | undefined;
+let saving: Promise<void> = Promise.resolve();
 
 const applyEvent = (event: CotEvent) => {
   if (receiveChat(event)) return;
@@ -52,23 +76,66 @@ const applyEvent = (event: CotEvent) => {
   if (change) takStore.apply(change);
 };
 
-/** TAK caps archive queries at 24 h, so long-lived items need one query per day. */
+/** Saves what changed, and with `through` how far the history now reaches. Saves run one at a time. */
+const save = (through?: number): Promise<void> => {
+  saving = saving.then(async () => {
+    const uids = takStore.takeDirty();
+    if (!scope || !savingEnabled() || (uids.length === 0 && through === undefined)) return;
+    const changes = uids.map((uid) => ({ uid, record: takStore.recordOf(uid) }));
+    try {
+      await savePicture(scope, changes, through);
+    } catch (err) {
+      takStore.markDirty(uids);
+      console.warn("Saving the TAK picture failed", err);
+    }
+  });
+  return saving;
+};
+
+const restore = async () => {
+  if (!savingEnabled()) return;
+  const callsign = await loadCallsign().catch(() => null);
+  if (!callsign) return;
+  scope = pictureScope(takBaseUrl(), callsign);
+  const saved = await loadPicture(scope).catch(() => undefined);
+  if (!saved?.records.length) return;
+  takStore.restore(saved.records);
+  takStore.flush();
+  syncedThrough = saved.syncedThrough;
+  setStatus({ savedThrough: saved.syncedThrough });
+};
+
+/**
+ * TAK caps archive queries at 24 h, so history comes a day at a time, oldest
+ * first. A window counts only once it's applied and saved; the first failure
+ * stops here, so the next connect starts from the gap instead of skipping it.
+ */
 const backfill = async (signal: AbortSignal) => {
   const now = Date.now();
-  for (let day = BACKFILL_DAYS; day > 0 && !signal.aborted; day--) {
-    setStatus({ backfillDaysLeft: day });
+  let from = Math.max(now - BACKFILL_DAYS * DAY_MS, (syncedThrough ?? 0) - SYNC_OVERLAP_MS);
+  setStatus({ historyFailed: false });
+  while (from < now && !signal.aborted) {
+    const to = Math.min(from + DAY_MS, now);
+    setStatus({ backfillDaysLeft: Math.ceil((now - from) / DAY_MS) });
     try {
-      const events = await fetchArchive(
-        new Date(now - day * DAY_MS),
-        new Date(now - (day - 1) * DAY_MS),
-        signal,
-      );
-      if (!signal.aborted) events.forEach(applyEvent);
+      const events = await fetchArchive(new Date(from), new Date(to), signal);
+      if (signal.aborted) return;
+      events.forEach(applyEvent);
+      syncedThrough = to;
+      await save(to);
     } catch (err) {
-      if (!signal.aborted) console.warn("TAK backfill window failed", err);
+      if (signal.aborted) return;
+      console.warn("TAK backfill window failed", err);
+      setStatus({ backfillDaysLeft: 0, historyFailed: true });
+      return;
     }
+    from = to;
   }
-  if (!signal.aborted) setStatus({ backfillDaysLeft: 0 });
+  if (!signal.aborted) setStatus({ backfillDaysLeft: 0, savedThrough: undefined });
+};
+
+const saveWhenHidden = () => {
+  if (document.visibilityState === "hidden") void save();
 };
 
 const websocketUrl = () => {
@@ -104,8 +171,13 @@ const connect = () => {
 };
 
 const start = () => {
-  connect();
+  restored ??= restore();
+  void restored.finally(() => {
+    if (holders > 0 && !socket) connect();
+  });
   sweepTimer = setInterval(() => takStore.sweep(), SWEEP_INTERVAL_MS);
+  saveTimer = setInterval(() => void save(), SAVE_INTERVAL_MS);
+  document.addEventListener("visibilitychange", saveWhenHidden);
 };
 
 const stop = () => {
@@ -115,6 +187,9 @@ const stop = () => {
   backfillAbort?.abort();
   clearTimeout(retryTimer);
   clearInterval(sweepTimer);
+  clearInterval(saveTimer);
+  document.removeEventListener("visibilitychange", saveWhenHidden);
+  void save();
   setStatus({ connection: "idle", backfillDaysLeft: 0 });
 };
 

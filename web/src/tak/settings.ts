@@ -2,6 +2,7 @@ import { useLocalStorage } from "@mantine/hooks";
 import type { CoordFormat } from "./coords.ts";
 import { DEFAULT_BASEMAP } from "./map/basemaps.ts";
 import type { CustomSource } from "./map/custom-sources.ts";
+import { SAVING_KEY } from "./picture-cache.ts";
 import { DEFAULT_ROLE, DEFAULT_TEAM } from "./position/self-sa.ts";
 
 /** Per-viewer map preferences, remembered in this browser only. */
@@ -25,6 +26,10 @@ export const useMapSettings = () => {
   const [customSources, setCustomSources] = useLocalStorage<CustomSource[]>({
     key: "battlelog.tak.mapSources",
     defaultValue: [],
+  });
+  const [savePicture, setSavePicture] = useLocalStorage({
+    key: SAVING_KEY,
+    defaultValue: true,
   });
   const [dim, setDim] = useLocalStorage({ key: "battlelog.tak.dim", defaultValue: false });
   const [mgrsGrid, setMgrsGrid] = useLocalStorage({
@@ -74,6 +79,8 @@ export const useMapSettings = () => {
     setOverlayOpacity,
     customSources,
     setCustomSources,
+    savePicture,
+    setSavePicture,
     dim,
     setDim,
     mgrsGrid,

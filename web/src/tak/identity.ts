@@ -14,16 +14,21 @@ const fetchCallsign = async (): Promise<string | null> => {
   return (await res.json()).callsign;
 };
 
+/** The callsign, fetched once per page; a failed fetch is retried on the next call. */
+export const loadCallsign = (): Promise<string | null> => {
+  cached ??= fetchCallsign().catch((err) => {
+    cached = undefined;
+    throw err;
+  });
+  return cached;
+};
+
 /** The user's callsign: the CN of the client certificate TAK also knows them by. */
 export const useCallsign = (): string | null | undefined => {
   const [callsign, setCallsign] = useState<string | null>();
   useEffect(() => {
-    cached ??= fetchCallsign().catch((err) => {
-      cached = undefined;
-      throw err;
-    });
     let current = true;
-    cached.then(
+    loadCallsign().then(
       (value) => current && setCallsign(value),
       () => current && setCallsign(null),
     );

@@ -115,3 +115,34 @@ test("the last track ageing out clears it from the snapshot", () => {
   store.flush();
   expect(store.getTracks().has("a")).toBe(false);
 });
+
+test("a delete for an item never seen is still saved, so the archive can't bring it back", () => {
+  const store = createTakStore();
+  store.apply({ kind: "delete", uid: "gone", time: 150 });
+  expect(store.takeDirty()).toEqual(["gone"]);
+  expect(store.recordOf("gone")).toEqual({ uid: "gone", tombstone: 150 });
+  expect(store.takeDirty()).toEqual([]);
+});
+
+test("a restored picture keeps its deletes and counts as already saved", () => {
+  const saved = createTakStore();
+  saved.apply({ kind: "upsert", item: item("a", 100) });
+  saved.apply({ kind: "delete", uid: "b", time: 150 });
+  const records = saved.takeDirty().flatMap((uid) => saved.recordOf(uid) ?? []);
+
+  const store = createTakStore();
+  store.restore(records, 200);
+  expect(store.takeDirty()).toEqual([]);
+  expect(snapshot(store).map((i) => i.uid)).toEqual(["a"]);
+  store.apply({ kind: "upsert", item: item("b", 120) });
+  expect(snapshot(store).map((i) => i.uid)).toEqual(["a"]);
+});
+
+test("removing an expired item marks it for deletion from the saved picture", () => {
+  const store = createTakStore({ staleGraceMs: 0 });
+  store.apply({ kind: "upsert", item: item("a", 100, 200) });
+  store.takeDirty();
+  store.sweep(300);
+  expect(store.takeDirty()).toEqual(["a"]);
+  expect(store.recordOf("a")).toBeUndefined();
+});

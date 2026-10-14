@@ -14,6 +14,10 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
  *
  * Items that move also get a track: their recent positions, bounded by
  * `mergeTrack`.
+ *
+ * Every uid whose item, marks or track changed is remembered until
+ * `takeDirty`, so the picture can be saved without listening to React's
+ * notifications: mark-only changes never notify.
  */
 export const createTakStore = ({
   maxItems = 20_000,
@@ -35,6 +39,7 @@ export const createTakStore = ({
   let snapshot: TakItem[] = [];
   let tracksSnapshot: ReadonlyMap<string, TrackPoint[]> = new Map();
   let notifyTimer: ReturnType<typeof setTimeout> | undefined;
+  const dirty = new Set<string>();
 
   const flush = () => {
     clearTimeout(notifyTimer);
@@ -55,18 +60,22 @@ export const createTakStore = ({
       if (!oldest || item.time < oldest.time) oldest = item;
     }
     if (oldest) {
+      dirty.add(oldest.uid);
       items.delete(oldest.uid);
       tracks.delete(oldest.uid);
     }
   };
 
   const addToTrack = (uid: string, points: TrackPoint[], now: number) => {
-    const track = mergeTrack(tracks.get(uid) ?? [], points, now);
+    const before = tracks.get(uid);
+    const track = mergeTrack(before ?? [], points, now);
+    if (track.length !== (before?.length ?? 0) || track.at(-1) !== before?.at(-1)) dirty.add(uid);
     if (track.length) tracks.set(uid, track);
     else tracks.delete(uid);
   };
 
   const apply = (change: TakChange) => {
+    if (change.kind !== "upsert") dirty.add(change.uid);
     if (change.kind === "offline") {
       disconnects.set(change.uid, Math.max(change.time, disconnects.get(change.uid) ?? 0));
       const current = items.get(change.uid);
@@ -104,6 +113,7 @@ export const createTakStore = ({
       }
     }
     const offline = (disconnects.get(item.uid) ?? Number.NEGATIVE_INFINITY) >= item.time;
+    dirty.add(item.uid);
     items.set(item.uid, offline ? { ...item, offline: true } : item);
     if (items.size > maxItems) evictOldest();
     changed();
@@ -113,6 +123,7 @@ export const createTakStore = ({
   const sweep = (now = Date.now()) => {
     for (const item of items.values()) {
       if (item.stale + staleGraceMs < now) {
+        dirty.add(item.uid);
         items.delete(item.uid);
         tracks.delete(item.uid);
         changed();
@@ -123,14 +134,54 @@ export const createTakStore = ({
     if (hadTracks) changed();
     for (const marks of [tombstones, disconnects]) {
       for (const [uid, at] of marks) {
-        if (at + markRetentionMs < now) marks.delete(uid);
+        if (at + markRetentionMs < now) {
+          marks.delete(uid);
+          dirty.add(uid);
+        }
       }
     }
+  };
+
+  /** Everything kept about `uid`, or undefined when nothing is. */
+  const recordOf = (uid: string): StoredUid | undefined => {
+    const record: StoredUid = {
+      uid,
+      item: items.get(uid),
+      tombstone: tombstones.get(uid),
+      disconnect: disconnects.get(uid),
+      track: tracks.get(uid),
+    };
+    const kept = record.item || record.tombstone || record.disconnect || record.track;
+    return kept ? record : undefined;
+  };
+
+  /** Puts back a saved picture. Newer state already here wins, and nothing restored counts as dirty. */
+  const restore = (records: StoredUid[], now = Date.now()) => {
+    for (const { uid, item, tombstone, disconnect, track } of records) {
+      if (tombstone) tombstones.set(uid, Math.max(tombstone, tombstones.get(uid) ?? 0));
+      if (disconnect) disconnects.set(uid, Math.max(disconnect, disconnects.get(uid) ?? 0));
+      if (item && !((items.get(uid)?.time ?? Number.NEGATIVE_INFINITY) >= item.time))
+        items.set(uid, item);
+      if (track && !tracks.has(uid)) tracks.set(uid, track);
+    }
+    sweep(now);
+    changed();
   };
 
   return {
     apply,
     sweep,
+    restore,
+    recordOf,
+    /** The uids changed since the last call; the caller saves them or hands them back with `markDirty`. */
+    takeDirty: (): string[] => {
+      const uids = [...dirty];
+      dirty.clear();
+      return uids;
+    },
+    markDirty: (uids: string[]) => {
+      for (const uid of uids) dirty.add(uid);
+    },
     /** Earlier positions of `uid`, e.g. from TAK's history of it. */
     addTrack: (uid: string, points: TrackPoint[]) => {
       addToTrack(uid, points, Date.now());
@@ -153,3 +204,12 @@ export const createTakStore = ({
 };
 
 export type TakStore = ReturnType<typeof createTakStore>;
+
+/** What the store keeps about one uid, as saved between visits. */
+export type StoredUid = {
+  uid: string;
+  item?: TakItem;
+  tombstone?: number;
+  disconnect?: number;
+  track?: TrackPoint[];
+};
