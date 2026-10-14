@@ -658,6 +658,7 @@ export const TakWorkspace = ({
           basemap={basemap}
           overlay={overlaySource && { source: overlaySource, opacity: settings.overlayOpacity }}
           dim={settings.dim}
+          mgrsGrid={settings.mgrsGrid}
           selectedUid={selectedUid}
           onPick={(uids, at) => {
             if (drawing.tool || drawing.editing || measure.active) return;

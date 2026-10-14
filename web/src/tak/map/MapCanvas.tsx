@@ -20,6 +20,8 @@ import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
 import { toSources } from "./layers.ts";
+import { mgrsGrid } from "./mgrs-grid.ts";
+import { labelImage } from "./symbols.ts";
 import { addTacticalLayers, onTacticalRendered } from "./tactical.ts";
 
 type Props = {
@@ -39,6 +41,7 @@ type Props = {
   overlay?: { source: MapSource; opacity: number };
   /** Night use: the bright MML maps glare next to a dark UI. */
   dim: boolean;
+  mgrsGrid: boolean;
   selectedUid: string | undefined;
   /** Every item under a click, topmost first, and where on the map it was. */
   onPick: (uids: string[], at: { x: number; y: number }) => void;
@@ -153,6 +156,59 @@ const addTrackLayers = (map: MapLibreMap) => {
       "circle-stroke-width": 0.5,
     },
   });
+};
+
+const addMgrsGridLayers = (map: MapLibreMap) => {
+  map.addSource("mgrs-grid", { type: "geojson", data: empty });
+  const lines = {
+    type: "line" as const,
+    source: "mgrs-grid",
+    filter: ["has", "level"] as FilterSpecification,
+  };
+  const width: ExpressionSpecification = ["match", ["get", "level"], "gzd", 2, "100km", 1.5, 1];
+  map.addLayer({
+    ...lines,
+    id: "mgrs-grid-casings",
+    paint: { "line-color": "#000000", "line-opacity": 0.5, "line-width": ["+", width, 1.5] },
+  });
+  map.addLayer({
+    ...lines,
+    id: "mgrs-grid-lines",
+    paint: { "line-color": "#ffffff", "line-width": width },
+  });
+  map.addLayer({
+    id: "mgrs-grid-labels",
+    type: "symbol",
+    source: "mgrs-grid",
+    filter: ["has", "text"],
+    layout: { "icon-image": ["get", "icon"], "icon-anchor": ["get", "anchor"] },
+  });
+};
+
+/** Redraws the grid for the viewport after every move; returns how to stop. */
+const followMgrsGrid = (map: MapLibreMap) => {
+  const source = map.getSource("mgrs-grid") as GeoJSONSource;
+  const draw = () => {
+    const bounds = map.getBounds();
+    const grid = mgrsGrid(
+      {
+        west: Math.max(bounds.getWest(), -180),
+        south: bounds.getSouth(),
+        east: Math.min(bounds.getEast(), 180),
+        north: bounds.getNorth(),
+      },
+      map.getZoom(),
+    );
+    for (const { properties } of grid.features) {
+      if (properties?.text) properties.icon = labelImage(map, properties.text).id;
+    }
+    source.setData(grid);
+  };
+  draw();
+  map.on("moveend", draw);
+  return () => {
+    map.off("moveend", draw);
+  };
 };
 
 /** The item layers over sources named `${prefix}-…`: "tak" for the picture, "tak-preview" for what's being drawn. */
@@ -292,6 +348,7 @@ export const MapCanvas = ({
   basemap,
   overlay,
   dim,
+  mgrsGrid: showMgrsGrid,
   selectedUid,
   onPick,
   onReady,
@@ -339,6 +396,7 @@ export const MapCanvas = ({
     const uidAt = (e: MapMouseEvent) => uidsAt(e)[0];
 
     m.on("load", () => {
+      addMgrsGridLayers(m);
       addItemLayers(m, "tak");
       addItemLayers(m, "tak-preview");
       setMap(m);
@@ -385,6 +443,12 @@ export const MapCanvas = ({
     }
     if (overlay) map.setPaintProperty("overlay", "raster-opacity", overlay.opacity);
   }, [map, basemap, overlay, dim]);
+
+  useEffect(() => {
+    if (!map) return;
+    if (showMgrsGrid) return followMgrsGrid(map);
+    (map.getSource("mgrs-grid") as GeoJSONSource).setData(empty);
+  }, [map, showMgrsGrid]);
 
   // What the picture was last drawn from. Every upload makes MapLibre's worker re-tile the
   // whole picture, so a render that changed nothing on the map must not reach it.
