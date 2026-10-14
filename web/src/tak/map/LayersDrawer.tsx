@@ -1,14 +1,27 @@
-import { ActionIcon, Group, Radio, Select, Slider, Stack, Switch, Text } from "@mantine/core";
-import { IconTrash } from "@tabler/icons-react";
+import {
+  ActionIcon,
+  Button,
+  Group,
+  Radio,
+  Select,
+  Slider,
+  Stack,
+  Switch,
+  Text,
+} from "@mantine/core";
+import { notifications } from "@mantine/notifications";
+import { IconPhoto, IconPrinter, IconTrash } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { ReactNode } from "react";
 import { COORD_FORMATS, type CoordFormat } from "../coords.ts";
+import { download } from "../download.ts";
 import { setPictureSaving } from "../session.ts";
 import type { MapSettings } from "../settings.ts";
 import { DEFAULT_BASEMAP, type MapSource } from "./basemaps.ts";
 import { GroupsSection } from "./GroupsSection.tsx";
 import { IconsetsSection } from "./IconsetsSection.tsx";
 import { MapSourcesSection } from "./MapSourcesSection.tsx";
+import { mapImageBlob, printImage } from "./map-image.ts";
 import { removeOfflineMap } from "./offline-maps.ts";
 import { SaveAreaSection } from "./SaveAreaSection.tsx";
 
@@ -23,6 +36,15 @@ type Props = {
   /** Developer tools; only passed in dev builds. */
   children?: ReactNode;
 };
+
+const fileStamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+
+const imageFailed = (err: unknown) =>
+  notifications.show({
+    color: "red",
+    title: "Couldn't make the map image",
+    message: err instanceof Error ? err.message : String(err),
+  });
 
 const Heading = ({ children }: { children: ReactNode }) => (
   <Text className="tak-group-heading">{children}</Text>
@@ -139,6 +161,37 @@ export const LayersDrawer = ({ settings, sources, map, basemap, clientUid, child
       <GroupsSection clientUid={clientUid} />
 
       <SaveAreaSection map={map} source={basemap} />
+
+      {map && (
+        <Stack gap={6}>
+          <Text className="tak-group-heading">Map image</Text>
+          <Group gap={6}>
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconPhoto size={14} />}
+              onClick={() =>
+                void mapImageBlob(map, settings.coordFormat).then(
+                  (blob) => download(blob, `battlelog-map-${fileStamp()}.png`),
+                  imageFailed,
+                )
+              }
+            >
+              Save as image
+            </Button>
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconPrinter size={14} />}
+              onClick={() =>
+                void mapImageBlob(map, settings.coordFormat).then(printImage, imageFailed)
+              }
+            >
+              Print
+            </Button>
+          </Group>
+        </Stack>
+      )}
 
       <MapSourcesSection settings={settings} />
 
