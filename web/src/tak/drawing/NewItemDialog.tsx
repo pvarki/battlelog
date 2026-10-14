@@ -60,7 +60,13 @@ const KIND_LABEL = {
   route: "Route",
 };
 
-const Palette = ({ value, onChange }: { value: string; onChange: (color: string) => void }) => (
+export const Palette = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+}) => (
   <Group gap={6} role="radiogroup" aria-label="Colour">
     {COLORS.map((color) => (
       <UnstyledButton

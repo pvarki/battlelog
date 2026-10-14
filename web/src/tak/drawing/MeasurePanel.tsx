@@ -1,11 +1,15 @@
-import { Button, Group, Table, Text, Tooltip } from "@mantine/core";
+import { Button, Group, Switch, Table, Text, Tooltip } from "@mantine/core";
 import type { Position } from "../cot.ts";
+import { area } from "../geo.ts";
 import { type Cursor, useCursor } from "../map/cursor.ts";
 import { formatDistance } from "../map/layers.ts";
-import { formatBearing, legsOf, totalDistance } from "./measure.ts";
+import { formatArea, formatBearing, legsOf, perimeter, totalDistance } from "./measure.ts";
 
 type Props = {
   points: Position[];
+  /** Measuring the area the points enclose instead of the distance along them. */
+  closed: boolean;
+  onClosedChange: (closed: boolean) => void;
   cursor: Cursor;
   onClear: () => void;
   /** Publishes the measurement as an ATAK range-and-bearing line; needs exactly two points. */
@@ -14,9 +18,11 @@ type Props = {
   saveDisabledReason: string | undefined;
 };
 
-/** Each leg's distance and bearing, the total, and the leg to the cursor. */
+/** Each leg's distance and bearing, the total or the enclosed area, and the leg to the cursor. */
 export const MeasurePanel = ({
   points,
+  closed,
+  onClosedChange,
   cursor: pointer,
   onClear,
   onSave,
@@ -29,11 +35,25 @@ export const MeasurePanel = ({
     saveDisabledReason ??
     (points.length === 2 ? undefined : "A range-and-bearing line has two points");
 
+  const areaSwitch = (
+    <Switch
+      size="xs"
+      label="Area"
+      checked={closed}
+      onChange={(e) => onClosedChange(e.currentTarget.checked)}
+    />
+  );
+
   if (points.length === 0)
     return (
-      <Text fz="xs" c="dimmed" px={6} pt={2}>
-        Click points on the map to measure distance and bearing.
-      </Text>
+      <Group gap={4} justify="space-between" wrap="nowrap" px={6} pt={2}>
+        <Text fz="xs" c="dimmed">
+          {closed
+            ? "Click the corners of an area to measure it."
+            : "Click points on the map to measure distance and bearing."}
+        </Text>
+        {areaSwitch}
+      </Group>
     );
 
   return (
@@ -55,15 +75,28 @@ export const MeasurePanel = ({
               <Table.Td>{formatBearing(next.bearing)}</Table.Td>
             </Table.Tr>
           )}
-          {legs.length > 1 && (
+          {!closed && legs.length > 1 && (
             <Table.Tr fw={600}>
               <Table.Td>Σ</Table.Td>
               <Table.Td colSpan={2}>{formatDistance(totalDistance(legs))}</Table.Td>
             </Table.Tr>
           )}
+          {closed && points.length >= 3 && (
+            <>
+              <Table.Tr fw={600}>
+                <Table.Td>Area</Table.Td>
+                <Table.Td colSpan={2}>{formatArea(area(points))}</Table.Td>
+              </Table.Tr>
+              <Table.Tr fw={600}>
+                <Table.Td>Perimeter</Table.Td>
+                <Table.Td colSpan={2}>{formatDistance(perimeter(points))}</Table.Td>
+              </Table.Tr>
+            </>
+          )}
         </Table.Tbody>
       </Table>
       <Group gap={4} justify="flex-end" pt={4}>
+        {areaSwitch}
         <Button size="compact-xs" variant="subtle" color="gray" onClick={onClear}>
           Clear
         </Button>

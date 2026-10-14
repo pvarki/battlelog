@@ -24,3 +24,18 @@ export const bearing = ([lon1, lat1]: Position, [lon2, lat2]: Position): number 
 };
 
 export const toMils = (degrees: number): number => (degrees / 360) * MILS_PER_TURN;
+
+/**
+ * Area in square metres enclosed by `ring` (closed or not) with great-circle
+ * edges: the sum of each edge's signed spherical excess against the equator.
+ */
+export const area = (ring: Position[]): number => {
+  let excess = 0;
+  for (const [i, [lon1, lat1]] of ring.entries()) {
+    const [lon2, lat2] = ring[(i + 1) % ring.length] as Position;
+    const t1 = Math.tan((lat1 * RAD) / 2);
+    const t2 = Math.tan((lat2 * RAD) / 2);
+    excess += 2 * Math.atan2(Math.tan(((lon2 - lon1) * RAD) / 2) * (t1 + t2), 1 + t1 * t2);
+  }
+  return Math.abs(excess) * EARTH_RADIUS_M ** 2;
+};

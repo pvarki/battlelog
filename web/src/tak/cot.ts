@@ -60,6 +60,10 @@ export type TakItem = {
   sensor?: Sensor;
   /** A live video feed from the item, as ATAK's `__video` detail announces it. */
   video?: { url: string; alias?: string };
+  /** ATAK's range rings around the point: each ring's radius in metres, innermost first. */
+  rangeRings?: number[];
+  /** ATAK's bullseye: a bearing circle around the point that positions are called from. */
+  bullseye?: Bullseye;
   /** Range-and-bearing line from the item's point; the geometry runs to its end. */
   rangeBearing?: { range: number; bearing: number; northRef: "T" | "M" | "G" };
   /** An ATAK emergency alert (b-a-*): what kind, and the callsign of who raised it. */
@@ -83,12 +87,26 @@ export type Sensor = {
   stroke: TakColor;
 };
 
+export type Bullseye = {
+  /** Metres. */
+  radius: number;
+  /** Bearings labelled in mils instead of degrees. */
+  mils: boolean;
+  northRef: "T" | "M" | "G";
+  /** Bearings read from the edge in to the centre, i.e. reversed. */
+  edgeToCenter: boolean;
+  /** Range rings inside the circle, when shown. */
+  rings?: { spacing: number; count: number };
+};
+
 export type TakChange =
   | { kind: "upsert"; item: TakItem }
   | { kind: "delete"; uid: string; time: number }
   | { kind: "offline"; uid: string; time: number };
 
-const MAP_TYPE_PREFIXES = ["a-", "b-a-", "b-m-p", "b-m-r", "u-d-", "u-rb-a"];
+const MAP_TYPE_PREFIXES = ["a-", "b-a-", "b-m-p", "b-m-r", "u-d-", "u-rb-a", "u-r-b-"];
+export const RANGE_RINGS_TYPE = "u-r-b-c-c";
+export const BULLSEYE_TYPE = "u-r-b-bullseye";
 const EMERGENCY_CANCEL = "b-a-o-can";
 /** ATAK's names for its emergency types, for alerts that don't name themselves. */
 const EMERGENCY_KIND: Record<string, string> = {
@@ -161,6 +179,15 @@ export const destination = ([lon, lat]: Position, range: number, bearing: number
 
 // ponytail: northRef 0/1/2 → true/magnetic/grid is inferred from ATAK's settings order, unverified on the wire.
 const NORTH_REF = ["T", "M", "G"] as const;
+/** Metres per unit, by the abbreviations of ATAK's distance units (`Span`). */
+const METRES_PER_UNIT: Record<string, number> = {
+  m: 1,
+  km: 1000,
+  nm: 1852,
+  mi: 1609.344,
+  yd: 0.9144,
+  ft: 0.3048,
+};
 
 const ellipseOf = (type: string, el: Element | undefined): TakItem["ellipse"] => {
   const major = num(el?.getAttribute("major"));
@@ -169,6 +196,40 @@ const ellipseOf = (type: string, el: Element | undefined): TakItem["ellipse"] =>
     major,
     minor: num(el?.getAttribute("minor")) ?? major,
     angle: num(el?.getAttribute("angle")) ?? 0,
+  };
+};
+
+/** ATAK writes one `<ellipse>` per ring inside `<shape>`. */
+const rangeRingsOf = (type: string, shape: Element | undefined): number[] | undefined => {
+  if (type !== RANGE_RINGS_TYPE || !shape) return undefined;
+  const radii = Array.from(shape.children)
+    .filter((el) => el.tagName === "ellipse")
+    .flatMap((el) => num(el.getAttribute("major")) ?? [])
+    .filter((radius) => radius > 0)
+    .sort((a, b) => a - b);
+  return radii.length ? radii : undefined;
+};
+
+const bullseyeOf = (type: string, el: Element | undefined): Bullseye | undefined => {
+  if (type !== BULLSEYE_TYPE || !el) return undefined;
+  const flag = (name: string) => el.getAttribute(name) === "true";
+  // ponytail: distances read as given in distanceUnits (metres when absent); unverified against ATAK's own units.
+  const radius = num(el.getAttribute("distance"));
+  const toMetres = METRES_PER_UNIT[el.getAttribute("distanceUnits")?.toLowerCase() ?? "m"] ?? 1;
+  if (!radius || radius <= 0) return undefined;
+  const spacing = num(el.getAttribute("ringDist"));
+  const count = num(el.getAttribute("ringNumber"));
+  const showRings = flag("hasRangeRings") && flag("rangeRingVisible");
+  const northRef = el.getAttribute("bearingRef");
+  return {
+    radius: radius * toMetres,
+    mils: flag("mils"),
+    northRef: northRef === "M" || northRef === "G" ? northRef : "T",
+    edgeToCenter: flag("edgeToCenter"),
+    rings:
+      showRings && spacing && spacing > 0 && count && count >= 1
+        ? { spacing: spacing * toMetres, count: Math.floor(count) }
+        : undefined,
   };
 };
 
@@ -311,6 +372,8 @@ export const toChange = (event: CotEvent): TakChange | null => {
     strokeStyle: strokeStyle && STROKE_STYLES.includes(strokeStyle) ? strokeStyle : undefined,
     fill: argbToColor(value("fillColor")),
     ellipse: ellipseOf(type, ellipse),
+    rangeRings: rangeRingsOf(type, child("shape")),
+    bullseye: bullseyeOf(type, child("bullseye")),
     // A bare <labels_on/> means on; circles label their radius unless told not to.
     labelsOn: labelsOnEl
       ? labelsOnEl.getAttribute("value") !== "false"

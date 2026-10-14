@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { bearing, distance } from "../geo.ts";
-import { formatBearing, legsOf, totalDistance } from "./measure.ts";
+import { formatArea, formatBearing, legsOf, perimeter, totalDistance } from "./measure.ts";
 
 test("bearings are degrees true from the first point", () => {
   expect(bearing([25, 60], [25, 61])).toBeCloseTo(0);
@@ -22,6 +22,23 @@ test("legs measure each segment and the total adds them up", () => {
   expect(legs.map((l) => Math.round(l.bearing))).toEqual([0, 180]);
   expect(totalDistance(legs)).toBeCloseTo(2 * 111_195, -1);
   expect(legsOf([[25, 60]])).toEqual([]);
+});
+
+test("the perimeter closes back to the first point", () => {
+  const triangle = perimeter([
+    [25, 60],
+    [25, 61],
+    [26, 60],
+  ]);
+  expect(triangle).toBeCloseTo(
+    distance([25, 60], [25, 61]) + distance([25, 61], [26, 60]) + distance([26, 60], [25, 60]),
+  );
+});
+
+test("areas read in square metres, hectares or square kilometres", () => {
+  expect(formatArea(9_999.4)).toBe("9999 m²");
+  expect(formatArea(12_345)).toBe("1.23 ha");
+  expect(formatArea(2_500_000)).toBe("2.50 km²");
 });
 
 test("bearings read in degrees and Finnish 6000 mils, wrapping at north", () => {
