@@ -1,6 +1,6 @@
 import type { Position } from "./cot.ts";
 
-const EARTH_RADIUS_M = 6_371_008.8;
+export const EARTH_RADIUS_M = 6_371_008.8;
 const RAD = Math.PI / 180;
 /** Finnish Defence Forces mils (piirua), not NATO's 6400; one full turn. */
 export const MILS_PER_TURN = 6000;
@@ -12,6 +12,11 @@ export const distance = ([lon1, lat1]: Position, [lon2, lat2]: Position): number
     Math.cos(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.sin(((lon2 - lon1) * RAD) / 2) ** 2;
   return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(a));
 };
+
+export const formatDistance = (metres: number): string =>
+  metres < 1000
+    ? `${Math.round(metres)} m`
+    : `${(metres / 1000).toFixed(metres < 10_000 ? 2 : 1)} km`;
 
 /** Initial great-circle bearing from `from` to `to`, degrees true in [0, 360). */
 export const bearing = ([lon1, lat1]: Position, [lon2, lat2]: Position): number => {

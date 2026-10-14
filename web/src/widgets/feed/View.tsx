@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { EventResponse } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
+import { dataValue, matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { useLiveEvents } from "../../live-events.ts";
 import { StaleNotice } from "../../StaleNotice.tsx";
 import { linkedTo } from "../../tak/links.ts";
@@ -17,15 +18,12 @@ import { formatShortDateTime } from "../../time.ts";
 import { TakSelectionPill } from "./TakSelectionPill.tsx";
 import {
   columnWidth,
-  dataValue,
   type FeedColumn,
   type FeedConfig,
   type Field,
   labelFor,
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
-  matchesFeed,
-  queryFor,
 } from "./widget.ts";
 
 const RESIZE_HIT_WIDTH = 9;

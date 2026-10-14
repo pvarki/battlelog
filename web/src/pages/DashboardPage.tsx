@@ -29,7 +29,6 @@ import {
   step,
 } from "../dashboard/history.ts";
 import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
-import { useIsMobile } from "../dashboard/mobile.ts";
 import { firstFreeSlot } from "../dashboard/placement.ts";
 import { rememberOpened } from "../dashboard/recent.ts";
 import { getWidget, mapChildWidgets, registry } from "../dashboard/registry.ts";
@@ -39,6 +38,7 @@ import { WidgetConfigPanel } from "../dashboard/WidgetConfigPanel.tsx";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
 import { Placeholder } from "../Placeholder.tsx";
 import { useWakeLock } from "../use-wake-lock.ts";
+import { useIsMobile } from "../viewport.ts";
 
 const route = getRouteApi("/d/$dashboardId");
 

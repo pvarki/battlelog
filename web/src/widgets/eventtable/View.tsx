@@ -17,6 +17,7 @@ import { useState } from "react";
 import type { EventResponse } from "../../api.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { ValueCell } from "../../event-binding/cells.tsx";
+import { type EventFilter, matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import type { BoundState } from "../../event-binding/paths.ts";
 import { type EventQuery, queryFilter } from "../../event-binding/query.ts";
 import { HEADER_FIELD, useBoundEvents } from "../../event-binding/useBoundEvents.ts";
@@ -26,7 +27,6 @@ import { StaleNotice } from "../../StaleNotice.tsx";
 import { linkedTo } from "../../tak/links.ts";
 import { formatShortDateTime } from "../../time.ts";
 import { TakSelectionPill } from "../feed/TakSelectionPill.tsx";
-import { type FeedConfig, matchesFeed, queryFor } from "../feed/widget.ts";
 import { FilterInput } from "./FilterInput.tsx";
 import {
   builtinValue,
@@ -46,7 +46,7 @@ import {
 const dashboardRoute = getRouteApi("/d/$dashboardId");
 
 const EventTableView = ({ config, onConfigure }: WidgetViewProps<EventTableConfig>) => {
-  const filter = queryFilter(config as EventQuery, config.rowLimit);
+  const filter = queryFilter(config as EventQuery);
   if (!filter) {
     return (
       <Placeholder
@@ -81,7 +81,7 @@ const displayText = (col: TableColumn, cell: BoundState): string => {
   return col.source === "time" ? formatShortDateTime(String(cell.value)) : String(cell.value);
 };
 
-const EventTable = ({ config, filter }: { config: EventTableConfig; filter: FeedConfig }) => {
+const EventTable = ({ config, filter }: { config: EventTableConfig; filter: EventFilter }) => {
   const { tak } = dashboardRoute.useSearch();
   const followed = config.followTakSelection ? tak : undefined;
   const link = followed ? linkedTo(followed) : undefined;

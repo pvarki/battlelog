@@ -3,7 +3,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { useSyncExternalStore } from "react";
 import { publish } from "../commands.ts";
 import { type CotEvent, type TakChange, toChange } from "../cot.ts";
-import type { Sender } from "../drawing/new-items.ts";
+import type { Sender } from "../identity.ts";
 import type { Mission } from "../missions/missions.ts";
 import { addItems, ensureSubscribed, removeItems } from "../missions/writes.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";

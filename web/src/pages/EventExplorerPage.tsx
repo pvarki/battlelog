@@ -25,7 +25,6 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../admiralty.ts";
 import { api, type EventResponse } from "../api.ts";
-import { useIsMobile } from "../dashboard/mobile.ts";
 import { EventDetail } from "../EventDetail.tsx";
 import {
   activeChips,
@@ -39,6 +38,7 @@ import {
 } from "../event-filters.ts";
 import { Placeholder } from "../Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
+import { useIsMobile } from "../viewport.ts";
 
 const route = getRouteApi("/events");
 

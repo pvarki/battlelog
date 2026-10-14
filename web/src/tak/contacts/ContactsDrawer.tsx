@@ -4,7 +4,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Position, TakItem } from "../cot.ts";
 import { formatBearing } from "../drawing/measure.ts";
-import { bearing, distance } from "../geo.ts";
+import { bearing, distance, formatDistance } from "../geo.ts";
 import {
   anchorOf,
   formatAge,
@@ -15,7 +15,6 @@ import {
   statusOf,
   teamColor,
 } from "../items.ts";
-import { formatDistance } from "../map/layers.ts";
 import { useNow } from "../use-now.ts";
 
 type Props = {

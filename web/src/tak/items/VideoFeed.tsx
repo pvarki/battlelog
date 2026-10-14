@@ -1,8 +1,8 @@
 import { ActionIcon, Box, Button, CopyButton, Group, Stack, Text, Tooltip } from "@mantine/core";
 import { IconCheck, IconCopy, IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import { useState } from "react";
-import { Player } from "../../widgets/streams/View.tsx";
-import { detectSourceType, isBrowserPlayable } from "../../widgets/streams/widget.ts";
+import { Player } from "../../media/Player.tsx";
+import { detectSourceType, isBrowserPlayable } from "../../media/source.ts";
 import type { TakItem } from "../cot.ts";
 
 /** The URL as shown on screen; copying still gives the real one. */

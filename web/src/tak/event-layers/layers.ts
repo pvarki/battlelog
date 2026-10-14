@@ -2,11 +2,11 @@ import { DEFAULT_THEME } from "@mantine/core";
 import type { Feature, FeatureCollection, Point } from "geojson";
 import { z } from "zod";
 import type { EventResponse } from "../../api.ts";
+import { matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { optionSchema, STATUS_COLORS, type StatusColor } from "../../event-binding/options.ts";
 import { getPath } from "../../event-binding/paths.ts";
 import { type EventQuery, eventQueryShape, queryFilter } from "../../event-binding/query.ts";
 import type { LiveEventsOptions } from "../../live-events.ts";
-import { matchesFeed, queryFor } from "../../widgets/feed/widget.ts";
 
 /**
  * A BattleLog layer: the located events matching a query, drawn on the TAK
@@ -82,13 +82,13 @@ export const layerFetch = (
   now: number,
   replayWindowMs = 0,
 ) => {
-  const filter = queryFilter(query, MAX_LAYER_EVENTS);
+  const filter = queryFilter(query);
   if (!filter) return undefined;
   const from =
     windowHours === undefined
       ? undefined
       : Math.floor((now - replayWindowMs - windowHours * HOUR_MS) / HOUR_MS) * HOUR_MS;
-  // Cast like the feed's queryFor: dates travel as strings.
+  // Cast like queryFor: dates travel as strings.
   const fetchQuery = {
     ...queryFor(filter),
     located: "true",

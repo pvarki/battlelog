@@ -1,6 +1,7 @@
 import type { CotEvent, Position } from "../cot.ts";
-import { escapeXml, type Sender } from "../drawing/new-items.ts";
 import { distance } from "../geo.ts";
+import type { Sender } from "../identity.ts";
+import { escapeXml } from "../protocol/cot-xml.ts";
 
 /**
  * This browser's own position report (PLI), written the way ATAK writes its

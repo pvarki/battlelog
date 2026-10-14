@@ -1,6 +1,7 @@
 import type { CotEvent } from "../cot.ts";
-import { escapeXml, type Sender } from "../drawing/new-items.ts";
+import type { Sender } from "../identity.ts";
 import { childNamed } from "../protocol/cot-event.ts";
+import { escapeXml } from "../protocol/cot-xml.ts";
 
 /**
  * ATAK GeoChat (`b-t-f`), written the way ATAK writes it. A message goes to

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { type CotEvent, type TakItem, toChange } from "./cot.ts";
-import { escapeXml } from "./drawing/new-items.ts";
 import { childNamed } from "./protocol/cot-event.ts";
+import { escapeXml } from "./protocol/cot-xml.ts";
 import { fetchLatestCot, publicContentUrl, uploadFile } from "./rest.ts";
 import { sendCot } from "./session.ts";
 

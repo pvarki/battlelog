@@ -14,8 +14,8 @@ import {
 } from "@mantine/core";
 import { useEffect, useState } from "react";
 import type { StrokeStyle } from "../cot.ts";
+import { formatDistance } from "../geo.ts";
 import { useIconsets } from "../map/iconsets.ts";
-import { formatDistance } from "../map/layers.ts";
 import { IconsetPicker } from "./IconsetPicker.tsx";
 import {
   defaultWaypointNames,

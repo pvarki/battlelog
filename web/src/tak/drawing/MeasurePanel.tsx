@@ -1,8 +1,7 @@
 import { Button, Group, Switch, Table, Text, Tooltip } from "@mantine/core";
 import type { Position } from "../cot.ts";
-import { area } from "../geo.ts";
+import { area, formatDistance } from "../geo.ts";
 import { type Cursor, useCursor } from "../map/cursor.ts";
-import { formatDistance } from "../map/layers.ts";
 import { formatArea, formatBearing, legsOf, perimeter, totalDistance } from "./measure.ts";
 
 type Props = {

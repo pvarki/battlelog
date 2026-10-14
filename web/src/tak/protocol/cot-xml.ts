@@ -1,5 +1,12 @@
 import { type CotEvent, childNamed, MARKING_FIELDS } from "./cot-event.ts";
 
+export const escapeXml = (s: string) =>
+  s
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
 /**
  * CoT XML as TAK's REST API returns it: one `<event>` or many (archive
  * queries concatenate them, each possibly with its own XML declaration).

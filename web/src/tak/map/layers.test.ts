@@ -1,6 +1,6 @@
 import type { Feature } from "geojson";
 import { expect, test } from "vitest";
-import { formatDistance, sensorCone, sourceDiff } from "./layers.ts";
+import { sensorCone, sourceDiff } from "./layers.ts";
 
 test("a sensor cone is a closed wedge from the sensor, its edges fov apart around the azimuth", () => {
   const origin: [number, number] = [25, 60];
@@ -18,12 +18,6 @@ test("a sensor cone is a closed wedge from the sensor, its edges fov apart aroun
   expect(left[0]).toBeGreaterThan(25);
   expect(left[1] - 60).toBeGreaterThan(0);
   expect(left[1] - 60).toBeCloseTo(60 - right[1], 4);
-});
-
-test("distances read like ATAK's measurement labels", () => {
-  expect(formatDistance(250.4)).toBe("250 m");
-  expect(formatDistance(1234)).toBe("1.23 km");
-  expect(formatDistance(12_345)).toBe("12.3 km");
 });
 
 import { tacticalOverlayColors } from "./layers.ts";

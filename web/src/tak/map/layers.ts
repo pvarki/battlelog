@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection } from "geojson";
 import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { destination, type Position, type Sensor, type TakItem } from "../cot.ts";
+import { distance, EARTH_RADIUS_M, formatDistance } from "../geo.ts";
 import { hasPosition, labelOf, statusOf } from "../items.ts";
 import { groupOf, isHidden } from "../overlays.ts";
 import { iconsetsVersion } from "./iconsets.ts";
@@ -57,7 +58,6 @@ export type Sources = {
   graphicsPending: boolean;
 };
 
-const EARTH_RADIUS_M = 6_371_008.8;
 const CIRCLE_STEPS = 64;
 const DEFAULT_STROKE = "#ffffff";
 const RANGE_BEARING_COLOR = "#ff0000";
@@ -78,19 +78,6 @@ const DRAW_ORDER = [
 ];
 
 const RAD = Math.PI / 180;
-
-/** Ground distance in metres, haversine. */
-const distance = ([lon1, lat1]: Position, [lon2, lat2]: Position) => {
-  const a =
-    Math.sin(((lat2 - lat1) * RAD) / 2) ** 2 +
-    Math.cos(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.sin(((lon2 - lon1) * RAD) / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(a));
-};
-
-export const formatDistance = (metres: number): string =>
-  metres < 1000
-    ? `${Math.round(metres)} m`
-    : `${(metres / 1000).toFixed(metres < 10_000 ? 2 : 1)} km`;
 
 /**
  * Rotation for text along a segment on a map turned to `bearing`, flipped so

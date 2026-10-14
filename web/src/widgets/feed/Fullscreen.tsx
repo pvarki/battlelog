@@ -17,19 +17,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { EventResponse } from "../../api.ts";
 import { EventDetail } from "../../EventDetail.tsx";
+import { type FilterExtras, matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { useLiveEvents } from "../../live-events.ts";
 import { StaleNotice } from "../../StaleNotice.tsx";
 import { FeedTable } from "./View.tsx";
-import {
-  type FeedColumn,
-  type FeedConfig,
-  type FeedExtras,
-  FIELD_LABEL,
-  FIELDS,
-  labelFor,
-  matchesFeed,
-  queryFor,
-} from "./widget.ts";
+import { type FeedColumn, type FeedConfig, FIELD_LABEL, FIELDS, labelFor } from "./widget.ts";
 
 const LIMIT = 100;
 
@@ -44,7 +36,7 @@ const EMPTY = {
   createdAtTo: "",
 };
 
-const toExtras = (f: typeof EMPTY): FeedExtras => ({
+const toExtras = (f: typeof EMPTY): FilterExtras => ({
   ...(f.types.length ? { types: f.types } : {}),
   ...(f.tags.length ? { tags: f.tags } : {}),
   ...(f.search ? { search: f.search } : {}),

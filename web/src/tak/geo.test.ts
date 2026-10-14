@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { Position } from "./cot.ts";
-import { area } from "./geo.ts";
+import { area, formatDistance } from "./geo.ts";
 
 const EARTH_RADIUS_M = 6_371_008.8;
 
@@ -35,4 +35,10 @@ test("fewer than three points enclose nothing", () => {
       [26, 61],
     ]),
   ).toBeCloseTo(0, 3);
+});
+
+test("distances read like ATAK's measurement labels", () => {
+  expect(formatDistance(250.4)).toBe("250 m");
+  expect(formatDistance(1234)).toBe("1.23 km");
+  expect(formatDistance(12_345)).toBe("12.3 km");
 });

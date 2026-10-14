@@ -3,11 +3,11 @@ import { useLocalStorage } from "@mantine/hooks";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import type { DashboardResponse } from "../api.ts";
 import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
-import { useIsMobile } from "../dashboard/mobile.ts";
 import { RECENT_KEY } from "../dashboard/recent.ts";
 import { useLiveEvents } from "../live-events.ts";
 import { Placeholder } from "../Placeholder.tsx";
 import { StaleNotice } from "../StaleNotice.tsx";
+import { useIsMobile } from "../viewport.ts";
 import { FeedTable } from "../widgets/feed/View.tsx";
 import type { FeedColumn } from "../widgets/feed/widget.ts";
 

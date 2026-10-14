@@ -14,11 +14,13 @@ const fetchCallsign = async (): Promise<string | null> => {
   return (await res.json()).callsign;
 };
 
+export type Sender = { uid: string; callsign: string };
+
 /**
  * Who BattleLog speaks as on TAK. The uid is its own, apart from the person's
  * ATAK; the callsign carries a -BL tag so TAK users can tell the two apart.
  */
-export const takSender = (callsign: string | null | undefined) => ({
+export const takSender = (callsign: string | null | undefined): Sender => ({
   uid: `BattleLog-${callsign}`,
   callsign: callsign ? `${callsign}-BL` : "",
 });

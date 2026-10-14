@@ -1,5 +1,6 @@
 import type { CotEvent, Position } from "../cot.ts";
-import { newShapeEvent, type Sender } from "./new-items.ts";
+import type { Sender } from "../identity.ts";
+import { newShapeEvent } from "./new-items.ts";
 
 /**
  * MIL-STD-2525C tactical graphics BattleLog can draw, a subset of the lines and

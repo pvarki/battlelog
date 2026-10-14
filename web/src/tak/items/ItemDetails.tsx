@@ -33,6 +33,7 @@ import { useWrites, type WriteState } from "../commands.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import { type CoordFormat, formatCoord } from "../coords.ts";
 import type { CotEvent, TakItem } from "../cot.ts";
+import { formatDistance } from "../geo.ts";
 import { isImage, useAttachments } from "../inbox/import.ts";
 import {
   anchorOf,
@@ -49,7 +50,6 @@ import {
   type UnitStatus,
   unitStatusOf,
 } from "../items.ts";
-import { formatDistance } from "../map/layers.ts";
 import { AddToMission } from "../missions/AddToMission.tsx";
 import type { Mission } from "../missions/missions.ts";
 import { contentLinks } from "../rest.ts";

@@ -18,7 +18,7 @@ import { formatDateTime } from "../../time.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
-import type { Sender } from "../drawing/new-items.ts";
+import type { Sender } from "../identity.ts";
 import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import type { Mission } from "../missions/missions.ts";

@@ -3,13 +3,13 @@ import { TM35FIN } from "../coords.ts";
 import { type CotEvent, destination, type Position, type TakColor, type TakItem } from "../cot.ts";
 import {
   defaultWaypointNames,
-  escapeXml,
   newMarkerEvent,
   newRouteEvent,
   newShapeEvent,
-  type Sender,
   type ShapeStyle,
 } from "../drawing/new-items.ts";
+import type { Sender } from "../identity.ts";
+import { escapeXml } from "../protocol/cot-xml.ts";
 
 /**
  * KML, GPX and GeoJSON overlays as ATAK drawings, and KML from them:

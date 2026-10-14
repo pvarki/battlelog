@@ -2,13 +2,13 @@ import { Group, Loader, Stack, Text, Tooltip } from "@mantine/core";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { ChoiceChip, CountChip, countOf, ValueCell } from "../../event-binding/cells.tsx";
+import { matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import type { ValueSpec } from "../../event-binding/options.ts";
 import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
 import { useBoundEvents } from "../../event-binding/useBoundEvents.ts";
 import { useLiveEvents } from "../../live-events.ts";
 import { Placeholder } from "../../Placeholder.tsx";
-import { matchesFeed, queryFor } from "../feed/widget.ts";
 import { buildStatusTree, flattenTree } from "./tree.ts";
 import { type StatusConfig, type StatusGroup, type StatusRow, widgetDocument } from "./widget.ts";
 

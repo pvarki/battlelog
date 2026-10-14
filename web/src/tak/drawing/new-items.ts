@@ -6,15 +6,15 @@ import {
   type StrokeStyle,
 } from "../cot.ts";
 import { bearing, distance } from "../geo.ts";
+import type { Sender } from "../identity.ts";
 import { ringRadii } from "../map/rings.ts";
+import { escapeXml } from "../protocol/cot-xml.ts";
 
 /**
  * New TAK items written the way ATAK writes them (compared against ATAK's own
  * drawings on a TAK server): shapes as u-d-* with one `<link point>` per
  * vertex and a `<creator>`, markers with a `p-p` link naming who placed them.
  */
-
-export type Sender = { uid: string; callsign: string };
 
 export type ShapeStyle = {
   name: string;
@@ -62,13 +62,6 @@ const SHAPE_TYPE = {
   rectangle: "u-d-r",
   circle: "u-d-c-c",
 } as const;
-
-export const escapeXml = (s: string) =>
-  s
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
 
 /** #rrggbb and 0–1 opacity as ATAK's signed 32-bit ARGB integer. */
 export const toArgb = (hex: string, opacity = 1): number => {

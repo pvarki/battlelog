@@ -12,6 +12,7 @@ import {
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import { ACCENT } from "../../theme.ts";
 import type { Position, TakItem } from "../cot.ts";
+import { distance } from "../geo.ts";
 import { editTarget } from "./edit-geometry.ts";
 import type { NewShape } from "./new-items.ts";
 import type { SymbolChoice } from "./symbol-catalogue.ts";
@@ -35,16 +36,6 @@ export type Drawn =
   | { kind: "marker"; position: Position }
   | NewShape
   | { kind: "route"; points: Position[] };
-
-const EARTH_RADIUS_M = 6_371_008.8;
-
-const distance = ([lon1, lat1]: Position, [lon2, lat2]: Position) => {
-  const rad = Math.PI / 180;
-  const a =
-    Math.sin(((lat2 - lat1) * rad) / 2) ** 2 +
-    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(((lon2 - lon1) * rad) / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(a));
-};
 
 const drawnFrom = (
   tool: Tool,

@@ -77,7 +77,7 @@
  * Phones: the theme's compact type (md = 0.875rem) is tuned for an ops display
  * at arm's length, not a phone in the field. Bump the root so everything
  * Mantine renders in rem grows ~12%. Keep in sync with MOBILE_QUERY in
- * src/dashboard/mobile.ts.
+ * src/viewport.ts.
  */
 @media screen and (max-width: 1023px), screen and (max-height: 479px) {
   :root {

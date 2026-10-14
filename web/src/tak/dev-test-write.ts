@@ -1,17 +1,11 @@
 import { notifications } from "@mantine/notifications";
 import type { CotEvent, Position } from "./cot.ts";
+import { escapeXml } from "./protocol/cot-xml.ts";
 import { fetchLatestCot } from "./rest.ts";
 import { sendCot } from "./session.ts";
 
 const STALE_MS = 10 * 60_000;
 const VERIFY_DELAY_MS = 2_000;
-
-const escapeXml = (s: string) =>
-  s
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
 
 /**
  * Dev-only proof that this browser can write to TAK as the user: sends one

@@ -1,7 +1,7 @@
 import { editEvent, ensureChild } from "./commands.ts";
 import type { CotEvent, TakItem } from "./cot.ts";
 import { sendDataPackage } from "./datapackage.ts";
-import type { Sender } from "./drawing/new-items.ts";
+import type { Sender } from "./identity.ts";
 import { exportPlan, type Plan, reissuePlan, safeZipName } from "./plans/plans.ts";
 import { childNamed } from "./protocol/cot-event.ts";
 import { sendCot } from "./session.ts";

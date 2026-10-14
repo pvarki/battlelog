@@ -1,6 +1,6 @@
 import { zipSync } from "fflate";
 import type { CotEvent, TakItem } from "./cot.ts";
-import type { Sender } from "./drawing/new-items.ts";
+import type { Sender } from "./identity.ts";
 import { FILE_SHARE_TYPE, sha256Hex } from "./inbox/fileshare.ts";
 import { labelOf } from "./items.ts";
 import { safeZipName } from "./plans/plans.ts";

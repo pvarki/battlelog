@@ -1,6 +1,6 @@
 # web/
 
-Vite + React SPA (TanStack Router, Mantine, dark-only theme). Responsive: desktop (1024px+) gets the full grid/management UI; below that (and on landscape phones) every page renders a mobile layout — the gate is `useIsMobile()` / `MOBILE_QUERY` in `src/dashboard/mobile.ts`, mirrored in `global.css` for the font-size bumps. Dashboards on mobile render as the `MobileSwitcher` (one widget fullscreen, bottom bar); editing and management are desktop-only by construction.
+Vite + React SPA (TanStack Router, Mantine, dark-only theme). Responsive: desktop (1024px+) gets the full grid/management UI; below that (and on landscape phones) every page renders a mobile layout — the gate is `useIsMobile()` / `MOBILE_QUERY` in `src/viewport.ts`, mirrored in `global.css` for the font-size bumps. Dashboards on mobile render as the `MobileSwitcher` (one widget fullscreen, bottom bar); editing and management are desktop-only by construction.
 
 React Compiler is enabled (`babel-plugin-react-compiler` in `vite.config.ts`): don't add `useMemo`/`useCallback`/`memo` for render performance, and don't name plain functions `use*` — the compiler treats them as hooks.
 

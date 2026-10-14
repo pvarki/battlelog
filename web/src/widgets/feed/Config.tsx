@@ -15,11 +15,11 @@ import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
+import type { DataFilter } from "../../event-binding/filter.ts";
 import {
   columnWidth,
   type FeedColumn,
   type FeedConfig,
-  type FeedDataFilter,
   FIELD_LABEL,
   FIELDS,
   labelFor,
@@ -37,9 +37,9 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
   const setColumn = (id: string, patch: Partial<FeedColumn>) =>
     setColumns(config.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   const dataFilters = config.dataFilters ?? [];
-  const setDataFilters = (next: FeedDataFilter[]) =>
+  const setDataFilters = (next: DataFilter[]) =>
     onChange({ ...config, dataFilters: next.length ? next : undefined });
-  const setDataFilter = (id: string, patch: Partial<FeedDataFilter>) =>
+  const setDataFilter = (id: string, patch: Partial<DataFilter>) =>
     setDataFilters(dataFilters.map((f) => (f.id === id ? { ...f, ...patch } : f)));
 
   return (

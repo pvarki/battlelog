@@ -22,8 +22,8 @@ import { getRouteApi } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import { api, type EventResponse } from "../../api.ts";
-import { useIsMobile } from "../../dashboard/mobile.ts";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
+import { matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
 import { useLiveEvents } from "../../live-events.ts";
@@ -33,7 +33,7 @@ import type { TakItem } from "../../tak/cot.ts";
 import { anchorOf, hasPosition, labelOf } from "../../tak/items.ts";
 import { parseTakLink, type TakLink, takLinkOf } from "../../tak/links.ts";
 import { useTakItems, useTakSession } from "../../tak/session.ts";
-import { matchesFeed, queryFor } from "../feed/widget.ts";
+import { useIsMobile } from "../../viewport.ts";
 import { FormPrint } from "./Print.tsx";
 import {
   buildEvent,

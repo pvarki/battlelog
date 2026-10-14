@@ -1,7 +1,7 @@
 import type { TakItem } from "./cot.ts";
-import { escapeXml } from "./drawing/new-items.ts";
 import { itemsToKml } from "./plans/overlay-files.ts";
 import type { CotEvent } from "./protocol/cot-event.ts";
+import { escapeXml } from "./protocol/cot-xml.ts";
 import { type TrackPoint, trackColor, trackPointOf } from "./tracks.ts";
 
 /** Where an item has been as GPX (with times) or KML (the line only), from TAK's stored copies of it. */

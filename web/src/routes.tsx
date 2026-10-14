@@ -18,7 +18,6 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { z } from "zod";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
 import { DashboardNav } from "./dashboard/DashboardNav.tsx";
-import { useIsMobile } from "./dashboard/mobile.ts";
 import { validateEventSearch } from "./event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
 import { Placeholder } from "./Placeholder.tsx";
@@ -26,6 +25,7 @@ import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
 import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
 import { TakIndicator } from "./tak/TakIndicator.tsx";
+import { useIsMobile } from "./viewport.ts";
 
 // The current page renders full-strength; elsewhere links stay dimmed.
 const NavLink = ({ to, children }: { to: string; children: string }) => (

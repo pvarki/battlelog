@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FeedConfig } from "../widgets/feed/widget.ts";
+import type { EventFilter } from "./filter.ts";
 
 const dataFilterSchema = z.object({
   id: z.string().min(1).max(64),
@@ -25,11 +25,11 @@ const csv = (v: string): string[] =>
     .filter(Boolean);
 
 /**
- * The query as the feed's filter config, so server query and live matching
- * are the feed's own. Undefined without a type: an empty filter would list
+ * The query as an event filter, for its server query and live matching.
+ * Undefined without a type: an empty filter would list
  * every event, and the server only accepts data filters alongside types.
  */
-export const queryFilter = (query: EventQuery, rows = 100): FeedConfig | undefined => {
+export const queryFilter = (query: EventQuery): EventFilter | undefined => {
   const types = csv(query.types);
   if (types.length === 0) return undefined;
   const tags = csv(query.tags);
@@ -37,7 +37,5 @@ export const queryFilter = (query: EventQuery, rows = 100): FeedConfig | undefin
     types,
     ...(tags.length ? { tags } : {}),
     dataFilters: query.dataFilters,
-    rows,
-    columns: [],
   };
 };
