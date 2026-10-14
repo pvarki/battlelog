@@ -36,7 +36,7 @@ const ACTIVITY_COLUMNS: FeedColumn[] = [
 const LatestActivity = () => {
   const { events, failed, arrived } = useLiveEvents({ limit: ACTIVITY_ROWS });
   return (
-    <Paper withBorder flex={1} mih={0} style={{ display: "flex", flexDirection: "column" }}>
+    <Paper withBorder flex={1} mih={0} miw={0} style={{ display: "flex", flexDirection: "column" }}>
       <Group justify="space-between" px="sm" py="xs" wrap="nowrap">
         <Text fw={600} fz="sm">
           Latest activity

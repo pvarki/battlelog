@@ -29,9 +29,16 @@ import {
 const RESIZE_HIT_WIDTH = 9;
 
 const CELL: Record<Field, (e: EventResponse) => ReactNode> = {
-  time: (e) => formatShortDateTime(e.eventTime ?? e.createdAt),
+  time: (e) => (
+    <span style={{ whiteSpace: "nowrap" }}>{formatShortDateTime(e.eventTime ?? e.createdAt)}</span>
+  ),
   header: (e) => e.header,
-  type: (e) => (e.type ? <Badge variant="light">{e.type}</Badge> : null),
+  type: (e) =>
+    e.type ? (
+      <Badge variant="light" maw="100%" title={e.type}>
+        {e.type}
+      </Badge>
+    ) : null,
   tags: (e) => e.tags?.join(", "),
   admiralty: (e) => [e.admiraltyReliability, e.admiraltyAccuracy].filter(Boolean).join(""),
   createdBy: (e) => e.createdBy,
@@ -55,6 +62,11 @@ export const FeedTable = ({
   onColumnWidthChange?: (columnId: string, width: number) => void;
 }) => {
   const totalWidth = columns.reduce((sum, col) => sum + columnWidth(col), 0);
+  // Until someone resizes a column, widths are shares of the room there is, so a
+  // narrow panel never scrolls sideways; after that they're the pixels asked for.
+  const fit = columns.every((col) => col.width === undefined);
+  const widthOf = (col: FeedColumn) =>
+    fit ? `${(columnWidth(col) / totalWidth) * 100}%` : columnWidth(col);
   const startColumnResize = (col: FeedColumn, event: ReactPointerEvent) => {
     if (!onColumnWidthChange) return;
 
@@ -92,11 +104,11 @@ export const FeedTable = ({
       highlightOnHover
       verticalSpacing={4}
       stickyHeader
-      style={{ minWidth: "100%", tableLayout: "fixed", width: totalWidth }}
+      style={{ minWidth: "100%", tableLayout: "fixed", width: fit ? "100%" : totalWidth }}
     >
       <colgroup>
         {columns.map((col) => (
-          <col key={col.id} style={{ width: columnWidth(col) }} />
+          <col key={col.id} style={{ width: widthOf(col) }} />
         ))}
       </colgroup>
       <Table.Thead>

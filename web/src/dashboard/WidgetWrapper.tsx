@@ -136,6 +136,7 @@ export const WidgetWrapper = ({
         <Group
           className="widget-drag-handle screen-only"
           justify="space-between"
+          wrap="nowrap"
           px="xs"
           py={4}
           style={{
@@ -143,14 +144,14 @@ export const WidgetWrapper = ({
             borderBottom: "1px solid var(--mantine-color-dark-4)",
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             {editMode && (
               <Text fz="xs" c="dimmed">
                 {typeName}
               </Text>
             )}
             {title && (
-              <Text fw={600} fz="sm" lh={1.2}>
+              <Text fw={600} fz="sm" lh={1.2} truncate title={title}>
                 {title}
               </Text>
             )}

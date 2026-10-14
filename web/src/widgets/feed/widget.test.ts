@@ -43,9 +43,9 @@ test("schema accepts bounded column widths", () => {
   ).toBe(false);
 });
 
-test("columnWidth defaults to the visible header text width until overridden", () => {
-  expect(columnWidth({ id: "time", label: "", source: "time", dataPath: "" })).toBe(72);
-  expect(columnWidth({ id: "header", label: "", source: "header", dataPath: "" })).toBe(80);
+test("columnWidth defaults to the header text or the field's usual content, until overridden", () => {
+  expect(columnWidth({ id: "time", label: "", source: "time", dataPath: "" })).toBe(104);
+  expect(columnWidth({ id: "header", label: "", source: "header", dataPath: "" })).toBe(160);
   expect(columnWidth({ id: "desk", label: "Desk", source: "data", dataPath: "desk" })).toBe(72);
   expect(
     columnWidth({

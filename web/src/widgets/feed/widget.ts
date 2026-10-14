@@ -68,7 +68,15 @@ export const labelFor = (col: FeedColumn): string => {
 const widthForLabel = (label: string): number =>
   Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, label.length * 8 + 32));
 
-export const columnWidth = (col: FeedColumn): number => col.width ?? widthForLabel(labelFor(col));
+/** Room for a field's usual content, which its short label would undersize. */
+const CONTENT_WIDTH: Partial<Record<Field, number>> = { time: 104, header: 160, type: 120 };
+
+export const columnWidth = (col: FeedColumn): number =>
+  col.width ??
+  Math.max(
+    widthForLabel(labelFor(col)),
+    col.source === "data" ? 0 : (CONTENT_WIDTH[col.source] ?? 0),
+  );
 
 const descriptor: WidgetDescriptor<FeedConfig> = {
   type: "feed",

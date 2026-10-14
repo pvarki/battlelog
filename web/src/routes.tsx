@@ -82,18 +82,11 @@ const ConnectionIndicator = () => {
   return (
     <Group gap={4} ml="auto" c={c} title={`Event stream: ${label}`} role="status">
       <Icon size={16} stroke={1.5} />
-      {state === "live" ? (
-        <VisuallyHidden>{label}</VisuallyHidden>
-      ) : (
-        // Icon-only on phones (the label wraps the 48px header onto the
-        // page), but the status text must stay readable to screen readers.
-        <>
-          <Text fz="xs" visibleFrom="sm">
-            {label}
-          </Text>
-          <VisuallyHidden hiddenFrom="sm">{label}</VisuallyHidden>
-        </>
-      )}
+      {/* Icon-only on phones: a label wraps the 48px header onto the page. */}
+      <Text fz="xs" c={state === "live" ? "dark.0" : undefined} visibleFrom="sm">
+        {state === "live" ? "Log" : `Log ${label.toLowerCase()}`}
+      </Text>
+      <VisuallyHidden hiddenFrom="sm">Event stream: {label}</VisuallyHidden>
     </Group>
   );
 };

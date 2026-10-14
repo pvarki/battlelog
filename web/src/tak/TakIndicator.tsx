@@ -39,7 +39,7 @@ export const TakIndicator = () => {
       <Icon size={16} stroke={1.5} />
       {/* A phone's header has no room for the callsign; the icon still shows the connection. */}
       <Text fz="xs" fw={600} c="dark.0" visibleFrom="sm">
-        {callsign ?? "TAK"}
+        {callsign ? `TAK · ${callsign}` : "TAK"}
       </Text>
       <Text fz="xs" visibleFrom="sm">
         {connection === "live" ? "" : label}

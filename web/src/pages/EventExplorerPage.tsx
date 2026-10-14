@@ -52,6 +52,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 // table one verbose row set the width of every column. The table is now
 // layout="fixed": columns keep their declared width, over-long values ellipsize,
 // and the full value stays reachable via the title tooltip and the detail drawer.
+// The minor columns are percentages so Header keeps a share on a narrow desktop.
 const TRUNCATE = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
 
 const TAGS_SHOWN = 2;
@@ -334,18 +335,18 @@ export const EventExplorerPage = () => {
           <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th w={150}>Time</Table.Th>
+                <Table.Th w={170}>Time</Table.Th>
                 <Table.Th>Header</Table.Th>
-                <Table.Th w={130}>Type</Table.Th>
-                <Table.Th w={200}>Tags</Table.Th>
+                <Table.Th w="15%">Type</Table.Th>
+                <Table.Th w="12%">Tags</Table.Th>
                 <Table.Th
-                  w={100}
+                  w={90}
                   title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
                 >
                   Admiralty
                 </Table.Th>
-                <Table.Th w={170}>Location</Table.Th>
-                <Table.Th w={130}>By</Table.Th>
+                <Table.Th w="13%">Location</Table.Th>
+                <Table.Th w="10%">By</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
