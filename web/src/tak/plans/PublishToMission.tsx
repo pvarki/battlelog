@@ -13,9 +13,9 @@ import { IconFolderPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import type { TakItem } from "../cot.ts";
 import { labelOf } from "../items.ts";
-import { notifyFailure } from "../missions/MissionsDrawer.tsx";
 import type { Mission } from "../missions/missions.ts";
 import { canWriteAs, createMission, useSubscriptions } from "../missions/writes.ts";
+import { notifyFailure } from "../notify.ts";
 import { type Plan, publishPlanToMission } from "./plans.ts";
 
 type Props = {

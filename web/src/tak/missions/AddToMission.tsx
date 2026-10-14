@@ -3,7 +3,7 @@ import { IconFolderPlus } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import type { TakItem } from "../cot.ts";
 import { labelOf } from "../items.ts";
-import { notifyFailure } from "./MissionsDrawer.tsx";
+import { notifyFailure } from "../notify.ts";
 import type { Mission } from "./missions.ts";
 import { addItem, canWriteAs, loadSubscription, useSubscriptions } from "./writes.ts";
 
