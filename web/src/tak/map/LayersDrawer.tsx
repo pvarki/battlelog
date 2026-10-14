@@ -39,6 +39,13 @@ export const LayersDrawer = ({ settings, children }: Props) => (
 
     <Switch
       size="xs"
+      label="MGRS grid"
+      checked={settings.mgrsGrid}
+      onChange={(e) => settings.setMgrsGrid(e.currentTarget.checked)}
+    />
+
+    <Switch
+      size="xs"
       label="Show all tracks"
       description="Where moving users and units went in the last 2 hours"
       checked={settings.showAllTracks}

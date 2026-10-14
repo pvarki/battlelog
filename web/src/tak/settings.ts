@@ -14,6 +14,10 @@ export const useMapSettings = () => {
     defaultValue: "topographic",
   });
   const [dim, setDim] = useLocalStorage({ key: "battlelog.tak.dim", defaultValue: false });
+  const [mgrsGrid, setMgrsGrid] = useLocalStorage({
+    key: "battlelog.tak.mgrsGrid",
+    defaultValue: false,
+  });
   const [showAllTracks, setShowAllTracks] = useLocalStorage({
     key: "battlelog.tak.showAllTracks",
     defaultValue: false,
@@ -53,6 +57,8 @@ export const useMapSettings = () => {
     setBasemap,
     dim,
     setDim,
+    mgrsGrid,
+    setMgrsGrid,
     showAllTracks,
     setShowAllTracks,
     hidden,

@@ -652,6 +652,7 @@ export const TakWorkspace = ({
           hidden={hidden}
           basemap={settings.basemap}
           dim={settings.dim}
+          mgrsGrid={settings.mgrsGrid}
           selectedUid={selectedUid}
           onPick={(uids, at) => {
             if (drawing.tool || drawing.editing || measure.active) return;
