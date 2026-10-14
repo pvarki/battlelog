@@ -190,8 +190,9 @@
   padding-left: 10px;
 }
 
+/* Muted, not see-through: a hidden group's names must stay readable to switch it back on. */
 .tak-group[data-hidden] {
-  opacity: 0.5;
+  color: var(--mantine-color-dimmed);
 }
 
 .tak-row {

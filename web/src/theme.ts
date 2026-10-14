@@ -1,4 +1,4 @@
-import { Anchor, createTheme, Input } from "@mantine/core";
+import { Anchor, type CSSVariablesResolver, createTheme, Input } from "@mantine/core";
 
 /**
  * Battlelog design tokens (dark-only): Inter, 6px radius.
@@ -129,5 +129,19 @@ export const theme = createTheme({
     }),
     // Filled primary (#394494) is too dark for link text on dark surfaces.
     Anchor: Anchor.extend({ defaultProps: { c: "accent.4" } }),
+  },
+});
+
+/**
+ * Mantine draws placeholders and disabled text with dark-3, under 3:1 on a
+ * field. Placeholders often stand in for labels here (Lat, Lng, data path),
+ * so they get AA (4.5:1 on a field); disabled text stays a step dimmer.
+ */
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {},
+  dark: {
+    "--mantine-color-placeholder": "#949ca8",
+    "--mantine-color-disabled-color": "#8a929e",
   },
 });

@@ -13,7 +13,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { routerDefaults, routeTree } from "./routes.tsx";
-import { theme } from "./theme.ts";
+import { cssVariablesResolver, theme } from "./theme.ts";
 
 // Without importing the virtual module, autoUpdate installs the new service
 // worker but never reloads open tabs — a wall display would run last month's
@@ -35,7 +35,11 @@ if (!rootEl) throw new Error("missing #root element");
 
 createRoot(rootEl).render(
   <StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="dark">
+    <MantineProvider
+      theme={theme}
+      forceColorScheme="dark"
+      cssVariablesResolver={cssVariablesResolver}
+    >
       <Notifications position="bottom-right" />
       <RouterProvider router={router} />
     </MantineProvider>
