@@ -576,7 +576,6 @@ const FieldInput = ({
           <DateTimePicker
             {...common}
             placeholder="Select date and time"
-            locale="fi"
             value={typeof value === "string" && value ? value.replace("T", " ") : null}
             valueFormat="DD.MM.YYYY HH:mm"
             timePickerProps={{ minutesStep: 5 }}
@@ -589,7 +588,7 @@ const FieldInput = ({
               style={{ alignSelf: "flex-start" }}
               onClick={() => onChange(datetimeLocalValue())}
             >
-              Nyt
+              Now
             </Button>
           )}
         </Stack>

@@ -3,7 +3,6 @@ import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "react-grid-layout/css/styles.css";
 import "@fontsource-variable/inter";
-import "dayjs/locale/fi";
 import "./global.css";
 import "./print.css";
 import { registerSW } from "virtual:pwa-register";

@@ -49,6 +49,8 @@ export const eventsFilterSchema = z.object({
    * concurrent inserts and O(1) at any depth. When set, offset is ignored.
    */
   cursor: z.string().uuid().optional(),
+  /** `logged` (default): newest logged first. `happened`: newest event time first, logged time for events without one. */
+  sort: z.enum(["logged", "happened"]).default("logged"),
   /** When false (default) list returns only current heads. */
   includeHistory: z.boolean().default(false),
 });

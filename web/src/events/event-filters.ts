@@ -24,6 +24,8 @@ export type Filters = {
   lng: number | string;
   radiusMeters: number | string;
   includeHistory: boolean;
+  /** Newest logged first, or newest happened first. Not a filter: Clear all keeps it. */
+  sort: "logged" | "happened";
 };
 
 export const EMPTY: Filters = {
@@ -43,6 +45,7 @@ export const EMPTY: Filters = {
   lng: "",
   radiusMeters: "",
   includeHistory: false,
+  sort: "logged",
 };
 
 // Applied filters live in the URL as search params: only non-empty fields,
@@ -65,6 +68,7 @@ const searchSchema = z
     lng: z.union([z.number(), z.string()]),
     radiusMeters: z.union([z.number(), z.string()]),
     includeHistory: z.boolean(),
+    sort: z.enum(["logged", "happened"]),
   })
   .partial();
 
@@ -76,7 +80,11 @@ export const validateEventSearch = (search: unknown) => searchSchema.catch({}).p
 export const compact = (f: Filters): Applied =>
   Object.fromEntries(
     Object.entries(f).filter(
-      ([, v]) => v !== "" && v !== false && !(Array.isArray(v) && v.length === 0),
+      ([k, v]) =>
+        v !== "" &&
+        v !== false &&
+        !(Array.isArray(v) && v.length === 0) &&
+        !(k === "sort" && v === EMPTY.sort),
     ),
   ) as Applied;
 
@@ -101,6 +109,7 @@ export const buildQuery = (f: Filters): EventsQuery => {
       ? { lat: String(f.lat), lng: String(f.lng), radiusMeters: String(f.radiusMeters) }
       : {}),
     ...(f.includeHistory ? { includeHistory: "true" as const } : {}),
+    ...(f.sort === "happened" ? { sort: "happened" as const } : {}),
     limit: PAGE,
   } as EventsQuery;
 };

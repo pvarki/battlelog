@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "events_happened_id_idx" ON "events" USING btree ((COALESCE("event_time", "created_at")) DESC,"id" DESC);

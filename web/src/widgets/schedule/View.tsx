@@ -52,7 +52,7 @@ const TimerRow = ({
         ) : null}
         <Text c="dimmed" fz="xs">
           {timer.recurring
-            ? `Joka päivä klo ${formatClockTime(target.getTime())}`
+            ? `Every day at ${formatClockTime(target.getTime())}`
             : formatTarget(timer.target)}
         </Text>
       </Stack>
@@ -218,7 +218,6 @@ const ScheduleView = ({
                   label="Target time"
                   description="Interpreted in this device's local time."
                   placeholder="Select date and time"
-                  locale="fi"
                   value={at ? at.replace("T", " ") : null}
                   valueFormat="DD.MM.YYYY HH:mm"
                   timePickerProps={{ minutesStep: 5 }}

@@ -13,6 +13,7 @@ import {
   MultiSelect,
   NumberInput,
   Paper,
+  Select,
   SimpleGrid,
   Stack,
   Table,
@@ -41,6 +42,43 @@ import { formatDateTime } from "../time.ts";
 import { useIsMobile } from "../viewport.ts";
 
 const route = getRouteApi("/events");
+
+const SORT_OPTIONS = [
+  { value: "logged", label: "Newest logged" },
+  { value: "happened", label: "Newest happened" },
+];
+
+// The URL holds the sort like the filters; the last choice is remembered so a
+// plain link to the explorer opens the way this user reads the log.
+const SORT_KEY = "battlelog.explorer.sort";
+
+const rememberedSort = (): Filters["sort"] | undefined => {
+  try {
+    return localStorage.getItem(SORT_KEY) === "happened" ? "happened" : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const rememberSort = (sort: Filters["sort"]) => {
+  try {
+    localStorage.setItem(SORT_KEY, sort);
+  } catch {
+    // Private mode: the choice still holds in the URL.
+  }
+};
+
+/** The time the table is sorted by, and the other one for the tooltip. */
+const timesOf = (event: EventResponse, sort: Filters["sort"]) => {
+  const logged = `Logged ${formatDateTime(event.createdAt)}`;
+  const happened = event.eventTime && `Happened ${formatDateTime(event.eventTime)}`;
+  return sort === "happened"
+    ? {
+        shown: formatDateTime(event.eventTime ?? event.createdAt),
+        other: event.eventTime ? logged : undefined,
+      }
+    : { shown: formatDateTime(event.createdAt), other: happened || undefined };
+};
 
 // The header search box applies itself; the drawer's filters wait for Apply.
 // Header search is one indexed ILIKE, so auto-applying it is cheap and removes
@@ -130,6 +168,13 @@ export const EventExplorerPage = () => {
     applyFilters({ ...EMPTY, ...applied });
   }, [applied]);
 
+  const restoreSort = useEffectEvent(() => {
+    const remembered = rememberedSort();
+    if (!applied.sort && remembered)
+      navigate({ search: { ...applied, sort: remembered }, replace: true });
+  });
+  useEffect(() => restoreSort(), []);
+
   const chips = activeChips(applied);
   // Search lives in the header, so it doesn't count toward the drawer's badge.
   const drawerCount = chips.filter((c) => c.id !== "search").length;
@@ -157,12 +202,20 @@ export const EventExplorerPage = () => {
     navigate({ search: compact({ ...draft, search: searchInput.trim() }) });
   };
 
+  const sort = applied.sort ?? EMPTY.sort;
+  const keptSort = compact({ ...EMPTY, sort });
+
   const clearAll = () => {
     clearTimeout(searchTimer.current);
     setFiltersOpen(false);
     setSearchInput("");
-    setDraft(EMPTY);
-    navigate({ search: {} });
+    setDraft({ ...EMPTY, sort });
+    navigate({ search: keptSort });
+  };
+
+  const setSort = (next: Filters["sort"]) => {
+    rememberSort(next);
+    navigate({ search: compact({ ...EMPTY, ...applied, sort: next }) });
   };
 
   const removeChip = (chip: FilterChip) => navigate({ search: chip.without });
@@ -222,6 +275,18 @@ export const EventExplorerPage = () => {
     </Button>
   );
 
+  const sortSelect = (
+    <Select
+      size="xs"
+      w={150}
+      aria-label="Sort events"
+      data={SORT_OPTIONS}
+      value={sort}
+      onChange={(next) => next && setSort(next as Filters["sort"])}
+      allowDeselect={false}
+    />
+  );
+
   const searchBox = (
     <TextInput
       size="xs"
@@ -252,9 +317,12 @@ export const EventExplorerPage = () => {
             <Group gap={4} wrap="nowrap" style={{ overflowX: "auto", minWidth: 0 }}>
               {chipBadges}
               {clearAllButton}
-              {countText}
             </Group>
           )}
+          <Group justify="space-between" wrap="nowrap" gap="xs">
+            {countText || <span />}
+            {sortSelect}
+          </Group>
         </Stack>
       ) : (
         <Group justify="space-between" wrap="nowrap" gap="sm" mb="xs">
@@ -269,6 +337,7 @@ export const EventExplorerPage = () => {
           <Group gap="xs" wrap="nowrap">
             {countText}
             {clearAllButton}
+            {sortSelect}
             {filtersButton}
           </Group>
         </Group>
@@ -324,7 +393,7 @@ export const EventExplorerPage = () => {
                   )}
                 </Group>
                 <Text fz="xs" c="dimmed">
-                  {formatDateTime(event.eventTime ?? event.createdAt)}
+                  {timesOf(event, sort).shown}
                   {event.location ? ` · ${event.location}` : ""}
                 </Text>
                 {event.tags && event.tags.length > 0 && <TagsCell tags={event.tags} />}
@@ -335,7 +404,7 @@ export const EventExplorerPage = () => {
           <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th w={170}>Time</Table.Th>
+                <Table.Th w={170}>{sort === "happened" ? "Happened" : "Logged"}</Table.Th>
                 <Table.Th>Header</Table.Th>
                 <Table.Th w="15%">Type</Table.Th>
                 <Table.Th w="12%">Tags</Table.Th>
@@ -356,7 +425,9 @@ export const EventExplorerPage = () => {
                   onClick={() => setSelected(event)}
                   style={{ cursor: "pointer" }}
                 >
-                  <Table.Td>{formatDateTime(event.eventTime ?? event.createdAt)}</Table.Td>
+                  <Table.Td title={timesOf(event, sort).other}>
+                    {timesOf(event, sort).shown}
+                  </Table.Td>
                   <Table.Td style={TRUNCATE}>
                     {/* Real button inside the row so keyboard users can open the detail too. */}
                     <Anchor

@@ -109,6 +109,29 @@ describe.runIf(dbUp)("events HTTP contract", () => {
     expect(page2.map((e: { id: string }) => e.id)).toEqual([ids[0]]);
   });
 
+  test("sort=happened orders by event time, logged time standing in, and pages by cursor", async () => {
+    const who = `${runId}-happened`;
+    const headers = { "content-type": "application/json", [ENV.RM_MTLS_HEADER]: `CN=${who}` };
+    const post = (body: object) =>
+      app
+        .request("/api/v1/events", { method: "POST", headers, body: JSON.stringify(body) })
+        .then((r) => r.json());
+    const old = await post({ header: "old", eventTime: "2020-01-01T10:00:00Z" });
+    const older = await post({ header: "older", eventTime: "2020-01-01T09:00:00Z" });
+    const now = await post({ header: "no event time" });
+
+    const list = (qs: string) =>
+      app
+        .request(`/api/v1/events?createdBy=${who}&sort=happened&${qs}`)
+        .then((r) => r.json())
+        .then((rows: { id: string }[]) => rows.map((e) => e.id));
+
+    expect(await list("limit=3")).toEqual([now.id, old.id, older.id]);
+    const page1 = await list("limit=2");
+    expect(page1).toEqual([now.id, old.id]);
+    expect(await list(`limit=2&cursor=${page1[1]}`)).toEqual([older.id]);
+  });
+
   test("data filter: needs types, matches exact values", async () => {
     const res = await app.request("/api/v1/events", {
       method: "POST",

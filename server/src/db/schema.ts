@@ -128,6 +128,10 @@ export const events = pgTable(
     ),
     eventIdIdx: index("events_event_id_idx").on(t.eventId),
     eventTimeIdx: index("events_event_time_idx").on(t.eventTime),
+    happenedIdIdx: index("events_happened_id_idx").on(
+      sql`(COALESCE(${t.eventTime}, ${t.createdAt})) DESC`,
+      sql`${t.id} DESC`,
+    ),
     createdAtIdx: index("events_created_at_idx").on(t.createdAt),
     tagsIdx: index("events_tags_gin_idx").using("gin", t.tags),
     hcoeDomainsIdx: index("events_hcoe_domains_gin_idx").using("gin", t.hcoeDomains),

@@ -10,6 +10,12 @@ describe("compact", () => {
       compact({ ...EMPTY, search: "bridge", types: ["report"], includeHistory: false }),
     ).toEqual({ search: "bridge", types: ["report"] });
   });
+
+  it("keeps the sort only when it isn't the default, and never as a chip", () => {
+    expect(compact({ ...EMPTY, sort: "logged" })).toEqual({});
+    expect(compact({ ...EMPTY, sort: "happened" })).toEqual({ sort: "happened" });
+    expect(activeChips({ sort: "happened" })).toEqual([]);
+  });
 });
 
 describe("activeChips", () => {

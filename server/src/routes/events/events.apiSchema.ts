@@ -120,6 +120,8 @@ export const eventsQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
   /** Keyset pagination: pass the previous page's last id to get older rows. Ignores offset. */
   cursor: z.string().uuid().optional(),
+  /** `logged` (default): newest logged first. `happened`: newest event time first, logged time for events without one. */
+  sort: z.enum(["logged", "happened"]).default("logged"),
   includeHistory: z
     .enum(["true", "false"])
     .optional()
