@@ -3,6 +3,7 @@ import { notifications } from "@mantine/notifications";
 import { IconDownload } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { useRef, useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import type { MapSource } from "./basemaps.ts";
 import { areaPlan, canSaveArea, saveArea } from "./offline-area.ts";
 
@@ -53,7 +54,7 @@ export const SaveAreaSection = ({
 
   return (
     <Stack gap={6}>
-      <Text className="tak-group-heading">Offline</Text>
+      <SectionHeading>Offline</SectionHeading>
       <Text fz="xs" c="dimmed">
         Maps you look at are kept in this browser. Save the area on screen to have it, a few zoom
         levels deeper, without a network.

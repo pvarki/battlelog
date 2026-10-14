@@ -1,8 +1,9 @@
 import { Alert, Button, Group, Stack, Text } from "@mantine/core";
 import { IconUrgent } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
+import { formatAge } from "../../time.ts";
 import type { TakItem } from "../cot.ts";
-import { activeEmergencies, formatAge } from "../items.ts";
+import { activeEmergencies } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { useEmergencyPulse } from "./useEmergencyPulse.ts";
 

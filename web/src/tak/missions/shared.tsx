@@ -1,6 +1,7 @@
-import { ActionIcon, Text } from "@mantine/core";
+import { ActionIcon } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { notifyFailure } from "../notify.ts";
 import { MISSION_ROLES, ROLE_LABELS } from "./missions.ts";
 
@@ -25,7 +26,7 @@ export const useWrite = () => {
 
 export const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <section aria-label={title}>
-    <Text className="tak-group-heading">{title}</Text>
+    <SectionHeading>{title}</SectionHeading>
     {children}
   </section>
 );

@@ -26,3 +26,12 @@ export const formatDate = (iso: string | number): string => {
   const d = new Date(iso);
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
 };
+
+/** How long ago, coarsely: `45 s`, `12 min`, `6 h`, `3 d`. Add " ago" where it reads better. */
+export const formatAge = (ms: number): string => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.floor(s / 60)} min`;
+  if (s < 86_400) return `${Math.floor(s / 3600)} h`;
+  return `${Math.floor(s / 86_400)} d`;
+};

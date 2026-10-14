@@ -1,7 +1,8 @@
-import { ActionIcon, Group, Radio, Select, Slider, Stack, Switch, Text } from "@mantine/core";
+import { ActionIcon, Group, Radio, Select, Slider, Stack, Switch } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { ReactNode } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import type { MapSettings } from "../settings.ts";
 import { DEFAULT_BASEMAP, type MapSource } from "./basemaps.ts";
 import { MapSourcesSection } from "./MapSourcesSection.tsx";
@@ -18,10 +19,6 @@ type Props = {
   eventLayers: ReactNode;
 };
 
-const Heading = ({ children }: { children: ReactNode }) => (
-  <Text className="tak-group-heading">{children}</Text>
-);
-
 /** What the map shows: BattleLog layers, the background and what's drawn over it, and maps to add. */
 export const LayersDrawer = ({ settings, sources, map, basemap, eventLayers }: Props) => {
   const remove = (source: MapSource) => {
@@ -36,7 +33,7 @@ export const LayersDrawer = ({ settings, sources, map, basemap, eventLayers }: P
       {eventLayers}
 
       <Stack gap="sm">
-        <Heading>Background map</Heading>
+        <SectionHeading>Background map</SectionHeading>
         <Radio.Group value={basemap.id} onChange={settings.setBasemap} aria-label="Background map">
           <Stack gap={6}>
             {sources.map((source) => (
@@ -96,7 +93,7 @@ export const LayersDrawer = ({ settings, sources, map, basemap, eventLayers }: P
       </Stack>
 
       <Stack gap="sm">
-        <Heading>Grid and tracks</Heading>
+        <SectionHeading>Grid and tracks</SectionHeading>
         <Switch
           size="xs"
           label="MGRS grid"

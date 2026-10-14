@@ -1,6 +1,7 @@
 import { Badge, Group, Stack, Switch, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { fetchGroups, setActiveGroups, type TakGroup, withActive } from "../groups.ts";
 import { TakRequestError } from "../rest.ts";
 import { refetchTakHistory } from "../session.ts";
@@ -51,7 +52,7 @@ export const GroupsSection = ({ clientUid }: { clientUid: string | undefined }) 
 
   return (
     <Stack gap={6}>
-      <Text className="tak-group-heading">TAK groups</Text>
+      <SectionHeading>TAK groups</SectionHeading>
       {loadError ? (
         <Text fz="xs" c="red">
           Couldn't load your TAK groups: {loadError}

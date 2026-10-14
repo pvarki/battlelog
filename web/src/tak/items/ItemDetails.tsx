@@ -28,7 +28,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { formatDateTime } from "../../time.ts";
+import { formatAge, formatDateTime } from "../../time.ts";
 import { useWrites, type WriteState } from "../commands.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import { type CoordFormat, formatCoord } from "../coords.ts";
@@ -38,7 +38,6 @@ import { isImage, useAttachments } from "../inbox/import.ts";
 import {
   anchorOf,
   describeType,
-  formatAge,
   hasPosition,
   labelOf,
   STATUS_LABEL,

@@ -1,5 +1,6 @@
-import { Select, Stack, Switch, Text } from "@mantine/core";
+import { Select, Stack, Switch } from "@mantine/core";
 import type { ReactNode } from "react";
+import { SectionHeading } from "../components/SectionHeading.tsx";
 import { COORD_FORMATS, type CoordFormat } from "./coords.ts";
 import { GroupsSection } from "./map/GroupsSection.tsx";
 import { IconsetsSection } from "./map/IconsetsSection.tsx";
@@ -18,7 +19,7 @@ type Props = {
 export const SettingsDrawer = ({ settings, clientUid, children }: Props) => (
   <Stack gap="md">
     <Stack gap="sm">
-      <Text className="tak-group-heading">General</Text>
+      <SectionHeading>General</SectionHeading>
       <Select
         size="xs"
         label="Coordinate format"

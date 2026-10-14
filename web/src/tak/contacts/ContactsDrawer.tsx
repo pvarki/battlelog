@@ -2,13 +2,14 @@ import { ActionIcon, Group, ScrollArea, Stack, Text, TextInput } from "@mantine/
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useEffect, useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
+import { formatAge } from "../../time.ts";
 import type { Position, TakItem } from "../cot.ts";
 import { formatBearing } from "../drawing/measure.ts";
 import { bearing, distance, formatDistance } from "../geo.ts";
 import { StatusBadge } from "../items/ItemsDrawer.tsx";
 import {
   anchorOf,
-  formatAge,
   hasPosition,
   type ItemStatus,
   shortDevice,
@@ -169,10 +170,10 @@ export const ContactsDrawer = ({
         )}
         {teams.map((team) => (
           <section key={team} className="tak-group" aria-label={team}>
-            <div className="tak-group-heading">
+            <SectionHeading>
               <span className="tak-swatch" style={{ background: teamColor(team) }} />
               {team} <span className="tak-group-count">{byTeam.get(team)?.length}</span>
-            </div>
+            </SectionHeading>
             {byTeam.get(team)?.map((contact) => (
               <ContactRow
                 key={contact.uid}

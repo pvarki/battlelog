@@ -2,18 +2,10 @@ import { Anchor, Badge, Button, CloseButton, Group, Paper, Stack, Text } from "@
 import { IconCurrentLocation, IconExternalLink, IconNotes } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import type { EventResponse } from "../../api.ts";
-import { formatDateTime } from "../../time.ts";
+import { formatAge, formatDateTime } from "../../time.ts";
 import { type CoordFormat, formatCoord } from "../coords.ts";
 import type { TakItem } from "../cot.ts";
-import {
-  anchorOf,
-  describeType,
-  formatAge,
-  hasPosition,
-  labelOf,
-  STATUS_LABEL,
-  statusOf,
-} from "../items.ts";
+import { anchorOf, describeType, hasPosition, labelOf, STATUS_LABEL, statusOf } from "../items.ts";
 import type { CardAction } from "../view-options.ts";
 
 type Props = {

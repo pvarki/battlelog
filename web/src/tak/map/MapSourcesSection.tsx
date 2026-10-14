@@ -2,6 +2,7 @@ import { Button, FileButton, Group, Stack, Text, TextInput } from "@mantine/core
 import { notifications } from "@mantine/notifications";
 import { IconPlus, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import type { MapSettings } from "../settings.ts";
 import { type CustomSource, parseAtakMapSource, tileUrls } from "./custom-sources.ts";
 import { addOfflineMap } from "./offline-maps.ts";
@@ -59,7 +60,7 @@ export const MapSourcesSection = ({ settings }: { settings: MapSettings }) => {
 
   return (
     <Stack gap={6}>
-      <Text className="tak-group-heading">Add a map</Text>
+      <SectionHeading>Add a map</SectionHeading>
       <TextInput
         size="xs"
         placeholder="Name"

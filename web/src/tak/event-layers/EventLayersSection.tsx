@@ -14,6 +14,7 @@ import {
 } from "@mantine/core";
 import { IconPencil, IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import {
   FieldInput,
   OptionsEditor,
@@ -49,7 +50,7 @@ export const EventLayersSection = ({ layers, shown, onToggle, truncated }: Props
   const [editing, setEditing] = useState<{ layer?: EventLayer }>();
   return (
     <Stack gap={6}>
-      <Text className="tak-group-heading">BattleLog layers</Text>
+      <SectionHeading>BattleLog layers</SectionHeading>
       {layers === null ? (
         <Text fz="xs" c="dimmed">
           Loading…

@@ -15,9 +15,9 @@ import {
 } from "@mantine/core";
 import { IconArrowLeft, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { formatDate } from "../../time.ts";
+import { formatAge, formatDate } from "../../time.ts";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
-import { formatAge, labelOf } from "../items.ts";
+import { labelOf } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { MissionFamily } from "./MissionFamily.tsx";
 import { MissionLog, NewLogEntry } from "./MissionLog.tsx";

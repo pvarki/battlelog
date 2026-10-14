@@ -175,3 +175,14 @@
 [data-mantine-color-scheme="dark"] .mantine-Switch-input:not(:checked) + .mantine-Switch-track {
   border-color: var(--mantine-color-dark-3);
 }
+
+/* SectionHeading: the one heading over a group of fields or rows. */
+.section-heading {
+  margin: 10px 0 4px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mantine-color-dark-2);
+}

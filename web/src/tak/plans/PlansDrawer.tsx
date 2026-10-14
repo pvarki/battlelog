@@ -15,13 +15,14 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
+import { formatAge } from "../../time.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
 import type { Sender } from "../identity.ts";
 import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
-import { count, formatAge } from "../items.ts";
+import { count } from "../items.ts";
 import type { Mission } from "../missions/missions.ts";
 import { sendPlan } from "../send.ts";
 import { useNow } from "../use-now.ts";

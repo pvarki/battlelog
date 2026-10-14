@@ -181,14 +181,6 @@ export const shortDevice = (device: string): string => device.replace(/\s*\(.*$/
 /** "1 item", "2 items": for nouns that take an s. */
 export const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
-export const formatAge = (ms: number): string => {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s} s`;
-  if (s < 3600) return `${Math.floor(s / 60)} min`;
-  if (s < 86_400) return `${Math.floor(s / 3600)} h`;
-  return `${Math.floor(s / 86_400)} d`;
-};
-
 /**
  * ATAK's unit statuses, as it writes them into the 2525 code: the 4th
  * character of a 2525C code, the 7th digit of a 2525D one.

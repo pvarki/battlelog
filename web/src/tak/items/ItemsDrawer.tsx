@@ -18,11 +18,11 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { type MouseEvent, type ReactNode, useState } from "react";
+import { formatAge } from "../../time.ts";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
 import {
   describeType,
-  formatAge,
   type ItemStatus,
   labelOf,
   STATUS_LABEL,

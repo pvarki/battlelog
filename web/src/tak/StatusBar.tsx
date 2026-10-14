@@ -1,6 +1,6 @@
 import { Group, Text } from "@mantine/core";
+import { formatAge } from "../time.ts";
 import { type CoordFormat, formatCoord } from "./coords.ts";
-import { formatAge } from "./items.ts";
 import { type Cursor, useCursor } from "./map/cursor.ts";
 import type { TakStatus } from "./session.ts";
 import { useNow } from "./use-now.ts";

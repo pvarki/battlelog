@@ -12,8 +12,9 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { IconEye, IconEyeOff, IconListTree, IconLock } from "@tabler/icons-react";
 import { useEffect } from "react";
+import { formatAge } from "../../time.ts";
 import type { TakItem } from "../cot.ts";
-import { count, formatAge } from "../items.ts";
+import { count } from "../items.ts";
 import { useNow } from "../use-now.ts";
 import { missionTree, useMissionParents } from "./hierarchy.ts";
 import { MissionDetail } from "./MissionDetail.tsx";

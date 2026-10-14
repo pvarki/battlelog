@@ -27,9 +27,22 @@ Dependencies point down this list; a lower system never imports a higher one.
 | `tak/session.ts`, `tak/store.ts` | The one TAK connection per tab and the picture it feeds. The store is framework-free. |
 | `tak/protocol/` | CoT XML and TAK protobuf. Imports nothing else from the app and nothing from React. |
 | `event-binding/` | Event queries (`filter.ts`), data paths, bound cells and versioned field writes. |
-| `components/` | UI pieces several systems use (`Placeholder`, `StaleNotice`, `EventDetail`). |
+| `components/` | UI pieces several systems use (`Placeholder`, `SectionHeading`, `ConfirmDialog`, `StaleNotice`, `EventDetail`). |
 | `events/`, `api.ts` | BattleLog events: the SSE stream, offline cache, explorer filters; the typed API client (API types come from the server's schemas, never redeclared). |
 | `map-pick.ts`, `viewport.ts`, `form-utils.ts`, `media/` | Small shared pieces: pick-on-map requests, the mobile breakpoint, config-form text, the video player. |
+
+## UI conventions
+
+One look across pages, dashboards, widgets and the Map page:
+
+- **Headings** over a group of fields or rows: `SectionHeading` (`components/`). Not `Divider` labels, bold `Text` or ad-hoc uppercase.
+- **Colour by meaning**: `danger`, `warning`, `success` (and `accent` for links/selection). Never `red`, `yellow`, `orange`, `green`, `blue` or raw hex in UI code; hex is for data (team and map colours).
+- **Confirming** something destructive: `ConfirmDialog` (`components/`). Never `window.confirm`.
+- **Empty and failure states**: `Placeholder` (`components/`), saying what's missing and why.
+- **Buttons**: `variant="default"` for actions, filled only for the one submit/confirm of a form or dialog, `color="danger"` for destructive ones. `size="xs"` inside panels, drawers, widgets and settings forms; icon-only buttons are `ActionIcon variant="subtle" color="gray"`.
+- **Icons**: Tabler, 14px in buttons and menu items, 16px in `ActionIcon`s, default stroke; `stroke={1.5}` only on the large navigation icons (the map rail, the mobile bottom bar).
+- **Time**: `time.ts` only: absolute times in the house format (`formatDateTime` and friends), relative ones with `formatAge`. Never `toLocale*` or `Intl` with a browser locale.
+- **Close/back** in panels: `CloseButton size="sm"`; back is an `ActionIcon` with `IconArrowLeft` 16.
 
 ## Invariants
 
