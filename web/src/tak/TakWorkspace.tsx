@@ -11,6 +11,7 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import {
   IconAddressBook,
   IconAlertTriangle,
@@ -337,14 +338,19 @@ export const TakWorkspace = ({
       : undefined;
   const sender = takSender(callsign);
   const chatMessages = useChatMessages();
-  const [chatReadCount, setChatReadCount] = useState(0);
+  // Remembered across reloads now that chat is: a restored message read yesterday stays read.
+  const [chatReadAt, setChatReadAt] = useLocalStorage({
+    key: "battlelog.tak.chatReadAt",
+    defaultValue: 0,
+  });
+  const newestChat = chatMessages.at(-1)?.time ?? 0;
   const unreadChats =
     drawer === "chat"
       ? 0
-      : chatMessages.slice(chatReadCount).filter((m) => m.senderUid !== sender.uid).length;
+      : chatMessages.filter((m) => m.time > chatReadAt && m.senderUid !== sender.uid).length;
   useEffect(() => {
-    if (drawer === "chat") setChatReadCount(chatMessages.length);
-  }, [drawer, chatMessages.length]);
+    if (drawer === "chat" && newestChat > chatReadAt) setChatReadAt(newestChat);
+  }, [drawer, newestChat, chatReadAt, setChatReadAt]);
   const [chatWith, setChatWith] = useState<ChatRecipient>();
   const sharing = has("contacts") ? settings.sharePosition && !!callsign : undefined;
   useEffect(() => {

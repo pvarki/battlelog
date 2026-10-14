@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { receiveChat } from "./chat/store.ts";
+import { receiveChat, restoreChat } from "./chat/store.ts";
 import { type CotEvent, toChange } from "./cot.ts";
 import { receiveFileShare } from "./inbox/store.ts";
 import { receiveMissionChange } from "./missions/store.ts";
@@ -138,6 +138,7 @@ const openScope = async (): Promise<string | undefined> => {
 
 const restore = async () => {
   if (!savingEnabled() || !(await openScope()) || !scope) return;
+  void restoreChat();
   const saved = await loadPicture(scope).catch(() => undefined);
   // Older than the history TAK can replay, deletes made since could be missed: start over.
   const catchable = (saved?.syncedThrough ?? 0) > Date.now() - BACKFILL_DAYS * DAY_MS;

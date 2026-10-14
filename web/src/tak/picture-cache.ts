@@ -1,3 +1,4 @@
+import type { ChatMessage } from "./chat/chat.ts";
 import type { TakItem } from "./cot.ts";
 import { loadCallsign } from "./identity.ts";
 import { takBaseUrl } from "./rest.ts";
@@ -16,12 +17,16 @@ const DB_NAME = "battlelog-tak-picture";
 const RECORDS = "records";
 const SCOPES = "scopes";
 const MISSIONS = "missions";
-const STORES = [RECORDS, SCOPES, MISSIONS];
+const CHAT = "chat";
+const STORES = [RECORDS, SCOPES, MISSIONS, CHAT];
+// The same eight days as the picture's delete marks.
+const CHAT_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
 export const SAVING_KEY = "battlelog.tak.savePicture";
 
 type ScopeRecord = { scope: string; syncedThrough?: number };
 type PictureRecord = StoredUid & { scope: string };
 type MissionRecord = { scope: string; name: string; version: string; items: TakItem[] };
+type ChatRecord = { scope: string; id: string; message: ChatMessage };
 
 export type SavedPicture = { records: StoredUid[]; syncedThrough?: number };
 
@@ -57,7 +62,7 @@ let dbPromise: Promise<IDBDatabase | undefined> | undefined;
 const openDb = (): Promise<IDBDatabase | undefined> => {
   dbPromise ??= new Promise((resolve) => {
     try {
-      const open = indexedDB.open(DB_NAME, 2);
+      const open = indexedDB.open(DB_NAME, 3);
       open.onupgradeneeded = () => {
         const db = open.result;
         const create = (name: string, keyPath: string | string[]) => {
@@ -66,6 +71,7 @@ const openDb = (): Promise<IDBDatabase | undefined> => {
         create(RECORDS, ["scope", "uid"]);
         create(SCOPES, "scope");
         create(MISSIONS, ["scope", "name"]);
+        create(CHAT, ["scope", "id"]);
       };
       open.onsuccess = () => {
         // Another tab upgrading the schema: let it, and reopen on the next use.
@@ -131,6 +137,7 @@ export const forgetPicture = async (scope: string): Promise<void> => {
   tx.objectStore(RECORDS).delete(scopeRange(scope));
   tx.objectStore(SCOPES).delete(scope);
   tx.objectStore(MISSIONS).delete(scopeRange(scope));
+  tx.objectStore(CHAT).delete(scopeRange(scope));
   await done(tx);
 };
 
@@ -162,5 +169,32 @@ export const saveMission = async (name: string, version: string, items: TakItem[
   if (!db || !scope) return;
   const tx = db.transaction(MISSIONS, "readwrite");
   tx.objectStore(MISSIONS).put({ scope, name, version, items });
+  await done(tx);
+};
+
+/**
+ * Chat kept in this browser for eight days: TAK Server doesn't archive chat,
+ * so this is the only copy a reload can come back to. Older messages are
+ * deleted as they're read.
+ */
+export const loadSavedChat = async (now = Date.now()): Promise<ChatMessage[]> => {
+  const scope = savingEnabled() ? await currentScope() : undefined;
+  const db = scope ? await openDb() : undefined;
+  if (!db || !scope) return [];
+  const tx = db.transaction(CHAT, "readwrite");
+  const store = tx.objectStore(CHAT);
+  const records = await request(store.getAll(scopeRange(scope)) as IDBRequest<ChatRecord[]>);
+  const kept = records.filter((r) => r.message.time > now - CHAT_RETENTION_MS);
+  for (const r of records) if (!kept.includes(r)) store.delete([scope, r.id]);
+  await done(tx);
+  return kept.map((r) => r.message);
+};
+
+export const saveChatMessage = async (message: ChatMessage) => {
+  const scope = savingEnabled() ? await currentScope() : undefined;
+  const db = scope ? await openDb() : undefined;
+  if (!db || !scope) return;
+  const tx = db.transaction(CHAT, "readwrite");
+  tx.objectStore(CHAT).put({ scope, id: message.id, message });
   await done(tx);
 };

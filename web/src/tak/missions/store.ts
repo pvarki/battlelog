@@ -33,7 +33,8 @@ export type MissionsState = {
   contents: ReadonlyMap<string, MissionContents>;
 };
 
-const POLL_MS = 60_000;
+// A safety net: subscribed missions stream their changes, and the list is 300 KB on a busy server.
+const POLL_MS = 5 * 60_000;
 const MAX_ITEM_FETCHES = 50;
 
 let state: MissionsState = { missions: null, listFailed: false, contents: new Map() };
