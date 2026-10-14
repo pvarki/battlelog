@@ -271,7 +271,7 @@
 }
 
 .tak-draw-toolbar {
-  align-self: center;
+  align-self: flex-start;
   max-width: 100%;
   width: max-content;
 }
@@ -439,9 +439,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(17, 20, 24, 0.85);
+  padding: 3px 10px;
+  border-radius: var(--tak-chrome-radius);
   color: var(--mantine-color-dark-0);
   font-size: var(--mantine-font-size-xs);
 }
@@ -460,4 +459,109 @@
 
 .tak-view-status[data-connection="down"]::before {
   background: var(--mantine-color-danger-4);
+}
+
+/*
+ * Map chrome: everything floating over the map (search, draw toolbar, MapLibre's
+ * own controls, our buttons, cards, the scale and attribution) is one kind of
+ * surface, so the Map page and a dashboard map read as one app.
+ */
+.tak-workspace,
+.tak-view {
+  --tak-chrome-bg: var(--mantine-color-dark-6);
+  /* 3:1 against the surface, like every form control; also visible on dark or dimmed maps. */
+  --tak-chrome-bd: var(--mantine-color-dark-3);
+  --tak-chrome-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  --tak-chrome-radius: var(--mantine-radius-default);
+  --tak-chrome-size: 34px;
+}
+
+.tak-draw-toolbar,
+.tak-view-card,
+.tak-chooser {
+  background: var(--tak-chrome-bg);
+  border: 1px solid var(--tak-chrome-bd);
+  border-radius: var(--tak-chrome-radius);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-overlay .tak-search-slot .mantine-Input-wrapper[data-variant="default"] {
+  --input-height: var(--tak-chrome-size);
+  --input-bg: var(--tak-chrome-bg);
+  --input-bd: var(--tak-chrome-bd);
+}
+
+.tak-search-slot .mantine-Input-input {
+  height: var(--tak-chrome-size);
+  min-height: var(--tak-chrome-size);
+  background: var(--tak-chrome-bg);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-map .maplibregl-ctrl-group,
+.tak-map-buttons .mantine-ActionIcon-root,
+.tak-view-status {
+  background: var(--tak-chrome-bg);
+  border: 1px solid var(--tak-chrome-bd);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-map .maplibregl-ctrl-group {
+  border-radius: var(--tak-chrome-radius);
+}
+
+/* Inside the group's own border, so the group is as wide as a lone button. */
+.tak-map .maplibregl-ctrl-group button {
+  width: calc(var(--tak-chrome-size) - 2px);
+  height: calc(var(--tak-chrome-size) - 2px);
+}
+
+.tak-map .maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-map .maplibregl-ctrl-group button:not(:disabled):hover {
+  background-color: var(--mantine-color-dark-5);
+}
+
+/* MapLibre draws its icons dark for a white control. */
+.tak-map .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}
+
+/* Mantine sets the size inline per button, so the box is sized directly. */
+.tak-map-buttons .mantine-ActionIcon-root {
+  width: var(--tak-chrome-size);
+  min-width: var(--tak-chrome-size);
+  height: var(--tak-chrome-size);
+  min-height: var(--tak-chrome-size);
+  border-radius: var(--tak-chrome-radius);
+  color: var(--mantine-color-dark-0);
+}
+
+.tak-map-buttons .mantine-ActionIcon-root:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-map .maplibregl-ctrl-scale {
+  border-color: var(--mantine-color-dark-1);
+  background: rgba(28, 33, 39, 0.85);
+  color: var(--mantine-color-dark-0);
+  font-size: 11px;
+}
+
+.tak-map .maplibregl-ctrl-attrib,
+.tak-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--tak-chrome-bg);
+  color: var(--mantine-color-dark-1);
+  border: 1px solid var(--tak-chrome-bd);
+}
+
+.tak-map .maplibregl-ctrl-attrib a {
+  color: var(--mantine-color-dark-0);
+}
+
+.tak-map .maplibregl-ctrl-attrib-button {
+  background-color: transparent;
+  filter: invert(0.85);
 }
