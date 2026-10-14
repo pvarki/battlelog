@@ -617,3 +617,9 @@
   border-color: var(--mantine-color-accent-4);
   color: var(--mantine-color-accent-4);
 }
+
+/* A child feed in the Data Sync tree, hung off its parent by a guide line. */
+.tak-row[data-depth] {
+  padding-left: 8px;
+  border-left: 1px solid var(--mantine-color-dark-4);
+}

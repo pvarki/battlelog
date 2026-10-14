@@ -4,16 +4,19 @@ import {
   Group,
   Loader,
   ScrollArea,
+  SegmentedControl,
   Stack,
   Text,
   Tooltip,
   UnstyledButton,
 } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import { IconEye, IconEyeOff, IconLock } from "@tabler/icons-react";
 import { useEffect } from "react";
 import type { TakItem } from "../cot.ts";
 import { formatAge } from "../items.ts";
 import { useNow } from "../use-now.ts";
+import { missionTree, useMissionParents } from "./hierarchy.ts";
 import { MissionDetail } from "./MissionDetail.tsx";
 import type { Mission } from "./missions.ts";
 import { NewMission } from "./NewMission.tsx";
@@ -58,9 +61,12 @@ const ShowToggle = ({
   </Tooltip>
 );
 
-const MissionList = (props: MissionsDrawerProps) => {
+type ListView = "list" | "tree";
+
+const MissionList = ({ view, ...props }: MissionsDrawerProps & { view: ListView }) => {
   const now = useNow(10_000);
   const { missions, listFailed } = props.state;
+  const parents = useMissionParents(missions?.map((m) => m.name) ?? [], view === "tree");
   if (missions === null)
     return listFailed ? (
       <Text fz="sm" c="dimmed" p="xs">
@@ -75,11 +81,23 @@ const MissionList = (props: MissionsDrawerProps) => {
         No Data Sync feeds on this TAK server yet.
       </Text>
     );
-  const sorted = [...missions].sort((a, b) => b.changedAt - a.changedAt);
+  const rows =
+    view === "tree"
+      ? missionTree(missions, parents)
+      : [...missions]
+          .sort((a, b) => b.changedAt - a.changedAt)
+          .map((mission) => ({ mission, depth: 0 }));
   return (
     <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars>
-      {sorted.map((mission) => (
-        <Group key={mission.name} gap={4} wrap="nowrap" className="tak-row">
+      {rows.map(({ mission, depth }) => (
+        <Group
+          key={mission.name}
+          gap={4}
+          wrap="nowrap"
+          className="tak-row"
+          data-depth={depth || undefined}
+          style={depth ? { marginLeft: (depth - 1) * 14 + 6 } : undefined}
+        >
           <UnstyledButton
             style={{ flex: 1, minWidth: 0 }}
             onClick={() => props.onOpen(mission.name)}
@@ -160,12 +178,16 @@ const MyInvitations = ({
 
 /** TAK missions (Data Sync): what each holds, which ones the map shows, and changes to them. */
 export const MissionsDrawer = (props: MissionsDrawerProps) => {
+  const [view, setView] = useLocalStorage<ListView>({
+    key: "battlelog.tak.missionsView",
+    defaultValue: "list",
+  });
   const open = props.state.missions?.find((m) => m.name === props.open);
   if (open) return <MissionDetail {...props} mission={open} />;
   return (
     <Stack gap="xs" h="100%">
       <Group justify="space-between" wrap="nowrap">
-        <Text fz="xs" c="dimmed">
+        <Text fz="xs" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
           Feeds are missions on TAK Server.
         </Text>
         <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
@@ -173,7 +195,17 @@ export const MissionsDrawer = (props: MissionsDrawerProps) => {
       {props.clientUid && (
         <MyInvitations state={props.state} clientUid={props.clientUid} onOpen={props.onOpen} />
       )}
-      <MissionList {...props} />
+      <SegmentedControl
+        size="xs"
+        value={view}
+        onChange={(v) => setView(v as ListView)}
+        data={[
+          { value: "list", label: "List" },
+          { value: "tree", label: "Tree" },
+        ]}
+        aria-label="Show feeds as"
+      />
+      <MissionList {...props} view={view} />
     </Stack>
   );
 };

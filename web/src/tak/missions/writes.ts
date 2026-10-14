@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { TakRequestError, type TakWrite, takGetText, takSend, uploadFile } from "../rest.ts";
+import { fetchParent, knowParent } from "./hierarchy.ts";
 import {
   type InviteeType,
   isAccessDenied,
@@ -117,6 +118,17 @@ export const logEntryRequest = (
   method: "POST",
   path: "/Marti/api/missions/logs/entries",
   body: { dtg: new Date(now).toISOString(), content, creatorUid: clientUid, missionNames: [name] },
+});
+
+/** Nests `name` under `parent`; TAK Server only, ATAK doesn't show it. */
+export const setParentRequest = (name: string, parent: string): TakWrite => ({
+  method: "PUT",
+  path: `${missionPath(name)}/parent/${encodeURIComponent(parent)}`,
+});
+
+export const clearParentRequest = (name: string): TakWrite => ({
+  method: "DELETE",
+  path: `${missionPath(name)}/parent`,
 });
 
 export const deleteMissionRequest = (name: string, clientUid: string): TakWrite => ({
@@ -417,4 +429,20 @@ export const setPassword = async (
     : removePasswordRequest(name, clientUid);
   await writeAsOwner(name, clientUid, request);
   if ((await readBack(name)).passwordProtected !== !!password) throw unconfirmed("the password");
+};
+
+/** Puts the feed under `parent`, or back at the top level; checked by reading it back. */
+export const setMissionParent = async (
+  name: string,
+  parent: string | undefined,
+  clientUid: string,
+) => {
+  await writeAsOwner(
+    name,
+    clientUid,
+    parent ? setParentRequest(name, parent) : clearParentRequest(name),
+  );
+  const stored = await fetchParent(name);
+  knowParent(name, stored ?? null);
+  if (stored !== parent) throw unconfirmed(parent ? `${name} under ${parent}` : "the change");
 };

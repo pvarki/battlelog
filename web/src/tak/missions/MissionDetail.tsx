@@ -19,6 +19,7 @@ import { formatDate } from "../../time.ts";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { formatAge, labelOf } from "../items.ts";
 import { useNow } from "../use-now.ts";
+import { MissionFamily } from "./MissionFamily.tsx";
 import { MissionLog, NewLogEntry } from "./MissionLog.tsx";
 import { MissionMembers } from "./MissionMembers.tsx";
 import type { MissionsDrawerProps } from "./MissionsDrawer.tsx";
@@ -158,6 +159,13 @@ export const MissionDetail = ({
               ))}
             </Group>
           )}
+          <MissionFamily
+            mission={mission}
+            missions={props.state.missions ?? []}
+            onOpen={props.onOpen}
+            clientUid={clientUid}
+            owner={owner}
+          />
           <Switch
             size="xs"
             label="Show on the map"
