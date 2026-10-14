@@ -25,8 +25,8 @@ const Row = ({
   onDismiss: () => void;
   children?: ReactNode;
 }) => (
-  <Group justify="space-between" wrap="nowrap" gap="xs">
-    <Text fz="sm" truncate>
+  <Group justify="space-between" gap="xs">
+    <Text fz="sm" style={{ flex: 1, minWidth: 160 }}>
       {text}{" "}
       <Text span fz="xs" c="dimmed" className="tak-mono">
         {formatAge(now - time)} ago

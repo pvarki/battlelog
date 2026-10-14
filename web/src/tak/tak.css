@@ -130,6 +130,11 @@
   display: none;
 }
 
+/* Outlined banners float over the map: without a surface their text sits on the tiles. */
+.tak-banners .mantine-Alert-root[data-variant="outline"] {
+  background: var(--mantine-color-dark-6);
+}
+
 .tak-emergency-pulse {
   width: 44px;
   height: 44px;
