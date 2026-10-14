@@ -118,9 +118,14 @@ export default defineConfig(({ command, mode }) => {
           // Map tiles seen once stay available offline; "Save this area" fills the same cache.
           runtimeCaching: [
             {
-              // MapLibre asks for every map image as image/*, whatever the URL looks like.
-              urlPattern: ({ request }) =>
-                request.destination === "image" ||
+              // Map tiles only: MapLibre fetches them cross-origin, without credentials, asking
+              // for image/*. TAK's own files (photos, packages) and our uploads carry the user's
+              // credentials and must never outlive the session in a cache.
+              urlPattern: ({ request, url, sameOrigin }) =>
+                !sameOrigin &&
+                request.mode === "cors" &&
+                request.credentials !== "include" &&
+                !url.pathname.startsWith("/Marti/") &&
                 !!request.headers.get("accept")?.startsWith("image/"),
               handler: "CacheFirst",
               options: {
