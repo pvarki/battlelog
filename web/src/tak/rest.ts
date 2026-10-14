@@ -76,21 +76,24 @@ export type TakWrite = {
   method: "PUT" | "POST" | "DELETE";
   path: string;
   body?: unknown;
+  /** Sent as is instead of a JSON `body`, e.g. ExCheck's checklists. */
+  xml?: string;
 };
 
 /** Sends a change to TAK; `missionToken` authorizes writes to a subscribed mission. */
 export const takSend = async (
-  { method, path, body }: TakWrite,
+  { method, path, body, xml }: TakWrite,
   missionToken?: string,
 ): Promise<string> => {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (xml !== undefined) headers["Content-Type"] = "application/xml";
   if (missionToken) headers.MissionAuthorization = `Bearer ${missionToken}`;
   const res = await fetch(`${takBaseUrl()}${path}`, {
     method,
     credentials: "include",
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: xml ?? (body === undefined ? undefined : JSON.stringify(body)),
   });
   if (!res.ok) throw new TakRequestError(path.split("?")[0] as string, res.status);
   return res.text();

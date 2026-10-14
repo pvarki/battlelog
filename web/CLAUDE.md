@@ -22,7 +22,7 @@ Dependencies point down this list; a lower system never imports a higher one.
 | `dashboard/` | Grid, registry, widget documents (`useEventDocument`), export/import. Containers are traversed through the descriptor's `childWidgets`/`withChildWidgets`, never by type. |
 | `tak/TakWorkspace.tsx` | The Map page's TAK client: composes the systems below, owns layout and selection. Policy goes in hooks beside it (`picture.ts`, `use-tak-writes.ts`, `event-layers/useShownEventLayers.ts`, `drawing/useDrawingWorkflow.tsx`). |
 | `tak/TakMapView.tsx` | The read-only map for dashboards and pickers: what it shows and offers is set by props (the map widget's config), with `view/` for its card and layer toggles. Changing TAK is the Map page's job; "Open in Map" links there via `/map?at=&tak=&event=`. |
-| `tak/<feature>/` | Drawers and their stores: `missions/` (Data Sync), `plans/`, `chat/`, `contacts/`, `drawing/`, `replay/`, `items/`, `event-layers/` (BattleLog events drawn on the map). |
+| `tak/<feature>/` | Drawers and their stores: `missions/` (Data Sync), `checklists/` (ExCheck), `plans/`, `chat/`, `contacts/`, `drawing/`, `replay/`, `items/`, `event-layers/` (BattleLog events drawn on the map). |
 | `tak/map/` | MapLibre rendering: `MapCanvas` keeps lifecycle; features, symbols, selection and rasters live in their own modules. |
 | `tak/session.ts`, `tak/store.ts` | The one TAK connection per tab and the picture it feeds. The store is framework-free. |
 | `tak/protocol/` | CoT XML and TAK protobuf. Imports nothing else from the app and nothing from React. |

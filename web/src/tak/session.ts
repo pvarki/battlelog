@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { receiveChat, restoreChat } from "./chat/store.ts";
+import { receiveChecklistChange } from "./checklists/api.ts";
 import { type CotEvent, toChange } from "./cot.ts";
 import { receiveFileShare } from "./inbox/store.ts";
 import { receiveMissionChange } from "./missions/store.ts";
@@ -286,6 +287,7 @@ const connect = () => {
     // Only live: a replayed announcement would re-offer a package already handled, and
     // a replayed mission change is already in the mission as loaded.
     for (const event of events) {
+      receiveChecklistChange(event);
       if (!receiveFileShare(event) && !receiveMissionChange(event)) applyEvent(event);
     }
     setStatus({ lastMessageAt: Date.now() });
