@@ -182,9 +182,19 @@ export const createMission = async (name: string, description: string, clientUid
   await readBack(name);
 };
 
-/** Adds the items in one change; resolves to those TAK didn't take. */
+/**
+ * Adds the items in one change; resolves to those TAK didn't take. TAK fails
+ * a whole batch (500) over one uid it has no CoT for, so then each goes alone.
+ */
 export const addItems = async (name: string, uids: string[], clientUid: string) => {
-  await writeAsSubscriber(name, clientUid, addContentsRequest(name, { uids }, clientUid));
+  const add = (some: string[]) =>
+    writeAsSubscriber(name, clientUid, addContentsRequest(name, { uids: some }, clientUid));
+  try {
+    await add(uids);
+  } catch (err) {
+    if (!(err instanceof TakRequestError && err.status === 500) || uids.length < 2) throw err;
+    for (const uid of uids) await add([uid]).catch(() => undefined);
+  }
   const stored = new Set((await readBack(name)).itemUids);
   return uids.filter((uid) => !stored.has(uid));
 };
