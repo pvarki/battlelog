@@ -27,8 +27,10 @@ export const setRecipients = (detail: Element, callsigns: string[]) => {
 export const addressedEvent = (item: TakItem, callsigns: string[], now = Date.now()): CotEvent =>
   editEvent(item, (detail) => setRecipients(detail, callsigns), now);
 
+/** The addressed copy isn't applied here: it would carry its recipients into the next ordinary edit. */
 export const sendItem = (item: TakItem, callsigns: string[]) => {
-  if (!sendCot(addressedEvent(item, callsigns))) throw new Error("Not connected to TAK");
+  if (!sendCot(addressedEvent(item, callsigns), { local: false }))
+    throw new Error("Not connected to TAK");
 };
 
 /** The plan as a data package for `callsigns`; ATAK imports its items on receipt. */

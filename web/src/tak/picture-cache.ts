@@ -25,7 +25,15 @@ export const SAVING_KEY = "battlelog.tak.savePicture";
 
 type ScopeRecord = { scope: string; syncedThrough?: number };
 type PictureRecord = StoredUid & { scope: string };
-type MissionRecord = { scope: string; name: string; version: string; items: TakItem[] };
+type MissionRecord = {
+  scope: string;
+  name: string;
+  version: string;
+  items: TakItem[];
+  savedAt: number;
+};
+// Older than the history a visit replays, a saved item's edits could be missed: refetch instead.
+const MISSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 type ChatRecord = { scope: string; id: string; message: ChatMessage };
 
 export type SavedPicture = { records: StoredUid[]; syncedThrough?: number };
@@ -158,9 +166,10 @@ export const loadSavedMission = async (
   const db = scope ? await openDb() : undefined;
   if (!db || !scope) return undefined;
   const tx = db.transaction(MISSIONS);
-  return request(
+  const saved = await request(
     tx.objectStore(MISSIONS).get([scope, name]) as IDBRequest<MissionRecord | undefined>,
   );
+  return saved && saved.savedAt > Date.now() - MISSION_MAX_AGE_MS ? saved : undefined;
 };
 
 export const saveMission = async (name: string, version: string, items: TakItem[]) => {
@@ -168,7 +177,7 @@ export const saveMission = async (name: string, version: string, items: TakItem[
   const db = scope ? await openDb() : undefined;
   if (!db || !scope) return;
   const tx = db.transaction(MISSIONS, "readwrite");
-  tx.objectStore(MISSIONS).put({ scope, name, version, items });
+  tx.objectStore(MISSIONS).put({ scope, name, version, items, savedAt: Date.now() });
   await done(tx);
 };
 

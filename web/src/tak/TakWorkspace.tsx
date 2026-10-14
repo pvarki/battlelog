@@ -71,6 +71,7 @@ import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { CONNECTION_TEXT, StatusBar } from "./StatusBar.tsx";
 import {
+  holdPositionSharing,
   loadTrack,
   sendCot,
   setTakPresence,
@@ -351,14 +352,12 @@ export const TakWorkspace = ({
     if (drawer === "chat" && newestChat > chatReadAt) setChatReadAt(newestChat);
   }, [drawer, newestChat, chatReadAt, setChatReadAt]);
   const [chatWith, setChatWith] = useState<ChatRecipient>();
-  const sharing = has("contacts") ? settings.sharePosition && !!callsign : undefined;
+  const sharing = has("contacts") && settings.sharePosition && !!callsign;
   useEffect(() => {
     const self = takSender(callsign);
-    setTakPresence(
-      callsign ? { ...self, team: settings.team, role: settings.role } : undefined,
-      sharing,
-    );
-  }, [callsign, settings.team, settings.role, sharing]);
+    setTakPresence(callsign ? { ...self, team: settings.team, role: settings.role } : undefined);
+  }, [callsign, settings.team, settings.role]);
+  useEffect(() => (sharing ? holdPositionSharing() : undefined), [sharing]);
   const ownPosition = useOwnPosition(
     map,
     // Only where the switch is in reach: no sharing a user can't see or stop.

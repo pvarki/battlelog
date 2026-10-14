@@ -82,6 +82,8 @@ let presence: SelfIdentity | undefined;
 let positionReport: CotEvent | undefined;
 let lastReportAt = 0;
 let presenceTimer: ReturnType<typeof setInterval> | undefined;
+/** History is caught up and the socket has stayed open since: the stream keeps the picture current. */
+let streamCovers = false;
 let restored: Promise<void> | undefined;
 let saving: Promise<void> = Promise.resolve();
 /** This tab writes the saved picture; other tabs keep theirs in memory only. */
@@ -192,7 +194,9 @@ const backfill = async (signal: AbortSignal) => {
     }
     from = to;
   }
-  if (!signal.aborted) setStatus({ backfillDaysLeft: 0, savedThrough: undefined });
+  if (signal.aborted) return;
+  streamCovers = true;
+  setStatus({ backfillDaysLeft: 0, savedThrough: undefined });
 };
 
 const restartBackfill = () => {
@@ -231,17 +235,27 @@ const announce = (force: boolean) => {
   sendCot(report);
 };
 
-/**
- * Who this tab is on TAK, and whether it shares its position (undefined:
- * unchanged, for a map without the sharing switch). Turning sharing off sends
- * a report without a position, so the last one doesn't linger on TAK.
- */
-export const setTakPresence = (self: SelfIdentity | undefined, sharing?: boolean) => {
+/** Who this tab is on TAK. */
+export const setTakPresence = (self: SelfIdentity | undefined) => {
   const known = presence?.uid === self?.uid;
   presence = self;
-  const stoppedSharing = sharing === false && !!positionReport;
-  if (stoppedSharing) positionReport = undefined;
-  if (stoppedSharing || !known) announce(true);
+  if (!known) announce(true);
+};
+
+let sharers = 0;
+
+/**
+ * Held by each map that shares the user's position: only then is the latest
+ * report kept for re-sending. When the last one lets go, a report without a
+ * position goes out, so the last fix doesn't linger on TAK.
+ */
+export const holdPositionSharing = (): (() => void) => {
+  sharers++;
+  return () => {
+    if (--sharers > 0 || !positionReport) return;
+    positionReport = undefined;
+    announce(true);
+  };
 };
 
 const saveWhenHidden = () => {
@@ -275,6 +289,7 @@ const connect = () => {
     setStatus({ lastMessageAt: Date.now() });
   };
   ws.onclose = () => {
+    streamCovers = false;
     if (socket !== ws) return;
     backfillAbort?.abort();
     setStatus({ connection: "down", backfillDaysLeft: 0 });
@@ -288,7 +303,10 @@ const start = () => {
     if (holders > 0 && !socket) connect();
   });
   sweepTimer = setInterval(() => takStore.sweep(), SWEEP_INTERVAL_MS);
-  saveTimer = setInterval(() => void save(), SAVE_INTERVAL_MS);
+  saveTimer = setInterval(() => {
+    if (streamCovers) syncedThrough = Date.now();
+    void save(streamCovers ? syncedThrough : undefined);
+  }, SAVE_INTERVAL_MS);
   presenceTimer = setInterval(() => announce(false), PRESENCE_INTERVAL_MS / 2);
   document.addEventListener("visibilitychange", saveWhenHidden);
 };
@@ -347,13 +365,13 @@ export const loadTrack = async (uid: string) => {
  * Sends one CoT event to TAK. True means it left this browser, not that TAK
  * accepted it: TAK doesn't echo a sender's own events back.
  */
-export const sendCot = (event: CotEvent): boolean => {
+export const sendCot = (event: CotEvent, { local = true } = {}): boolean => {
   if (socket?.readyState !== WebSocket.OPEN) return false;
   socket.send(encodeTakMessage(event));
   if (event.uid === presence?.uid && event.type === SELF_TYPE) {
     lastReportAt = Date.now();
-    if (event.lat !== 0 || event.lon !== 0) positionReport = event;
+    if (sharers > 0 && (event.lat !== 0 || event.lon !== 0)) positionReport = event;
   }
-  applyEvent(event);
+  if (local) applyEvent(event);
   return true;
 };

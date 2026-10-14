@@ -63,10 +63,22 @@ const setContents = (name: string, contents: MissionContents) => {
   }
 };
 
-const fetchItems = async (uids: string[]) =>
-  (await Promise.all(uids.map((uid) => fetchMissionItem(uid).catch(() => undefined)))).filter(
-    (item): item is TakItem => !!item,
+// Never a real version: contents that missed an item stay due for another reconcile.
+const INCOMPLETE = "";
+
+/** The items for `uids`; not `complete` when a fetch failed (a uid without a map item isn't a failure). */
+const fetchItems = async (uids: string[]) => {
+  let complete = true;
+  const fetched = await Promise.all(
+    uids.map((uid) =>
+      fetchMissionItem(uid).catch(() => {
+        complete = false;
+        return undefined;
+      }),
+    ),
   );
+  return { items: fetched.filter((item): item is TakItem => !!item), complete };
+};
 
 /**
  * `items` brought in line with the mission's uids: removed ones dropped, added
@@ -77,7 +89,8 @@ const reconciled = async (items: TakItem[], mission: Mission) => {
   const have = new Set(items.map((i) => i.uid));
   const added = mission.itemUids.filter((uid) => !have.has(uid));
   if (added.length > MAX_ITEM_FETCHES) return undefined;
-  return [...items.filter((i) => uids.has(i.uid)), ...(await fetchItems(added))];
+  const fetched = await fetchItems(added);
+  return { ...fetched, items: [...items.filter((i) => uids.has(i.uid)), ...fetched.items] };
 };
 
 // The latest request per mission; an older response arriving later is dropped.
@@ -96,10 +109,13 @@ const refreshContents = async (mission: Mission) => {
       current?.kind === "loaded"
         ? current.items
         : (await loadSavedMission(mission.name).catch(() => undefined))?.items;
-    const items =
-      (known && (await reconciled(known, mission))) ?? (await fetchMissionItems(mission.name));
+    const result = (known && (await reconciled(known, mission))) ?? {
+      items: await fetchMissionItems(mission.name),
+      complete: true,
+    };
     if (latestRequest.get(mission.name) !== request) return;
-    setContents(mission.name, { kind: "loaded", version: mission.version, items });
+    const version = result.complete ? mission.version : INCOMPLETE;
+    setContents(mission.name, { kind: "loaded", version, items: result.items });
   } catch (err) {
     if (latestRequest.get(mission.name) !== request) return;
     if (isAccessDenied(err)) setContents(mission.name, { kind: "no-access" });
@@ -185,13 +201,17 @@ export const useMissions = (): MissionsState =>
     () => state,
   );
 
-const applyChange = async (name: string, change: (items: TakItem[]) => Promise<TakItem[]>) => {
+/**
+ * Applies a live change to the mission's items as they are now, so changes
+ * arriving together all land. A reconcile still in flight started before this
+ * change and would undo it, so its result is dropped; the next poll redoes it.
+ */
+const updateItems = (name: string, update: (items: TakItem[]) => TakItem[], complete = true) => {
   const current = state.contents.get(name);
   if (current?.kind !== "loaded") return;
-  const items = await change(current.items);
-  // A full reload while the change was fetched knows better.
-  if (state.contents.get(name) !== current) return;
-  setContents(name, { ...current, items });
+  latestRequest.set(name, ++requests);
+  const version = complete ? current.version : INCOMPLETE;
+  setContents(name, { ...current, version, items: update(current.items) });
 };
 
 /**
@@ -204,12 +224,15 @@ export const receiveMissionChange = (event: CotEvent): boolean => {
   let refreshList = false;
   for (const { mission, type, uid } of parseMissionChanges(event)) {
     if (type === "ADD_CONTENT" && uid) {
-      void applyChange(mission, async (items) => [
-        ...items.filter((i) => i.uid !== uid),
-        ...(await fetchItems([uid])),
-      ]);
+      void fetchItems([uid]).then(({ items: added, complete }) =>
+        updateItems(
+          mission,
+          (items) => [...items.filter((i) => i.uid !== uid), ...added],
+          complete,
+        ),
+      );
     } else if (type === "REMOVE_CONTENT" && uid) {
-      void applyChange(mission, async (items) => items.filter((i) => i.uid !== uid));
+      updateItems(mission, (items) => items.filter((i) => i.uid !== uid));
     } else {
       refreshList = true;
     }
