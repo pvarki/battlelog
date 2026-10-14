@@ -112,11 +112,11 @@ describe("layerFeatures", () => {
     const [confirmed] = layerFeatures(layer(definition), [event({})], NOW);
     expect(confirmed?.properties).toMatchObject({
       eventId: "ev-1",
-      label: "FPV",
+      label: "FPV · confirmed",
       color: colorHex("red"),
     });
     const [other] = layerFeatures(layer(definition), [event({ data: { status: "?" } })], NOW);
-    expect(other?.properties).toMatchObject({ label: "Drone seen", color: colorHex("blue") });
+    expect(other?.properties).toMatchObject({ label: "Drone seen · ?", color: colorHex("blue") });
   });
 });
 

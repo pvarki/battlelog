@@ -114,10 +114,20 @@ export const labelOfEvent = (event: EventResponse, labelPath: string) =>
   (labelPath.trim() && text(getPath(event.data, labelPath.trim()))) || event.header;
 
 export const colorOfEvent = (event: EventResponse, definition: LayerDefinition): StatusColor => {
-  const { colorBy } = definition;
-  if (!colorBy?.path.trim()) return definition.color;
-  const value = text(getPath(event.data, colorBy.path.trim()));
-  return colorBy.options.find((o) => o.value === value)?.color ?? definition.color;
+  const value = colorByValue(event, definition);
+  return definition.colorBy?.options.find((o) => o.value === value)?.color ?? definition.color;
+};
+
+const colorByValue = (event: EventResponse, definition: LayerDefinition) => {
+  const path = definition.colorBy?.path.trim();
+  return path ? text(getPath(event.data, path)) : "";
+};
+
+/** The value a layer colours by goes in the label too: colour alone is lost on colour-blind users. */
+const labelWithValue = (event: EventResponse, definition: LayerDefinition) => {
+  const label = labelOfEvent(event, definition.labelPath);
+  const value = colorByValue(event, definition);
+  return value && value !== label ? `${label} · ${value}` : label;
 };
 
 export type EventFeature = Feature<
@@ -142,7 +152,7 @@ export const layerFeatures = (
             properties: {
               eventId: event.eventId,
               layerId: layer.eventId,
-              label: labelOfEvent(event, layer.definition.labelPath),
+              label: labelWithValue(event, layer.definition),
               color: colorHex(colorOfEvent(event, layer.definition)),
             },
           },

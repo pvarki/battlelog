@@ -366,6 +366,8 @@ export const MapCanvas = ({
 
   useEffect(() => {
     const m = new MapLibreMap({
+      // Labels and symbols appear at once, like tiles (raster-fade-duration in rasters.ts).
+      fadeDuration: 0,
       container: container.current as HTMLDivElement,
       style: { version: 8, sources: {}, layers: [] },
       ...(startView.current ?? savedView()),

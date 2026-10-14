@@ -16,7 +16,8 @@ const showRaster = (map: MapLibreMap, id: "basemap" | "overlay", source: MapSour
   map.addSource(id, source.spec);
   const layers = map.getStyle().layers.map((l) => l.id);
   const below = id === "basemap" ? layers[0] : layers[layers.indexOf("basemap") + 1];
-  map.addLayer({ id, type: "raster", source: id }, below);
+  // A fade-in made panning and zooming feel slow on slow tile servers.
+  map.addLayer({ id, type: "raster", source: id, paint: { "raster-fade-duration": 0 } }, below);
 };
 
 export const showRasters = (
