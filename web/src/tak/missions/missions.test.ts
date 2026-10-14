@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { parseMissionList } from "./missions.ts";
+import {
+  parseInvitations,
+  parseInvitedMissions,
+  parseMembers,
+  parseMissionList,
+} from "./missions.ts";
 
 // Shaped like the dev TAK's GET /Marti/api/missions.
 const list = {
@@ -14,6 +19,7 @@ const list = {
       keywords: ["#RECON"],
       passwordProtected: false,
       inviteOnly: false,
+      defaultRole: { type: "MISSION_SUBSCRIBER", permissions: ["MISSION_READ", "MISSION_WRITE"] },
       uids: [
         { data: "lipas-1", timestamp: "2026-10-10T22:50:31.751Z", creatorUid: "ANDROID-1" },
         { data: "lipas-2", timestamp: "2026-10-09T10:00:00.000Z", creatorUid: "ANDROID-1" },
@@ -32,7 +38,12 @@ const list = {
         },
       ],
     },
-    { name: "Locked", passwordProtected: true, createTime: "2026-10-01T00:00:00Z" },
+    {
+      name: "Locked",
+      passwordProtected: true,
+      inviteOnly: true,
+      createTime: "2026-10-01T00:00:00Z",
+    },
     { description: "no name, skipped" },
   ],
 };
@@ -44,12 +55,20 @@ test("missions with their items, files and newest change", () => {
     description: "Recon feed for validated information",
     creatorUid: undefined,
     keywords: ["#RECON"],
-    restricted: false,
+    passwordProtected: false,
+    inviteOnly: false,
+    defaultRole: "MISSION_SUBSCRIBER",
     itemUids: ["lipas-1", "lipas-2"],
     files: [{ name: "pvarki-terrain-high.json", hash: "3bbb", size: 761, submitter: "Eetu" }],
     changedAt: Date.parse("2026-10-10T22:50:31.751Z"),
   });
-  expect(locked).toMatchObject({ restricted: true, itemUids: [], files: [] });
+  expect(locked).toMatchObject({
+    passwordProtected: true,
+    inviteOnly: true,
+    defaultRole: undefined,
+    itemUids: [],
+    files: [],
+  });
 });
 
 test("entries without a name and malformed responses are skipped", () => {
@@ -66,4 +85,45 @@ test("removing an older item still changes the version, so contents are refetche
   });
   expect(after?.changedAt).toBe(before?.changedAt);
   expect(after?.version).not.toBe(before?.version);
+});
+
+test("members with their roles; an unknown role reads as none", () => {
+  expect(
+    parseMembers({
+      data: [
+        { clientUid: "ANDROID-1", username: "eetu", role: { type: "MISSION_OWNER" } },
+        { clientUid: "BattleLog-Eversti", role: { type: "MISSION_READONLY_SUBSCRIBER" } },
+        { clientUid: "ANDROID-2", role: { type: "SOMETHING_NEW" } },
+        { username: "no uid, skipped" },
+      ],
+    }),
+  ).toEqual([
+    { clientUid: "ANDROID-1", username: "eetu", role: "MISSION_OWNER" },
+    { clientUid: "BattleLog-Eversti", username: undefined, role: "MISSION_READONLY_SUBSCRIBER" },
+    { clientUid: "ANDROID-2", username: undefined, role: undefined },
+  ]);
+  expect(parseMembers({})).toEqual([]);
+});
+
+test("a mission's invitations, without their tokens", () => {
+  expect(
+    parseInvitations({
+      data: [
+        {
+          missionName: "BL",
+          invitee: "Eetu",
+          type: "callsign",
+          token: "secret",
+          role: { type: "MISSION_SUBSCRIBER" },
+        },
+        { invitee: "x", type: "team" },
+      ],
+    }),
+  ).toEqual([{ type: "callsign", invitee: "Eetu", role: "MISSION_SUBSCRIBER" }]);
+});
+
+test("invitations for me name their missions once", () => {
+  expect(parseInvitedMissions({ data: ["BL", "RECON", "BL"] })).toEqual(["BL", "RECON"]);
+  expect(parseInvitedMissions({ data: [{ missionName: "BL" }, {}] })).toEqual(["BL"]);
+  expect(parseInvitedMissions(null)).toEqual([]);
 });

@@ -15,7 +15,7 @@ import type { TakItem } from "../cot.ts";
 import { labelOf } from "../items.ts";
 import { notifyFailure } from "../missions/MissionsDrawer.tsx";
 import type { Mission } from "../missions/missions.ts";
-import { createMission, useSubscriptions } from "../missions/writes.ts";
+import { canWriteAs, createMission, useSubscriptions } from "../missions/writes.ts";
 import { type Plan, publishPlanToMission } from "./plans.ts";
 
 type Props = {
@@ -38,10 +38,11 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
   const subscriptions = useSubscriptions();
-  // Invite-only and password-protected missions refuse a subscribe from here.
-  const writable = missions.filter(
-    (m) => !m.restricted || typeof subscriptions.get(m.name) === "string",
-  );
+  const writable = missions.filter((m) => {
+    const subscription = subscriptions.get(m.name);
+    // Password-protected missions refuse a subscribe from here.
+    return subscription ? canWriteAs(subscription.role) : !m.passwordProtected;
+  });
   const name = target === "new" ? newName.trim() : chosen;
   const invalidNewName = target === "new" && name?.includes("/");
   const labelFor = (uid: string) => {
@@ -53,7 +54,7 @@ export const PublishToMission = ({ plan, drafts, missions, clientUid, disabledRe
     if (!name) return;
     setBusy(true);
     try {
-      if (target === "new") await createMission(name, "", clientUid);
+      if (target === "new") await createMission(name, {}, clientUid);
       const mission = missions.find((m) => m.name === name) ?? { name, itemUids: [] };
       const { sent, kept, notInMission } = await publishPlanToMission(plan, mission, clientUid);
       setOpened(false);
