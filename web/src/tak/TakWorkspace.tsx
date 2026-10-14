@@ -23,9 +23,11 @@ import {
   IconPlugConnectedX,
   IconStack2,
 } from "@tabler/icons-react";
-import type { Map as MapLibreMap } from "maplibre-gl";
+import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useIsMobile } from "../dashboard/mobile.ts";
+import { ACCENT } from "../theme.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
 import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
@@ -77,6 +79,7 @@ import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
 import { DEFAULT_REPLAY_WINDOW_MS, useReplay } from "./replay/useReplay.ts";
 import { SearchBox } from "./SearchBox.tsx";
+import { ShortcutsDialog } from "./ShortcutsDialog.tsx";
 import { CONNECTION_TEXT, StatusBar } from "./StatusBar.tsx";
 import {
   holdPositionSharing,
@@ -346,6 +349,9 @@ export const TakWorkspace = ({
   const submitLabel = activePlan ? `Add to ${activePlan.name}` : "Save to TAK";
   const mapRef = useRef<MapLibreMap>(undefined);
   const [map, setMap] = useState<MapLibreMap>();
+  // Locate and Replay sit in MapLibre's own control stack, under zoom and compass whatever their size.
+  const mapControls =
+    map?.getContainer().querySelector<HTMLElement>(".maplibregl-ctrl-top-right") ?? undefined;
   const followMissionUids = new Set(
     missions.missions?.find((m) => m.name === follow?.mission)?.itemUids,
   );
@@ -397,6 +403,7 @@ export const TakWorkspace = ({
   };
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
   const [lassoing, setLassoing] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [movingGroup, setMovingGroup] = useState(false);
   const groupItems = items.filter((i) => grouped.has(i.uid));
   const movableItems = groupItems.filter((i) => canChange(i) && editTarget(i));
@@ -609,6 +616,23 @@ export const TakWorkspace = ({
     map?.flyTo({ center: position, zoom: Math.max(map.getZoom(), FOCUS_ZOOM) });
   };
 
+  // A searched coordinate keeps a pin until the next search, Esc, or a click on it.
+  const goToPin = useRef<Marker>(undefined);
+  const clearGoToPin = () => {
+    goToPin.current?.remove();
+    goToPin.current = undefined;
+  };
+  const goTo = (position: Position) => {
+    flyTo(position);
+    clearGoToPin();
+    const map = mapRef.current;
+    if (!map) return;
+    const pin = new Marker({ color: ACCENT }).setLngLat(position).addTo(map);
+    pin.getElement().title = "Searched coordinate: click to remove";
+    pin.getElement().addEventListener("click", clearGoToPin);
+    goToPin.current = pin;
+  };
+
   /** A shape fills the view, centred; a marker is flown to at a readable zoom. */
   const centreOn = (item: TakItem) => {
     const map = mapRef.current;
@@ -651,6 +675,7 @@ export const TakWorkspace = ({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (chooser) setChooser(undefined);
+        else if (goToPin.current) clearGoToPin();
         else if (measure.active) measure.stop();
         else if (drawing.editing) drawing.clear();
         else if (drawing.tool && !drawing.drawn) drawing.clear();
@@ -672,6 +697,8 @@ export const TakWorkspace = ({
         e.preventDefault();
         searchRef.current?.focus();
       }
+      if (e.key === "?") setShowShortcuts((open) => !open);
+      if (e.key.toLowerCase() === "c" && selected) centreOn(selected);
       for (const id of drawers) {
         if (e.key === DRAWERS[id].key) toggleDrawer(id);
       }
@@ -882,46 +909,156 @@ export const TakWorkspace = ({
           symbolScale={wall ? WALL_SYMBOL_SCALE : 1}
           replayAt={replayFrame?.at}
         />
-        {has("search") && (
-          <div className="tak-search-slot">
-            <SearchBox
-              ref={searchRef}
-              items={items}
-              coordFormat={settings.coordFormat}
-              onPickItem={pick}
-              onGoTo={flyTo}
-            />
+        {mapControls &&
+          createPortal(
+            <div className="maplibregl-ctrl tak-map-buttons">
+              {!wall && (
+                <ActionIcon
+                  className="tak-locate"
+                  variant="default"
+                  size="md"
+                  aria-label="Locate me"
+                  title="Locate me (shown only to you)"
+                  aria-pressed={ownPosition.locating}
+                  onClick={ownPosition.toggleLocate}
+                >
+                  <IconCurrentLocation size={18} />
+                </ActionIcon>
+              )}
+              {!wall && !embedded && (
+                <ActionIcon
+                  className="tak-replay"
+                  variant="default"
+                  size="md"
+                  aria-label="Replay history"
+                  title="Replay history"
+                  aria-pressed={replaying}
+                  onClick={() => {
+                    if (replaying) return replay.stop();
+                    drawing.clear();
+                    measure.stop();
+                    replay.setWindowMs(DEFAULT_REPLAY_WINDOW_MS);
+                  }}
+                >
+                  <IconHistory size={18} />
+                </ActionIcon>
+              )}
+            </div>,
+            mapControls,
+          )}
+        <ShortcutsDialog
+          opened={showShortcuts}
+          onClose={() => setShowShortcuts(false)}
+          drawers={drawers.map((id) => DRAWERS[id])}
+        />
+        <div className="tak-overlay">
+          {has("search") && (
+            <div className="tak-search-slot">
+              <SearchBox
+                ref={searchRef}
+                items={items}
+                coordFormat={settings.coordFormat}
+                onPickItem={pick}
+                onGoTo={goTo}
+              />
+            </div>
+          )}
+          <div className="tak-banners">
+            <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
+            {replaying && <ReplayBanner replay={replay} />}
+            {!wall && <ConnectionBanner status={status} />}
           </div>
-        )}
-        <ActionIcon
-          className="tak-locate"
-          variant="default"
-          size="md"
-          aria-label="Locate me"
-          title="Locate me (shown only to you)"
-          aria-pressed={ownPosition.locating}
-          onClick={ownPosition.toggleLocate}
-        >
-          <IconCurrentLocation size={18} />
-        </ActionIcon>
-        {!wall && !embedded && (
-          <ActionIcon
-            className="tak-replay"
-            variant="default"
-            size="md"
-            aria-label="Replay history"
-            title="Replay history"
-            aria-pressed={replaying}
-            onClick={() => {
-              if (replaying) return replay.stop();
-              drawing.clear();
-              measure.stop();
-              replay.setWindowMs(DEFAULT_REPLAY_WINDOW_MS);
-            }}
-          >
-            <IconHistory size={18} />
-          </ActionIcon>
-        )}
+          {has("draw") && (
+            <DrawToolbar
+              tool={drawing.tool}
+              onChoose={(tool) => {
+                measure.stop();
+                setLassoing(false);
+                drawing.choose(tool);
+                if (tool === "rings" || tool === "bullseye")
+                  setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
+              }}
+              graphic={drawing.graphic}
+              symbol={drawing.symbol}
+              onChooseSymbol={(symbol) => {
+                measure.stop();
+                drawing.choose("marker", undefined, symbol);
+              }}
+              onChooseGraphic={(graphic) => {
+                measure.stop();
+                drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
+                if (graphic)
+                  setTacticalLook({
+                    name: nameFor(graphic.name),
+                    affiliation: "friendly",
+                    remarks: "",
+                  });
+              }}
+              disabledReason={activePlan ? replayReason : drawReason}
+              planName={activePlan?.name}
+              editing={
+                drawing.editing && {
+                  name: labelOf(drawing.editing),
+                  saveLabel: submitLabel,
+                  onCancel: drawing.clear,
+                  onSave: () => {
+                    const item = drawing.editing;
+                    const edited = drawing.edited();
+                    if (item && edited) submit(editGeometryEvent(item, edited));
+                    drawing.clear();
+                  },
+                }
+              }
+              selection={
+                groupItems.length > 0 ? (
+                  <SelectionPanel
+                    count={groupItems.length}
+                    movable={movableItems.length}
+                    deletable={deletableItems.length}
+                    moving={movingGroup}
+                    onMove={() => setMovingGroup(true)}
+                    onCancelMove={() => setMovingGroup(false)}
+                    onDelete={() => {
+                      submitAll(deletableItems.map((item) => deleteEvent(item)));
+                      clearGroup();
+                    }}
+                    onClear={clearGroup}
+                    planName={activePlan?.name}
+                  >
+                    {undoButton}
+                  </SelectionPanel>
+                ) : undefined
+              }
+              undo={undoButton}
+              measuring={measure.active}
+              lassoing={lassoing}
+              onToggleLasso={() => {
+                measure.stop();
+                drawing.choose(undefined);
+                setLassoing(!lassoing);
+              }}
+              onToggleMeasure={() => {
+                if (measure.active) return measure.stop();
+                drawing.choose(undefined);
+                measure.start();
+              }}
+            >
+              <MeasurePanel
+                points={measure.points}
+                closed={measure.closed}
+                onClosedChange={measure.setClosed}
+                cursor={cursor}
+                onClear={measure.clear}
+                onSave={() => {
+                  const [from, to] = measure.points;
+                  if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
+                  measure.stop();
+                }}
+                saveDisabledReason={activePlan ? replayReason : drawReason}
+              />
+            </DrawToolbar>
+          )}
+        </div>
         {replaying && <ReplayBar replay={replay} />}
         {chooser && (
           <PickChooser
@@ -934,101 +1071,6 @@ export const TakWorkspace = ({
             onClose={() => setChooser(undefined)}
           />
         )}
-        {has("draw") && (
-          <DrawToolbar
-            tool={drawing.tool}
-            onChoose={(tool) => {
-              measure.stop();
-              setLassoing(false);
-              drawing.choose(tool);
-              if (tool === "rings" || tool === "bullseye")
-                setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
-            }}
-            graphic={drawing.graphic}
-            symbol={drawing.symbol}
-            onChooseSymbol={(symbol) => {
-              measure.stop();
-              drawing.choose("marker", undefined, symbol);
-            }}
-            onChooseGraphic={(graphic) => {
-              measure.stop();
-              drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
-              if (graphic)
-                setTacticalLook({
-                  name: nameFor(graphic.name),
-                  affiliation: "friendly",
-                  remarks: "",
-                });
-            }}
-            disabledReason={activePlan ? replayReason : drawReason}
-            planName={activePlan?.name}
-            editing={
-              drawing.editing && {
-                name: labelOf(drawing.editing),
-                saveLabel: submitLabel,
-                onCancel: drawing.clear,
-                onSave: () => {
-                  const item = drawing.editing;
-                  const edited = drawing.edited();
-                  if (item && edited) submit(editGeometryEvent(item, edited));
-                  drawing.clear();
-                },
-              }
-            }
-            selection={
-              groupItems.length > 0 ? (
-                <SelectionPanel
-                  count={groupItems.length}
-                  movable={movableItems.length}
-                  deletable={deletableItems.length}
-                  moving={movingGroup}
-                  onMove={() => setMovingGroup(true)}
-                  onCancelMove={() => setMovingGroup(false)}
-                  onDelete={() => {
-                    submitAll(deletableItems.map((item) => deleteEvent(item)));
-                    clearGroup();
-                  }}
-                  onClear={clearGroup}
-                  planName={activePlan?.name}
-                >
-                  {undoButton}
-                </SelectionPanel>
-              ) : undefined
-            }
-            undo={undoButton}
-            measuring={measure.active}
-            lassoing={lassoing}
-            onToggleLasso={() => {
-              measure.stop();
-              drawing.choose(undefined);
-              setLassoing(!lassoing);
-            }}
-            onToggleMeasure={() => {
-              if (measure.active) return measure.stop();
-              drawing.choose(undefined);
-              measure.start();
-            }}
-          >
-            <MeasurePanel
-              points={measure.points}
-              closed={measure.closed}
-              onClosedChange={measure.setClosed}
-              cursor={cursor}
-              onClear={measure.clear}
-              onSave={() => {
-                const [from, to] = measure.points;
-                if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
-                measure.stop();
-              }}
-              saveDisabledReason={activePlan ? replayReason : drawReason}
-            />
-          </DrawToolbar>
-        )}
-        <div className="tak-banners">
-          {replaying && <ReplayBanner replay={replay} />}
-          <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
-          {!wall && <ConnectionBanner status={status} />}
-        </div>
         {wall && (
           <span
             className="tak-connection-dot"

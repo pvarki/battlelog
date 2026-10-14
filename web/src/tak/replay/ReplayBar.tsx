@@ -11,6 +11,7 @@ import {
   Text,
 } from "@mantine/core";
 import { IconHistory, IconPlayerPause, IconPlayerPlay, IconX } from "@tabler/icons-react";
+import { formatClockTime, formatShortDateTime } from "../../time.ts";
 import { DAY_MS } from "../store.ts";
 import type { ReplayControls } from "./useReplay.ts";
 
@@ -29,11 +30,7 @@ const WINDOWS = [
 const SPEEDS = ["1", "10", "60", "300"];
 
 const formatMoment = (ms: number, withDate: boolean) =>
-  new Date(ms).toLocaleString("fi-FI", {
-    ...(withDate && { day: "numeric", month: "numeric" }),
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  withDate ? formatShortDateTime(ms) : formatClockTime(ms);
 
 /** Shown over the map all through replay, so nobody takes the picture for live. */
 export const ReplayBanner = ({ replay }: { replay: ReplayControls }) => (
@@ -80,16 +77,9 @@ export const ReplayBar = ({ replay }: { replay: ReplayControls }) => {
           onChange={(value) => replay.setSpeed(Number(value))}
           aria-label="Replay speed"
         />
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          ml="auto"
-          onClick={replay.stop}
-          aria-label="Back to live"
-          title="Back to live"
-        >
-          <IconX size={16} />
-        </ActionIcon>
+        <Button size="compact-xs" ml="auto" leftSection={<IconX size={14} />} onClick={replay.stop}>
+          Back to live
+        </Button>
       </Group>
       {replay.error ? (
         <Group gap="xs" mt="xs">

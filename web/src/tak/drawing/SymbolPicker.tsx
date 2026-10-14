@@ -74,7 +74,7 @@ const SymbolButton = ({
       aria-pressed={selected}
       onClick={onClick}
       style={{
-        outline: selected ? "2px solid #8abbff" : undefined,
+        outline: selected ? "2px solid var(--mantine-color-accent-4)" : undefined,
         borderRadius: 4,
         height: 40,
       }}
@@ -141,7 +141,10 @@ export const SymbolPicker = ({ value, onChange, name }: Props) => {
                   px={4}
                   py={2}
                   style={{
-                    outline: symbol.id === value.symbol.id ? "2px solid #8abbff" : undefined,
+                    outline:
+                      symbol.id === value.symbol.id
+                        ? "2px solid var(--mantine-color-accent-4)"
+                        : undefined,
                   }}
                 >
                   <Group gap="xs" wrap="nowrap">

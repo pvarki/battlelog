@@ -151,8 +151,9 @@ export const ItemsDrawer = ({
             variant="subtle"
             color="gray"
             size="sm"
-            aria-label={`Hide ${group.label}`}
-            aria-pressed={ownHidden}
+            aria-label={`Show ${group.label} on the map`}
+            aria-pressed={!ownHidden}
+            title={ownHidden ? "Not on the map" : "Shown on the map"}
             onClick={() => onToggleGroup(group.key)}
           >
             {ownHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}

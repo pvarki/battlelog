@@ -1,4 +1,5 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
+import { formatDateTime } from "../../time.ts";
 import { type CoordFormat, formatCoord } from "../coords.ts";
 
 /**
@@ -49,7 +50,7 @@ export const mapImage = async (
   const { lng, lat } = map.getCenter();
   const bearing = Math.round(map.getBearing());
   const header = [
-    `BattleLog · ${now.toLocaleString("fi-FI")}`,
+    `BattleLog · ${formatDateTime(now.getTime())}`,
     `Centre ${formatCoord([lng, lat], coordFormat)}`,
     bearing ? `Map rotated ${bearing}°` : "North up",
   ].join("   ·   ");

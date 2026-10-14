@@ -10,6 +10,7 @@ import {
   TerraDrawSelectMode,
 } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
+import { ACCENT } from "../../theme.ts";
 import type { Position, TakItem } from "../cot.ts";
 import { editTarget } from "./edit-geometry.ts";
 import type { NewShape } from "./new-items.ts";
@@ -35,7 +36,6 @@ export type Drawn =
   | NewShape
   | { kind: "route"; points: Position[] };
 
-const ACCENT = "#8abbff";
 const EARTH_RADIUS_M = 6_371_008.8;
 
 const distance = ([lon1, lat1]: Position, [lon2, lat2]: Position) => {

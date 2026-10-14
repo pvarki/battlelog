@@ -30,6 +30,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { formatDate, formatDateTime } from "../../time.ts";
 import type { TakItem } from "../cot.ts";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { formatAge, labelOf } from "../items.ts";
@@ -172,7 +173,7 @@ const MissionLog = ({ name, callsignOf }: { name: string; callsignOf: Props["cal
   return entries.map((entry) => (
     <div key={entry.id} className="tak-row">
       <Text fz="xs" c="dimmed">
-        {new Date(entry.time).toLocaleString("fi-FI")}
+        {formatDateTime(entry.time)}
         {entry.creatorUid ? ` · ${callsignOf(entry.creatorUid) ?? entry.creatorUid}` : ""}
       </Text>
       <Text fz="sm" style={{ whiteSpace: "pre-wrap" }}>
@@ -574,7 +575,7 @@ const MissionDetail = ({ mission, ...props }: Props & { mission: Mission }) => {
             </Text>
           )}
           <Text fz="xs" c="dimmed">
-            Created {new Date(mission.createTime).toLocaleDateString("fi-FI")}
+            Created {formatDate(mission.createTime)}
             {creator ? ` by ${creator}` : ""}
             {mission.inviteOnly ? " · invite-only" : ""}
             {mission.passwordProtected ? " · password-protected" : ""}

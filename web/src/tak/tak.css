@@ -38,7 +38,7 @@
 
 .tak-rail-button[aria-pressed="true"] {
   background: var(--mantine-color-dark-5);
-  color: #8abbff;
+  color: var(--mantine-color-accent-4);
 }
 
 .tak-drawer,
@@ -73,25 +73,41 @@
   inset: 0;
 }
 
-.tak-search-slot {
+/*
+ * Search, banners and the draw toolbar stack in one column, so a toolbar that
+ * wraps on a narrow map pushes the rest down instead of hiding under it. The
+ * right edge leaves room for MapLibre's controls.
+ */
+.tak-overlay {
   position: absolute;
   top: 10px;
   left: 10px;
-  width: min(360px, calc(100% - 70px));
-  z-index: 2;
-}
-
-/* Below the draw toolbar, which shares the top of the map. */
-.tak-banners {
-  position: absolute;
-  top: 100px;
-  left: 10px;
   right: 60px;
-  max-width: 640px;
   z-index: 2;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 6px;
+  pointer-events: none;
+}
+
+.tak-overlay > * {
+  pointer-events: auto;
+}
+
+.tak-search-slot {
+  width: min(360px, 100%);
+}
+
+.tak-banners {
+  width: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tak-banners:empty {
+  display: none;
 }
 
 .tak-emergency-pulse {
@@ -191,11 +207,12 @@
 
 .tak-row[data-selected] {
   background: var(--mantine-color-dark-5);
-  box-shadow: inset 2px 0 0 #8abbff;
+  box-shadow: inset 2px 0 0 var(--mantine-color-accent-4);
 }
 
+/* Muted text, not opacity: the dimmed second line must stay readable too. */
 .tak-row[data-faded] {
-  opacity: 0.6;
+  color: var(--mantine-color-dimmed);
 }
 
 .tak-swatch {
@@ -248,12 +265,8 @@
 }
 
 .tak-draw-toolbar {
-  position: absolute;
-  top: 56px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-  max-width: calc(100% - 20px);
+  align-self: center;
+  max-width: 100%;
   width: max-content;
 }
 
@@ -335,24 +348,16 @@
   background: var(--mantine-color-danger-4);
 }
 
-/* Under MapLibre's zoom and compass buttons. */
-.tak-locate {
-  position: absolute;
-  top: 110px;
-  right: 10px;
-  z-index: 2;
+.tak-map-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  clear: both;
 }
 
 .tak-locate[aria-pressed="true"],
 .tak-replay[aria-pressed="true"] {
-  color: #8abbff;
-}
-
-.tak-replay {
-  position: absolute;
-  top: 146px;
-  right: 10px;
-  z-index: 2;
+  color: var(--mantine-color-accent-4);
 }
 
 /* Above MapLibre's scale and attribution, which share the bottom of the map. */
@@ -367,7 +372,7 @@
 
 /* ATAK's self marker: an arrow unlike any team member's dot. */
 .tak-self-marker svg {
-  fill: #8abbff;
+  fill: var(--mantine-color-accent-4);
   stroke: #ffffff;
   stroke-width: 1.5;
   stroke-linejoin: round;
@@ -385,7 +390,7 @@
 
 .tak-lasso polygon {
   fill: rgb(138 187 255 / 0.15);
-  stroke: #8abbff;
+  stroke: var(--mantine-color-accent-4);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -393,7 +398,7 @@
 .tak-select-box {
   position: absolute;
   z-index: 2;
-  border: 1px dashed #8abbff;
+  border: 1px dashed var(--mantine-color-accent-4);
   background: rgb(138 187 255 / 0.15);
   pointer-events: none;
 }

@@ -14,6 +14,7 @@ import {
 import { useLocalStorage } from "@mantine/hooks";
 import { IconUsersPlus } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
+import { formatClockTime } from "../../time.ts";
 import { RecipientPicker, recipientGroups } from "../contacts/SendTo.tsx";
 import {
   type ChatContact,
@@ -48,8 +49,7 @@ const SECTIONS: Record<ChatKind, string> = {
   direct: "Direct",
 };
 
-const clock = (time: number) =>
-  new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const clock = (time: number) => formatClockTime(time);
 
 /** ATAK GeoChat: All Chat Rooms, team rooms, user groups and direct messages. */
 export const ChatDrawer = ({

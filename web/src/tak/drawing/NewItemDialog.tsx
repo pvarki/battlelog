@@ -3,7 +3,6 @@ import {
   ColorSwatch,
   Group,
   Modal,
-  SegmentedControl,
   Select,
   Slider,
   Stack,
@@ -79,7 +78,10 @@ export const Palette = ({
         <ColorSwatch
           color={color}
           size={22}
-          style={{ outline: value === color ? "2px solid #8abbff" : undefined, outlineOffset: 2 }}
+          style={{
+            outline: value === color ? "2px solid var(--mantine-color-accent-4)" : undefined,
+            outlineOffset: 2,
+          }}
         />
       </UnstyledButton>
     ))}
@@ -193,11 +195,13 @@ export const NewItemDialog = ({
           data-autofocus
         />
         {isMarker && (
-          <SegmentedControl
-            size="xs"
+          <Select
+            label="Kind"
             data={hasIconsets ? [...MARKER_KINDS, ICON_KIND] : MARKER_KINDS}
             value={markerKind}
-            onChange={(v) => setMarkerKind(v as NewMarker["kind"])}
+            onChange={(v) => v && setMarkerKind(v as NewMarker["kind"])}
+            allowDeselect={false}
+            comboboxProps={{ withinPortal: true }}
           />
         )}
         {isMarker && markerKind === "symbol" && (

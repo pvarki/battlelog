@@ -4,8 +4,10 @@ import {
   Badge,
   Button,
   CopyButton,
+  Divider,
   Group,
   Image,
+  Menu,
   ScrollArea,
   Stack,
   Switch,
@@ -15,6 +17,7 @@ import {
 } from "@mantine/core";
 import {
   IconCheck,
+  IconChevronDown,
   IconCopy,
   IconCurrentLocation,
   IconPencil,
@@ -22,6 +25,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
+import { formatDateTime } from "../../time.ts";
 import { useWrites, type WriteState } from "../commands.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import { type CoordFormat, formatCoord } from "../coords.ts";
@@ -98,7 +102,7 @@ const Field = ({ label, children }: { label: string; children: ReactNode }) => (
   </div>
 );
 
-const absoluteTime = (ms: number) => new Date(ms).toLocaleString("fi-FI");
+const absoluteTime = (ms: number) => formatDateTime(ms);
 
 /** Everything known about the selected item. Editing actions arrive with the editing slice. */
 const WRITE_BADGE: Record<WriteState, { label: string; color: string }> = {
@@ -146,6 +150,8 @@ export const ItemDetails = ({
   const secondary = formatCoord(position, coordFormat === "dd" ? "mgrs" : "dd");
   const canMove = item.geometry.type === "Point" && !item.ellipse;
 
+  const markable = isUnit && !readOnlyReason && status2525 !== "destroyed";
+
   return (
     <Stack gap="sm" h="100%">
       <Group justify="space-between" wrap="nowrap" align="flex-start">
@@ -187,6 +193,46 @@ export const ItemDetails = ({
         <Badge variant="light" color={WRITE_BADGE[write].color} role="status">
           {WRITE_BADGE[write].label}
         </Badge>
+      )}
+
+      {!editing && (
+        <Group gap="xs" grow>
+          <Button
+            variant="default"
+            size="xs"
+            leftSection={<IconCurrentLocation size={14} />}
+            onClick={onCenter}
+            disabled={!hasPosition(item)}
+            title="Centre on the map (C)"
+          >
+            Centre
+          </Button>
+          {!readOnlyReason && (
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconPencil size={14} />}
+              onClick={() => setEditing({})}
+            >
+              Edit
+            </Button>
+          )}
+          {onEditShape && !readOnlyReason && (
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconShape size={14} />}
+              onClick={onEditShape}
+            >
+              {item.geometry.type === "Point" && !item.ellipse ? "Move" : "Shape"}
+            </Button>
+          )}
+        </Group>
+      )}
+      {readOnlyReason && !editing && (
+        <Text fz="xs" c="dimmed" role="note">
+          Read only: {readOnlyReason}
+        </Text>
       )}
 
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
@@ -321,37 +367,6 @@ export const ItemDetails = ({
               onChange={onToggleTrack}
             />
           )}
-          {canMove && !item.draft && <ExportTrack item={item} />}
-          {isUnit && !readOnlyReason && status2525 !== "destroyed" && (
-            <Button
-              variant="light"
-              color="danger"
-              size="xs"
-              leftSection={<IconX size={14} />}
-              onClick={() => setEditing({ status: "destroyed" })}
-            >
-              Mark destroyed
-            </Button>
-          )}
-          {callsign && !readOnlyReason && !planActive && !item.draft && (
-            <AttachPhoto
-              item={item}
-              callsign={callsign}
-              contacts={contacts}
-              disabled={write === "sending"}
-            />
-          )}
-          {onEditShape && !readOnlyReason && (
-            <Button
-              variant="default"
-              size="xs"
-              leftSection={<IconShape size={14} />}
-              onClick={onEditShape}
-            >
-              {item.geometry.type === "Point" && !item.ellipse ? "Move" : "Edit shape"}
-            </Button>
-          )}
-          {!readOnlyReason && <DeleteItem item={item} onSubmit={onSubmit} />}
           {!item.draft && (
             <SendTo
               what={labelOf(item)}
@@ -364,28 +379,46 @@ export const ItemDetails = ({
           {clientUid && !item.draft && allMissions.length > 0 && (
             <AddToMission item={item} missions={allMissions} clientUid={clientUid} />
           )}
-          <Group gap="xs" grow>
-            <Tooltip label={readOnlyReason} disabled={!readOnlyReason} withArrow>
-              <Button
-                variant="default"
-                size="xs"
-                leftSection={<IconPencil size={14} />}
-                onClick={() => setEditing({})}
-                disabled={!!readOnlyReason}
-              >
-                Edit
-              </Button>
-            </Tooltip>
-            <Button
-              variant="default"
-              size="xs"
-              leftSection={<IconCurrentLocation size={14} />}
-              onClick={onCenter}
-              disabled={!hasPosition(item)}
-            >
-              Center on map
-            </Button>
-          </Group>
+          {callsign && !readOnlyReason && !planActive && !item.draft && (
+            <AttachPhoto
+              item={item}
+              callsign={callsign}
+              contacts={contacts}
+              disabled={write === "sending"}
+            />
+          )}
+          {((canMove && !item.draft) || markable) && (
+            <Menu position="top-end" withinPortal>
+              <Menu.Target>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="xs"
+                  rightSection={<IconChevronDown size={12} />}
+                >
+                  More
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown p="xs">
+                {canMove && !item.draft && <ExportTrack item={item} />}
+                {markable && (
+                  <Menu.Item
+                    color="danger"
+                    leftSection={<IconX size={14} />}
+                    onClick={() => setEditing({ status: "destroyed" })}
+                  >
+                    Mark destroyed
+                  </Menu.Item>
+                )}
+              </Menu.Dropdown>
+            </Menu>
+          )}
+          {!readOnlyReason && (
+            <>
+              <Divider />
+              <DeleteItem item={item} onSubmit={onSubmit} />
+            </>
+          )}
         </Stack>
       )}
     </Stack>

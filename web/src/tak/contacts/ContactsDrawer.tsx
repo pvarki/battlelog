@@ -103,7 +103,7 @@ const ContactRow = ({
           <ActionIcon
             variant="subtle"
             color="gray"
-            aria-label={`Center on ${contact.callsign}`}
+            aria-label={`Centre on ${contact.callsign}`}
             disabled={!at}
             onClick={onCenter}
           >

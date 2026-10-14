@@ -14,6 +14,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
+import { formatDateTime } from "../../time.ts";
 import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
 import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
@@ -316,8 +317,7 @@ export const PlansDrawer = (props: Props) => {
                 )}
               </Group>
               <Text fz="xs" c="dimmed">
-                {plan.entries.length} items · edited{" "}
-                {new Date(plan.updated).toLocaleString("fi-FI")}
+                {plan.entries.length} items · edited {formatDateTime(plan.updated)}
               </Text>
             </UnstyledButton>
           ))

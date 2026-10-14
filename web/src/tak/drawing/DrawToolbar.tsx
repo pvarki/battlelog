@@ -11,6 +11,7 @@ import {
   IconRectangle,
   IconRoute,
   IconRuler2,
+  IconShape,
   IconTarget,
   IconTools,
   IconX,
@@ -36,7 +37,9 @@ const ICONS = {
 /** Under the Tools menu with Measure, so the toolbar stays short. */
 const MENU_TOOLS = ["rings", "bullseye"] as const satisfies Tool[];
 const isMenuTool = (tool: Tool | undefined) => MENU_TOOLS.some((id) => id === tool);
-const DRAW_TOOLS = (Object.keys(TOOLS) as Tool[]).filter((id) => !isMenuTool(id));
+// Grouped under one Shape menu to keep the toolbar to one row on a narrow map.
+const SHAPE_TOOLS = ["line", "polygon", "rectangle", "circle"] as const satisfies Tool[];
+const isShapeTool = (tool: Tool | undefined) => SHAPE_TOOLS.some((id) => id === tool);
 
 const HINT: Record<Tool, string> = {
   marker: "Click where the marker goes.",
@@ -49,6 +52,8 @@ const HINT: Record<Tool, string> = {
   rings: "Click the centre of the range rings.",
   bullseye: "Click the centre of the bullseye.",
 };
+
+const IDLE_HINT = "Shift-drag or the lasso (Tools) selects several items · ? lists the shortcuts";
 
 const LASSO_HINT =
   "Draw around the items to select, with the mouse or a finger; each outline adds to the selection.";
@@ -217,7 +222,42 @@ const ToolButtons = ({
       >
         {planName ? `Plan: ${planName}` : "Live"}
       </Badge>
-      {DRAW_TOOLS.map((id) => {
+      {(["marker", "shape", "route"] as const).map((id) => {
+        if (id === "shape") {
+          const active = isShapeTool(tool) && !graphic ? tool : undefined;
+          const Icon = active ? ICONS[active] : IconShape;
+          return (
+            <Menu key={id} position="bottom-start" withinPortal>
+              <Menu.Target>
+                <Button
+                  size="compact-xs"
+                  variant={active ? "filled" : "subtle"}
+                  color={active ? "primary" : "gray"}
+                  leftSection={<Icon size={14} />}
+                  rightSection={<IconChevronDown size={12} />}
+                  disabled={!!disabledReason}
+                  title={disabledReason}
+                >
+                  {active ? TOOLS[active].label : "Shape"}
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {SHAPE_TOOLS.map((shape) => {
+                  const ShapeIcon = ICONS[shape];
+                  return (
+                    <Menu.Item
+                      key={shape}
+                      leftSection={<ShapeIcon size={14} />}
+                      onClick={() => onChoose(active === shape ? undefined : shape)}
+                    >
+                      {TOOLS[shape].label}
+                    </Menu.Item>
+                  );
+                })}
+              </Menu.Dropdown>
+            </Menu>
+          );
+        }
         const Icon = ICONS[id];
         return (
           <Tooltip key={id} label={disabledReason} disabled={!disabledReason} withArrow>
@@ -298,6 +338,11 @@ const ToolButtons = ({
     {lassoing && (
       <Text fz="xs" c="dimmed" px={6} pt={2}>
         {LASSO_HINT}
+      </Text>
+    )}
+    {!tool && !measuring && !lassoing && (
+      <Text fz="xs" c="dimmed" px={6} pt={2} ta="center">
+        {IDLE_HINT}
       </Text>
     )}
     {tool && (

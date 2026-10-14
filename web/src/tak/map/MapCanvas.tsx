@@ -10,6 +10,7 @@ import {
   ScaleControl,
 } from "maplibre-gl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { ACCENT } from "../../theme.ts";
 import type { Position, TakItem } from "../cot.ts";
 import type { Drawn, Sketch } from "../drawing/useDrawing.ts";
 import { labelOf } from "../items.ts";
@@ -81,7 +82,6 @@ const INTERACTIVE_LAYERS = [
   "tak-tactical-lines",
   "tak-tactical-fills",
 ];
-const ACCENT = "#8abbff";
 
 type ScreenBox = [[number, number], [number, number]];
 

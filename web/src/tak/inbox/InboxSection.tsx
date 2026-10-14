@@ -2,6 +2,7 @@ import { ActionIcon, Anchor, Button, Group, Loader, Stack, Text } from "@mantine
 import { notifications } from "@mantine/notifications";
 import { IconChevronDown, IconChevronRight, IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { formatClockTime, formatDateTime } from "../../time.ts";
 import { takBaseUrl, takPublicUrl } from "../rest.ts";
 import { isOnTak, type PackageRef } from "./fileshare.ts";
 import { fetchTakPackages, importPackage, type TakPackage, useImported } from "./import.ts";
@@ -118,7 +119,7 @@ export const InboxSection = ({ onOpenPlan }: { onOpenPlan: (id: string) => void 
         <PackageRow
           key={share.id}
           pkg={share}
-          detail={`From ${share.senderCallsign || "unknown"} · ${formatSize(share.size)} · ${new Date(share.time).toLocaleTimeString("fi-FI")}`}
+          detail={`From ${share.senderCallsign || "unknown"} · ${formatSize(share.size)} · ${formatClockTime(share.time)}`}
           unavailable={
             isOnTak(share.senderUrl, takUrls)
               ? undefined
@@ -154,7 +155,7 @@ export const InboxSection = ({ onOpenPlan }: { onOpenPlan: (id: string) => void 
             <PackageRow
               key={pkg.hash}
               pkg={pkg}
-              detail={`${pkg.by || "Unknown"} · ${formatSize(pkg.size)} · ${new Date(pkg.submitted).toLocaleString("fi-FI")}`}
+              detail={`${pkg.by || "Unknown"} · ${formatSize(pkg.size)} · ${formatDateTime(pkg.submitted)}`}
               onOpenPlan={onOpenPlan}
             />
           ))
