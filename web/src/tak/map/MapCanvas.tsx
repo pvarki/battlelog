@@ -477,13 +477,25 @@ export const MapCanvas = ({
       last.bearing === bearing &&
       sameMembers(last.items, items) &&
       sameMembers([...last.hidden], [...hidden]);
-    if (!unchanged) draw();
+    // A redraw re-tiles the whole picture; mid-drag that costs frames, so it waits for the map to stop.
+    let waiting = false;
+    const drawWhenStill = () => {
+      if (!map.isMoving()) {
+        waiting = false;
+        draw();
+      } else if (!waiting) {
+        waiting = true;
+        map.once("moveend", drawWhenStill);
+      }
+    };
+    if (!unchanged) drawWhenStill();
     // Graphics and icon-set icons load asynchronously the first time; redraw when they're ready.
     const offTactical = onTacticalRendered(() => {
-      if (awaitingGraphics.current) draw();
+      if (awaitingGraphics.current) drawWhenStill();
     });
-    const offIconsets = onIconsetsChanged(draw);
+    const offIconsets = onIconsetsChanged(drawWhenStill);
     return () => {
+      map.off("moveend", drawWhenStill);
       offTactical();
       offIconsets();
     };
