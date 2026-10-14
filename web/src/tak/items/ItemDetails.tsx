@@ -15,11 +15,13 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
   IconCheck,
   IconChevronDown,
   IconCopy,
   IconCurrentLocation,
+  IconDownload,
   IconPencil,
   IconShape,
   IconX,
@@ -55,7 +57,7 @@ import { useNow } from "../use-now.ts";
 import { AttachPhoto } from "./AttachPhoto.tsx";
 import { DeleteItem } from "./DeleteItem.tsx";
 import { EditItem } from "./EditItem.tsx";
-import { ExportTrack } from "./ExportTrack.tsx";
+import { exportTrack, TRACK_FORMATS } from "./ExportTrack.tsx";
 import { VideoFeed } from "./VideoFeed.tsx";
 
 type Props = {
@@ -400,7 +402,21 @@ export const ItemDetails = ({
                 </Button>
               </Menu.Target>
               <Menu.Dropdown p="xs">
-                {canMove && !item.draft && <ExportTrack item={item} />}
+                {canMove &&
+                  !item.draft &&
+                  TRACK_FORMATS.map((format) => (
+                    <Menu.Item
+                      key={format}
+                      leftSection={<IconDownload size={14} />}
+                      onClick={() =>
+                        void exportTrack(item, format).catch((err: Error) =>
+                          notifications.show({ color: "yellow", message: err.message }),
+                        )
+                      }
+                    >
+                      Track {format.toUpperCase()}
+                    </Menu.Item>
+                  ))}
                 {markable && (
                   <Menu.Item
                     color="danger"

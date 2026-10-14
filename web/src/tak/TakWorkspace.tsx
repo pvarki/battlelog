@@ -673,6 +673,12 @@ export const TakWorkspace = ({
   useEffect(() => {
     if (embedded) return;
     const onKey = (e: KeyboardEvent) => {
+      // A dialog owns its keys, Esc included: closing one mustn't also clear the map.
+      if (
+        e.defaultPrevented ||
+        (e.target instanceof Element && e.target.closest('[role="dialog"]'))
+      )
+        return;
       if (e.key === "Escape") {
         if (chooser) setChooser(undefined);
         else if (goToPin.current) clearGoToPin();
