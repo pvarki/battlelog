@@ -58,6 +58,8 @@ export type TakItem = {
   sensorUid?: string;
   /** What a camera on the item sees, drawn as ATAK's field-of-view cone. */
   sensor?: Sensor;
+  /** A drone's flight state, as the UAS Tool reports it in `<vehicle>`. */
+  vehicle?: Vehicle;
   /** A live video feed from the item, as ATAK's `__video` detail announces it. */
   video?: { url: string; alias?: string };
   /** ATAK's range rings around the point: each ring's radius in metres, innermost first. */
@@ -85,6 +87,18 @@ export type Sensor = {
   model?: string;
   fill: TakColor;
   stroke: TakColor;
+};
+
+export type Vehicle = {
+  flying: boolean;
+  /** Percent left of the battery's full capacity. */
+  battery?: number;
+  // ponytail: assumed seconds (DJI SDK's unit); unverified against a drone in the air.
+  flightTime?: number;
+  /** Maker, e.g. "DJI". */
+  make?: string;
+  /** The TAK user flying it, from the `p-p` link. */
+  operatorUid?: string;
 };
 
 export type Bullseye = {
@@ -247,20 +261,38 @@ const sensorOf = (el: Element | undefined): Sensor | undefined => {
   const get = (name: string) => num(el?.getAttribute(name));
   const azimuth = get("azimuth");
   const fov = get("fov");
-  const slantRange = get("range");
-  if (!el || azimuth === undefined || fov === undefined || slantRange === undefined) return;
+  const range = get("range");
+  if (!el || azimuth === undefined || fov === undefined || range === undefined) return;
   if (el.hasAttribute("hideFov")) return;
-  if (!(fov > 0 && fov <= 360) || !(slantRange > 0)) return;
+  if (!(fov > 0 && fov <= 360) || !(range > 0)) return;
   const [red, green, blue] = ["fovRed", "fovGreen", "fovBlue"].map((c) =>
     colorChannel(get(c) ?? 1),
   );
   return {
     azimuth,
     fov,
-    range: slantRange * Math.cos(((get("elevation") ?? 0) * Math.PI) / 180),
+    range,
     model: el.getAttribute("model") || undefined,
     fill: { color: `#${red}${green}${blue}`, opacity: get("fovAlpha") ?? 0.3 },
     stroke: argbToColor(el.getAttribute("strokeColor")) ?? SENSOR_DEFAULT_STROKE,
+  };
+};
+
+const vehicleOf = (
+  el: Element | undefined,
+  operatorUid: string | undefined,
+): Vehicle | undefined => {
+  if (!el) return undefined;
+  const get = (name: string) => num(el.getAttribute(name));
+  const remaining = get("batteryRemainingCapacity");
+  const max = get("batteryMaxCapacity");
+  return {
+    flying: el.getAttribute("isFlying") === "true",
+    battery:
+      remaining !== undefined && max ? Math.round(Math.min(remaining / max, 1) * 100) : undefined,
+    flightTime: get("flightTime"),
+    make: el.getAttribute("type") || undefined,
+    operatorUid,
   };
 };
 
@@ -388,6 +420,7 @@ export const toChange = (event: CotEvent): TakChange | null => {
     footprint: new Set(footprint.map(String)).size >= 3 ? footprint : undefined,
     sensorUid: type === SPI_TYPE ? (parent?.getAttribute("uid") ?? undefined) : undefined,
     sensor: sensorOf(child("sensor")),
+    vehicle: vehicleOf(child("vehicle"), parent?.getAttribute("uid") ?? undefined),
     video: videoOf(child("__video")),
     rangeBearing,
     emergency: type.startsWith("b-a-")

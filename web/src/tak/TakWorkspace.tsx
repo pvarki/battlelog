@@ -608,6 +608,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}
       replayAt={replayFrame?.at}
       onOpenEvent={selectEvent}
+      items={items}
+      onSelectItem={setSelectedUid}
       onCenter={() => centreOn(selected)}
       onClose={() => setSelectedUid(undefined)}
     />

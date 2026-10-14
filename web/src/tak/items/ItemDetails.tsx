@@ -29,6 +29,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { formatAge, formatDateTime } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import { useWrites, type WriteState } from "../commands.ts";
@@ -93,6 +94,9 @@ type Props = {
   replayAt?: number;
   /** Opens a BattleLog log entry linked to the item. */
   onOpenEvent: (eventId: string) => void;
+  /** The picture, for naming and selecting a drone's operator and its sensor point. */
+  items: TakItem[];
+  onSelectItem: (uid: string) => void;
   onCenter: () => void;
   onClose: () => void;
 };
@@ -107,6 +111,25 @@ const Field = ({ label, children }: { label: string; children: ReactNode }) => (
     </Text>
   </div>
 );
+
+/** Another item by name, selected on click; just its uid when the picture doesn't hold it. */
+const ItemLink = ({
+  uid,
+  items,
+  onSelect,
+}: {
+  uid: string;
+  items: TakItem[];
+  onSelect: (uid: string) => void;
+}) => {
+  const target = items.find((i) => i.uid === uid);
+  if (!target) return <span className="tak-mono">{uid}</span>;
+  return (
+    <Anchor component="button" type="button" fz="sm" onClick={() => onSelect(uid)}>
+      {labelOf(target)}
+    </Anchor>
+  );
+};
 
 const absoluteTime = (ms: number) => formatDateTime(ms);
 
@@ -136,6 +159,8 @@ export const ItemDetails = ({
   clientUid,
   replayAt,
   onOpenEvent,
+  items,
+  onSelectItem,
   onCenter,
   onClose,
 }: Props) => {
@@ -157,6 +182,7 @@ export const ItemDetails = ({
   const coordinate = formatCoord(position, coordFormat);
   const secondary = formatCoord(position, coordFormat === "dd" ? "mgrs" : "dd");
   const canMove = item.geometry.type === "Point" && !item.ellipse;
+  const spi = item.sensor || item.vehicle ? items.find((i) => i.sensorUid === item.uid) : undefined;
 
   const markable = isUnit && !readOnlyReason && status2525 !== "destroyed";
 
@@ -292,11 +318,37 @@ export const ItemDetails = ({
               <VideoFeed video={item.video} />
             </Field>
           )}
+          {item.vehicle && (
+            <>
+              <SectionHeading>Aircraft</SectionHeading>
+              <Field label="State">
+                {[
+                  item.vehicle.make,
+                  item.vehicle.flying ? "Flying" : "On the ground",
+                  item.vehicle.battery !== undefined && `${item.vehicle.battery} % battery`,
+                  item.vehicle.flightTime !== undefined &&
+                    `${formatAge(item.vehicle.flightTime * 1000)} flown`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Field>
+            </>
+          )}
           {item.sensor && (
-            <Field label="Sensor">
+            <Field label={item.vehicle ? "Camera" : "Sensor"}>
               {item.sensor.model ? `${item.sensor.model} · ` : ""}
               {Math.round(item.sensor.azimuth)}° · {Math.round(item.sensor.fov)}° wide ·{" "}
               {formatDistance(item.sensor.range)}
+            </Field>
+          )}
+          {item.vehicle?.operatorUid && (
+            <Field label="Operator">
+              <ItemLink uid={item.vehicle.operatorUid} items={items} onSelect={onSelectItem} />
+            </Field>
+          )}
+          {spi && (
+            <Field label="Looking at">
+              <ItemLink uid={spi.uid} items={items} onSelect={onSelectItem} />
             </Field>
           )}
           <Field label="Last update">

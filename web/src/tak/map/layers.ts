@@ -296,7 +296,8 @@ const featuresOf = (
     const image = iconFor(map, item, stale);
     icon(uid, g.coordinates, image, DRAW_ORDER.indexOf(group.slice(0, 2).join("/")));
     if (!item.hideLabel) nameUnder(uid, g.coordinates, name, image);
-    if (item.footprint) {
+    // Stale footprints, cones and lines would show where the camera no longer looks.
+    if (item.footprint && !stale) {
       shapes.push({
         type: "Feature",
         geometry: {
@@ -314,8 +315,7 @@ const featuresOf = (
         },
       });
     }
-    // A stale cone would show where the camera no longer looks.
-    if (item.sensor && item.sensor.range > 0 && !stale) {
+    if (item.sensor && !stale) {
       shapes.push({
         type: "Feature",
         geometry: { type: "Polygon", coordinates: [sensorCone(g.coordinates, item.sensor)] },
@@ -331,7 +331,7 @@ const featuresOf = (
       });
     }
     const sensor = item.sensorUid ? byUid.get(item.sensorUid) : undefined;
-    if (sensor?.geometry.type === "Point" && hasPosition(sensor) && !stale) {
+    if (sensor?.geometry.type === "Point" && !stale && statusOf(sensor, now) === "online") {
       shapes.push({
         type: "Feature",
         geometry: {
@@ -464,7 +464,7 @@ const contextOf = (item: TakItem, { now, bearing, byUid }: DrawContext) => {
     statusOf(item, now),
     bearing,
     iconsetsVersion(),
-    sensor && hasPosition(sensor) ? JSON.stringify(sensor.geometry.coordinates) : "",
+    sensor ? `${statusOf(sensor, now)}${JSON.stringify(sensor.geometry.coordinates)}` : "",
   ].join("|");
 };
 
@@ -502,11 +502,15 @@ const pictureOf = (
   bearing: number,
   cached: boolean,
 ) => {
-  const context: DrawContext = { now, bearing, byUid: new Map(items.map((i) => [i.uid, i])) };
-  const drawn = new Map<string, ItemFeatures>();
-  for (const item of items) {
+  const shown = items.flatMap((item) => {
     const group = groupOf(item);
-    if (isHidden(group, hidden) || !hasPosition(item)) continue;
+    return isHidden(group, hidden) || !hasPosition(item) ? [] : [{ item, group }];
+  });
+  // Only shown items, so a hidden drone takes its SPI line with it.
+  const byUid = new Map(shown.map(({ item }) => [item.uid, item]));
+  const context: DrawContext = { now, bearing, byUid };
+  const drawn = new Map<string, ItemFeatures>();
+  for (const { item, group } of shown) {
     drawn.set(
       item.uid,
       cached ? cachedFeaturesOf(map, item, group, context) : featuresOf(map, item, group, context),
