@@ -8,7 +8,6 @@ import type { Mission } from "../missions/missions.ts";
 import { addItems, ensureSubscribed, removeItems } from "../missions/writes.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
 import { geojsonToEvents, gpxToEvents, kmlToEvents } from "./overlay-files.ts";
-import { readShapefile } from "./shapefile.ts";
 
 /**
  * Plans: drafts prepared before anything reaches TAK. A plan holds new items
@@ -346,7 +345,12 @@ const isShapefilePart = (path: string) =>
   /\.(shp|dbf|prj|cpg)$/i.test(path) && !/(^|\/)(__MACOSX\/|\._)/.test(path);
 
 /** Every layer among the files: each .shp with its same-named .dbf, .prj and .cpg. */
-const shapefileEvents = (files: Record<string, Uint8Array>, sender: Sender): CotEvent[] => {
+const shapefileEvents = async (
+  files: Record<string, Uint8Array>,
+  sender: Sender,
+): Promise<CotEvent[]> => {
+  // Its .prj reprojection needs proj4, which is too big to load with the map.
+  const { readShapefile } = await import("./shapefile.ts");
   const byPath = new Map(Object.entries(files).map(([path, bytes]) => [path.toLowerCase(), bytes]));
   const features = Object.keys(files)
     .filter(isShp)
@@ -380,7 +384,7 @@ export const importPlan = async (files: File[], sender: Sender): Promise<Plan> =
     const loose = Object.fromEntries(
       await Promise.all(files.map(async (f) => [f.name, new Uint8Array(await f.arrayBuffer())])),
     );
-    return planFromEvents(stem(shp), shapefileEvents(loose, sender));
+    return planFromEvents(stem(shp), await shapefileEvents(loose, sender));
   }
   const [file] = files;
   if (!file || files.length > 1)
@@ -395,6 +399,6 @@ export const importPlan = async (files: File[], sender: Sender): Promise<Plan> =
   if (extension === "kmz") return planFromEvents(name, kmlToEvents(kmzToKml(bytes), sender));
   const shapefile = unzipLimited(bytes, isShapefilePart, MAX_PACKAGE_BYTES);
   if (Object.keys(shapefile).some(isShp))
-    return planFromEvents(name, shapefileEvents(shapefile, sender));
+    return planFromEvents(name, await shapefileEvents(shapefile, sender));
   return planFromEvents(name, packageEvents(unzipLimited(bytes, isCot)));
 };

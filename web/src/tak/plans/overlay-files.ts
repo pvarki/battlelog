@@ -1,4 +1,3 @@
-import proj4 from "proj4";
 import { TM35FIN } from "../coords.ts";
 import { type CotEvent, destination, type Position, type TakColor, type TakItem } from "../cot.ts";
 import {
@@ -244,7 +243,7 @@ const crsProjection = (crs: unknown): Project => {
   if (typeof name !== "string") return (xy) => xy;
   const code = name.match(/(\d+|CRS84)$/)?.[1] ?? "";
   if (WGS84_EPSG.has(code)) return (xy) => xy;
-  if (code === "3067") return (xy) => proj4(TM35FIN, "WGS84", xy);
+  if (code === "3067") return (xy) => TM35FIN.inverse(xy);
   throw new Error(`Unsupported coordinate system ${name}; export the file as WGS84`);
 };
 
