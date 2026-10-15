@@ -1,6 +1,6 @@
 import { forward, toPoint } from "mgrs";
-import proj4 from "proj4";
 import type { Position } from "./cot.ts";
+import { utm } from "./utm.ts";
 
 export const COORD_FORMATS = {
   mgrs: "MGRS",
@@ -12,7 +12,7 @@ export const COORD_FORMATS = {
 
 export type CoordFormat = keyof typeof COORD_FORMATS;
 
-export const TM35FIN = "+proj=utm +zone=35 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs";
+export const TM35FIN = utm(35, false);
 
 /** `35V LG 85650 72345`, grouped like ATAK. Undefined beyond 80°S–84°N, where MGRS hands over to UPS. */
 const formatMgrs = (position: Position): string | undefined => {
@@ -57,8 +57,8 @@ export const formatCoord = ([lon, lat]: Position, format: CoordFormat): string =
     case "dms":
       return `${sexagesimal(lat, true, 2)}${ns} ${sexagesimal(lon, true, 3)}${ew}`;
     case "tm35fin": {
-      const [e, n] = proj4("WGS84", TM35FIN, [lon, lat]);
-      return `N ${Math.round(n as number)} E ${Math.round(e as number)}`;
+      const [e, n] = TM35FIN.forward([lon, lat]);
+      return `N ${Math.round(n)} E ${Math.round(e)}`;
     }
   }
 };
@@ -81,8 +81,7 @@ const parseMgrs = (text: string): Position | undefined => {
 const parseTm35fin = (text: string): Position | undefined => {
   const m = /^[NP]\s*:?\s*(\d{7})(?:\.\d+)?[\s,;]+[EI]\s*:?\s*(\d{6})(?:\.\d+)?$/i.exec(text);
   if (!m) return undefined;
-  const [lon, lat] = proj4(TM35FIN, "WGS84", [Number(m[2]), Number(m[1])]);
-  return inRange([lon as number, lat as number]);
+  return inRange(TM35FIN.inverse([Number(m[2]), Number(m[1])]));
 };
 
 // Minutes and seconds need their marks: without them "60,1 24,9" (decimal

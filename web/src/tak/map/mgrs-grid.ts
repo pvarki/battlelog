@@ -1,8 +1,8 @@
 import type { Feature, FeatureCollection, LineString, Point } from "geojson";
 import { forward } from "mgrs";
-import proj4 from "proj4";
 import type { Position } from "../cot.ts";
 import type { Bounds } from "../geo.ts";
+import { utm } from "../utm.ts";
 
 export type GridLevel = "gzd" | "100km" | "10km" | "1km" | "100m";
 
@@ -61,9 +61,6 @@ const intersect = (a: Bounds, b: Bounds): Bounds | undefined => {
   };
   return r.west < r.east && r.south < r.north ? r : undefined;
 };
-
-const utm = (zone: number, south: boolean) =>
-  proj4("WGS84", `+proj=utm +zone=${zone}${south ? " +south" : ""} +datum=WGS84 +units=m +no_defs`);
 
 /** The part of segment a→b inside the rectangle (Liang–Barsky), and whether it leaves through the far end. */
 const clipSegment = (a: Position, b: Position, r: Bounds) => {
@@ -153,10 +150,10 @@ const inside = ([lon, lat]: Position, r: Bounds) =>
 const zoneGrid = (cell: Cell, r: Bounds, shown: Level[]): GridFeature[] => {
   const finest = shown.at(-1) as Level;
   const projection = utm(cell.zone, cell.north <= 0);
-  const toLonLat = (e: number, n: number) => projection.inverse([e, n]) as Position;
+  const toLonLat = (e: number, n: number) => projection.inverse([e, n]);
   const projected = perimeter(r).map((p) => projection.forward(p));
-  const es = projected.map(([e]) => e as number);
-  const ns = projected.map(([, n]) => n as number);
+  const es = projected.map(([e]) => e);
+  const ns = projected.map(([, n]) => n);
   const [eMin, eMax, nMin, nMax] = [
     Math.min(...es),
     Math.max(...es),
