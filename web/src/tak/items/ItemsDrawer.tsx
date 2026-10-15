@@ -16,7 +16,6 @@ import {
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import {
   IconArrowsSort,
   IconCheck,
@@ -40,6 +39,7 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
+import { useStoredSetting } from "../../stored-setting.ts";
 import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import type { Position, TakItem } from "../cot.ts";
@@ -372,23 +372,23 @@ export const ItemsDrawer = ({
   feeds,
 }: Props) => {
   const [query, setQuery] = useState("");
-  const [storedFilters, setStoredFilters] = useLocalStorage<ItemFilters>({
+  const [storedFilters, setStoredFilters] = useStoredSetting<ItemFilters>({
     key: "battlelog.tak.items.filters",
     defaultValue: NO_FILTERS,
   });
   const filters = { ...NO_FILTERS, ...storedFilters };
   const setFilters = (update: Partial<ItemFilters>) =>
     setStoredFilters((current) => ({ ...NO_FILTERS, ...current, ...update }));
-  const [sort, setSort] = useLocalStorage<ItemSort>({
+  const [sort, setSort] = useStoredSetting<ItemSort>({
     key: "battlelog.tak.items.sort",
     defaultValue: "name",
   });
   /** Groups the user opened or closed; the rest follow the BIG_GROUP rule. */
-  const [groupOpen, setGroupOpen] = useLocalStorage<Record<string, boolean>>({
+  const [groupOpen, setGroupOpen] = useStoredSetting<Record<string, boolean>>({
     key: "battlelog.tak.items.groupsOpen",
     defaultValue: {},
   });
-  const [compact, setCompact] = useLocalStorage({
+  const [compact, setCompact] = useStoredSetting({
     key: "battlelog.tak.items.compact",
     defaultValue: false,
   });

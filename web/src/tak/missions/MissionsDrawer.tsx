@@ -10,10 +10,10 @@ import {
   Tooltip,
   UnstyledButton,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { IconEye, IconEyeOff, IconLock } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Placeholder } from "../../components/Placeholder.tsx";
+import { useStoredSetting } from "../../stored-setting.ts";
 import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
@@ -212,11 +212,11 @@ const MyInvitations = ({
 
 /** TAK missions (Data Sync): what each holds, which ones the map shows, and changes to them. */
 export const MissionsDrawer = (props: MissionsDrawerProps) => {
-  const [view, setView] = useLocalStorage<ListView>({
+  const [view, setView] = useStoredSetting<ListView>({
     key: "battlelog.tak.missionsView",
     defaultValue: "list",
   });
-  const [hideEmpty, setHideEmpty] = useLocalStorage({
+  const [hideEmpty, setHideEmpty] = useStoredSetting({
     key: "battlelog.tak.missions.hideEmpty",
     defaultValue: false,
   });

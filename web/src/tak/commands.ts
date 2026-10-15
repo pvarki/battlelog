@@ -1,3 +1,4 @@
+import { notifications } from "@mantine/notifications";
 import { useSyncExternalStore } from "react";
 import { type CotEvent, type Geofence, type TakItem, toChange } from "./cot.ts";
 import { childNamed } from "./protocol/cot-event.ts";
@@ -141,6 +142,12 @@ export const publish = async (event: CotEvent): Promise<boolean> => {
   setWrite(event.uid, "sending");
   if (!sendCot(event)) {
     setWrite(event.uid, "failed");
+    notifications.show({
+      color: "danger",
+      id: "tak-not-sent",
+      title: "Not sent to TAK",
+      message: "The connection dropped before it went out. Do it again once TAK is live.",
+    });
     return false;
   }
   await new Promise((resolve) => setTimeout(resolve, VERIFY_DELAY_MS));

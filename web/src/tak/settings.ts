@@ -1,4 +1,4 @@
-import { useLocalStorage } from "@mantine/hooks";
+import { useStoredSetting } from "../stored-setting.ts";
 import type { CoordFormat } from "./coords.ts";
 import { DEFAULT_BASEMAP } from "./map/basemaps.ts";
 import type { CustomSource } from "./map/custom-sources.ts";
@@ -7,47 +7,47 @@ import { DEFAULT_ROLE, DEFAULT_TEAM } from "./position/self-sa.ts";
 
 /** Per-viewer map preferences, remembered in this browser only. */
 export const useMapSettings = () => {
-  const [coordFormat, setCoordFormat] = useLocalStorage<CoordFormat>({
+  const [coordFormat, setCoordFormat] = useStoredSetting<CoordFormat>({
     key: "battlelog.tak.coordFormat",
     defaultValue: "mgrs",
   });
-  const [basemap, setBasemap] = useLocalStorage<string>({
+  const [basemap, setBasemap] = useStoredSetting<string>({
     key: "battlelog.tak.basemap",
     defaultValue: DEFAULT_BASEMAP,
   });
-  const [overlay, setOverlay] = useLocalStorage<string | null>({
+  const [overlay, setOverlay] = useStoredSetting<string | null>({
     key: "battlelog.tak.overlay",
     defaultValue: null,
   });
-  const [overlayOpacity, setOverlayOpacity] = useLocalStorage({
+  const [overlayOpacity, setOverlayOpacity] = useStoredSetting({
     key: "battlelog.tak.overlayOpacity",
     defaultValue: 0.6,
   });
-  const [customSources, setCustomSources] = useLocalStorage<CustomSource[]>({
+  const [customSources, setCustomSources] = useStoredSetting<CustomSource[]>({
     key: "battlelog.tak.mapSources",
     defaultValue: [],
   });
-  const [savePicture, setSavePicture] = useLocalStorage({
+  const [savePicture, setSavePicture] = useStoredSetting({
     key: SAVING_KEY,
     defaultValue: true,
   });
-  const [dim, setDim] = useLocalStorage({ key: "battlelog.tak.dim", defaultValue: false });
-  const [mgrsGrid, setMgrsGrid] = useLocalStorage({
+  const [dim, setDim] = useStoredSetting({ key: "battlelog.tak.dim", defaultValue: false });
+  const [mgrsGrid, setMgrsGrid] = useStoredSetting({
     key: "battlelog.tak.mgrsGrid",
     defaultValue: false,
   });
-  const [showAllTracks, setShowAllTracks] = useLocalStorage({
+  const [showAllTracks, setShowAllTracks] = useStoredSetting({
     key: "battlelog.tak.showAllTracks",
     defaultValue: false,
   });
-  const [hiddenList, setHiddenList] = useLocalStorage<string[]>({
+  const [hiddenList, setHiddenList] = useStoredSetting<string[]>({
     key: "battlelog.tak.hiddenGroups",
     defaultValue: [],
   });
   const hidden = new Set(hiddenList);
   const toggleGroup = (key: string) =>
     setHiddenList((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
-  const [shownMissionList, setShownMissionList] = useLocalStorage<string[]>({
+  const [shownMissionList, setShownMissionList] = useStoredSetting<string[]>({
     key: "battlelog.tak.shownMissions",
     defaultValue: [],
   });
@@ -56,7 +56,7 @@ export const useMapSettings = () => {
     setShownMissionList((list) =>
       list.includes(name) ? list.filter((n) => n !== name) : [...list, name],
     );
-  const [shownEventLayerList, setShownEventLayerList] = useLocalStorage<string[]>({
+  const [shownEventLayerList, setShownEventLayerList] = useStoredSetting<string[]>({
     key: "battlelog.tak.shownEventLayers",
     defaultValue: [],
   });
@@ -65,15 +65,15 @@ export const useMapSettings = () => {
     setShownEventLayerList((list) =>
       list.includes(eventId) ? list.filter((id) => id !== eventId) : [...list, eventId],
     );
-  const [sharePosition, setSharePosition] = useLocalStorage({
+  const [sharePosition, setSharePosition] = useStoredSetting({
     key: "battlelog.tak.sharePosition",
     defaultValue: false,
   });
-  const [team, setTeam] = useLocalStorage({
+  const [team, setTeam] = useStoredSetting({
     key: "battlelog.tak.team",
     defaultValue: DEFAULT_TEAM,
   });
-  const [role, setRole] = useLocalStorage({
+  const [role, setRole] = useStoredSetting({
     key: "battlelog.tak.role",
     defaultValue: DEFAULT_ROLE,
   });

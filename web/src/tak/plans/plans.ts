@@ -24,7 +24,11 @@ export type PlanEntry = {
 
 export type Plan = { id: string; name: string; updated: number; entries: PlanEntry[] };
 
-export type PlansState = { plans: Plan[]; activeId: string | undefined; loaded: boolean };
+export type PlansState = {
+  plans: Plan[];
+  activeId: string | undefined;
+  status: "loading" | "loaded" | "failed";
+};
 
 const DB_NAME = "battlelog-tak-plans";
 const STORE = "plans";
@@ -38,7 +42,7 @@ const readActive = () => {
   }
 };
 
-let state: PlansState = { plans: [], activeId: readActive(), loaded: false };
+let state: PlansState = { plans: [], activeId: readActive(), status: "loading" };
 const listeners = new Set<() => void>();
 
 const set = (patch: Partial<PlansState>) => {
@@ -101,10 +105,11 @@ const load = () => {
     // Plans made before the read finished are newer than anything stored.
     const made = new Set(state.plans.map((p) => p.id));
     const plans = [...state.plans, ...stored.filter((p) => !made.has(p.id))];
-    set({ plans: plans.sort((a, b) => b.updated - a.updated), loaded: true });
+    set({ plans: plans.sort((a, b) => b.updated - a.updated), status: "loaded" });
+    if (state.activeId && !plans.some((p) => p.id === state.activeId)) setActivePlan(undefined);
   })().catch((err: unknown) => {
     console.warn("TAK plans could not be read", err);
-    set({ loaded: true });
+    set({ status: "failed" });
   });
   return loading;
 };

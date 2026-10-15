@@ -260,6 +260,14 @@ const updateItems = (name: string, update: (items: TakItem[]) => TakItem[], comp
   setContents(name, { ...current, version, items: update(current.items) });
 };
 
+// An add's fetch that returns after a later add or removal of the same item is stale.
+const latestContentChange = new Map<string, number>();
+let contentChanges = 0;
+const noteContentChange = (mission: string, uid: string) => {
+  latestContentChange.set(`${mission}\n${uid}`, ++contentChanges);
+  return contentChanges;
+};
+
 /**
  * TAK's change notice for a subscribed mission; true when `event` was one.
  * Item adds and removals apply at once; anything else (files, the mission
@@ -270,14 +278,17 @@ export const receiveMissionChange = (event: CotEvent): boolean => {
   let refreshList = false;
   for (const { mission, type, uid } of parseMissionChanges(event)) {
     if (type === "ADD_CONTENT" && uid) {
-      void fetchItems([uid]).then(({ items: added, complete }) =>
+      const change = noteContentChange(mission, uid);
+      void fetchItems([uid]).then(({ items: added, complete }) => {
+        if (latestContentChange.get(`${mission}\n${uid}`) !== change) return;
         updateItems(
           mission,
           (items) => [...items.filter((i) => i.uid !== uid), ...added],
           complete,
-        ),
-      );
+        );
+      });
     } else if (type === "REMOVE_CONTENT" && uid) {
+      noteContentChange(mission, uid);
       updateItems(mission, (items) => items.filter((i) => i.uid !== uid));
     } else {
       refreshList = true;

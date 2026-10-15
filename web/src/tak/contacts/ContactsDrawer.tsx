@@ -1,10 +1,10 @@
 import { ActionIcon, Box, Group, ScrollArea, Stack, Text, TextInput, Tooltip } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useState } from "react";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
+import { useStoredSetting } from "../../stored-setting.ts";
 import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import type { Position, TakItem } from "../cot.ts";
@@ -129,7 +129,7 @@ export const ContactsDrawer = ({
   children,
 }: Props) => {
   const [query, setQuery] = useState("");
-  const [showDisconnected, setShowDisconnected] = useLocalStorage({
+  const [showDisconnected, setShowDisconnected] = useStoredSetting({
     key: "battlelog.tak.contacts.showDisconnected",
     defaultValue: true,
   });

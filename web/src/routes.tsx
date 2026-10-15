@@ -1,5 +1,4 @@
 import { Anchor, AppShell, Burger, Group, Text, VisuallyHidden } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
 import {
@@ -22,6 +21,7 @@ import { DashboardNav } from "./dashboard/DashboardNav.tsx";
 import { validateEventSearch } from "./events/event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./events/live-events.ts";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
+import { useStoredSetting } from "./stored-setting.ts";
 import { TakIndicator } from "./tak/TakIndicator.tsx";
 import { useIsMobile } from "./viewport.ts";
 
@@ -100,7 +100,7 @@ const Shell = ({
 }) => {
   // Phones already have their own switchers; the panel is a desktop affordance.
   const isMobile = useIsMobile();
-  const [navOpen, setNavOpen] = useLocalStorage({ key: "battlelog.nav-open", defaultValue: true });
+  const [navOpen, setNavOpen] = useStoredSetting({ key: "battlelog.nav-open", defaultValue: true });
   // The map needs the width; its own drawers replace the views panel there.
   const onMap = useRouterState({ select: (s) => s.location.pathname === "/map" });
   const hasNav = !!dashboards && !isMobile && !onMap;

@@ -11,8 +11,7 @@ export const useTakWrites = ({
   plans,
   liveItems,
   missionItem,
-  replaying,
-  replayReason,
+  blockedReason,
   callsign,
   connection,
 }: {
@@ -20,8 +19,7 @@ export const useTakWrites = ({
   plans: Plan[];
   liveItems: TakItem[];
   missionItem: (uid: string) => TakItem | undefined;
-  replaying: boolean;
-  replayReason: string | undefined;
+  blockedReason: string | undefined;
   callsign: string | null | undefined;
   connection: TakStatus["connection"];
 }) => {
@@ -38,7 +36,7 @@ export const useTakWrites = ({
   const [undoSteps, setUndoSteps] = useState<UndoStep[]>([]);
   /** Sends one action's writes and remembers how to take them back. */
   const submitAll = (events: CotEvent[]) => {
-    if (events.length === 0 || replaying) return;
+    if (events.length === 0 || blockedReason) return;
     // From the store and the stored plan: two quick changes would both see the last render's state.
     const changes = events.map((after) => {
       const draft = activePlan ? (draftOf(activePlan, after.uid) ?? null) : undefined;
@@ -54,15 +52,15 @@ export const useTakWrites = ({
   };
   const submit = (event: CotEvent) => submitAll([event]);
   const readOnlyReason = (item: TakItem) => {
-    if (replayReason) return replayReason;
+    if (blockedReason) return blockedReason;
     if (item.team) return "A TAK user's own position comes from their device";
     if (!callsign) return "No callsign: open BattleLog from the deploy app to change TAK items";
     if (!activePlan && connection !== "live") return "Not connected to TAK";
   };
   const canChange = (item: TakItem) => !readOnlyReason(item);
   const latestStep = undoSteps.at(-1);
-  const undoReason = replayReason
-    ? replayReason
+  const undoReason = blockedReason
+    ? blockedReason
     : !callsign
       ? "No callsign: open BattleLog from the deploy app to change TAK items"
       : latestStep && latestStep.planId !== activePlan?.id

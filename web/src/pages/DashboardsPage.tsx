@@ -1,5 +1,4 @@
 import { Anchor, Box, Center, Group, Loader, Paper, Stack, Text, Title } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import type { DashboardResponse } from "../api.ts";
 import { Placeholder } from "../components/Placeholder.tsx";
@@ -7,6 +6,7 @@ import { StaleNotice } from "../components/StaleNotice.tsx";
 import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
 import { RECENT_KEY } from "../dashboard/recent.ts";
 import { useLiveEvents } from "../events/live-events.ts";
+import { useStoredSetting } from "../stored-setting.ts";
 import { useIsMobile } from "../viewport.ts";
 import { FeedTable } from "../widgets/feed/View.tsx";
 import type { FeedColumn } from "../widgets/feed/widget.ts";
@@ -123,7 +123,7 @@ const MobileDashboards = () => {
 // full list live in the side panel.
 const DesktopDashboards = () => {
   const all = route.useLoaderData();
-  const [recentIds] = useLocalStorage<string[]>({ key: RECENT_KEY, defaultValue: [] });
+  const [recentIds] = useStoredSetting<string[]>({ key: RECENT_KEY, defaultValue: [] });
   const views = all.filter((d) => !d.isTemplate);
   const recent = recentIds
     .map((id) => views.find((d) => d.id === id))

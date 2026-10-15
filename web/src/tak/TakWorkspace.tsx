@@ -1,6 +1,5 @@
 import "./tak.css";
 import { ActionIcon, Alert, Button, Drawer, Indicator, UnstyledButton } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconAddressBook,
@@ -19,6 +18,7 @@ import {
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useStoredSetting } from "../stored-setting.ts";
 import { ACCENT } from "../theme.ts";
 import { useIsMobile } from "../viewport.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
@@ -157,11 +157,11 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const shownMissions = new Set(settings.shownMissions);
   const isMobile = useIsMobile();
   const [drawer, setDrawer] = useState<DrawerId | null>(isMobile ? null : "items");
-  const [drawerWidth, setDrawerWidth] = useLocalStorage({
+  const [drawerWidth, setDrawerWidth] = useStoredSetting({
     key: "battlelog.tak.drawerWidth",
     defaultValue: DRAWER_WIDTH,
   });
-  const [detailsWidth, setDetailsWidth] = useLocalStorage({
+  const [detailsWidth, setDetailsWidth] = useStoredSetting({
     key: "battlelog.tak.detailsWidth",
     defaultValue: DETAILS_WIDTH,
   });
@@ -185,7 +185,14 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const replay = useReplay();
   const replaying = replay.windowMs !== undefined;
   const replayFrame = replaying ? replay.frame : undefined;
-  const replayReason = replaying ? "Replaying history: go back to live to change TAK" : undefined;
+  // Until the active plan is read, a change would go to TAK instead of into the plan.
+  const planReason =
+    plans.activeId && !activePlan
+      ? plans.status === "failed"
+        ? "The active plan couldn't be read from this browser: reload the page"
+        : "Opening the active plan…"
+      : undefined;
+  const blockedReason = replaying ? "Replaying history: go back to live to change TAK" : planReason;
   const shownLayerIds = settings.shownEventLayers;
   const {
     eventLayers,
@@ -211,8 +218,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       plans: plans.plans,
       liveItems,
       missionItem,
-      replaying,
-      replayReason,
+      blockedReason,
       callsign,
       connection: status.connection,
     });
@@ -264,7 +270,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     : status.connection !== "live"
       ? "Not connected to TAK"
       : undefined;
-  const drawReason = replayReason ?? sendReason;
+  const drawReason = blockedReason ?? sendReason;
   const fenceAlerts = useGeofenceAlerts(liveItems);
   const sender = takSender(callsign);
   // Mission, plan and group controls write to TAK directly: none of them while replaying.
@@ -272,11 +278,11 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const chatMessages = useChatMessages();
   // Remembered across reloads now that chat is: a restored message read yesterday stays read.
   // Closed by default: most time on the map is spent watching it, not drawing on it.
-  const [drawOpen, setDrawOpen] = useLocalStorage({
+  const [drawOpen, setDrawOpen] = useStoredSetting({
     key: "battlelog.tak.drawOpen",
     defaultValue: false,
   });
-  const [chatReadAt, setChatReadAt] = useLocalStorage({
+  const [chatReadAt, setChatReadAt] = useStoredSetting({
     key: "battlelog.tak.chatReadAt",
     defaultValue: 0,
   });
@@ -402,6 +408,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   };
 
   const chooseTool = (tool: Tool | undefined) => {
+    setMovingGroup(false);
     measure.stop();
     setLassoing(false);
     setLaser(false);
@@ -410,12 +417,14 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
   };
   const toggleMeasure = () => {
+    setMovingGroup(false);
     if (measure.active) return measure.stop();
     drawing.choose(undefined);
     setLaser(false);
     measure.start();
   };
   const toggleLasso = () => {
+    setMovingGroup(false);
     measure.stop();
     drawing.choose(undefined);
     setLaser(false);
@@ -451,7 +460,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   };
 
   const startTool = (tool: Tool) => {
-    const reason = activePlan ? replayReason : drawReason;
+    const reason = activePlan ? blockedReason : drawReason;
     if (reason) return notifications.show({ color: "warning", message: reason });
     setDrawOpen(true);
     chooseTool(drawing.tool === tool ? undefined : tool);
@@ -535,7 +544,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       setDrawOpen(true);
       chooseTool(tool);
     },
-    drawReason: activePlan ? replayReason : drawReason,
+    drawReason: activePlan ? blockedReason : drawReason,
     measuring: measure.active,
     toggleMeasure,
     lassoing,
@@ -635,7 +644,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     ) : id === "checklists" ? (
       <ChecklistsDrawer
         writer={writerUid ? sender : undefined}
-        readOnlyReason={replayReason ?? NO_CALLSIGN}
+        readOnlyReason={blockedReason ?? NO_CALLSIGN}
       />
     ) : id === "missions" ? (
       <MissionsDrawer
@@ -913,7 +922,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                 );
                 if (sent) fenceAlerts.dismiss(alert.id);
               }}
-              sendReason={replayReason ?? sendReason}
+              sendReason={blockedReason ?? sendReason}
             />
             {replaying && <ReplayBanner replay={replay} />}
             <ConnectionBanner status={status} />
@@ -940,7 +949,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                     remarks: "",
                   });
               }}
-              disabledReason={activePlan ? replayReason : drawReason}
+              disabledReason={activePlan ? blockedReason : drawReason}
               planName={activePlan?.name}
               editing={
                 drawing.editing && {
@@ -962,7 +971,10 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                     movable={movableItems.length}
                     deletable={deletableItems.length}
                     moving={movingGroup}
-                    onMove={() => setMovingGroup(true)}
+                    onMove={() => {
+                      chooseTool(undefined);
+                      setMovingGroup(true);
+                    }}
                     onCancelMove={() => setMovingGroup(false)}
                     onDelete={() => {
                       submitAll(deletableItems.map((item) => deleteEvent(item)));
@@ -994,7 +1006,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                   if (from && to) submit(newRangeBearingEvent([from, to], nameFor("R&B")));
                   measure.stop();
                 }}
-                saveDisabledReason={activePlan ? replayReason : drawReason}
+                saveDisabledReason={activePlan ? blockedReason : drawReason}
               />
             </DrawToolbar>
           )}
@@ -1037,9 +1049,14 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             onClose={() => setDrawer(null)}
             position="bottom"
             size="70%"
-            title={drawer ? DRAWERS[drawer].label : undefined}
+            withCloseButton={false}
+            styles={{ body: { height: "100%" } }}
           >
-            {drawer && drawerContent(drawer)}
+            {drawer && (
+              <Panel title={DRAWERS[drawer].label} onClose={() => setDrawer(null)}>
+                {drawerContent(drawer)}
+              </Panel>
+            )}
           </Drawer>
           <Drawer
             opened={!!(details || eventDetails)}

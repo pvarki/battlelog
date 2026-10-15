@@ -10,12 +10,12 @@ import {
   TextInput,
   UnstyledButton,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { IconFolder, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { Link, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import type { DashboardResponse } from "../api.ts";
 import { Placeholder } from "../components/Placeholder.tsx";
+import { useStoredSetting } from "../stored-setting.ts";
 import { buildTree, type TreeNode } from "./tree.ts";
 import { useDashboardManager } from "./useDashboardManager.tsx";
 
@@ -36,12 +36,12 @@ export const DashboardNav = ({ dashboards }: { dashboards: DashboardResponse[] }
   const { dashboardId } = useParams({ strict: false });
   const [query, setQuery] = useState("");
   const { newMenu, rowMenu, modals, errorText } = useDashboardManager(dashboards);
-  const [filter, setFilter] = useLocalStorage<Filter>({
+  const [filter, setFilter] = useStoredSetting<Filter>({
     key: "battlelog.nav-filter",
     defaultValue: "all",
   });
   // Per device on purpose: the shared folder structure is the team's, stars are yours.
-  const [favorites, setFavorites] = useLocalStorage<string[]>({
+  const [favorites, setFavorites] = useStoredSetting<string[]>({
     key: "battlelog.favorites",
     defaultValue: [],
   });

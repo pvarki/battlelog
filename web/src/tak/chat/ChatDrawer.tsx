@@ -12,10 +12,10 @@ import {
   TextInput,
   Tooltip,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { IconUsersPlus } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { Placeholder } from "../../components/Placeholder.tsx";
+import { useStoredSetting } from "../../stored-setting.ts";
 import { formatClockTime } from "../../time.ts";
 import { RecipientPicker, recipientGroups } from "../contacts/SendTo.tsx";
 import {
@@ -67,11 +67,11 @@ export const ChatDrawer = ({
   const [draft, setDraft] = useState("");
   const [failed, setFailed] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [groups, setGroups] = useLocalStorage<ChatRoom[]>({
+  const [groups, setGroups] = useStoredSetting<ChatRoom[]>({
     key: "battlelog.tak.chatGroups",
     defaultValue: [],
   });
-  const [readAt, setReadAt] = useLocalStorage<Record<string, number>>({
+  const [readAt, setReadAt] = useStoredSetting<Record<string, number>>({
     key: "battlelog.tak.chatRoomReadAt",
     defaultValue: {},
   });

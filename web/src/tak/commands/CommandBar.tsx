@@ -1,8 +1,8 @@
 import { Group, Kbd, Text, UnstyledButton } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { createSpotlight, Spotlight, type SpotlightStore } from "@mantine/spotlight";
 import { IconArrowLeft, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
+import { useStoredSetting } from "../../stored-setting.ts";
 import { type Command, rank, remember, score } from "./commands.ts";
 
 const [store, bar] = createSpotlight();
@@ -41,7 +41,7 @@ export const CommandBar = ({ commands, search, byId, shortcut }: Props) => {
   // Resolved on every render, so its actions see the item as it is now.
   const focus = focusId === undefined ? undefined : byId(focusId);
   const [queryBefore, setQueryBefore] = useState("");
-  const [recent, setRecent] = useLocalStorage<string[]>({
+  const [recent, setRecent] = useStoredSetting<string[]>({
     key: "battlelog.tak.recentCommands",
     defaultValue: [],
   });
