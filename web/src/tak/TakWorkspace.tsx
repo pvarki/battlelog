@@ -217,6 +217,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const selected = selectedUid ? currentItem(selectedUid) : undefined;
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
   const [lassoing, setLassoing] = useState(false);
+  const [laser, setLaser] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [movingGroup, setMovingGroup] = useState(false);
   const groupItems = items.filter((i) => grouped.has(i.uid));
@@ -341,7 +342,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   };
 
   const centreOn = (item: TakItem) => mapRef.current && centreOnItem(mapRef.current, item);
-  const busy = !!(drawing.tool || drawing.editing || measure.active);
+  const busy = !!(drawing.tool || drawing.editing || measure.active || laser);
 
   useCentreWhenReady(pendingCentre, (target) => {
     if (!mapRef.current) return false;
@@ -374,6 +375,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     !!drawing.editing ||
     measure.active ||
     lassoing ||
+    laser ||
     movingGroup ||
     grouped.size > 0;
   /** Closing the tools ends what they were doing, as Esc would; a drawn shape awaiting its dialog stays. */
@@ -382,6 +384,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     setDrawOpen(false);
     measure.stop();
     setLassoing(false);
+    setLaser(false);
     clearGroup();
     if (drawing.editing || !drawing.drawn) drawing.clear();
   };
@@ -389,6 +392,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const chooseTool = (tool: Tool | undefined) => {
     measure.stop();
     setLassoing(false);
+    setLaser(false);
     drawing.choose(tool);
     if (tool === "rings" || tool === "bullseye")
       setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
@@ -396,12 +400,22 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const toggleMeasure = () => {
     if (measure.active) return measure.stop();
     drawing.choose(undefined);
+    setLaser(false);
     measure.start();
   };
   const toggleLasso = () => {
     measure.stop();
     drawing.choose(undefined);
+    setLaser(false);
     setLassoing(!lassoing);
+  };
+  const toggleLaser = () => {
+    setMovingGroup(false);
+    measure.stop();
+    drawing.choose(undefined);
+    setLassoing(false);
+    setDrawOpen(true);
+    setLaser(!laser);
   };
   const toggleReplay = () => {
     if (replaying) return replay.stop();
@@ -414,6 +428,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     setDrawer("chat");
   };
   const editShape = (item: TakItem) => {
+    setLaser(false);
     // The details sheet would cover the map being edited.
     if (drawing.edit(item) && isMobile) setSelectedUid(undefined);
   };
@@ -434,6 +449,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       if (e.key === "Escape") {
         if (chooser) setChooser(undefined);
         else if (goToPin.current) clearGoToPin();
+        else if (laser) setLaser(false);
         else if (measure.active) measure.stop();
         else if (drawing.editing) drawing.clear();
         else if (drawing.tool && !drawing.drawn) drawing.clear();
@@ -459,6 +475,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       }
       if (e.key === "?") setShowShortcuts((open) => !open);
       if (e.key.toLowerCase() === "d") toggleDrawing();
+      if (e.key.toLowerCase() === "l") toggleLaser();
       if (e.key.toLowerCase() === "c" && selected) centreOn(selected);
       if (e.key.toLowerCase() === "c" && selectedEvent?.locationPoint)
         flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat]);
@@ -485,6 +502,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     toggleMeasure,
     lassoing,
     toggleLasso,
+    laser,
+    toggleLaser,
     toggleDrawing,
     undo: () => {
       setDrawOpen(true);
@@ -746,6 +765,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           }}
           onBoxSelect={!busy && !movingGroup ? addToGroup : undefined}
           onLasso={lassoing && !busy && !movingGroup ? addToGroup : undefined}
+          laser={laser}
           onReady={(ready) => {
             mapRef.current = ready;
             setMap(ready);
@@ -848,10 +868,12 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
               symbol={drawing.symbol}
               onChooseSymbol={(symbol) => {
                 measure.stop();
+                setLaser(false);
                 drawing.choose("marker", undefined, symbol);
               }}
               onChooseGraphic={(graphic) => {
                 measure.stop();
+                setLaser(false);
                 drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
                 if (graphic)
                   setTacticalLook({
@@ -899,6 +921,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
               measuring={measure.active}
               lassoing={lassoing}
               onToggleLasso={toggleLasso}
+              laser={laser}
+              onToggleLaser={toggleLaser}
               onToggleMeasure={toggleMeasure}
             >
               <MeasurePanel

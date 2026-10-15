@@ -10,6 +10,7 @@ type Props = {
 const GENERAL: [keys: string, what: string][] = [
   ["/ or Ctrl/⌘ K", "Search items, places and commands; Tab for an item's actions"],
   ["C", "Centre the map on the selected item"],
+  ["L", "Laser pointer: point things out; hold the button to draw strokes that fade"],
   ["Esc", "Stop drawing, close the selection, then the drawer"],
   ["Ctrl/⌘ Z", "Undo the latest change"],
   ["Shift-click", "Add an item to the selection, or take it out"],

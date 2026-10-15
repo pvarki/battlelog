@@ -40,6 +40,8 @@ export type WorkspaceCommands = {
   toggleMeasure: () => void;
   lassoing: boolean;
   toggleLasso: () => void;
+  laser: boolean;
+  toggleLaser: () => void;
   toggleDrawing: () => void;
   undo: () => void;
   undoReason: string | undefined;
@@ -219,6 +221,15 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       keywords: ["select"],
       icon: drawIcon,
       run: w.toggleLasso,
+    },
+    {
+      id: "draw:laser",
+      group: "Draw",
+      label: w.laser ? "Stop laser pointer" : "Laser pointer",
+      shortcut: "L",
+      keywords: ["point", "pen", "brief"],
+      icon: drawIcon,
+      run: w.toggleLaser,
     },
     {
       id: "map:mgrs",

@@ -488,6 +488,13 @@
   filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.8));
 }
 
+.tak-laser {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .tak-lasso {
   position: absolute;
   inset: 0;

@@ -21,6 +21,7 @@ import type { MapSource } from "./basemaps.ts";
 import { type Cursor, useCursor } from "./cursor.ts";
 import { addEventLayers, eventsAt } from "./event-layers.ts";
 import { onIconsetsChanged } from "./iconsets.ts";
+import { followLaser } from "./laser.ts";
 import { createPictureDrawer, LABEL_ZOOM_FILTER, toSources } from "./layers.ts";
 import { mgrsGrid } from "./mgrs-grid.ts";
 import { showRasters } from "./rasters.ts";
@@ -60,6 +61,8 @@ type Props = {
   onBoxSelect?: (uids: string[]) => void;
   /** While set, dragging draws a lasso (mouse or finger) instead of panning, and hands over the items inside. */
   onLasso?: (uids: string[]) => void;
+  /** While on, the pointer is a laser for briefings and dragging draws fading strokes instead of panning. */
+  laser?: boolean;
   onReady: (map: MapLibreMap | undefined) => void;
   /** Where the map opens; absent = where this browser last left a map. */
   view?: MapView;
@@ -363,6 +366,7 @@ export const MapCanvas = ({
   onPick,
   onBoxSelect,
   onLasso,
+  laser = false,
   onReady,
   view,
   rememberView,
@@ -502,6 +506,10 @@ export const MapCanvas = ({
     if (!map || !lassoing) return;
     return followLasso(map, (uids) => lassoCallback.current?.(uids));
   }, [map, lassoing]);
+
+  useEffect(() => {
+    if (map && laser) return followLaser(map);
+  }, [map, laser]);
 
   useEffect(() => {
     if (!map) return;

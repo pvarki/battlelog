@@ -1,4 +1,4 @@
-import { Badge, Button, Divider, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
+import { Badge, Button, Divider, Group, Kbd, Menu, Paper, Text, Tooltip } from "@mantine/core";
 import {
   IconArrowBackUp,
   IconChevronDown,
@@ -7,6 +7,7 @@ import {
   IconLasso,
   IconLine,
   IconMapPin,
+  IconPointer,
   IconPolygon,
   IconRectangle,
   IconRoute,
@@ -54,7 +55,7 @@ const HINT: Record<Tool, string> = {
 };
 
 const TOOLS_HINT =
-  "Measure, lasso select (or Shift-drag), range rings and bullseye · ? lists the shortcuts";
+  "Measure, lasso select (or Shift-drag), laser pointer, range rings and bullseye · ? lists the shortcuts";
 
 const LASSO_HINT =
   "Draw around the items to select, with the mouse or a finger; each outline adds to the selection.";
@@ -80,6 +81,9 @@ type Props = {
   /** Lasso selection on: drags draw an outline around items instead of panning. */
   lassoing: boolean;
   onToggleLasso: () => void;
+  /** The laser pointer, for briefings: seen on this screen only. */
+  laser: boolean;
+  onToggleLaser: () => void;
   /** The measurement readout, shown while measuring. */
   children?: ReactNode;
   /** While an existing item's shape is being edited: its name and how to end the edit. */
@@ -144,6 +148,8 @@ export const DrawToolbar = ({
   onToggleMeasure,
   lassoing,
   onToggleLasso,
+  laser,
+  onToggleLaser,
   children,
   editing,
   selection,
@@ -184,6 +190,8 @@ export const DrawToolbar = ({
           onToggleMeasure={onToggleMeasure}
           lassoing={lassoing}
           onToggleLasso={onToggleLasso}
+          laser={laser}
+          onToggleLaser={onToggleLaser}
           undo={undo}
         >
           {children}
@@ -206,6 +214,8 @@ const ToolButtons = ({
   onToggleMeasure,
   lassoing,
   onToggleLasso,
+  laser,
+  onToggleLaser,
   children,
   undo,
 }: Omit<Props, "editing" | "selection">) => (
@@ -291,8 +301,8 @@ const ToolButtons = ({
         <Menu.Target>
           <Button
             size="compact-xs"
-            variant={measuring || lassoing || isMenuTool(tool) ? "filled" : "subtle"}
-            color={measuring || lassoing || isMenuTool(tool) ? "primary" : "gray"}
+            variant={measuring || lassoing || laser || isMenuTool(tool) ? "filled" : "subtle"}
+            color={measuring || lassoing || laser || isMenuTool(tool) ? "primary" : "gray"}
             leftSection={<IconTools size={14} />}
             rightSection={<IconChevronDown size={14} />}
             title={TOOLS_HINT}
@@ -306,6 +316,14 @@ const ToolButtons = ({
           </Menu.Item>
           <Menu.Item leftSection={<IconLasso size={14} />} onClick={onToggleLasso}>
             {lassoing ? "Stop lasso" : "Lasso select"}
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconPointer size={14} />}
+            rightSection={<Kbd size="xs">L</Kbd>}
+            title="Point things out on this screen; hold the button to draw strokes that fade"
+            onClick={onToggleLaser}
+          >
+            {laser ? "Stop laser pointer" : "Laser pointer"}
           </Menu.Item>
           {MENU_TOOLS.map((id) => {
             const Icon = ICONS[id];
@@ -324,14 +342,20 @@ const ToolButtons = ({
         </Menu.Dropdown>
       </Menu>
       {undo}
-      {(tool || measuring || lassoing) && (
+      {(tool || measuring || lassoing || laser) && (
         <Button
           size="compact-xs"
           variant="subtle"
           color="gray"
           leftSection={<IconX size={14} />}
           onClick={() =>
-            measuring ? onToggleMeasure() : lassoing ? onToggleLasso() : onChoose(undefined)
+            measuring
+              ? onToggleMeasure()
+              : lassoing
+                ? onToggleLasso()
+                : laser
+                  ? onToggleLaser()
+                  : onChoose(undefined)
           }
         >
           <span className="tak-tool-label">Stop (Esc)</span>
