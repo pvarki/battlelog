@@ -73,7 +73,7 @@ import { MapCanvas } from "./map/MapCanvas.tsx";
 import { MapImageButton } from "./map/MapImageButton.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
-import { useMissions, useMissionsSync } from "./missions/store.ts";
+import { feedItemUids, useMissions, useMissionsSync } from "./missions/store.ts";
 import { useMissionSubscriptions } from "./missions/writes.ts";
 import { draftItems, workspacePicture } from "./picture.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
@@ -537,6 +537,9 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         onToggleGrouped={busy ? undefined : (item) => toggleGrouped(item.uid)}
         hidden={settings.hidden}
         onToggleGroup={settings.toggleGroup}
+        map={map}
+        ownPosition={ownPosition.fix?.position}
+        feeds={feedItemUids(missions)}
       />
     ) : id === "layers" ? (
       <LayersDrawer

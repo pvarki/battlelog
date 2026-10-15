@@ -627,3 +627,9 @@
   padding-left: 8px;
   border-left: 1px solid var(--mantine-color-dark-4);
 }
+
+/* The Items list's keyboard cursor. */
+.tak-group[data-active] {
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--mantine-color-accent-4);
+}

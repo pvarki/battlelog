@@ -1,5 +1,7 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
+import { useEffect, useState } from "react";
 import type { Position, TakItem } from "../cot.ts";
+import type { Bounds } from "../geo.ts";
 import { anchorOf, extentOf, hasPosition } from "../items.ts";
 
 const FOCUS_ZOOM = 14;
@@ -25,4 +27,25 @@ export const centreOnItem = (map: MapLibreMap, item: TakItem) => {
       bearing: map.getBearing(),
     });
   });
+};
+
+/** The map's centre and visible area, updated when it stops moving; undefined before the map is up. */
+export const useMapView = (map: MapLibreMap | undefined) => {
+  const [view, setView] = useState<{ centre: Position; bounds: Bounds }>();
+  useEffect(() => {
+    if (!map) return;
+    const update = () => {
+      const b = map.getBounds();
+      setView({
+        centre: map.getCenter().toArray(),
+        bounds: { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() },
+      });
+    };
+    update();
+    map.on("moveend", update);
+    return () => {
+      map.off("moveend", update);
+    };
+  }, [map]);
+  return view;
 };

@@ -1,7 +1,7 @@
 import { ActionIcon, Box, Group, ScrollArea, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { formatAge } from "../../time.ts";
@@ -18,6 +18,7 @@ import {
   statusOf,
   teamColor,
 } from "../items.ts";
+import { useMapView } from "../map/camera.ts";
 import { mergeContacts, useKnownClients } from "./known-clients.ts";
 
 type Props = {
@@ -41,20 +42,6 @@ const matches = (contact: TakItem, query: string) => {
   return (
     !q || [contact.callsign, contact.team, contact.role].some((s) => s?.toLowerCase().includes(q))
   );
-};
-
-const useMapCentre = (map: MapLibreMap | undefined) => {
-  const [centre, setCentre] = useState<Position>();
-  useEffect(() => {
-    if (!map) return;
-    const update = () => setCentre(map.getCenter().toArray());
-    update();
-    map.on("moveend", update);
-    return () => {
-      map.off("moveend", update);
-    };
-  }, [map]);
-  return centre;
 };
 
 const ContactRow = ({
@@ -141,7 +128,7 @@ export const ContactsDrawer = ({
 }: Props) => {
   const [query, setQuery] = useState("");
   const now = useNow(10_000);
-  const centre = useMapCentre(map);
+  const centre = useMapView(map)?.centre;
   const contacts = mergeContacts(picture, useKnownClients(), selfUid);
   const from = ownPosition ?? centre;
   const shown = contacts

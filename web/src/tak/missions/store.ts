@@ -286,3 +286,11 @@ export const receiveMissionChange = (event: CotEvent): boolean => {
   if (refreshList) void refreshMissions().catch(() => undefined);
   return true;
 };
+
+/** Each loaded Data Sync feed's item uids, by feed name. */
+export const feedItemUids = (state: MissionsState): Map<string, Set<string>> =>
+  new Map(
+    [...state.contents].flatMap(([name, contents]) =>
+      contents.kind === "loaded" ? [[name, new Set(contents.items.map((i) => i.uid))]] : [],
+    ),
+  );
