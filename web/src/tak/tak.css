@@ -665,6 +665,16 @@
   border-left: 1px solid var(--mantine-color-dark-4);
 }
 
+/* Items tree guides: one line per ancestor, under that ancestor's chevron. */
+.tak-group[data-depth] {
+  background: repeating-linear-gradient(
+      to right,
+      var(--mantine-color-dark-4) 0 1px,
+      transparent 1px 14px
+    )
+    11px 0 / calc((var(--depth) - 1) * 14px + 1px) 100% no-repeat;
+}
+
 /* The Items list's keyboard cursor. */
 .tak-group[data-active] {
   border-radius: 6px;

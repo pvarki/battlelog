@@ -29,7 +29,14 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
-import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
@@ -712,7 +719,8 @@ export const ItemsDrawer = ({
                     className="tak-group"
                     data-hidden={row.dimmed || undefined}
                     data-active={index === active || undefined}
-                    style={{ paddingLeft: row.depth * 10 }}
+                    data-depth={row.depth || undefined}
+                    style={{ paddingLeft: row.depth * 14, "--depth": row.depth } as CSSProperties}
                   >
                     {renderRow(row)}
                   </div>
