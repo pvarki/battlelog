@@ -194,3 +194,12 @@
   text-transform: uppercase;
   color: var(--mantine-color-dark-2);
 }
+
+/* A virtualized table's stripes, set per row by index (see EventExplorerPage). */
+.striped-by-index > tbody > tr[data-even] {
+  background-color: var(--mantine-color-dark-6);
+}
+
+.striped-by-index > tbody > tr:hover {
+  background-color: var(--table-hover-color);
+}

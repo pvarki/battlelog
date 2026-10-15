@@ -24,6 +24,7 @@ import {
 import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { type TableComponents, TableVirtuoso } from "react-virtuoso";
 import { api, type EventResponse } from "../api.ts";
 import { EventDetail } from "../components/EventDetail.tsx";
 import { Placeholder } from "../components/Placeholder.tsx";
@@ -93,6 +94,32 @@ const SEARCH_DEBOUNCE_MS = 400;
 // The minor columns are percentages so Header keeps a share on a narrow desktop.
 const TRUNCATE = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
 
+type RowContext = { open: (event: EventResponse) => void };
+
+// Stripes go by row index: only the rows in view are rendered, so nth-of-type would shift while scrolling.
+const TABLE_PARTS: TableComponents<EventResponse, RowContext> = {
+  Table: (props) => (
+    <Table
+      {...props}
+      className="striped-by-index"
+      highlightOnHover
+      stickyHeader
+      fz="sm"
+      layout="fixed"
+    />
+  ),
+  TableHead: Table.Thead,
+  TableBody: Table.Tbody,
+  TableRow: ({ item, context, ...props }) => (
+    <Table.Tr
+      {...props}
+      data-even={props["data-index"] % 2 === 0 || undefined}
+      onClick={() => context.open(item)}
+      style={{ cursor: "pointer" }}
+    />
+  ),
+};
+
 const TAGS_SHOWN = 2;
 
 const TagsCell = ({ tags }: { tags: string[] }) => (
@@ -125,6 +152,7 @@ export const EventExplorerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [atEnd, setAtEnd] = useState(true);
   const [selected, setSelected] = useState<EventResponse | null>(null);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // The drawer edits a copy, so an abandoned edit changes nothing.
   const [draft, setDraft] = useState<Filters>(() => ({ ...EMPTY, ...applied }));
@@ -343,7 +371,7 @@ export const EventExplorerPage = () => {
         </Group>
       )}
 
-      <Box flex={1} mih={0} style={{ overflowY: "auto" }}>
+      <Box flex={1} mih={0} style={{ overflowY: "auto" }} ref={setViewport}>
         {error && (
           <Text c="danger.4" my="sm" role="status">
             {error}
@@ -401,30 +429,31 @@ export const EventExplorerPage = () => {
             ))}
           </Stack>
         ) : (
-          <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th w={170}>{sort === "happened" ? "Happened" : "Logged"}</Table.Th>
-                <Table.Th>Header</Table.Th>
-                <Table.Th w="15%">Type</Table.Th>
-                <Table.Th w="12%">Tags</Table.Th>
-                <Table.Th
-                  w={90}
-                  title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
-                >
-                  Admiralty
-                </Table.Th>
-                <Table.Th w="13%">Location</Table.Th>
-                <Table.Th w="10%">By</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.map((event) => (
-                <Table.Tr
-                  key={event.id}
-                  onClick={() => setSelected(event)}
-                  style={{ cursor: "pointer" }}
-                >
+          viewport && (
+            <TableVirtuoso
+              customScrollParent={viewport}
+              data={rows}
+              context={{ open: setSelected }}
+              components={TABLE_PARTS}
+              computeItemKey={(_, event) => event.id}
+              fixedHeaderContent={() => (
+                <Table.Tr>
+                  <Table.Th w={170}>{sort === "happened" ? "Happened" : "Logged"}</Table.Th>
+                  <Table.Th>Header</Table.Th>
+                  <Table.Th w="15%">Type</Table.Th>
+                  <Table.Th w="12%">Tags</Table.Th>
+                  <Table.Th
+                    w={90}
+                    title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
+                  >
+                    Admiralty
+                  </Table.Th>
+                  <Table.Th w="13%">Location</Table.Th>
+                  <Table.Th w="10%">By</Table.Th>
+                </Table.Tr>
+              )}
+              itemContent={(_, event) => (
+                <>
                   <Table.Td title={timesOf(event, sort).other}>
                     {timesOf(event, sort).shown}
                   </Table.Td>
@@ -457,10 +486,10 @@ export const EventExplorerPage = () => {
                     {event.location}
                   </Table.Td>
                   <Table.Td style={TRUNCATE}>{event.updatedBy ?? event.createdBy}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+                </>
+              )}
+            />
+          )
         )}
         {rows && rows.length > 0 && !atEnd && (
           <Center my="md">

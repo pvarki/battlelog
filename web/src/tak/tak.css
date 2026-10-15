@@ -203,10 +203,6 @@
   font-weight: 400;
 }
 
-.tak-group-body {
-  padding-left: 10px;
-}
-
 /* Muted, not see-through: a hidden group's names must stay readable to switch it back on. */
 .tak-group[data-hidden] {
   color: var(--mantine-color-dimmed);

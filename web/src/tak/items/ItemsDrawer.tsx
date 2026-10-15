@@ -18,7 +18,8 @@ import {
   IconEyeOff,
   IconSearch,
 } from "@tabler/icons-react";
-import { type MouseEvent, type ReactNode, useState } from "react";
+import { type MouseEvent, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
@@ -53,9 +54,6 @@ const matches = (item: TakItem, query: string) => {
     s?.toLowerCase().includes(q),
   );
 };
-
-// Rendering thousands of rows at once freezes the page for over a second.
-const GROUP_ROWS = 100;
 
 const collator = new Intl.Collator(undefined, { numeric: true });
 const byName = (a: TakItem, b: TakItem) =>
@@ -122,6 +120,34 @@ export const ItemRow = ({
   );
 };
 
+type Row = { key: string; depth: number; dimmed: boolean } & (
+  | { kind: "group"; group: OverlayGroup; open: boolean; ownHidden: boolean }
+  | { kind: "item"; item: TakItem }
+);
+
+/** The tree as the rows on screen, so only those in view are rendered. */
+const flatten = (
+  groups: OverlayGroup[],
+  isOpen: (key: string) => boolean,
+  hidden: ReadonlySet<string>,
+  depth = 0,
+  parentHidden = false,
+): Row[] =>
+  groups.flatMap((group) => {
+    const ownHidden = hidden.has(group.key);
+    const open = isOpen(group.key);
+    const dimmed = ownHidden || parentHidden;
+    const header: Row = { kind: "group", key: group.key, group, open, ownHidden, depth, dimmed };
+    if (!open) return [header];
+    return [
+      header,
+      ...flatten(group.children, isOpen, hidden, depth + 1, dimmed),
+      ...group.items
+        .sort(byName)
+        .map((item): Row => ({ kind: "item", key: item.uid, item, depth: depth + 1, dimmed })),
+    ];
+  });
+
 /** Every item in ATAK's overlay groups: the keyboard route to anything on the map, and what it shows. */
 export const ItemsDrawer = ({
   items,
@@ -134,11 +160,11 @@ export const ItemsDrawer = ({
 }: Props) => {
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  const [listedInFull, setListedInFull] = useState<ReadonlySet<string>>(new Set());
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
   const now = useNow(10_000);
   const filtering = query.trim() !== "";
   const listed = items.filter((i) => matches(i, query));
-  const groups = groupTree(listed);
+  const rows = flatten(groupTree(listed), (key) => filtering || !collapsed.has(key), hidden);
   const shown = listed.filter((i) => !isHidden(groupOf(i), hidden));
 
   const toggleCollapsed = (key: string) =>
@@ -148,68 +174,43 @@ export const ItemsDrawer = ({
       return next;
     });
 
-  const renderGroup = (group: OverlayGroup, parentHidden: boolean): ReactNode => {
-    const ownHidden = hidden.has(group.key);
-    const open = filtering || !collapsed.has(group.key);
-    const rows = group.items.sort(byName);
-    const cut = listedInFull.has(group.key) ? rows.length : GROUP_ROWS;
+  const renderRow = (row: Row) => {
+    if (row.kind === "item")
+      return (
+        <ItemRow
+          item={row.item}
+          now={now}
+          selected={row.item.uid === selectedUid || !!grouped?.has(row.item.uid)}
+          onPick={(e) => (e.shiftKey && onToggleGrouped ? onToggleGrouped : onPick)(row.item)}
+        />
+      );
+    const { group, open, ownHidden } = row;
     return (
-      <section
-        key={group.key}
-        className="tak-group"
-        aria-label={group.label}
-        data-hidden={(ownHidden && !parentHidden) || undefined}
-      >
-        <div className="tak-group-header">
-          <UnstyledButton
-            className="tak-group-toggle"
-            aria-expanded={open}
-            disabled={filtering}
-            onClick={() => toggleCollapsed(group.key)}
-          >
-            {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-            {group.key.startsWith("markers/team/") && (
-              <span className="tak-swatch" style={{ background: teamColor(group.label) }} />
-            )}
-            {group.label} <span className="tak-group-count">{group.count}</span>
-          </UnstyledButton>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="sm"
-            aria-label={`Show ${group.label} on the map`}
-            aria-pressed={!ownHidden}
-            title={ownHidden ? "Not on the map" : "Shown on the map"}
-            onClick={() => onToggleGroup(group.key)}
-          >
-            {ownHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-          </ActionIcon>
-        </div>
-        {open && (
-          <div className="tak-group-body">
-            {group.children.map((child) => renderGroup(child, ownHidden || parentHidden))}
-            {rows.slice(0, cut).map((item) => (
-              <ItemRow
-                key={item.uid}
-                item={item}
-                now={now}
-                selected={item.uid === selectedUid || !!grouped?.has(item.uid)}
-                onPick={(e) => (e.shiftKey && onToggleGrouped ? onToggleGrouped : onPick)(item)}
-              />
-            ))}
-            {rows.length > cut && (
-              <Button
-                size="xs"
-                variant="default"
-                my={4}
-                onClick={() => setListedInFull((keys) => new Set(keys).add(group.key))}
-              >
-                Show all {rows.length}
-              </Button>
-            )}
-          </div>
-        )}
-      </section>
+      <div className="tak-group-header">
+        <UnstyledButton
+          className="tak-group-toggle"
+          aria-expanded={open}
+          disabled={filtering}
+          onClick={() => toggleCollapsed(group.key)}
+        >
+          {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {group.key.startsWith("markers/team/") && (
+            <span className="tak-swatch" style={{ background: teamColor(group.label) }} />
+          )}
+          {group.label} <span className="tak-group-count">{group.count}</span>
+        </UnstyledButton>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="sm"
+          aria-label={`Show ${group.label} on the map`}
+          aria-pressed={!ownHidden}
+          title={ownHidden ? "Not on the map" : "Shown on the map"}
+          onClick={() => onToggleGroup(group.key)}
+        >
+          {ownHidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+        </ActionIcon>
+      </div>
     );
   };
 
@@ -223,8 +224,8 @@ export const ItemsDrawer = ({
         value={query}
         onChange={(e) => setQuery(e.currentTarget.value)}
       />
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
-        {groups.length === 0 ? (
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars viewportRef={setViewport}>
+        {rows.length === 0 ? (
           <Box py="md">
             {items.length === 0 ? (
               <Placeholder
@@ -236,7 +237,22 @@ export const ItemsDrawer = ({
             )}
           </Box>
         ) : (
-          groups.map((group) => renderGroup(group, false))
+          viewport && (
+            <Virtuoso
+              customScrollParent={viewport}
+              data={rows}
+              computeItemKey={(_, row) => row.key}
+              itemContent={(_, row) => (
+                <div
+                  className="tak-group"
+                  data-hidden={row.dimmed || undefined}
+                  style={{ paddingLeft: row.depth * 10 }}
+                >
+                  {renderRow(row)}
+                </div>
+              )}
+            />
+          )
         )}
       </ScrollArea>
       <Button
