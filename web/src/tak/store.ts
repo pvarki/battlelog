@@ -197,6 +197,8 @@ export const createTakStore = ({
     /** Delivers pending changes now instead of at the next notify tick. */
     flush,
     get: (uid: string) => items.get(uid),
+    /** When `uid` was last deleted, if it was. */
+    deletedAt: (uid: string) => tombstones.get(uid),
     /** Stable between notifications, as `useSyncExternalStore` requires. */
     getSnapshot: () => snapshot,
     /** Tracks by uid, stable between notifications. */

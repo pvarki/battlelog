@@ -74,7 +74,7 @@ const openDb = (): Promise<IDBDatabase | undefined> => {
 
 const write = async (plan: Plan | { id: string; deleted: true }) => {
   const db = await openDb();
-  if (!db) return;
+  if (!db) throw new Error("this browser keeps no stored data here");
   const tx = db.transaction(STORE, "readwrite");
   const store = tx.objectStore(STORE);
   if ("deleted" in plan) store.delete(plan.id);
@@ -88,9 +88,10 @@ const write = async (plan: Plan | { id: string; deleted: true }) => {
 const persist = (plan: Plan | { id: string; deleted: true }) =>
   write(plan).catch((err: unknown) =>
     notifications.show({
+      id: "plan-not-saved",
       color: "danger",
       title: "Plan not saved in this browser",
-      message: `It will be lost on reload; export it to keep it. (${String(err)})`,
+      message: `It will be lost on reload; export it to keep it. (${err instanceof Error ? err.message : String(err)})`,
     }),
   );
 

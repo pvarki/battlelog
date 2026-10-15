@@ -82,3 +82,14 @@ test("the view holds while every point stays clear of the edge", () => {
   expect(inView(190, 50)).toBe(false);
   expect(inView(50, -5)).toBe(false);
 });
+
+test("bounds of a shape with more vertices than a call takes arguments", () => {
+  const points = Array.from({ length: 200_000 }, (_, i): [number, number] => [
+    i / 1e4,
+    1 - i / 1e4,
+  ]);
+  expect(boundsOf(points)).toEqual([
+    [0, -18.9999],
+    [19.9999, 1],
+  ]);
+});

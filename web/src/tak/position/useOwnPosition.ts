@@ -60,12 +60,15 @@ export const useOwnPosition = (map: MapLibreMap | undefined, self: SelfIdentity 
         setFix(fixOf(p));
         setError(undefined);
       },
-      (e) =>
+      (e) => {
+        // Lost position: stop reporting the last one as current; TAK lets it go stale.
+        setFix(undefined);
         setError(
           e.code === e.PERMISSION_DENIED
             ? "Location is blocked for this site: allow it in the browser's site settings, then try again."
             : "This device can't find its position right now. Try again in a moment.",
-        ),
+        );
+      },
       { enableHighAccuracy: true },
     );
     return () => {

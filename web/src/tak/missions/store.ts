@@ -177,6 +177,8 @@ const applyList = ({ missions, invitations }: Awaited<ReturnType<typeof fetchAll
   // A deleted or renamed mission takes its items off the map with it.
   const names = new Set(missions.map((m) => m.name));
   const contents = new Map([...state.contents].filter(([name]) => names.has(name)));
+  // A load still under way for a mission now gone must not bring its items back.
+  for (const name of latestRequest.keys()) if (!names.has(name)) latestRequest.delete(name);
   set({ missions, listFailed: false, contents, invitations });
   refreshWanted();
 };
@@ -278,6 +280,8 @@ export const receiveMissionChange = (event: CotEvent): boolean => {
   let refreshList = false;
   for (const { mission, type, uid } of parseMissionChanges(event)) {
     if (type === "ADD_CONTENT" && uid) {
+      // Only missions loaded here: a notice must not make this browser fetch on a sender's say-so.
+      if (state.contents.get(mission)?.kind !== "loaded") continue;
       const change = noteContentChange(mission, uid);
       void fetchItems([uid]).then(({ items: added, complete }) => {
         if (latestContentChange.get(`${mission}\n${uid}`) !== change) return;

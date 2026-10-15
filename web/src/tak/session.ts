@@ -12,7 +12,12 @@ import {
   savePicture,
   savingEnabled,
 } from "./picture-cache.ts";
-import { newPresenceEvent, SELF_TYPE, type SelfIdentity } from "./position/self-sa.ts";
+import {
+  MAX_FIX_AGE_MS,
+  newPresenceEvent,
+  SELF_TYPE,
+  type SelfIdentity,
+} from "./position/self-sa.ts";
 import { decodeTakMessages, encodeTakMessage } from "./protocol/takproto.ts";
 import { fetchArchive, fetchHistory, takBaseUrl } from "./rest.ts";
 import { inSlices } from "./slices.ts";
@@ -215,6 +220,8 @@ const restartBackfill = () => {
  */
 export const refetchTakHistory = () => {
   syncedThrough = undefined;
+  // Until the refetch completes, the save timer must not mark the whole window covered.
+  streamCovers = false;
   if (socket?.readyState === WebSocket.OPEN) restartBackfill();
 };
 
@@ -227,13 +234,11 @@ const announce = (force: boolean) => {
   const now = Date.now();
   if (!presence || socket?.readyState !== WebSocket.OPEN) return;
   if (!force && now - lastReportAt < PRESENCE_INTERVAL_MS) return;
-  const report = positionReport
-    ? {
-        ...positionReport,
-        time: now,
-        start: now,
-        stale: now + (positionReport.stale - positionReport.time),
-      }
+  // An old fix re-dated now would show a position the device no longer has as current.
+  const last =
+    positionReport && now - positionReport.time < MAX_FIX_AGE_MS ? positionReport : undefined;
+  const report = last
+    ? { ...last, time: now, start: now, stale: now + (last.stale - last.time) }
     : newPresenceEvent(presence, navigator.platform, now);
   sendCot(report);
 };

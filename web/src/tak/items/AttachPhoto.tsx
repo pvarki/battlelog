@@ -43,7 +43,11 @@ export const AttachPhoto = ({ item, callsign, contacts, photo, onClose }: Props)
     if (!photo) return;
     onClose();
     const failed = (what: string) => (err: unknown) =>
-      notifications.show({ color: "danger", title: `Photo not ${what}`, message: String(err) });
+      notifications.show({
+        color: "danger",
+        title: `Photo not ${what}`,
+        message: err instanceof Error ? err.message : String(err),
+      });
     if (link) await attachPhotoLink(item, photo, callsign).catch(failed("linked"));
     if (toAtak) {
       await sendPhotoPackage(item, photo, callsign, recipients).then(

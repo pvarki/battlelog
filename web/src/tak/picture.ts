@@ -1,18 +1,25 @@
 import { type CotEvent, type TakItem, toChange } from "./cot.ts";
 import type { MissionsState } from "./missions/store.ts";
 import type { Plan } from "./plans/plans.ts";
+import { takStore } from "./session.ts";
 
 /**
  * The live picture plus the items of missions shown on the map. A mission
- * item that is also live is the same uid; the live copy wins.
+ * item that is also live is the same uid; the live copy wins. A mission's copy
+ * of an item deleted since stays off the map: its list may not have caught up.
  */
-const withMissionItems = (live: TakItem[], missions: MissionsState, shown: ReadonlySet<string>) => {
+const withMissionItems = (
+  live: TakItem[],
+  missions: MissionsState,
+  shown: ReadonlySet<string>,
+  deletedAt: (uid: string) => number | undefined,
+) => {
   const seen = new Set(live.map((i) => i.uid));
   const extra: TakItem[] = [];
   for (const [name, contents] of missions.contents) {
     if (!shown.has(name) || contents.kind !== "loaded") continue;
     for (const item of contents.items) {
-      if (!seen.has(item.uid)) {
+      if (!seen.has(item.uid) && (deletedAt(item.uid) ?? -1) < item.time) {
         seen.add(item.uid);
         extra.push(item);
       }
@@ -89,7 +96,7 @@ export const workspacePicture = ({
   const items = replaying
     ? (replayItems ?? []).filter((i) => i.uid !== selfUid)
     : withDrafts(
-        withMissionItems(liveItems, missions, shownMissions),
+        withMissionItems(liveItems, missions, shownMissions, takStore.deletedAt),
         activePlan ? draftItems(activePlan, liveItems) : [],
       );
   const missionItem = (uid: string) => {

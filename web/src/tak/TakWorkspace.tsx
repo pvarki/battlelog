@@ -958,10 +958,18 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                   saveLabel: submitLabel,
                   onCancel: drawing.clear,
                   onSave: () => {
-                    const item = drawing.editing;
+                    const uid = drawing.editing?.uid;
                     const edited = drawing.edited();
-                    if (item && edited) submit(editGeometryEvent(item, edited));
                     drawing.clear();
+                    if (!uid || !edited) return;
+                    // From the item as it is now: what others changed while this was reshaped stays.
+                    const current = items.find((i) => i.uid === uid);
+                    if (current) submit(editGeometryEvent(current, edited));
+                    else
+                      notifications.show({
+                        color: "warning",
+                        message: "The item was deleted while you reshaped it; nothing was sent.",
+                      });
                   },
                 }
               }

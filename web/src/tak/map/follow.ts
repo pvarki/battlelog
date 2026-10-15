@@ -37,13 +37,19 @@ export const positionsOf = (items: TakItem[]): Position[] =>
         : g.coordinates.flat(),
   );
 
+/** South-west and north-east corners. A loop: Math.min(...) throws past ~100k arguments. */
 export const boundsOf = (positions: Position[]): [Position, Position] | undefined => {
   if (positions.length === 0) return undefined;
-  const lngs = positions.map((p) => p[0]);
-  const lats = positions.map((p) => p[1]);
+  let [west, south, east, north] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const [lng, lat] of positions) {
+    west = Math.min(west, lng);
+    east = Math.max(east, lng);
+    south = Math.min(south, lat);
+    north = Math.max(north, lat);
+  }
   return [
-    [Math.min(...lngs), Math.min(...lats)],
-    [Math.max(...lngs), Math.max(...lats)],
+    [west, south],
+    [east, north],
   ];
 };
 

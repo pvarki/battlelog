@@ -1,4 +1,6 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
+import type { Position } from "../cot.ts";
+import { boundsOf } from "./follow.ts";
 import { type ScreenPoint, uidsInOutline } from "./lasso.ts";
 
 const CLICK_SLACK_PX = 4;
@@ -111,15 +113,9 @@ export const followLasso = (map: MapLibreMap, onSelect: (uids: string[]) => void
     outline = undefined;
     draw();
     if (!drawn || drawn.length < 3) return;
-    const xs = drawn.map(([x]) => x);
-    const ys = drawn.map(([, y]) => y);
-    const features = map.queryRenderedFeatures(
-      [
-        [Math.min(...xs), Math.min(...ys)],
-        [Math.max(...xs), Math.max(...ys)],
-      ],
-      { layers: INTERACTIVE_LAYERS },
-    );
+    const features = map.queryRenderedFeatures(boundsOf(drawn) as [Position, Position], {
+      layers: INTERACTIVE_LAYERS,
+    });
     onSelect(uidsInOutline(map, features, drawn));
   };
   container.addEventListener("pointerdown", onDown);

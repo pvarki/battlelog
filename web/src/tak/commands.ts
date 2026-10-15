@@ -176,9 +176,17 @@ export const attachPhotoLink = async (item: TakItem, photo: File, callsign: stri
     setWrite(item.uid, "failed");
     throw err;
   }
-  // The upload can take a while; changes made meanwhile must survive the link.
-  const latest = await fetchLatestCot(item.uid).catch(() => undefined);
+  // The upload can take a while; changes made meanwhile must survive the link, and an item
+  // deleted meanwhile must stay deleted.
+  const latest = await fetchLatestCot(item.uid).catch(() => {
+    setWrite(item.uid, "failed");
+    throw new Error("Couldn't read the item back from TAK to add the photo; try again.");
+  });
   const change = latest && toChange(latest);
+  if (change?.kind === "delete" && change.time >= item.time) {
+    setWrite(item.uid, "failed");
+    throw new Error("The item was deleted on TAK while the photo uploaded.");
+  }
   const current = change?.kind === "upsert" && change.item.time > item.time ? change.item : item;
   const line = `Photo: ${publicContentUrl(hash)}`;
   await publish(

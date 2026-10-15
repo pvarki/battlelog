@@ -2,6 +2,7 @@ import type { Feature, Geometry, LineString, Polygon } from "geojson";
 import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
 import type { Position, TakItem } from "../cot.ts";
 import { distance } from "../geo.ts";
+import { boundsOf } from "./follow.ts";
 
 /**
  * MIL-STD-2525 tactical graphics for drawings that carry a `__milsym` code, as
@@ -64,10 +65,10 @@ export const placementFor = (
 
 /** The drawing's bounding box plus 10 %, as a canvas of the same aspect. */
 const viewport = (points: Position[]) => {
-  const lons = points.map((p) => p[0]);
-  const lats = points.map((p) => p[1]);
-  const [west, east] = [Math.min(...lons), Math.max(...lons)];
-  const [south, north] = [Math.min(...lats), Math.max(...lats)];
+  const [[west, south], [east, north]] = boundsOf(points) ?? [
+    [0, 0],
+    [0, 0],
+  ];
   const pad = Math.max(east - west, north - south, 1e-4) * 0.1;
   const lonScale = Math.cos((((north + south) / 2) * Math.PI) / 180);
   const width = (east - west + 2 * pad) * lonScale;
@@ -336,10 +337,10 @@ const TILE_PX = 512;
 
 /** The zoom from which the graphic is big enough on screen for its labels. */
 export const labelMinZoom = (points: Position[]): number => {
-  const lons = points.map(([lon]) => lon);
-  const lats = points.map(([, lat]) => lat);
-  const [west, east] = [Math.min(...lons), Math.max(...lons)];
-  const [south, north] = [Math.min(...lats), Math.max(...lats)];
+  const [[west, south], [east, north]] = boundsOf(points) ?? [
+    [0, 0],
+    [0, 0],
+  ];
   const extent = distance([west, south], [east, north]);
   if (!(extent > 0)) return 0;
   const metresPerPixelAtZero =

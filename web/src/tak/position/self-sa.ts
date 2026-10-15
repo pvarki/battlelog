@@ -41,6 +41,8 @@ export const DEFAULT_ROLE = "Team Member";
 const STALE_MS = 120_000;
 export const MOVING_INTERVAL_MS = 5_000;
 export const IDLE_INTERVAL_MS = 30_000;
+/** A fix older than this is no longer reported as where the user is. */
+export const MAX_FIX_AGE_MS = STALE_MS;
 const MOVED_M = 10;
 const UNKNOWN = 9_999_999;
 
