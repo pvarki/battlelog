@@ -38,11 +38,26 @@ const insideRing = ([x, y]: Position, ring: Position[]): boolean => {
   return inside;
 };
 
+/** `lon` moved by whole turns to within 180° of `near`. */
+const nearLon = (lon: number, near: number) => lon - 360 * Math.round((lon - near) / 360);
+
+/**
+ * The ring with each longitude continuing from the previous one, and the point
+ * beside it: a fence across ±180° is otherwise read as one spanning the globe.
+ */
+const unwrapped = (ring: Position[], [x, y]: Position): [Position[], Position] => {
+  const out: Position[] = [];
+  for (const [lon, lat] of ring) out.push([nearLon(lon, out.at(-1)?.[0] ?? lon), lat]);
+  return [out, [nearLon(x, out[0]?.[0] ?? x), y]];
+};
+
 export const fenceContains = (fence: TakItem, point: Position): boolean => {
   const g = fence.geometry;
   if (g.type === "Point")
     return !!fence.ellipse && distance(g.coordinates, point) <= fence.ellipse.major;
-  return g.type === "Polygon" && insideRing(point, g.coordinates[0] ?? []);
+  if (g.type !== "Polygon") return false;
+  const [ring, at] = unwrapped(g.coordinates[0] ?? [], point);
+  return insideRing(at, ring);
 };
 
 /** "Custom" is a list ATAK keeps on the device that drew the fence; nothing here matches it. */

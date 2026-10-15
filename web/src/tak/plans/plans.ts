@@ -72,7 +72,7 @@ const openDb = (): Promise<IDBDatabase | undefined> => {
   return dbPromise;
 };
 
-const write = async (plan: Plan | { id: string; deleted: true }) => {
+const write = async (plan: Stored) => {
   const db = await openDb();
   if (!db) throw new Error("this browser keeps no stored data here");
   const tx = db.transaction(STORE, "readwrite");
@@ -85,15 +85,38 @@ const write = async (plan: Plan | { id: string; deleted: true }) => {
   });
 };
 
-const persist = (plan: Plan | { id: string; deleted: true }) =>
-  write(plan).catch((err: unknown) =>
-    notifications.show({
-      id: "plan-not-saved",
-      color: "danger",
-      title: "Plan not saved in this browser",
-      message: `It will be lost on reload; export it to keep it. (${err instanceof Error ? err.message : String(err)})`,
-    }),
-  );
+type Stored = Plan | { id: string; deleted: true };
+
+/**
+ * Plans live in each tab's memory and are written whole, so a second tab editing
+ * an older copy would overwrite the first's drafts; each written plan is passed
+ * to the other tabs of this browser, which take it if it's newer.
+ * ponytail: two tabs saving the same plan within one write's time still race; last write wins.
+ */
+const tabs = typeof BroadcastChannel === "undefined" ? undefined : new BroadcastChannel(DB_NAME);
+tabs?.addEventListener("message", ({ data }: MessageEvent<Stored>) => {
+  const own = state.plans.find((p) => p.id === data.id);
+  if ("deleted" in data) {
+    if (!own) return;
+    set({ plans: state.plans.filter((p) => p.id !== data.id) });
+    if (state.activeId === data.id) setActivePlan(undefined);
+  } else if (!own || own.updated < data.updated) {
+    const plans = [data, ...state.plans.filter((p) => p.id !== data.id)];
+    set({ plans: plans.sort((a, b) => b.updated - a.updated) });
+  }
+});
+
+const persist = (plan: Stored) =>
+  write(plan)
+    .then(() => tabs?.postMessage(plan))
+    .catch((err: unknown) =>
+      notifications.show({
+        id: "plan-not-saved",
+        color: "danger",
+        title: "Plan not saved in this browser",
+        message: `It will be lost on reload; export it to keep it. (${err instanceof Error ? err.message : String(err)})`,
+      }),
+    );
 
 let loading: Promise<void> | undefined;
 

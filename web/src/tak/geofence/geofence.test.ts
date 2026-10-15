@@ -226,3 +226,15 @@ test("a breach alert to TAK reads back as ATAK's Geo-fence Breached from us", ()
   expect(alert.remarks).toBe("walker entered Area");
   expect(alert.geometry.coordinates).toEqual([25.05, 60.05]);
 });
+
+test("a fence across ±180° holds what's between its edges, not the rest of the globe", () => {
+  const ring =
+    '<link point="10,179"/><link point="10,-179"/><link point="11,-179"/><link point="11,179"/><link point="10,179"/>';
+  const fence = itemOf(
+    event({ uid: "dateline", type: "u-d-f", lat: 10.5, lon: 180, detail: ring }),
+  );
+  expect(fenceContains(fence, [179.5, 10.5])).toBe(true);
+  expect(fenceContains(fence, [-179.5, 10.5])).toBe(true);
+  expect(fenceContains(fence, [0, 10.5])).toBe(false);
+  expect(fenceContains(fence, [25, 10.5])).toBe(false);
+});
