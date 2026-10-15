@@ -222,6 +222,7 @@ export const ItemDetails = ({
       <Group gap="xs">
         <Badge
           variant="outline"
+          tt="none"
           color={status === "online" ? "success" : status === "stale" ? "warning" : "gray"}
         >
           {STATUS_LABEL[status]}

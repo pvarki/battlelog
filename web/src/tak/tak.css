@@ -43,8 +43,9 @@
   color: var(--mantine-color-dark-0);
 }
 
+/* An edge bar, not a filled block: the open drawer beside it already says which one is open. */
 .tak-rail-button[aria-pressed="true"] {
-  background: var(--mantine-color-dark-5);
+  box-shadow: inset 2px 0 0 var(--mantine-color-accent-4);
   color: var(--mantine-color-accent-4);
 }
 
@@ -161,6 +162,12 @@
     transform: scale(1.6);
     opacity: 0;
   }
+}
+
+/* Hairlines between the bar's facts, so they read as fields rather than loose words. */
+.tak-statusbar > * + * {
+  padding-left: var(--mantine-spacing-md);
+  border-left: 1px solid var(--mantine-color-dark-4);
 }
 
 .tak-statusbar {
@@ -281,7 +288,7 @@
   white-space: nowrap;
 }
 
-.tak-workspace[data-mobile] .tak-statusbar > :not(:first-child):not(:nth-child(2)) {
+.tak-workspace[data-mobile] .tak-statusbar > :not(:first-child) {
   display: none;
 }
 
@@ -332,9 +339,10 @@
   overflow-x: auto;
 }
 
-/* No pointer, no cursor position: give its slot to the connection line. */
+/* No pointer, no cursor position; no keyboard to press "/" on. */
 @media (hover: none) {
-  .tak-statusbar > :first-child {
+  .tak-cursor-readout,
+  .tak-kbd-hint {
     display: none;
   }
 }
@@ -365,11 +373,20 @@
   background: var(--mantine-color-dark-4);
 }
 
+/* One group like MapLibre's zoom control: a shared frame, buttons split by hairlines. */
 .tak-map-buttons {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   clear: both;
+  overflow: hidden;
+  border: 1px solid var(--tak-chrome-bd);
+  border-radius: var(--tak-chrome-radius);
+  background: var(--tak-chrome-bg);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-map-buttons > * + * {
+  border-top: 1px solid var(--mantine-color-dark-4);
 }
 
 .tak-locate[aria-pressed="true"],
@@ -524,7 +541,6 @@
 }
 
 .tak-map .maplibregl-ctrl-group,
-.tak-map-buttons .mantine-ActionIcon-root,
 .tak-view-status {
   background: var(--tak-chrome-bg);
   border: 1px solid var(--tak-chrome-bd);
@@ -556,11 +572,13 @@
 
 /* Mantine sets the size inline per button, so the box is sized directly. */
 .tak-map-buttons .mantine-ActionIcon-root {
-  width: var(--tak-chrome-size);
-  min-width: var(--tak-chrome-size);
-  height: var(--tak-chrome-size);
-  min-height: var(--tak-chrome-size);
-  border-radius: var(--tak-chrome-radius);
+  width: calc(var(--tak-chrome-size) - 2px);
+  min-width: calc(var(--tak-chrome-size) - 2px);
+  height: calc(var(--tak-chrome-size) - 2px);
+  min-height: calc(var(--tak-chrome-size) - 2px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--mantine-color-dark-0);
 }
 
@@ -662,4 +680,8 @@
   .tak-draw-tools .mantine-Button-section[data-position="left"] {
     margin-inline-end: 0;
   }
+}
+
+.tak-workspace[data-mobile] .tak-rail-button[aria-pressed="true"] {
+  box-shadow: inset 0 2px 0 var(--mantine-color-accent-4);
 }

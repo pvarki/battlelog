@@ -43,6 +43,7 @@ One look across pages, dashboards, widgets and the Map page:
 - **Icons**: Tabler, 14px in buttons and menu items, 16px in `ActionIcon`s, default stroke; `stroke={1.5}` only on the large navigation icons (the map rail, the mobile bottom bar).
 - **Time**: `time.ts` only: absolute times in the house format (`formatDateTime` and friends), relative ones with `formatAge`. Never `toLocale*` or `Intl` with a browser locale.
 - **Close/back** in panels: `CloseButton size="sm"`; back is an `ActionIcon` with `IconArrowLeft` 16.
+- **Map drawers**: a drawer's own actions go in its header through `PanelActions` (`tak/panel.tsx`), beside the title; no help sentence under the title (put it in the empty state or a tooltip). Buttons keep their own width; a full-width button reads as the page's one main action. A panel's secondary and destructive actions go in a "More" menu, Delete last.
 
 ## Invariants
 

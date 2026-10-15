@@ -94,6 +94,7 @@ export const StatusBadge = ({ status }: { status: ItemStatus }) =>
     <Badge
       size="xs"
       variant="outline"
+      tt="none"
       color={status === "offline" ? "gray" : "warning"}
       style={{ flexShrink: 0 }}
     >

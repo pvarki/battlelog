@@ -1,4 +1,4 @@
-import { Select } from "@mantine/core";
+import { Kbd, Select } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
 import { type CoordFormat, formatCoord, parseCoord } from "./coords.ts";
@@ -41,6 +41,12 @@ export const SearchBox = ({ items, coordFormat, onPickItem, onGoTo, ref }: Props
       title="Search the map (/)"
       aria-label="Search the map"
       leftSection={<IconSearch size={16} />}
+      rightSection={
+        <Kbd size="xs" className="tak-kbd-hint">
+          /
+        </Kbd>
+      }
+      rightSectionPointerEvents="none"
       data={data}
       // Matching happens above; the list already holds only hits.
       filter={({ options }) => options}

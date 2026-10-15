@@ -35,10 +35,7 @@ export const StatusBar = ({
   const cursor = useCursor(pointer);
 
   return (
-    <Group className="tak-statusbar" gap="lg" wrap="nowrap" role="status">
-      <Text fz="xs" className="tak-mono" miw={190}>
-        {cursor ? formatCoord(cursor, coordFormat) : "—"}
-      </Text>
+    <Group className="tak-statusbar" gap="md" wrap="nowrap" role="status">
       <Text fz="xs" c={status.connection === "live" ? undefined : "warning.4"}>
         {CONNECTION_TEXT[status.connection]}
         {status.lastMessageAt ? ` · last message ${formatAge(now - status.lastMessageAt)} ago` : ""}
@@ -62,13 +59,17 @@ export const StatusBar = ({
       <Text fz="xs" c={planName ? "accent.4" : "dimmed"} fw={planName ? 600 : undefined}>
         {planName ? `Changes go to plan ${planName}` : "Changes go to TAK"}
       </Text>
-      <Text fz="xs" ml="auto" c={callsign ? undefined : "warning.4"}>
-        {callsign === undefined
-          ? ""
-          : callsign
-            ? `Signed in as ${callsign}`
-            : "No callsign — changes to TAK are disabled"}
-      </Text>
+      {/* The header names the signed-in callsign; only its absence needs saying here. */}
+      {callsign === "" && (
+        <Text fz="xs" c="warning.4">
+          No callsign: changes to TAK are disabled
+        </Text>
+      )}
+      {cursor && (
+        <Text fz="xs" className="tak-mono tak-cursor-readout" ml="auto" title="Under the pointer">
+          {formatCoord(cursor, coordFormat)}
+        </Text>
+      )}
     </Group>
   );
 };
