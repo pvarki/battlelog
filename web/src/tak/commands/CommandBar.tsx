@@ -121,7 +121,7 @@ export const CommandBar = ({ commands, search, byId }: Props) => {
         onSpotlightOpen={afterRender}
         onSpotlightClose={reset}
         scrollable
-        maxHeight={420}
+        className="tak-command-bar"
         overlayProps={{ backgroundOpacity: 0.35, blur: 0 }}
         classNames={{ action: "tak-command-action" }}
       >

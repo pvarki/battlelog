@@ -160,6 +160,11 @@
   border-color: var(--mantine-color-dark-3);
 }
 
+/* Spotlight sizes its list in rem, which the map's smaller root font throws off: the footer got cut. */
+.tak-command-bar .mantine-Spotlight-actionsList {
+  max-height: min(420px, 100dvh - 230px);
+}
+
 .tak-command-action {
   position: relative;
 }
