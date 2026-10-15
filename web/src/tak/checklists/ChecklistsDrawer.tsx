@@ -3,6 +3,7 @@ import {
   Button,
   Group,
   Loader,
+  Menu,
   Modal,
   ScrollArea,
   Select,
@@ -21,7 +22,7 @@ import { useNow } from "../../use-now.ts";
 import type { Sender } from "../identity.ts";
 import type { MissionFile } from "../missions/missions.ts";
 import { useWrite } from "../missions/shared.tsx";
-import { PanelActions } from "../panel.tsx";
+import { PanelActions, PanelMenu } from "../panel.tsx";
 import {
   createTemplate,
   fetchActiveChecklists,
@@ -137,8 +138,15 @@ const NewChecklist = ({
   );
 };
 
-const NewTemplate = ({ writer }: { writer: Sender | undefined }) => {
-  const [opened, setOpened] = useState(false);
+const NewTemplate = ({
+  writer,
+  opened,
+  onClose,
+}: {
+  writer: Sender | undefined;
+  opened: boolean;
+  onClose: () => void;
+}) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [taskText, setTaskText] = useState("");
@@ -152,54 +160,51 @@ const NewTemplate = ({ writer }: { writer: Sender | undefined }) => {
     if (!writer) return;
     const template = { name: trimmed, description: description.trim(), tasks };
     if (await run("Template not created", () => createTemplate(writer, template))) {
-      setOpened(false);
+      onClose();
       setName("");
       setDescription("");
       setTaskText("");
     }
   };
   return (
-    <>
-      <NewButton label="New template" writer={writer} onClick={() => setOpened(true)} />
-      <Modal opened={opened} onClose={() => setOpened(false)} title="New template" centered>
-        <Stack gap="sm">
-          <TextInput
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.currentTarget.value)}
-            data-autofocus
-          />
-          <Textarea
-            label="Description"
-            autosize
-            minRows={2}
-            value={description}
-            onChange={(e) => setDescription(e.currentTarget.value)}
-          />
-          <Textarea
-            label="Tasks"
-            description="One per line"
-            autosize
-            minRows={5}
-            value={taskText}
-            onChange={(e) => setTaskText(e.currentTarget.value)}
-          />
-          <Group justify="flex-end" gap="xs">
-            <Button size="xs" variant="default" onClick={() => setOpened(false)}>
-              Cancel
-            </Button>
-            <Button
-              size="xs"
-              loading={busy}
-              disabled={!trimmed || tasks.length === 0}
-              onClick={() => void create()}
-            >
-              Create
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
+    <Modal opened={opened} onClose={onClose} title="New template" centered>
+      <Stack gap="sm">
+        <TextInput
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.currentTarget.value)}
+          data-autofocus
+        />
+        <Textarea
+          label="Description"
+          autosize
+          minRows={2}
+          value={description}
+          onChange={(e) => setDescription(e.currentTarget.value)}
+        />
+        <Textarea
+          label="Tasks"
+          description="One per line"
+          autosize
+          minRows={5}
+          value={taskText}
+          onChange={(e) => setTaskText(e.currentTarget.value)}
+        />
+        <Group justify="flex-end" gap="xs">
+          <Button size="xs" variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            size="xs"
+            loading={busy}
+            disabled={!trimmed || tasks.length === 0}
+            onClick={() => void create()}
+          >
+            Create
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 };
 
@@ -272,6 +277,8 @@ export const ChecklistsDrawer = ({
 
 const Checklists = ({ writer }: { writer: Sender | undefined }) => {
   const [open, setOpen] = useState<string>();
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const readOnlyReason = useContext(ReadOnlyReason);
   const [checklists, setChecklists] = useState<Checklist[] | null>();
   const writerUid = writer?.uid;
   useEffect(() => {
@@ -296,10 +303,22 @@ const Checklists = ({ writer }: { writer: Sender | undefined }) => {
   return (
     <Stack gap="xs" h="100%">
       <PanelActions>
-        <NewTemplate writer={writer} />
-        <NewChecklist writer={writer} onStarted={setOpen} />
+        <PanelMenu>
+          <Menu.Item
+            leftSection={<IconPlus size={14} />}
+            disabled={!writer}
+            title={writer ? undefined : readOnlyReason}
+            onClick={() => setTemplateOpen(true)}
+          >
+            New template…
+          </Menu.Item>
+        </PanelMenu>
       </PanelActions>
+      <NewTemplate writer={writer} opened={templateOpen} onClose={() => setTemplateOpen(false)} />
       <ChecklistList checklists={checklists} onOpen={setOpen} />
+      <Group>
+        <NewChecklist writer={writer} onStarted={setOpen} />
+      </Group>
     </Stack>
   );
 };

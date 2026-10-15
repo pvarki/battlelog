@@ -40,11 +40,14 @@ export const PanelActions = ({ children }: { children: ReactNode }) => {
   return slot ? createPortal(children, slot) : null;
 };
 
-/** A drawer's few display options, under ⋯ in its header; what's listed belongs in its search. */
-export const ViewMenu = ({ children }: { children: ReactNode }) => (
+/**
+ * A drawer's ⋯ menu, its header's only control besides close: secondary actions,
+ * then its few display options. The main action sits at the drawer's foot.
+ */
+export const PanelMenu = ({ children }: { children: ReactNode }) => (
   <Menu position="bottom-end" withinPortal>
     <Menu.Target>
-      <ActionIcon variant="subtle" color="gray" aria-label="View options" title="View options">
+      <ActionIcon variant="subtle" color="gray" aria-label="More options" title="More options">
         <IconDots size={16} />
       </ActionIcon>
     </Menu.Target>

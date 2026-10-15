@@ -50,7 +50,7 @@ import {
 } from "../items.ts";
 import { useMapView } from "../map/camera.ts";
 import { groupOf, groupTree, isHidden, type Group as OverlayGroup } from "../overlays.ts";
-import { PanelActions, ViewMenu, ViewOption } from "../panel.tsx";
+import { PanelActions, PanelMenu, ViewOption } from "../panel.tsx";
 import { kmlBlob } from "../plans/overlay-files.ts";
 import {
   type Affiliation,
@@ -575,7 +575,7 @@ export const ItemsDrawer = ({
   return (
     <Stack gap="xs" h="100%">
       <PanelActions>
-        <ViewMenu>
+        <PanelMenu>
           <ViewOption checked={compact} onChange={setCompact}>
             Compact rows
           </ViewOption>
@@ -594,7 +594,7 @@ export const ItemsDrawer = ({
           >
             Collapse all groups
           </Menu.Item>
-        </ViewMenu>
+        </PanelMenu>
       </PanelActions>
       <TextInput
         size="xs"

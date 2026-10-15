@@ -3,15 +3,15 @@ import {
   Badge,
   Box,
   Button,
-  FileButton,
   Group,
+  Menu,
   ScrollArea,
   Stack,
   Text,
   TextInput,
-  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
+import { useFileDialog } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconDownload, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useState } from "react";
@@ -27,7 +27,7 @@ import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { count } from "../items.ts";
 import type { Mission } from "../missions/missions.ts";
-import { PanelActions } from "../panel.tsx";
+import { PanelActions, PanelMenu } from "../panel.tsx";
 import { sendPlan } from "../send.ts";
 import { kmlBlob } from "./overlay-files.ts";
 import { PublishToMission } from "./PublishToMission.tsx";
@@ -261,43 +261,33 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
 export const PlansDrawer = (props: Props) => {
   const [openId, setOpenId] = useState<string>();
   const now = useNow(60_000);
+  const importDialog = useFileDialog({
+    accept: IMPORT_ACCEPT,
+    multiple: true,
+    resetOnOpen: true,
+    onChange: (files) => {
+      if (!files?.length) return;
+      importPlan(Array.from(files), props.sender).then(
+        (plan) => setOpenId(plan.id),
+        (err) =>
+          notifications.show({ color: "danger", title: "Couldn't import", message: String(err) }),
+      );
+    },
+  });
   const open = props.state.plans.find((p) => p.id === openId);
   if (open) return <PlanDetail {...props} plan={open} onBack={() => setOpenId(undefined)} />;
   return (
     <Stack gap="xs" h="100%">
       <PanelActions>
-        <FileButton
-          accept={IMPORT_ACCEPT}
-          multiple
-          onChange={(files) =>
-            files.length > 0 &&
-            importPlan(files, props.sender).then(
-              (plan) => setOpenId(plan.id),
-              (err) =>
-                notifications.show({
-                  color: "danger",
-                  title: "Couldn't import",
-                  message: String(err),
-                }),
-            )
-          }
-        >
-          {(p) => (
-            <Tooltip label="Import a data package, KML, GPX, GeoJSON or shapefile" withArrow>
-              <ActionIcon {...p} variant="subtle" color="gray" aria-label="Import a plan">
-                <IconUpload size={16} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-        </FileButton>
-        <Button
-          size="xs"
-          variant="default"
-          leftSection={<IconPlus size={14} />}
-          onClick={() => setOpenId(createPlan(`Plan ${props.state.plans.length + 1}`).id)}
-        >
-          New plan
-        </Button>
+        <PanelMenu>
+          <Menu.Item
+            leftSection={<IconUpload size={14} />}
+            title="A data package, KML, GPX, GeoJSON or shapefile"
+            onClick={importDialog.open}
+          >
+            Import plan…
+          </Menu.Item>
+        </PanelMenu>
       </PanelActions>
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         {props.state.plans.length === 0 ? (
@@ -328,6 +318,16 @@ export const PlansDrawer = (props: Props) => {
         )}
         <InboxSection onOpenPlan={setOpenId} clientUid={props.clientUid} />
       </ScrollArea>
+      <Group>
+        <Button
+          size="xs"
+          variant="default"
+          leftSection={<IconPlus size={14} />}
+          onClick={() => setOpenId(createPlan(`Plan ${props.state.plans.length + 1}`).id)}
+        >
+          New plan
+        </Button>
+      </Group>
     </Stack>
   );
 };

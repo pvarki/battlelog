@@ -18,7 +18,7 @@ import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
 import { count } from "../items.ts";
-import { PanelActions, ViewMenu, ViewOption } from "../panel.tsx";
+import { PanelActions, PanelMenu, ViewOption } from "../panel.tsx";
 import { missionTree, useMissionParents } from "./hierarchy.ts";
 import { MissionDetail } from "./MissionDetail.tsx";
 import type { Mission } from "./missions.ts";
@@ -225,8 +225,7 @@ export const MissionsDrawer = (props: MissionsDrawerProps) => {
   return (
     <Stack gap="xs" h="100%">
       <PanelActions>
-        <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
-        <ViewMenu>
+        <PanelMenu>
           <ViewOption
             checked={view === "tree"}
             onChange={(tree) => setView(tree ? "tree" : "list")}
@@ -236,12 +235,15 @@ export const MissionsDrawer = (props: MissionsDrawerProps) => {
           <ViewOption checked={hideEmpty} onChange={setHideEmpty}>
             Hide empty feeds
           </ViewOption>
-        </ViewMenu>
+        </PanelMenu>
       </PanelActions>
       {props.clientUid && (
         <MyInvitations state={props.state} clientUid={props.clientUid} onOpen={props.onOpen} />
       )}
       <MissionList {...props} view={view} hideEmpty={hideEmpty} />
+      <Group>
+        <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
+      </Group>
     </Stack>
   );
 };

@@ -20,7 +20,7 @@ import {
   teamColor,
 } from "../items.ts";
 import { useMapView } from "../map/camera.ts";
-import { PanelActions, ViewMenu, ViewOption } from "../panel.tsx";
+import { PanelActions, PanelMenu, ViewOption } from "../panel.tsx";
 import { mergeContacts, useKnownClients } from "./known-clients.ts";
 
 type Props = {
@@ -151,11 +151,11 @@ export const ContactsDrawer = ({
   return (
     <Stack gap="xs" h="100%">
       <PanelActions>
-        <ViewMenu>
+        <PanelMenu>
           <ViewOption checked={showDisconnected} onChange={setShowDisconnected}>
             Show disconnected
           </ViewOption>
-        </ViewMenu>
+        </PanelMenu>
       </PanelActions>
       {children}
       <TextInput
