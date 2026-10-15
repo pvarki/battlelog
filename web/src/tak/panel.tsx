@@ -141,34 +141,44 @@ export const SettingRow = ({
   </Group>
 );
 
-const DRAWER_MIN = 260;
-const DRAWER_MAX = 640;
+const PANEL_MIN = 260;
+const PANEL_MAX = 640;
 export const DRAWER_WIDTH = 320;
+export const DETAILS_WIDTH = 340;
 const KEY_STEP = 16;
 
-const clampWidth = (w: number) => Math.round(Math.min(DRAWER_MAX, Math.max(DRAWER_MIN, w)));
+const clampWidth = (w: number) => Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, w)));
 
 /**
- * The drag handle on a drawer's edge. Dragging sets the width on the drawer
- * itself and saves it on release, so the workspace doesn't re-render per move.
+ * The drag handle on a side panel's inner edge. Dragging sets the width on the
+ * panel itself and saves it on release, so the workspace doesn't re-render per move.
  */
 export const ResizeHandle = ({
   width,
   onWidth,
+  defaultWidth,
+  label,
+  edge = "right",
 }: {
   width: number;
   onWidth: (width: number) => void;
+  defaultWidth: number;
+  label: string;
+  /** Which edge of the panel it sits on: the drawer's right, the details panel's left. */
+  edge?: "left" | "right";
 }) => {
+  // Towards the map widens the panel.
+  const outwards = edge === "right" ? 1 : -1;
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
-    const drawer = e.currentTarget.parentElement;
-    if (!drawer) return;
+    const panel = e.currentTarget.parentElement;
+    if (!panel) return;
     e.preventDefault();
     const startX = e.clientX;
     let next = width;
     const onMove = (m: PointerEvent) => {
-      next = clampWidth(width + m.clientX - startX);
-      drawer.style.setProperty("--tak-drawer-width", `${next}px`);
+      next = clampWidth(width + outwards * (m.clientX - startX));
+      panel.style.setProperty("--tak-panel-width", `${next}px`);
     };
     const onUp = () => {
       document.removeEventListener("pointermove", onMove);
@@ -187,21 +197,22 @@ export const ResizeHandle = ({
     // biome-ignore lint/a11y/useSemanticElements: a focusable separator is the ARIA pattern for a resize handle.
     <div
       className="tak-resize"
+      data-edge={edge}
       role="separator"
       aria-orientation="vertical"
-      aria-label="Drawer width"
+      aria-label={label}
       aria-valuenow={width}
-      aria-valuemin={DRAWER_MIN}
-      aria-valuemax={DRAWER_MAX}
+      aria-valuemin={PANEL_MIN}
+      aria-valuemax={PANEL_MAX}
       tabIndex={0}
       title="Drag to resize · double-click to reset"
       onPointerDown={onPointerDown}
-      onDoubleClick={() => onWidth(DRAWER_WIDTH)}
+      onDoubleClick={() => onWidth(defaultWidth)}
       onKeyDown={(e) => {
         const step = e.key === "ArrowRight" ? KEY_STEP : e.key === "ArrowLeft" ? -KEY_STEP : 0;
         if (!step) return;
         e.preventDefault();
-        onWidth(clampWidth(width + step));
+        onWidth(clampWidth(width + outwards * step));
       }}
     />
   );

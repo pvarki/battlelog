@@ -66,7 +66,7 @@ import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { feedItemUids, useMissions, useMissionsSync } from "./missions/store.ts";
 import { useMissionSubscriptions } from "./missions/writes.ts";
-import { DRAWER_WIDTH, Panel, ResizeHandle } from "./panel.tsx";
+import { DETAILS_WIDTH, DRAWER_WIDTH, Panel, ResizeHandle } from "./panel.tsx";
 import { draftItems, workspacePicture } from "./picture.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { usePlans } from "./plans/plans.ts";
@@ -160,6 +160,10 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const [drawerWidth, setDrawerWidth] = useLocalStorage({
     key: "battlelog.tak.drawerWidth",
     defaultValue: DRAWER_WIDTH,
+  });
+  const [detailsWidth, setDetailsWidth] = useLocalStorage({
+    key: "battlelog.tak.detailsWidth",
+    defaultValue: DETAILS_WIDTH,
   });
   const {
     selectedUid,
@@ -770,12 +774,17 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         <aside
           className="tak-drawer"
           aria-label={DRAWERS[drawer].label}
-          style={{ "--tak-drawer-width": `${drawerWidth}px` } as CSSProperties}
+          style={{ "--tak-panel-width": `${drawerWidth}px` } as CSSProperties}
         >
           <Panel title={DRAWERS[drawer].label} onClose={() => setDrawer(null)}>
             {drawerContent(drawer)}
           </Panel>
-          <ResizeHandle width={drawerWidth} onWidth={setDrawerWidth} />
+          <ResizeHandle
+            width={drawerWidth}
+            onWidth={setDrawerWidth}
+            defaultWidth={DRAWER_WIDTH}
+            label="Drawer width"
+          />
         </aside>
       )}
 
@@ -1005,8 +1014,19 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       </div>
 
       {!isMobile && (details || eventDetails) && (
-        <aside className="tak-details" aria-label="Item details">
-          {details || eventDetails}
+        <aside
+          className="tak-details"
+          aria-label="Item details"
+          style={{ "--tak-panel-width": `${detailsWidth}px` } as CSSProperties}
+        >
+          <div className="tak-details-body">{details || eventDetails}</div>
+          <ResizeHandle
+            width={detailsWidth}
+            onWidth={setDetailsWidth}
+            defaultWidth={DETAILS_WIDTH}
+            label="Details width"
+            edge="left"
+          />
         </aside>
       )}
 
