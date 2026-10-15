@@ -1,72 +1,25 @@
-import {
-  ActionIcon,
-  Anchor,
-  Badge,
-  Button,
-  CloseButton,
-  CopyButton,
-  Group,
-  Image,
-  Menu,
-  ScrollArea,
-  Stack,
-  Switch,
-  Text,
-  Title,
-  Tooltip,
-} from "@mantine/core";
-import { useFileDialog } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
-import {
-  IconCheck,
-  IconChevronDown,
-  IconCopy,
-  IconCurrentLocation,
-  IconDownload,
-  IconFolderPlus,
-  IconNotes,
-  IconPencil,
-  IconPhoto,
-  IconShape,
-  IconTrash,
-  IconX,
-} from "@tabler/icons-react";
-import { type ReactNode, useState } from "react";
-import { SectionHeading } from "../../components/SectionHeading.tsx";
-import { formatAge, formatDateTime } from "../../time.ts";
+import { Badge, CloseButton, Group, ScrollArea, Stack, Switch, Text, Title } from "@mantine/core";
+import { useState } from "react";
 import { useNow } from "../../use-now.ts";
 import { useWrites, type WriteState } from "../commands.ts";
-import { type RecipientGroup, SendTo } from "../contacts/SendTo.tsx";
-import { type CoordFormat, formatCoord } from "../coords.ts";
+import type { RecipientGroup } from "../contacts/SendTo.tsx";
+import type { CoordFormat } from "../coords.ts";
 import type { CotEvent, TakItem } from "../cot.ts";
-import { formatDistance } from "../geo.ts";
 import { GeofenceSection } from "../geofence/GeofenceSection.tsx";
 import { canBeFence } from "../geofence/geofence.ts";
-import { isImage, useAttachments } from "../inbox/import.ts";
 import {
-  anchorOf,
   describeType,
-  hasPosition,
   labelOf,
   STATUS_LABEL,
-  shortDevice,
-  sidcOf,
   statusOf,
   teamColor,
-  UNIT_STATUSES,
   type UnitStatus,
-  unitStatusOf,
 } from "../items.ts";
-import { AddToMission } from "../missions/AddToMission.tsx";
 import type { Mission } from "../missions/missions.ts";
-import { contentLinks } from "../rest.ts";
-import { sendItem } from "../send.ts";
-import { AttachPhoto } from "./AttachPhoto.tsx";
-import { DeleteItem } from "./DeleteItem.tsx";
 import { EditItem } from "./EditItem.tsx";
-import { exportTrack, TRACK_FORMATS } from "./ExportTrack.tsx";
-import { ItemLogEntries, LogItemDialog } from "./ItemLog.tsx";
-import { VideoFeed } from "./VideoFeed.tsx";
+import { ItemActionBar } from "./ItemActionBar.tsx";
+import { ItemFields } from "./ItemFields.tsx";
+import { isPointItem, itemActions } from "./item-actions.ts";
 
 type Props = {
   item: TakItem;
@@ -108,39 +61,6 @@ type Props = {
   onClose: () => void;
 };
 
-const Field = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div>
-    <Text fz="xs" c="dimmed">
-      {label}
-    </Text>
-    <Text fz="sm" component="div">
-      {children}
-    </Text>
-  </div>
-);
-
-/** Another item by name, selected on click; just its uid when the picture doesn't hold it. */
-const ItemLink = ({
-  uid,
-  items,
-  onSelect,
-}: {
-  uid: string;
-  items: TakItem[];
-  onSelect: (uid: string) => void;
-}) => {
-  const target = items.find((i) => i.uid === uid);
-  if (!target) return <span className="tak-mono">{uid}</span>;
-  return (
-    <Anchor component="button" type="button" fz="sm" onClick={() => onSelect(uid)}>
-      {labelOf(target)}
-    </Anchor>
-  );
-};
-
-const absoluteTime = (ms: number) => formatDateTime(ms);
-
-/** Everything known about the selected item. Editing actions arrive with the editing slice. */
 const WRITE_BADGE: Record<WriteState, { label: string; color: string }> = {
   sending: { label: "Sending…", color: "gray" },
   confirmed: { label: "Saved to TAK", color: "success" },
@@ -148,6 +68,7 @@ const WRITE_BADGE: Record<WriteState, { label: string; color: string }> = {
   failed: { label: "Not sent to TAK", color: "danger" },
 };
 
+/** Everything known about the selected item, and what can be done to it. */
 export const ItemDetails = ({
   item,
   coordFormat,
@@ -175,35 +96,15 @@ export const ItemDetails = ({
   const liveNow = useNow(10_000);
   const now = replayAt ?? liveNow;
   const [editing, setEditing] = useState<false | { status?: UnitStatus }>(false);
-  const [loggingAt, setLoggingAt] = useState<number>();
-  const [dialog, setDialog] = useState<"feed" | "delete">();
-  const [photo, setPhoto] = useState<File | null>(null);
-  const photoDialog = useFileDialog({
-    accept: "image/*",
-    multiple: false,
-    resetOnOpen: true,
-    onChange: (files) => setPhoto(files?.[0] ?? null),
-  });
   const write = useWrites().get(item.uid);
-  const received = useAttachments(item.uid);
-  const photos = [
-    ...contentLinks(item.remarks),
-    ...received.filter((f) => isImage(f.name)).map((f) => f.url),
-  ];
-  const files = received.filter((f) => !isImage(f.name));
-  const isUnit = item.type.startsWith("a-") && !item.team;
-  const status2525 = isUnit ? unitStatusOf(sidcOf(item) ?? "") : undefined;
   const status = statusOf(item, now);
-  const position = anchorOf(item);
-  const coordinate = formatCoord(position, coordFormat);
-  const secondary = formatCoord(position, coordFormat === "dd" ? "mgrs" : "dd");
-  const canMove = item.geometry.type === "Point" && !item.ellipse;
-  const spi = item.sensor || item.vehicle ? items.find((i) => i.sensorUid === item.uid) : undefined;
-
-  const markable = isUnit && !readOnlyReason && status2525 !== "destroyed";
-  const canAddToFeed = !!clientUid && !item.draft && allMissions.length > 0;
-  const canAttach = !!callsign && !readOnlyReason && !planActive && !item.draft;
-  const hasMore = canAddToFeed || canAttach || !item.draft || markable || !readOnlyReason;
+  const actions = itemActions(item, {
+    readOnlyReason,
+    callsign,
+    planActive,
+    clientUid,
+    missionCount: allMissions.length,
+  });
 
   return (
     <Stack gap="sm" h="100%">
@@ -248,120 +149,24 @@ export const ItemDetails = ({
       )}
 
       {!editing && (
-        <Group gap={6}>
-          <Button
-            variant="default"
-            size="xs"
-            leftSection={<IconCurrentLocation size={14} />}
-            onClick={onCenter}
-            disabled={!hasPosition(item)}
-            title="Centre on the map (C)"
-          >
-            Centre
-          </Button>
-          {!readOnlyReason && (
-            <Button
-              variant="default"
-              size="xs"
-              leftSection={<IconPencil size={14} />}
-              onClick={() => setEditing({})}
-            >
-              Edit
-            </Button>
-          )}
-          {onEditShape && !readOnlyReason && (
-            <Button
-              variant="default"
-              size="xs"
-              leftSection={<IconShape size={14} />}
-              loading={editShapeLoading}
-              onClick={onEditShape}
-            >
-              {item.geometry.type === "Point" && !item.ellipse ? "Move" : "Shape"}
-            </Button>
-          )}
-          {!item.draft && (
-            <SendTo
-              what={labelOf(item)}
-              contacts={contacts}
-              note={planActive ? "Sent now, not staged in the active plan." : undefined}
-              disabledReason={sendReason}
-              onSend={(callsigns) => sendItem(item, callsigns)}
-            />
-          )}
-          {hasMore && (
-            <Menu position="bottom-end" withinPortal>
-              <Menu.Target>
-                <Button variant="default" size="xs" rightSection={<IconChevronDown size={14} />}>
-                  More
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {canAddToFeed && (
-                  <Menu.Item
-                    leftSection={<IconFolderPlus size={14} />}
-                    onClick={() => setDialog("feed")}
-                  >
-                    Add to feed…
-                  </Menu.Item>
-                )}
-                {canAttach && (
-                  <Menu.Item
-                    leftSection={<IconPhoto size={14} />}
-                    disabled={write === "sending"}
-                    onClick={photoDialog.open}
-                  >
-                    Attach photo…
-                  </Menu.Item>
-                )}
-                {!item.draft && (
-                  <Menu.Item
-                    leftSection={<IconNotes size={14} />}
-                    onClick={() => setLoggingAt(replayAt ?? Date.now())}
-                  >
-                    Log this…
-                  </Menu.Item>
-                )}
-                {canMove &&
-                  !item.draft &&
-                  TRACK_FORMATS.map((format) => (
-                    <Menu.Item
-                      key={format}
-                      leftSection={<IconDownload size={14} />}
-                      onClick={() =>
-                        void exportTrack(item, format).catch((err: Error) =>
-                          notifications.show({ color: "warning", message: err.message }),
-                        )
-                      }
-                    >
-                      Track {format.toUpperCase()}
-                    </Menu.Item>
-                  ))}
-                {markable && (
-                  <Menu.Item
-                    color="danger"
-                    leftSection={<IconX size={14} />}
-                    onClick={() => setEditing({ status: "destroyed" })}
-                  >
-                    Mark destroyed
-                  </Menu.Item>
-                )}
-                {!readOnlyReason && (
-                  <>
-                    <Menu.Divider />
-                    <Menu.Item
-                      color="danger"
-                      leftSection={<IconTrash size={14} />}
-                      onClick={() => setDialog("delete")}
-                    >
-                      Delete…
-                    </Menu.Item>
-                  </>
-                )}
-              </Menu.Dropdown>
-            </Menu>
-          )}
-        </Group>
+        <ItemActionBar
+          item={item}
+          actions={actions}
+          write={write}
+          callsign={callsign}
+          contacts={contacts}
+          sendReason={sendReason}
+          planActive={planActive}
+          allMissions={allMissions}
+          clientUid={clientUid}
+          replayAt={replayAt}
+          onSubmit={onSubmit}
+          onCenter={onCenter}
+          onEdit={() => setEditing({})}
+          onMarkDestroyed={() => setEditing({ status: "destroyed" })}
+          onEditShape={onEditShape}
+          editShapeLoading={editShapeLoading}
+        />
       )}
       {readOnlyReason && !editing && (
         <Text fz="xs" c="dimmed" role="note">
@@ -371,7 +176,7 @@ export const ItemDetails = ({
 
       <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         <Stack gap="sm">
-          {canMove && !editing && (
+          {isPointItem(item) && !editing && (
             <Switch
               size="xs"
               label="Show track"
@@ -381,148 +186,26 @@ export const ItemDetails = ({
               onChange={onToggleTrack}
             />
           )}
-          {hasPosition(item) ? (
-            <Field label={item.geometry.type === "Point" ? "Position" : "First point"}>
-              <Group gap={4} wrap="nowrap">
-                <span className="tak-mono">{coordinate}</span>
-                <CopyButton value={coordinate}>
-                  {({ copied, copy }) => (
-                    <Tooltip label={copied ? "Copied" : "Copy coordinate"} withArrow>
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="sm"
-                        onClick={copy}
-                        aria-label="Copy coordinate"
-                      >
-                        {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                </CopyButton>
-              </Group>
-              <Text fz="xs" c="dimmed" className="tak-mono">
-                {secondary}
-              </Text>
-            </Field>
-          ) : (
-            <Field label="Position">No position fix</Field>
-          )}
-          {status2525 && status2525 !== "present" && (
-            <Field label="Status">{UNIT_STATUSES[status2525].label}</Field>
-          )}
-          {item.hae !== undefined && <Field label="Altitude (HAE)">{Math.round(item.hae)} m</Field>}
-          {item.speed !== undefined && item.speed > 0 && (
-            <Field label="Speed and course">
-              {(item.speed * 3.6).toFixed(0)} km/h
-              {item.course !== undefined ? ` · ${Math.round(item.course)}°` : ""}
-            </Field>
-          )}
-          {item.ellipse && (
-            <Field label="Size">
-              {item.ellipse.major === item.ellipse.minor
-                ? `${Math.round(item.ellipse.major)} m radius`
-                : `${Math.round(item.ellipse.major)} × ${Math.round(item.ellipse.minor)} m, ${Math.round(item.ellipse.angle)}°`}
-            </Field>
-          )}
-          {item.video && (
-            <Field label={item.video.alias ? `Video · ${item.video.alias}` : "Video"}>
-              <VideoFeed video={item.video} />
-            </Field>
-          )}
-          {item.vehicle && (
-            <>
-              <SectionHeading>Aircraft</SectionHeading>
-              <Field label="State">
-                {[
-                  item.vehicle.make,
-                  item.vehicle.flying ? "Flying" : "On the ground",
-                  item.vehicle.battery !== undefined && `${item.vehicle.battery} % battery`,
-                  item.vehicle.flightTime !== undefined &&
-                    `${formatAge(item.vehicle.flightTime * 1000)} flown`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </Field>
-            </>
-          )}
-          {item.sensor && (
-            <Field label={item.vehicle ? "Camera" : "Sensor"}>
-              {item.sensor.model ? `${item.sensor.model} · ` : ""}
-              {Math.round(item.sensor.azimuth)}° · {Math.round(item.sensor.fov)}° wide ·{" "}
-              {formatDistance(item.sensor.range)}
-            </Field>
-          )}
-          {item.vehicle?.operatorUid && (
-            <Field label="Operator">
-              <ItemLink uid={item.vehicle.operatorUid} items={items} onSelect={onSelectItem} />
-            </Field>
-          )}
-          {spi && (
-            <Field label="Looking at">
-              <ItemLink uid={spi.uid} items={items} onSelect={onSelectItem} />
-            </Field>
-          )}
-          <Field label="Last update">
-            <span title={absoluteTime(item.time)}>{formatAge(now - item.time)} ago</span>
-          </Field>
-          {item.creator && <Field label="Placed by">{item.creator}</Field>}
-          {item.remarks && (
-            <Field label="Remarks">
-              <span style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                {item.remarks}
-              </span>
-            </Field>
-          )}
-          {photos.length > 0 && (
-            <Field label="Photos">
-              <Group gap={6}>
-                {photos.map((url) => (
-                  <Anchor key={url} href={url} target="_blank" rel="noreferrer">
-                    <Image
-                      src={url}
-                      alt={`Photo of ${labelOf(item)}`}
-                      w={72}
-                      h={72}
-                      radius="sm"
-                      fit="cover"
-                    />
-                  </Anchor>
-                ))}
-              </Group>
-            </Field>
-          )}
-          {files.length > 0 && (
-            <Field label="Files">
-              {files.map((file) => (
-                <Anchor key={file.url} href={file.url} download={file.name} display="block">
-                  {file.name}
-                </Anchor>
-              ))}
-            </Field>
-          )}
-          {item.battery !== undefined && <Field label="Battery">{item.battery} %</Field>}
-          {item.device && <Field label="Device">{shortDevice(item.device)}</Field>}
-          {item.sidc && (
-            <Field label="Symbol code">
-              <span className="tak-mono">{item.sidc}</span>
-            </Field>
-          )}
-          {canBeFence(item) && !editing && (
-            <GeofenceSection
-              item={item}
-              readOnly={!!readOnlyReason}
-              onSubmit={onSubmit}
-              submitLabel={submitLabel}
-            />
-          )}
-          <ItemLogEntries uid={item.uid} onOpenEvent={onOpenEvent} />
-          {missions.length > 0 && <Field label="Data Sync feeds">{missions.join(", ")}</Field>}
-          <Field label="UID">
-            <span className="tak-mono" style={{ overflowWrap: "anywhere" }}>
-              {item.uid}
-            </span>
-          </Field>
+          <ItemFields
+            item={item}
+            now={now}
+            coordFormat={coordFormat}
+            items={items}
+            onSelectItem={onSelectItem}
+            missions={missions}
+            onOpenEvent={onOpenEvent}
+            geofence={
+              canBeFence(item) &&
+              !editing && (
+                <GeofenceSection
+                  item={item}
+                  readOnly={!!readOnlyReason}
+                  onSubmit={onSubmit}
+                  submitLabel={submitLabel}
+                />
+              )
+            }
+          />
         </Stack>
       </ScrollArea>
 
@@ -535,33 +218,6 @@ export const ItemDetails = ({
           onDone={() => setEditing(false)}
         />
       ) : null}
-      {loggingAt !== undefined && (
-        <LogItemDialog item={item} at={loggingAt} onClose={() => setLoggingAt(undefined)} />
-      )}
-      {canAddToFeed && (
-        <AddToMission
-          item={item}
-          missions={allMissions}
-          clientUid={clientUid}
-          opened={dialog === "feed"}
-          onClose={() => setDialog(undefined)}
-        />
-      )}
-      {canAttach && (
-        <AttachPhoto
-          item={item}
-          callsign={callsign}
-          contacts={contacts}
-          photo={photo}
-          onClose={() => setPhoto(null)}
-        />
-      )}
-      <DeleteItem
-        item={item}
-        onSubmit={onSubmit}
-        opened={dialog === "delete"}
-        onClose={() => setDialog(undefined)}
-      />
     </Stack>
   );
 };
