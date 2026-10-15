@@ -21,6 +21,10 @@ import { cssVariablesResolver, theme } from "./theme.ts";
 // server (see web/CLAUDE.md), so an unannounced reload loses nothing durable.
 registerSW({ immediate: true });
 
+// React's dev build records every render as a performance measure (~270k an hour on the
+// map) and the browser keeps them all, so a long-open dev tab slows down until reloaded.
+if (import.meta.env.DEV) setInterval(() => performance.clearMeasures(), 60_000);
+
 const router = createRouter({ routeTree, ...routerDefaults });
 
 declare module "@tanstack/react-router" {
