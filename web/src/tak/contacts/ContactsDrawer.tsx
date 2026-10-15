@@ -10,7 +10,7 @@ import { useNow } from "../../use-now.ts";
 import type { Position, TakItem } from "../cot.ts";
 import { formatBearing } from "../drawing/measure.ts";
 import { bearing, distance, formatDistance } from "../geo.ts";
-import { StatusBadge } from "../items/ItemsDrawer.tsx";
+import { StatusBadge } from "../items/ItemRow.tsx";
 import {
   anchorOf,
   hasPosition,

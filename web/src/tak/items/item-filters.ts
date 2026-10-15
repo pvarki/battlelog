@@ -116,3 +116,12 @@ export const sortFlat = (items: TakItem[], sort: Exclude<ItemSort, "name">, from
     (a, b) => (metres.get(a.uid) ?? Infinity) - (metres.get(b.uid) ?? Infinity) || byName(a, b),
   );
 };
+
+/** The Source filter's choices: the active plan's drafts when there are any, then each feed by name. */
+export const filterSources = (
+  items: TakItem[],
+  feeds: FilterContext["feeds"],
+): { value: string; label: string }[] => [
+  ...(items.some((i) => i.draft) ? [{ value: PLAN_SOURCE, label: "Plan drafts" }] : []),
+  ...[...feeds.keys()].sort().map((name) => ({ value: feedSource(name), label: name })),
+];

@@ -5,6 +5,7 @@ import {
   affiliationOf,
   type FilterContext,
   feedSource,
+  filterSources,
   kindOf,
   matchesFilters,
   NO_FILTERS,
@@ -110,4 +111,18 @@ test("in view across the antimeridian", () => {
   const east = item("east", "a-u-G", { geometry: { type: "Point", coordinates: [-175, 60] } });
   const view = { west: 170, south: 50, east: 190, north: 70 };
   expect(matchesFilters(east, { ...NO_FILTERS, inView: true }, { ...ctx, view })).toBe(true);
+});
+
+test("sources offer plan drafts only when there are some, then feeds by name", () => {
+  const feeds = new Map([
+    ["RECON", new Set<string>()],
+    ["ALPHA", new Set<string>()],
+  ]);
+  expect(filterSources([item("a", "a-f-G")], feeds).map((s) => s.label)).toEqual([
+    "ALPHA",
+    "RECON",
+  ]);
+  expect(filterSources([item("d", "a-f-G", { draft: true })], new Map())).toEqual([
+    { value: PLAN_SOURCE, label: "Plan drafts" },
+  ]);
 });

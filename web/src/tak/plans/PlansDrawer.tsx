@@ -24,7 +24,7 @@ import type { TakItem } from "../cot.ts";
 import { download } from "../download.ts";
 import type { Sender } from "../identity.ts";
 import { InboxSection } from "../inbox/InboxSection.tsx";
-import { ItemRow } from "../items/ItemsDrawer.tsx";
+import { ItemRow } from "../items/ItemRow.tsx";
 import { count } from "../items.ts";
 import type { Mission } from "../missions/missions.ts";
 import { PanelActions, PanelFooter, PanelMenu } from "../panel.tsx";

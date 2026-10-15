@@ -21,7 +21,7 @@ import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge, formatDate } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import { download } from "../download.ts";
-import { ItemRow } from "../items/ItemsDrawer.tsx";
+import { ItemRow } from "../items/ItemRow.tsx";
 import { labelOf } from "../items.ts";
 import { CopyMission } from "./CopyMission.tsx";
 import { MissionFamily } from "./MissionFamily.tsx";
