@@ -1,4 +1,5 @@
-import type { Map as MapLibreMap } from "maplibre-gl";
+import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
+import { useEffect } from "react";
 import type { Position } from "../cot.ts";
 import { boundsOf } from "./follow.ts";
 import { type ScreenPoint, uidsInOutline } from "./lasso.ts";
@@ -128,4 +129,18 @@ export const followLasso = (map: MapLibreMap, onSelect: (uids: string[]) => void
     container.style.cursor = "";
     map.dragPan.enable();
   };
+};
+
+/** Rings the selected items on the picture's selection layers. */
+export const useItemSelection = (map: MapLibreMap | undefined, selectedUids: readonly string[]) => {
+  // A new array each render; the filter changes only when its members do.
+  const selectedKey = JSON.stringify(selectedUids);
+  useEffect(() => {
+    if (!map) return;
+    const uids: string[] = JSON.parse(selectedKey);
+    const filter = ["in", ["get", "uid"], ["literal", uids]] as FilterSpecification;
+    map.setFilter("tak-selected-point", filter);
+    map.setFilter("tak-selected-shape", filter);
+    map.setFilter("tak-selected-tactical", filter);
+  }, [map, selectedKey]);
 };

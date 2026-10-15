@@ -1,11 +1,12 @@
 import type { Feature, FeatureCollection } from "geojson";
-import type { FilterSpecification, GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
 import { destination, type Position, type Sensor, type TakItem } from "../cot.ts";
 import { distance, EARTH_RADIUS_M, formatDistance } from "../geo.ts";
 import { hasPosition, labelOf, statusOf } from "../items.ts";
 import { groupOf, isHidden } from "../overlays.ts";
 import { iconsetsVersion } from "./iconsets.ts";
 import { BETWEEN_SPOKES, bullseyeMarks, bullseyeRadii, circleLine } from "./rings.ts";
+import { geoJsonSource, SOURCE_NAMES, type SourceName } from "./sources.ts";
 import {
   arrowhead,
   iconFor,
@@ -43,17 +44,7 @@ export const LABEL_ZOOM_FILTER: FilterSpecification = [
  * labels switched on; route waypoints show as named dots.
  */
 
-export type Sources = {
-  points: FeatureCollection;
-  shapes: FeatureCollection;
-  /** Names that ATAK shows only when zoomed in. */
-  markerLabels: FeatureCollection;
-  /** Line names and measurements, shown at every zoom. */
-  lineLabels: FeatureCollection;
-  /** Map-aligned decorations such as range-and-bearing arrowheads. */
-  decorations: FeatureCollection;
-  /** MIL-STD-2525 tactical graphics, rendered from drawings that carry a symbol code. */
-  tactical: FeatureCollection;
+export type Sources = Record<SourceName, FeatureCollection> & {
   /** Some graphic is still rendering: drawn plain for now, onTacticalRendered tells when it's ready. */
   graphicsPending: boolean;
 };
@@ -165,17 +156,6 @@ const point = (coordinates: Position, properties: Record<string, unknown>): Feat
   geometry: { type: "Point", coordinates },
   properties,
 });
-
-const SOURCE_NAMES = [
-  "points",
-  "shapes",
-  "markerLabels",
-  "lineLabels",
-  "decorations",
-  "tactical",
-] as const;
-
-type SourceName = (typeof SOURCE_NAMES)[number];
 
 /** One item's share of each source; `pending` while its tactical graphic is still rendering. */
 type ItemFeatures = Record<SourceName, Feature[]> & { pending: boolean };
@@ -593,7 +573,7 @@ export const createPictureDrawer = (map: MapLibreMap, prefix: string) => {
     const drawn = pictureOf(map, items, hidden, now, bearing, true);
     pruneTactical();
     pruneLabels(map);
-    const source = (name: SourceName) => map.getSource(`${prefix}-${name}`) as GeoJSONSource;
+    const source = (name: SourceName) => geoJsonSource(map, `${prefix}-${name}`);
     if (!started) {
       started = true;
       for (const name of SOURCE_NAMES) {
