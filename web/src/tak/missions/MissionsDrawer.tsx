@@ -11,14 +11,14 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import { IconEye, IconEyeOff, IconListTree, IconLock } from "@tabler/icons-react";
+import { IconEye, IconEyeOff, IconLock } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
 import { count } from "../items.ts";
-import { PanelActions } from "../panel.tsx";
+import { PanelActions, ViewMenu, ViewOption } from "../panel.tsx";
 import { missionTree, useMissionParents } from "./hierarchy.ts";
 import { MissionDetail } from "./MissionDetail.tsx";
 import type { Mission } from "./missions.ts";
@@ -66,7 +66,30 @@ const ShowToggle = ({
 
 type ListView = "list" | "tree";
 
-const MissionList = ({ view, ...props }: MissionsDrawerProps & { view: ListView }) => {
+const isEmpty = (mission: Mission) => mission.itemUids.length === 0 && mission.files.length === 0;
+
+/** Drops empty feeds, keeping an empty parent whose subtree holds something. */
+const withoutEmpty = (rows: { mission: Mission; depth: number }[]) => {
+  const keep = rows.map(({ mission }) => !isEmpty(mission));
+  rows.forEach(({ depth }, i) => {
+    if (!keep[i] || depth === 0) return;
+    let need = depth;
+    for (let j = i - 1; j >= 0 && need > 0; j--) {
+      const row = rows[j] as { depth: number };
+      if (row.depth < need) {
+        keep[j] = true;
+        need = row.depth;
+      }
+    }
+  });
+  return rows.filter((_, i) => keep[i]);
+};
+
+const MissionList = ({
+  view,
+  hideEmpty,
+  ...props
+}: MissionsDrawerProps & { view: ListView; hideEmpty: boolean }) => {
   const now = useNow(10_000);
   const { missions, listFailed } = props.state;
   const parents = useMissionParents(missions?.map((m) => m.name) ?? [], view === "tree");
@@ -90,12 +113,13 @@ const MissionList = ({ view, ...props }: MissionsDrawerProps & { view: ListView 
         />
       </Box>
     );
-  const rows =
+  const all =
     view === "tree"
       ? missionTree(missions, parents)
       : [...missions]
           .sort((a, b) => b.changedAt - a.changedAt)
           .map((mission) => ({ mission, depth: 0 }));
+  const rows = hideEmpty ? withoutEmpty(all) : all;
   return (
     <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars>
       {rows.map(({ mission, depth }) => (
@@ -192,28 +216,32 @@ export const MissionsDrawer = (props: MissionsDrawerProps) => {
     key: "battlelog.tak.missionsView",
     defaultValue: "list",
   });
+  const [hideEmpty, setHideEmpty] = useLocalStorage({
+    key: "battlelog.tak.missions.hideEmpty",
+    defaultValue: false,
+  });
   const open = props.state.missions?.find((m) => m.name === props.open);
   if (open) return <MissionDetail {...props} mission={open} />;
   return (
     <Stack gap="xs" h="100%">
       <PanelActions>
-        <Tooltip label={view === "tree" ? "Show as a list" : "Show as a tree"} withArrow>
-          <ActionIcon
-            variant="subtle"
-            color={view === "tree" ? "accent" : "gray"}
-            aria-label="Show feeds as a tree"
-            aria-pressed={view === "tree"}
-            onClick={() => setView(view === "tree" ? "list" : "tree")}
-          >
-            <IconListTree size={16} />
-          </ActionIcon>
-        </Tooltip>
         <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
+        <ViewMenu>
+          <ViewOption
+            checked={view === "tree"}
+            onChange={(tree) => setView(tree ? "tree" : "list")}
+          >
+            Show as a tree
+          </ViewOption>
+          <ViewOption checked={hideEmpty} onChange={setHideEmpty}>
+            Hide empty feeds
+          </ViewOption>
+        </ViewMenu>
       </PanelActions>
       {props.clientUid && (
         <MyInvitations state={props.state} clientUid={props.clientUid} onOpen={props.onOpen} />
       )}
-      <MissionList {...props} view={view} />
+      <MissionList {...props} view={view} hideEmpty={hideEmpty} />
     </Stack>
   );
 };

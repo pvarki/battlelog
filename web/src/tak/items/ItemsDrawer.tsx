@@ -50,6 +50,7 @@ import {
 } from "../items.ts";
 import { useMapView } from "../map/camera.ts";
 import { groupOf, groupTree, isHidden, type Group as OverlayGroup } from "../overlays.ts";
+import { PanelActions, ViewMenu, ViewOption } from "../panel.tsx";
 import { kmlBlob } from "../plans/overlay-files.ts";
 import {
   type Affiliation,
@@ -111,6 +112,7 @@ export const ItemRow = ({
   selected,
   now,
   from,
+  compact,
   onPick,
 }: {
   item: TakItem;
@@ -118,10 +120,34 @@ export const ItemRow = ({
   now: number;
   /** Shows the distance and bearing from here. */
   from?: Position;
+  /** One line: name, distance and age. */
+  compact?: boolean;
   onPick: (event: MouseEvent) => void;
 }) => {
   const status = statusOf(item, now);
   const at = from && hasPosition(item) ? anchorOf(item) : undefined;
+  if (compact)
+    return (
+      <UnstyledButton
+        className="tak-row"
+        data-selected={selected || undefined}
+        data-faded={status !== "online" || undefined}
+        onClick={onPick}
+        aria-current={selected || undefined}
+        title={item.team ? `${item.team}${item.role ? ` · ${item.role}` : ""}` : describeType(item)}
+      >
+        <Group gap="xs" wrap="nowrap">
+          <Text fz="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
+            {labelOf(item)}
+          </Text>
+          <Text fz="xs" c="dimmed" className="tak-mono" style={{ flexShrink: 0 }}>
+            {from && at ? `${formatDistance(distance(from, at))} · ` : ""}
+            {formatAge(now - item.time)}
+          </Text>
+          <StatusBadge status={status} />
+        </Group>
+      </UnstyledButton>
+    );
   return (
     <UnstyledButton
       className="tak-row"
@@ -355,6 +381,10 @@ export const ItemsDrawer = ({
     key: "battlelog.tak.items.groupsOpen",
     defaultValue: {},
   });
+  const [compact, setCompact] = useLocalStorage({
+    key: "battlelog.tak.items.compact",
+    defaultValue: false,
+  });
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
   /** The keyboard cursor, by row key so new rows can't shift it onto another item. */
   const [activeKey, setActiveKey] = useState<string>();
@@ -434,6 +464,13 @@ export const ItemsDrawer = ({
 
   const setOpen = (key: string, open: boolean) =>
     setGroupOpen((current) => ({ ...current, [key]: open }));
+  const groupKeys = (groups: OverlayGroup[]): string[] =>
+    groups.flatMap((g) => [g.key, ...groupKeys(g.children)]);
+  const setAllOpen = (open: boolean) =>
+    setGroupOpen((current) => ({
+      ...current,
+      ...Object.fromEntries(groupKeys(groupTree(listed)).map((key) => [key, open])),
+    }));
 
   // An item picked elsewhere (map, search, a link) opens its groups here and scrolls into view, once per pick.
   const pickedHere = useRef<string>(undefined);
@@ -497,6 +534,7 @@ export const ItemsDrawer = ({
           item={row.item}
           now={now}
           from={from}
+          compact={compact}
           selected={row.item.uid === selectedUid || !!grouped?.has(row.item.uid)}
           onPick={(e) => pickRow(row, e)}
         />
@@ -532,8 +570,32 @@ export const ItemsDrawer = ({
     );
   };
 
+  const treeShown = sort === "name" && !searching;
+
   return (
     <Stack gap="xs" h="100%">
+      <PanelActions>
+        <ViewMenu>
+          <ViewOption checked={compact} onChange={setCompact}>
+            Compact rows
+          </ViewOption>
+          <Menu.Divider />
+          <Menu.Item
+            leftSection={<IconChevronDown size={14} />}
+            disabled={!treeShown}
+            onClick={() => setAllOpen(true)}
+          >
+            Expand all groups
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconChevronRight size={14} />}
+            disabled={!treeShown}
+            onClick={() => setAllOpen(false)}
+          >
+            Collapse all groups
+          </Menu.Item>
+        </ViewMenu>
+      </PanelActions>
       <TextInput
         size="xs"
         placeholder="Filter by name, team or type"

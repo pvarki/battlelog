@@ -1,4 +1,5 @@
 import { ActionIcon, Box, Group, ScrollArea, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useState } from "react";
@@ -19,6 +20,7 @@ import {
   teamColor,
 } from "../items.ts";
 import { useMapView } from "../map/camera.ts";
+import { PanelActions, ViewMenu, ViewOption } from "../panel.tsx";
 import { mergeContacts, useKnownClients } from "./known-clients.ts";
 
 type Props = {
@@ -127,12 +129,16 @@ export const ContactsDrawer = ({
   children,
 }: Props) => {
   const [query, setQuery] = useState("");
+  const [showDisconnected, setShowDisconnected] = useLocalStorage({
+    key: "battlelog.tak.contacts.showDisconnected",
+    defaultValue: true,
+  });
   const now = useNow(10_000);
   const centre = useMapView(map)?.centre;
   const contacts = mergeContacts(picture, useKnownClients(), selfUid);
   const from = ownPosition ?? centre;
   const shown = contacts
-    .filter((c) => matches(c, query))
+    .filter((c) => matches(c, query) && (showDisconnected || statusOf(c, now) !== "offline"))
     .sort(
       (a, b) =>
         STATUS_ORDER[statusOf(a, now)] - STATUS_ORDER[statusOf(b, now)] ||
@@ -144,6 +150,13 @@ export const ContactsDrawer = ({
 
   return (
     <Stack gap="xs" h="100%">
+      <PanelActions>
+        <ViewMenu>
+          <ViewOption checked={showDisconnected} onChange={setShowDisconnected}>
+            Show disconnected
+          </ViewOption>
+        </ViewMenu>
+      </PanelActions>
       {children}
       <TextInput
         size="xs"
@@ -164,10 +177,15 @@ export const ContactsDrawer = ({
                 title="No TAK users yet"
                 detail="Users appear here as their devices connect to TAK."
               />
-            ) : (
+            ) : query.trim() ? (
               <Placeholder
                 title="No contacts match the filter"
                 detail="Change or clear the filter."
+              />
+            ) : (
+              <Placeholder
+                title="Nobody is connected"
+                detail="Disconnected users are hidden: turn on Show disconnected under ⋯."
               />
             )}
           </Box>
