@@ -17,6 +17,7 @@
     "@mantine/dates": "^9.5.1",
     "@mantine/hooks": "^9.5.1",
     "@mantine/notifications": "^9.5.1",
+    "@mantine/spotlight": "9.5.1",
     "@matrix-org/matrix-sdk-crypto-wasm": "18.9.0",
     "@tabler/icons-react": "^3.46.0",
     "@tanstack/react-router": "^1.170.31",

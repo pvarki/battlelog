@@ -26,6 +26,7 @@ import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
 import { NO_CALLSIGN } from "./checklists/ChecklistDetail.tsx";
 import { ChecklistsDrawer } from "./checklists/ChecklistsDrawer.tsx";
+import { CommandBar, openCommandBar } from "./commands/CommandBar.tsx";
 import { deleteEvent } from "./commands.ts";
 import { ContactsDrawer } from "./contacts/ContactsDrawer.tsx";
 import { recipientGroups } from "./contacts/SendTo.tsx";
@@ -38,7 +39,7 @@ import { centreOfItems, movedEvent, offsetBetween } from "./drawing/move-items.t
 import { newRangeBearingEvent } from "./drawing/new-items.ts";
 import { defaultRingsLook } from "./drawing/RingsDialog.tsx";
 import { SelectionPanel } from "./drawing/SelectionPanel.tsx";
-import { type Drawn, TOOLS, useDrawing } from "./drawing/useDrawing.ts";
+import { type Drawn, TOOLS, type Tool, useDrawing } from "./drawing/useDrawing.ts";
 import { useDrawingWorkflow } from "./drawing/useDrawingWorkflow.tsx";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
@@ -71,7 +72,6 @@ import { OwnPositionPanel } from "./position/OwnPositionPanel.tsx";
 import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
 import { DEFAULT_REPLAY_WINDOW_MS, useReplay } from "./replay/useReplay.ts";
-import { SearchBox } from "./SearchBox.tsx";
 import { SettingsDrawer } from "./SettingsDrawer.tsx";
 import { ShortcutsDialog } from "./ShortcutsDialog.tsx";
 import { StatusBar } from "./StatusBar.tsx";
@@ -92,6 +92,7 @@ import { trackFeatures } from "./tracks.ts";
 import { describeStep } from "./undo.ts";
 import { type Selection, useCentreWhenReady, useSelection } from "./use-selection.ts";
 import { useTakWrites } from "./use-tak-writes.ts";
+import { workspaceCommands } from "./workspace-commands.tsx";
 
 const DRAWERS = {
   items: { label: "Items", Icon: IconList, key: "1" },
@@ -163,6 +164,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   } = useSelection({ selection, onSelect });
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [openMission, setOpenMission] = useState<string>();
+  const [openPlan, setOpenPlan] = useState<string>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
   useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])], clientUid);
   useMissionSubscriptions([...shownMissions], clientUid);
@@ -212,7 +214,6 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const drawing = useDrawing(map);
   const [cursor] = useState(createCursor);
   const measure = useMeasure(map, cursor);
-  const searchRef = useRef<HTMLInputElement>(null);
   const selected = selectedUid ? currentItem(selectedUid) : undefined;
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
   const [lassoing, setLassoing] = useState(false);
@@ -385,6 +386,38 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     if (drawing.editing || !drawing.drawn) drawing.clear();
   };
 
+  const chooseTool = (tool: Tool | undefined) => {
+    measure.stop();
+    setLassoing(false);
+    drawing.choose(tool);
+    if (tool === "rings" || tool === "bullseye")
+      setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
+  };
+  const toggleMeasure = () => {
+    if (measure.active) return measure.stop();
+    drawing.choose(undefined);
+    measure.start();
+  };
+  const toggleLasso = () => {
+    measure.stop();
+    drawing.choose(undefined);
+    setLassoing(!lassoing);
+  };
+  const toggleReplay = () => {
+    if (replaying) return replay.stop();
+    drawing.clear();
+    measure.stop();
+    replay.setWindowMs(DEFAULT_REPLAY_WINDOW_MS);
+  };
+  const openChatWith = (item: TakItem) => {
+    setChatWith(directRoom(item.uid, item.callsign ?? item.uid));
+    setDrawer("chat");
+  };
+  const editShape = (item: TakItem) => {
+    // The details sheet would cover the map being edited.
+    if (drawing.edit(item) && isMobile) setSelectedUid(undefined);
+  };
+
   const toggleDrawer = (id: DrawerId) => {
     setChatWith(undefined);
     setDrawer((open) => (open === id ? null : id));
@@ -422,7 +455,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "/") {
         e.preventDefault();
-        searchRef.current?.focus();
+        openCommandBar();
       }
       if (e.key === "?") setShowShortcuts((open) => !open);
       if (e.key.toLowerCase() === "d") toggleDrawing();
@@ -435,6 +468,69 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
+  });
+
+  const commandBar = workspaceCommands({
+    drawers: drawers.map((id) => ({ id, ...DRAWERS[id] })),
+    openDrawer: (id) => {
+      setChatWith(undefined);
+      setDrawer(id as DrawerId);
+    },
+    chooseTool: (tool) => {
+      setDrawOpen(true);
+      chooseTool(tool);
+    },
+    drawReason: activePlan ? replayReason : drawReason,
+    measuring: measure.active,
+    toggleMeasure,
+    lassoing,
+    toggleLasso,
+    toggleDrawing,
+    undo: () => {
+      setDrawOpen(true);
+      undo();
+    },
+    undoReason,
+    replaying,
+    toggleReplay,
+    toggleLocate: ownPosition.toggleLocate,
+    showShortcuts: () => setShowShortcuts(true),
+    settings,
+    sources: mapSources,
+    basemapId: basemap.id,
+    eventLayers,
+    missions: missions.missions ?? [],
+    openFeed: (name) => {
+      setOpenMission(name);
+      setDrawer("missions");
+    },
+    plans: plans.plans,
+    activePlanId: plans.activeId ?? undefined,
+    openPlan: (id) => {
+      setOpenPlan(id);
+      setDrawer("plans");
+    },
+    items,
+    currentItem,
+    coordFormat: settings.coordFormat,
+    ownPosition: ownPosition.fix?.position,
+    selfCallsign: callsign ?? undefined,
+    pick,
+    centreOn,
+    goTo,
+    chatWith: openChatWith,
+    tracking: (uid) => settings.showAllTracks || trackedUids.has(uid),
+    toggleTrack: settings.showAllTracks ? undefined : toggleTrack,
+    editShape: (item) =>
+      editTarget(item)
+        ? {
+            run: () => {
+              setSelectedUid(item.uid);
+              editShape(item);
+            },
+            reason: readOnlyReason(item),
+          }
+        : undefined,
   });
 
   const drawerContent = (id: DrawerId) =>
@@ -455,10 +551,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         map={map}
         ownPosition={ownPosition.fix?.position}
         onCenter={pick}
-        onChat={(contact) => {
-          setChatWith(directRoom(contact.uid, contact.callsign ?? contact.uid));
-          setDrawer("chat");
-        }}
+        onChat={openChatWith}
       >
         <OwnPositionPanel
           settings={settings}
@@ -479,6 +572,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         contacts={contacts}
         missions={missions.missions ?? []}
         clientUid={writerUid}
+        open={openPlan}
+        onOpen={setOpenPlan}
       />
     ) : id === "checklists" ? (
       <ChecklistsDrawer
@@ -575,14 +670,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       sendReason={drawReason}
       onSubmit={submit}
       submitLabel={submitLabel}
-      onEditShape={
-        editTarget(selected)
-          ? () => {
-              // The details sheet would cover the map being edited.
-              if (drawing.edit(selected) && isMobile) setSelectedUid(undefined);
-            }
-          : undefined
-      }
+      onEditShape={editTarget(selected) ? () => editShape(selected) : undefined}
       editShapeLoading={!drawing.ready}
       planActive={!!activePlan}
       tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
@@ -695,12 +783,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                 aria-label="Replay history"
                 title="Replay history"
                 aria-pressed={replaying}
-                onClick={() => {
-                  if (replaying) return replay.stop();
-                  drawing.clear();
-                  measure.stop();
-                  replay.setWindowMs(DEFAULT_REPLAY_WINDOW_MS);
-                }}
+                onClick={toggleReplay}
               >
                 <IconHistory size={18} />
               </ActionIcon>
@@ -717,13 +800,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           {/* Search and draw together: the tools open right under the button that opens them. */}
           <div className="tak-command-row">
             <div className="tak-search-slot">
-              <SearchBox
-                ref={searchRef}
-                items={items}
-                coordFormat={settings.coordFormat}
-                onPickItem={pick}
-                onGoTo={goTo}
-              />
+              <CommandBar {...commandBar} />
             </div>
             <UnstyledButton
               className="tak-draw-toggle"
@@ -766,13 +843,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           {toolbarShown && (
             <DrawToolbar
               tool={drawing.tool}
-              onChoose={(tool) => {
-                measure.stop();
-                setLassoing(false);
-                drawing.choose(tool);
-                if (tool === "rings" || tool === "bullseye")
-                  setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
-              }}
+              onChoose={chooseTool}
               graphic={drawing.graphic}
               symbol={drawing.symbol}
               onChooseSymbol={(symbol) => {
@@ -827,16 +898,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
               undo={undoButton}
               measuring={measure.active}
               lassoing={lassoing}
-              onToggleLasso={() => {
-                measure.stop();
-                drawing.choose(undefined);
-                setLassoing(!lassoing);
-              }}
-              onToggleMeasure={() => {
-                if (measure.active) return measure.stop();
-                drawing.choose(undefined);
-                measure.start();
-              }}
+              onToggleLasso={toggleLasso}
+              onToggleMeasure={toggleMeasure}
             >
               <MeasurePanel
                 points={measure.points}

@@ -8,7 +8,7 @@ type Props = {
 };
 
 const GENERAL: [keys: string, what: string][] = [
-  ["/", "Search the map"],
+  ["/ or Ctrl/⌘ K", "Search items, places and commands; Tab for an item's actions"],
   ["C", "Centre the map on the selected item"],
   ["Esc", "Stop drawing, close the selection, then the drawer"],
   ["Ctrl/⌘ Z", "Undo the latest change"],

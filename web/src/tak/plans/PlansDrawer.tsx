@@ -60,6 +60,9 @@ type Props = {
   missions: Mission[];
   /** Who this browser writes to TAK missions as; undefined without a callsign. */
   clientUid: string | undefined;
+  /** The plan shown in full, or undefined for the list. */
+  open: string | undefined;
+  onOpen: (id: string | undefined) => void;
 };
 
 const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: () => void }) => {
@@ -259,7 +262,6 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
 
 /** Plans: drafts kept in this browser and published to TAK together. */
 export const PlansDrawer = (props: Props) => {
-  const [openId, setOpenId] = useState<string>();
   const now = useNow(60_000);
   const importDialog = useFileDialog({
     accept: IMPORT_ACCEPT,
@@ -268,14 +270,14 @@ export const PlansDrawer = (props: Props) => {
     onChange: (files) => {
       if (!files?.length) return;
       importPlan(Array.from(files), props.sender).then(
-        (plan) => setOpenId(plan.id),
+        (plan) => props.onOpen(plan.id),
         (err) =>
           notifications.show({ color: "danger", title: "Couldn't import", message: String(err) }),
       );
     },
   });
-  const open = props.state.plans.find((p) => p.id === openId);
-  if (open) return <PlanDetail {...props} plan={open} onBack={() => setOpenId(undefined)} />;
+  const open = props.state.plans.find((p) => p.id === props.open);
+  if (open) return <PlanDetail {...props} plan={open} onBack={() => props.onOpen(undefined)} />;
   return (
     <Stack gap="xs" h="100%">
       <PanelActions>
@@ -299,7 +301,7 @@ export const PlansDrawer = (props: Props) => {
           </Box>
         ) : (
           props.state.plans.map((plan) => (
-            <UnstyledButton key={plan.id} className="tak-row" onClick={() => setOpenId(plan.id)}>
+            <UnstyledButton key={plan.id} className="tak-row" onClick={() => props.onOpen(plan.id)}>
               <Group gap={6} wrap="nowrap">
                 <Text fz="sm" fw={500} truncate style={{ flex: 1 }}>
                   {plan.name}
@@ -316,14 +318,14 @@ export const PlansDrawer = (props: Props) => {
             </UnstyledButton>
           ))
         )}
-        <InboxSection onOpenPlan={setOpenId} clientUid={props.clientUid} />
+        <InboxSection onOpenPlan={props.onOpen} clientUid={props.clientUid} />
       </ScrollArea>
       <PanelFooter>
         <Button
           size="xs"
           variant="default"
           leftSection={<IconPlus size={14} />}
-          onClick={() => setOpenId(createPlan(`Plan ${props.state.plans.length + 1}`).id)}
+          onClick={() => props.onOpen(createPlan(`Plan ${props.state.plans.length + 1}`).id)}
         >
           New plan
         </Button>
