@@ -44,7 +44,6 @@ import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
 import { EventDetails } from "./event-layers/EventDetails.tsx";
 import { EventLayerFeeds } from "./event-layers/EventLayerFeeds.tsx";
-import { EventLayersSection } from "./event-layers/EventLayersSection.tsx";
 import { useShownEventLayers } from "./event-layers/useShownEventLayers.ts";
 import { GeofenceBanner } from "./geofence/GeofenceBanner.tsx";
 import { breachEvent } from "./geofence/geofence.ts";
@@ -54,10 +53,10 @@ import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { labelOf } from "./items.ts";
+import { LayersDrawer } from "./layers/LayersDrawer.tsx";
 import { DEFAULT_BASEMAP, type MapSource, useMapSources } from "./map/basemaps.ts";
 import { centreOnItem, flyToPosition } from "./map/camera.ts";
 import { createCursor } from "./map/cursor.ts";
-import { LayersDrawer } from "./map/LayersDrawer.tsx";
 import { MapCanvas } from "./map/MapCanvas.tsx";
 import { MapImageButton } from "./map/MapImageButton.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
@@ -517,14 +516,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         sources={mapSources}
         map={map}
         basemap={basemap}
-        eventLayers={
-          <EventLayersSection
-            layers={eventLayers}
-            shown={shownLayerIds}
-            onToggle={settings.toggleEventLayer}
-            truncated={truncatedLayers}
-          />
-        }
+        eventLayers={eventLayers}
+        truncated={truncatedLayers}
       />
     ) : (
       <SettingsDrawer settings={settings} clientUid={writerUid}>

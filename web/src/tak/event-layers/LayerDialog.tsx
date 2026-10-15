@@ -1,5 +1,4 @@
 import {
-  ActionIcon,
   Alert,
   Button,
   CheckIcon,
@@ -8,13 +7,10 @@ import {
   Modal,
   Select,
   Stack,
-  Switch,
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconPencil, IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
-import { SectionHeading } from "../../components/SectionHeading.tsx";
 import {
   FieldInput,
   OptionsEditor,
@@ -36,92 +32,8 @@ const WINDOWS = [
   { value: "all", label: "Any time" },
 ];
 
-type Props = {
-  layers: EventLayer[] | null;
-  shown: ReadonlySet<string>;
-  /** Undefined when this map's layers are fixed by its view. */
-  onToggle?: (eventId: string) => void;
-  /** Layers that hit the fetch limit, so some events aren't drawn. */
-  truncated: ReadonlySet<string>;
-};
-
-/** The shared BattleLog layers: show or hide each on this map, and make or change them for everyone. */
-export const EventLayersSection = ({ layers, shown, onToggle, truncated }: Props) => {
-  const [editing, setEditing] = useState<{ layer?: EventLayer }>();
-  return (
-    <Stack gap={6}>
-      <SectionHeading>BattleLog layers</SectionHeading>
-      {layers === null ? (
-        <Text fz="xs" c="dimmed">
-          Loading…
-        </Text>
-      ) : layers.length === 0 ? (
-        <Text fz="xs" c="dimmed">
-          None yet. A layer puts the log's events with a position on the map, e.g. every drone
-          sighting of the last 24 hours.
-        </Text>
-      ) : (
-        layers.map((layer) => (
-          <Group key={layer.eventId} gap="xs" wrap="nowrap" justify="space-between">
-            <Switch
-              size="xs"
-              checked={shown.has(layer.eventId)}
-              disabled={!onToggle}
-              onChange={() => onToggle?.(layer.eventId)}
-              label={
-                <Group gap={6} wrap="nowrap">
-                  <ColorSwatch
-                    size={10}
-                    color={`var(--mantine-color-${layer.definition.color}-5)`}
-                  />
-                  <span>{layer.definition.name || "(unnamed)"}</span>
-                </Group>
-              }
-              description={
-                truncated.has(layer.eventId) && shown.has(layer.eventId)
-                  ? "Too many events: only the newest are shown"
-                  : undefined
-              }
-            />
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="sm"
-              aria-label={`Edit layer ${layer.definition.name}`}
-              onClick={() => setEditing({ layer })}
-            >
-              <IconPencil size={16} />
-            </ActionIcon>
-          </Group>
-        ))
-      )}
-      {!onToggle && layers?.length ? (
-        <Text fz="xs" c="dimmed">
-          This view chooses which layers its map shows.
-        </Text>
-      ) : null}
-      <Button
-        size="xs"
-        variant="default"
-        leftSection={<IconPlus size={14} />}
-        onClick={() => setEditing({})}
-      >
-        New layer
-      </Button>
-      {editing && (
-        <LayerDialog
-          layer={editing.layer}
-          onClose={() => setEditing(undefined)}
-          onSaved={(eventId) => {
-            if (!editing.layer && eventId && !shown.has(eventId)) onToggle?.(eventId);
-          }}
-        />
-      )}
-    </Stack>
-  );
-};
-
-const LayerDialog = ({
+/** Make or change a shared BattleLog layer; everyone sees it. */
+export const LayerDialog = ({
   layer,
   onClose,
   onSaved,
