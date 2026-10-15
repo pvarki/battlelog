@@ -6,7 +6,7 @@ import { type CotEvent, type TakChange, toChange } from "../cot.ts";
 import type { Sender } from "../identity.ts";
 import type { Mission } from "../missions/missions.ts";
 import { addItems, ensureSubscribed, removeItems } from "../missions/writes.ts";
-import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
+import { escapeXml, parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
 import { geojsonToEvents, gpxToEvents, kmlToEvents } from "./overlay-files.ts";
 
 /**
@@ -282,13 +282,6 @@ export const publishPlanToMission = async (
     notInMission: [...missed],
   };
 };
-
-const escapeXml = (s: string) =>
-  s
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
 
 /**
  * A zip path segment from a uid. Uids come from TAK or imported files, and a

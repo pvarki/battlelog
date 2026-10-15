@@ -1,4 +1,5 @@
 import type { CotEvent } from "./cot-event.ts";
+import { escapeXml } from "./cot-xml.ts";
 import { type Field, fieldText, Reader, readFields, Writer } from "./protobuf.ts";
 
 /**
@@ -14,12 +15,7 @@ import { type Field, fieldText, Reader, readFields, Writer } from "./protobuf.ts
 
 const MAGIC = 0xbf;
 
-const escapeAttr = (value: string | number) =>
-  String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+const escapeAttr = (value: string | number) => escapeXml(String(value));
 
 const element = (name: string, attrs: Record<string, string | number | undefined>) => {
   const set = Object.entries(attrs).filter(([, v]) => v !== undefined && v !== "");

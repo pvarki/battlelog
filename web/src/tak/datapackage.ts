@@ -4,6 +4,7 @@ import type { Sender } from "./identity.ts";
 import { FILE_SHARE_TYPE, sha256Hex } from "./inbox/fileshare.ts";
 import { labelOf } from "./items.ts";
 import { safeZipName } from "./plans/plans.ts";
+import { escapeXml } from "./protocol/cot-xml.ts";
 import { publicContentUrl, TakRequestError, takBaseUrl } from "./rest.ts";
 import { sendCot } from "./session.ts";
 
@@ -17,13 +18,6 @@ import { sendCot } from "./session.ts";
 
 const ANNOUNCE_STALE_MS = 100_000;
 const UNKNOWN = 9_999_999;
-
-const escapeXml = (s: string) =>
-  s
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
 
 /** The package's manifest; ATAK needs both uid and callsign to file and announce the photo. */
 export const attachmentManifest = (item: TakItem, fileName: string, zipEntry: string) => {

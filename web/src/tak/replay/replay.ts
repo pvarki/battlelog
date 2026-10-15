@@ -4,7 +4,6 @@ import type { TrackPoint } from "../tracks.ts";
 
 /** Past changes to the TAK picture, and the picture as it stood at any moment of them. */
 
-export const REPLAY_MAX_WINDOW_MS = 7 * DAY_MS;
 /**
  * Parsed changes kept in memory, roughly 1–2 kB each with their CoT. Past it
  * the oldest go, and replay starts later than asked.
