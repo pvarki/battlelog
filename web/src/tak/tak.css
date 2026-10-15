@@ -22,6 +22,7 @@
 }
 
 .tak-rail-button {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -45,8 +46,19 @@
 
 /* An edge bar, not a filled block: the open drawer beside it already says which one is open. */
 .tak-rail-button[aria-pressed="true"] {
-  box-shadow: inset 2px 0 0 var(--mantine-color-accent-4);
   color: var(--mantine-color-accent-4);
+}
+
+/* A straight bar on the rail's edge; an inset shadow would bend round the button's corners. */
+.tak-rail-button[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -4px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--mantine-color-accent-4);
 }
 
 .tak-drawer,
@@ -217,6 +229,7 @@
 }
 
 .tak-row {
+  position: relative;
   padding: 3px 6px;
   border-radius: 6px;
 }
@@ -236,7 +249,17 @@
 
 .tak-row[data-selected] {
   background: var(--mantine-color-dark-5);
-  box-shadow: inset 2px 0 0 var(--mantine-color-accent-4);
+}
+
+.tak-row[data-selected]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--mantine-color-accent-4);
 }
 
 /* Muted text, not opacity: the dimmed second line must stay readable too. */
@@ -682,6 +705,12 @@
   }
 }
 
-.tak-workspace[data-mobile] .tak-rail-button[aria-pressed="true"] {
-  box-shadow: inset 0 2px 0 var(--mantine-color-accent-4);
+.tak-workspace[data-mobile] .tak-rail-button[aria-pressed="true"]::before {
+  top: 0;
+  right: 12px;
+  bottom: auto;
+  left: 12px;
+  width: auto;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
 }

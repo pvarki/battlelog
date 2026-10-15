@@ -5,10 +5,10 @@ import {
   Button,
   Chip,
   Group,
+  Menu,
   Popover,
   ScrollArea,
   SegmentedControl,
-  Select,
   Stack,
   Text,
   TextInput,
@@ -16,6 +16,8 @@ import {
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import {
+  IconArrowsSort,
+  IconCheck,
   IconChevronDown,
   IconChevronRight,
   IconDownload,
@@ -23,6 +25,7 @@ import {
   IconEyeOff,
   IconFilter,
   IconSearch,
+  IconViewfinder,
 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from "react";
@@ -190,7 +193,7 @@ const flatten = (
   });
 
 const SORT_OPTIONS: { value: ItemSort; label: string }[] = [
-  { value: "name", label: "By group" },
+  { value: "name", label: "Grouped" },
   { value: "newest", label: "Newest" },
   { value: "distance", label: "Nearest" },
 ];
@@ -487,23 +490,41 @@ export const ItemsDrawer = ({
         }}
       />
       <Group gap={6} wrap="nowrap">
-        <Chip
+        <Button
           size="xs"
-          checked={filters.inView}
-          onChange={(inView) => setFilters({ inView })}
+          variant={filters.inView ? "light" : "default"}
+          color={filters.inView ? "accent" : undefined}
+          leftSection={<IconViewfinder size={14} />}
+          aria-pressed={filters.inView}
           title="Only what's inside the map view"
+          onClick={() => setFilters({ inView: !filters.inView })}
         >
           In view
-        </Chip>
-        <Select
-          size="xs"
-          aria-label="Sort items"
-          data={SORT_OPTIONS}
-          value={sort}
-          onChange={(v) => v && setSort(v as ItemSort)}
-          allowDeselect={false}
-          style={{ flex: 1, minWidth: 0 }}
-        />
+        </Button>
+        <Menu position="bottom-start" withinPortal>
+          <Menu.Target>
+            <Button
+              size="xs"
+              variant="default"
+              aria-label="Sort items"
+              leftSection={<IconArrowsSort size={14} />}
+              rightSection={<IconChevronDown size={14} />}
+            >
+              {SORT_OPTIONS.find((o) => o.value === sort)?.label}
+            </Button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            {SORT_OPTIONS.map((o) => (
+              <Menu.Item
+                key={o.value}
+                rightSection={o.value === sort ? <IconCheck size={14} /> : undefined}
+                onClick={() => setSort(o.value)}
+              >
+                {o.label}
+              </Menu.Item>
+            ))}
+          </Menu.Dropdown>
+        </Menu>
         <FiltersMenu filters={filters} setFilters={setFilters} sources={sources} />
       </Group>
       {(narrowed || sort === "distance") && (
