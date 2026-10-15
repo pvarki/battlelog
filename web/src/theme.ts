@@ -1,4 +1,11 @@
-import { Anchor, type CSSVariablesResolver, createTheme, Input } from "@mantine/core";
+import {
+  Anchor,
+  type CSSVariablesResolver,
+  createTheme,
+  Drawer,
+  Input,
+  Modal,
+} from "@mantine/core";
 
 /**
  * Battlelog design tokens (dark-only): Inter, 6px radius.
@@ -130,6 +137,9 @@ export const theme = createTheme({
     }),
     // Filled primary (#394494) is too dark for link text on dark surfaces.
     Anchor: Anchor.extend({ defaultProps: { c: "accent.4" } }),
+    // Mantine's close button is an unnamed icon; screen readers announce just "button".
+    Modal: Modal.extend({ defaultProps: { closeButtonProps: { "aria-label": "Close" } } }),
+    Drawer: Drawer.extend({ defaultProps: { closeButtonProps: { "aria-label": "Close" } } }),
   },
 });
 

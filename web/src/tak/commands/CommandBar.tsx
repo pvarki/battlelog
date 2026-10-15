@@ -1,7 +1,7 @@
 import { Group, Kbd, Text, UnstyledButton } from "@mantine/core";
-import { createSpotlight, Spotlight, type SpotlightStore } from "@mantine/spotlight";
+import { createSpotlight, Spotlight, type SpotlightStore, useSpotlight } from "@mantine/spotlight";
 import { IconArrowLeft, IconSearch } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStoredSetting } from "../../stored-setting.ts";
 import { type Command, rank, remember, score } from "./commands.ts";
 
@@ -10,18 +10,25 @@ const [store, bar] = createSpotlight();
 /** Its shortcut is the viewer's to choose, so the workspace's key handler opens it. */
 export const openCommandBar = bar.open;
 
+// Fixed: the store's listId is cleared on close and only set again when the list remounts.
+const LIST_ID = "tak-command-list";
+
 /** Spotlight only moves its selection when the query changes; a new list after Tab needs it too. */
 const selectFirst = (spotlight: SpotlightStore) => {
-  const list = document.getElementById(spotlight.getState().listId);
+  const list = document.getElementById(LIST_ID);
   list?.querySelector("[data-selected]")?.removeAttribute("data-selected");
   list?.querySelector("[data-action]")?.setAttribute("data-selected", "true");
   spotlight.updateState((s) => ({ ...s, selected: 0 }));
 };
 
-const selectedId = (spotlight: SpotlightStore) =>
-  document
-    .getElementById(spotlight.getState().listId)
-    ?.querySelector<HTMLElement>("[data-selected]")?.dataset.commandId;
+/** A DOM id for a listed command; the same command can be listed under Recent and its own group. */
+const optionId = (group: string, id: string) => `tak-cmd-${group}-${id}`.replace(/[^\w-]/g, "_");
+
+const RESULTS_ID = "tak-command-results";
+
+const selectedId = () =>
+  document.getElementById(LIST_ID)?.querySelector<HTMLElement>("[data-selected]")?.dataset
+    .commandId;
 
 type Props = {
   /** Always listed. */
@@ -62,6 +69,43 @@ export const CommandBar = ({ commands, search, byId, shortcut }: Props) => {
         ];
   const shown = groups.flatMap((g) => g.commands);
 
+  // Spotlight marks the selection only with data-selected, keeping focus in the field;
+  // aria-activedescendant tells a screen reader which entry Enter will run.
+  const { opened } = useSpotlight(store);
+  const [activeId, setActiveId] = useState<string>();
+  useEffect(() => {
+    setActiveId(undefined);
+    if (!opened) return;
+    const observer = new MutationObserver(() => follow());
+    // Spotlight.Action drops an id prop, so options get theirs here.
+    const follow = (list = document.getElementById(LIST_ID)) => {
+      if (!list) return;
+      for (const option of list.querySelectorAll<HTMLElement>("[data-option-id]"))
+        option.id = option.dataset.optionId ?? "";
+      setActiveId(list.querySelector<HTMLElement>("[data-selected]")?.id || undefined);
+    };
+    // The list mounts with the modal's transition, after this effect.
+    let frame = 0;
+    const attach = () => {
+      const list = document.getElementById(LIST_ID);
+      if (!list) {
+        frame = requestAnimationFrame(attach);
+        return;
+      }
+      follow(list);
+      observer.observe(list, {
+        subtree: true,
+        childList: true,
+        attributeFilter: ["data-selected"],
+      });
+    };
+    attach();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [opened]);
+
   const run = (command: Command) => {
     if (command.disabledReason) return;
     setRecent((list) => remember(list, focus?.id ?? command.id));
@@ -86,7 +130,7 @@ export const CommandBar = ({ commands, search, byId, shortcut }: Props) => {
     if (e.key === "Tab") {
       e.preventDefault();
       if (focus) return e.shiftKey && back();
-      const command = shown.find((c) => c.id === selectedId(store));
+      const command = shown.find((c) => c.id === selectedId());
       if (command?.actions) {
         setQueryBefore(query);
         setFocusId(command.id);
@@ -141,34 +185,46 @@ export const CommandBar = ({ commands, search, byId, shortcut }: Props) => {
             )
           }
           onKeyDown={onKeyDown}
+          role="combobox"
+          aria-label={focus ? `Actions for ${focus.label}` : "Search items, places and commands"}
+          aria-expanded
+          aria-controls={RESULTS_ID}
+          aria-autocomplete="list"
+          aria-activedescendant={activeId}
         />
-        <Spotlight.ActionsList>
-          {groups.map(({ group, commands }) => (
-            <Spotlight.ActionsGroup key={group} label={group}>
-              {commands.map((command) => (
-                <Spotlight.Action
-                  key={command.id}
-                  data-command-id={command.id}
-                  label={command.label}
-                  description={command.detail}
-                  leftSection={command.icon}
-                  rightSection={
-                    command.actions ? (
-                      <Kbd size="xs">Tab</Kbd>
-                    ) : command.shortcut ? (
-                      <Kbd size="xs">{command.shortcut}</Kbd>
-                    ) : undefined
-                  }
-                  disabled={!!command.disabledReason}
-                  title={command.disabledReason}
-                  highlightQuery
-                  highlightColor="accent"
-                  closeSpotlightOnTrigger={false}
-                  onClick={() => run(command)}
-                />
-              ))}
-            </Spotlight.ActionsGroup>
-          ))}
+        <Spotlight.ActionsList id={LIST_ID}>
+          <div role="listbox" id={RESULTS_ID} aria-label="Results">
+            {groups.map(({ group, commands }) => (
+              <Spotlight.ActionsGroup key={group} label={group} role="group" aria-label={group}>
+                {commands.map((command) => (
+                  <Spotlight.Action
+                    key={command.id}
+                    data-option-id={optionId(group, command.id)}
+                    role="option"
+                    aria-selected={activeId === optionId(group, command.id)}
+                    aria-disabled={!!command.disabledReason}
+                    data-command-id={command.id}
+                    label={command.label}
+                    description={command.detail}
+                    leftSection={command.icon}
+                    rightSection={
+                      command.actions ? (
+                        <Kbd size="xs">Tab</Kbd>
+                      ) : command.shortcut ? (
+                        <Kbd size="xs">{command.shortcut}</Kbd>
+                      ) : undefined
+                    }
+                    disabled={!!command.disabledReason}
+                    title={command.disabledReason}
+                    highlightQuery
+                    highlightColor="accent"
+                    closeSpotlightOnTrigger={false}
+                    onClick={() => run(command)}
+                  />
+                ))}
+              </Spotlight.ActionsGroup>
+            ))}
+          </div>
           {shown.length === 0 && <Spotlight.Empty>Nothing matches</Spotlight.Empty>}
         </Spotlight.ActionsList>
         <Spotlight.Footer>

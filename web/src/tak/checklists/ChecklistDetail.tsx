@@ -16,7 +16,8 @@ import { createContext, useContext, useEffect, useEffectEvent, useRef, useState 
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
-import { formatShortDateTime } from "../../time.ts";
+import { StaleNotice } from "../../components/StaleNotice.tsx";
+import { formatClockTime, formatShortDateTime } from "../../time.ts";
 import type { Sender } from "../identity.ts";
 import { useWrite } from "../missions/shared.tsx";
 import { ensureSubscribed } from "../missions/writes.ts";
@@ -137,6 +138,9 @@ export const ChecklistDetail = ({
   onBack: () => void;
 }) => {
   const [checklist, setChecklist] = useState<Checklist | null>();
+  // When the shown state last came from TAK; a failing refresh mustn't pass old state off as current.
+  const [refreshedAt, setRefreshedAt] = useState<number>();
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const { busy, run } = useWrite();
   const readOnlyReason = useContext(ReadOnlyReason);
   // Polls, change notices and the read after a write share it: only the newest read may land.
@@ -145,10 +149,15 @@ export const ChecklistDetail = ({
     const request = ++generation.current;
     try {
       const loaded = await fetchChecklist(uid);
-      if (request === generation.current) setChecklist(loaded);
+      if (request !== generation.current) return;
+      setChecklist(loaded);
+      setRefreshedAt(Date.now());
+      setRefreshFailed(false);
     } catch (err) {
       console.warn(`TAK checklist ${uid} failed`, err);
-      if (request === generation.current) setChecklist((current) => current ?? null);
+      if (request !== generation.current) return;
+      setChecklist((current) => current ?? null);
+      setRefreshFailed(true);
     }
   };
   const reloadNow = useEffectEvent(() => void reload());
@@ -210,6 +219,12 @@ export const ChecklistDetail = ({
   return (
     <Stack gap="xs" h="100%">
       {header}
+      {refreshFailed && (
+        <StaleNotice onRetry={() => void reload()}>
+          Couldn't refresh from TAK — showing it as of{" "}
+          {refreshedAt ? formatClockTime(refreshedAt) : "earlier"}
+        </StaleNotice>
+      )}
       <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         <Stack gap="sm">
           {checklist.description && (
