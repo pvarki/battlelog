@@ -1,15 +1,6 @@
 import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
-import {
-  TerraDraw,
-  TerraDrawCircleMode,
-  TerraDrawLineStringMode,
-  TerraDrawPointMode,
-  TerraDrawPolygonMode,
-  TerraDrawRectangleMode,
-  TerraDrawSelectMode,
-} from "terra-draw";
-import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
+import type { TerraDraw, TerraDrawSelectMode } from "terra-draw";
 import { ACCENT } from "../../theme.ts";
 import type { Position, TakItem } from "../cot.ts";
 import { distance } from "../geo.ts";
@@ -167,45 +158,67 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
 
   useEffect(() => {
     if (!map) return;
-    const terra = new TerraDraw({
-      adapter: new TerraDrawMapLibreGLAdapter({ map }),
-      modes: [
-        new TerraDrawPointMode({ styles: { pointColor: ACCENT } }),
-        // Thin guides only: the preview layer shows the shape as it will look.
-        new TerraDrawLineStringMode({ styles: { lineStringColor: ACCENT, lineStringWidth: 1 } }),
-        new TerraDrawPolygonMode({ styles: { ...GUIDE_STYLE } }),
-        new TerraDrawRectangleMode({ styles: { ...GUIDE_STYLE } }),
-        new TerraDrawCircleMode({ styles: { ...GUIDE_STYLE } }),
-        new TerraDrawSelectMode({
-          // Only the item being edited is on the layer, and Save or Cancel ends the edit.
-          allowManualSelection: false,
-          allowManualDeselection: false,
-          keyEvents: null,
-        }),
-      ],
-    });
-    terra.start();
-    terra.on("change", (ids) => {
-      const current = toolRef.current;
-      if (!current) return;
-      const geometry = ids
-        .map((id) => terra.getSnapshotFeature(id)?.geometry)
-        .find((g) => g && g.type !== "Point");
-      if (geometry) sketch.set(drawnFrom(current, geometry));
-    });
-    terra.on("finish", (id, context) => {
-      const feature = terra.getSnapshotFeature(id);
-      const current = toolRef.current;
-      if (context.action !== "draw" || !feature || !current) return;
-      setDrawn(drawnFrom(current, feature.geometry));
-      sketch.set(undefined);
-      // One item at a time: stop drawing while the user names and styles it.
-      terra.setMode("static");
-    });
+    let terra: TerraDraw | undefined;
+    let stopped = false;
+    // Loaded after the map is up: drawing is a third of the Map page's code and most visits only look.
+    const start = async () => {
+      const [
+        {
+          TerraDraw,
+          TerraDrawCircleMode,
+          TerraDrawLineStringMode,
+          TerraDrawPointMode,
+          TerraDrawPolygonMode,
+          TerraDrawRectangleMode,
+          TerraDrawSelectMode,
+        },
+        { TerraDrawMapLibreGLAdapter },
+      ] = await Promise.all([import("terra-draw"), import("terra-draw-maplibre-gl-adapter")]);
+      if (stopped) return;
+      const loaded = new TerraDraw({
+        adapter: new TerraDrawMapLibreGLAdapter({ map }),
+        modes: [
+          new TerraDrawPointMode({ styles: { pointColor: ACCENT } }),
+          // Thin guides only: the preview layer shows the shape as it will look.
+          new TerraDrawLineStringMode({ styles: { lineStringColor: ACCENT, lineStringWidth: 1 } }),
+          new TerraDrawPolygonMode({ styles: { ...GUIDE_STYLE } }),
+          new TerraDrawRectangleMode({ styles: { ...GUIDE_STYLE } }),
+          new TerraDrawCircleMode({ styles: { ...GUIDE_STYLE } }),
+          new TerraDrawSelectMode({
+            // Only the item being edited is on the layer, and Save or Cancel ends the edit.
+            allowManualSelection: false,
+            allowManualDeselection: false,
+            keyEvents: null,
+          }),
+        ],
+      });
+      loaded.start();
+      loaded.on("change", (ids) => {
+        const current = toolRef.current;
+        if (!current) return;
+        const geometry = ids
+          .map((id) => loaded.getSnapshotFeature(id)?.geometry)
+          .find((g) => g && g.type !== "Point");
+        if (geometry) sketch.set(drawnFrom(current, geometry));
+      });
+      loaded.on("finish", (id, context) => {
+        const feature = loaded.getSnapshotFeature(id);
+        const current = toolRef.current;
+        if (context.action !== "draw" || !feature || !current) return;
+        setDrawn(drawnFrom(current, feature.geometry));
+        sketch.set(undefined);
+        // One item at a time: stop drawing while the user names and styles it.
+        loaded.setMode("static");
+      });
+      terra = loaded;
+      draw.current = loaded;
+      if (toolRef.current) loaded.setMode(TOOLS[toolRef.current].mode);
+    };
+    start().catch((err) => console.warn("Drawing tools failed to load", err));
     // ATAK closes a line by tapping its start point; terra-draw only finishes on the last one.
     const closeAtStart = (e: MapMouseEvent) => {
       const current = toolRef.current;
-      if (current !== "line" && current !== "route") return;
+      if (!terra || (current !== "line" && current !== "route")) return;
       const drawing = terra
         .getSnapshot()
         .find((f) => f.geometry.type === "LineString" && f.properties.currentlyDrawing);
@@ -230,10 +243,10 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       setDrawn({ kind: current, points });
     };
     map.on("click", closeAtStart);
-    draw.current = terra;
     return () => {
+      stopped = true;
       map.off("click", closeAtStart);
-      terra.stop();
+      terra?.stop();
       draw.current = undefined;
     };
   }, [map, sketch]);
