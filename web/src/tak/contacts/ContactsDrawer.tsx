@@ -145,7 +145,11 @@ export const ContactsDrawer = ({
         (a.callsign ?? "").localeCompare(b.callsign ?? "", undefined, { numeric: true }),
     );
   const byTeam = new Map<string, TakItem[]>();
-  for (const c of shown) byTeam.set(c.team ?? "", [...(byTeam.get(c.team ?? "") ?? []), c]);
+  for (const c of shown) {
+    const team = byTeam.get(c.team ?? "");
+    if (team) team.push(c);
+    else byTeam.set(c.team ?? "", [c]);
+  }
   const teams = [...byTeam.keys()].sort();
 
   return (

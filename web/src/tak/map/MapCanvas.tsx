@@ -637,14 +637,18 @@ const PreviewLayer = ({
 }: { map: MapLibreMap; bearing: number; cursor: Cursor } & NonNullable<Props["preview"]>) => {
   const shape = useSyncExternalStore(sketch.subscribe, sketch.get);
   const items = build(shape, useCursor(cursor));
+  // With nothing being drawn the pointer still moves; an empty preview needs clearing only once.
+  const cleared = useRef(false);
   useEffect(() => {
     const draw = () => {
+      if (items.length === 0 && cleared.current) return;
       const sources = toSources(map, items, NO_GROUPS_HIDDEN, Date.now(), bearing);
       // Until its graphic is rendered, keep showing the last one rather than flicker to a plain line.
       if (sources.graphicsPending) return;
       for (const name of ITEM_SOURCES) {
         (map.getSource(`tak-preview-${name}`) as GeoJSONSource).setData(sources[name]);
       }
+      cleared.current = items.length === 0;
     };
     draw();
     return onTacticalRendered(draw);

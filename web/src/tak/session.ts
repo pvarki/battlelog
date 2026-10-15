@@ -295,7 +295,9 @@ const connect = () => {
       receiveChecklistChange(event);
       if (!receiveFileShare(event) && !receiveMissionChange(event)) applyEvent(event);
     }
-    setStatus({ lastMessageAt: Date.now() });
+    // Shown to the second; a busy stream would otherwise re-render the workspace per message.
+    const now = Date.now();
+    if (now - (status.lastMessageAt ?? 0) >= 1000) setStatus({ lastMessageAt: now });
   };
   ws.onclose = () => {
     streamCovers = false;
