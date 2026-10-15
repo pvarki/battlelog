@@ -19,7 +19,11 @@ export const PickChooser = ({ items, at, onPick, onClose }: Props) => {
       className="tak-chooser"
       shadow="md"
       withBorder
-      style={{ left: at.x, top: at.y }}
+      // Kept inside the map: a tap near its edge would otherwise push the choices off screen.
+      style={{
+        left: `clamp(0px, ${at.x}px, calc(100% - 256px))`,
+        top: `clamp(0px, ${at.y}px, calc(100% - 336px))`,
+      }}
       role="menu"
       aria-label="Items here"
       onKeyDown={(e) => {

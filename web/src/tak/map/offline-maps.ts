@@ -97,9 +97,10 @@ export const useOfflineMaps = (): MapSource[] => {
   );
 };
 
-const store = async (file: File): Promise<File> => {
+/** The stored copy of `file`, or undefined when this browser can't keep files. */
+const store = async (file: File): Promise<File | undefined> => {
   const dir = await directory();
-  if (!dir) return file;
+  if (!dir) return undefined;
   void navigator.storage.persist?.();
   const handle = await dir.getFileHandle(file.name, { create: true });
   try {
@@ -115,15 +116,19 @@ const store = async (file: File): Promise<File> => {
   return handle.getFile();
 };
 
-/** Adds a PMTiles map. A stored map is never overwritten: a failed write would lose it. */
-export const addOfflineMap = async (file: File): Promise<MapSource> => {
+/**
+ * Adds a PMTiles map; `kept` is false when the browser can't store it, so it
+ * lasts until reload. A stored map is never overwritten: a failed write would lose it.
+ */
+export const addOfflineMap = async (file: File): Promise<{ source: MapSource; kept: boolean }> => {
   await load();
   if (maps.some((m) => m.id === `offline:${file.name}`))
     throw new OfflineMapError(`A map named ${file.name} is already stored; remove it first.`);
   await register(file);
-  const source = await register(await store(file));
+  const stored = await store(file);
+  const source = await register(stored ?? file);
   publish([...maps.filter((m) => m.id !== source.id), source]);
-  return source;
+  return { source, kept: !!stored };
 };
 
 export const removeOfflineMap = async (source: MapSource) => {

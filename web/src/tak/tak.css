@@ -458,8 +458,8 @@
 .tak-chooser {
   position: absolute;
   z-index: 3;
-  width: 240px;
-  max-height: 320px;
+  width: min(240px, 100% - 16px);
+  max-height: min(320px, 100% - 16px);
   overflow-y: auto;
   padding-bottom: 4px;
   transform: translate(8px, 8px);

@@ -265,6 +265,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
           <FeedFullscreen
             opened={fullscreen}
             config={config}
+            followed={followed}
             onClose={() => setFullscreen(false)}
           />
         </Suspense>

@@ -1,3 +1,4 @@
+import { notifications } from "@mantine/notifications";
 import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import type { TerraDraw, TerraDrawSelectMode } from "terra-draw";
@@ -216,7 +217,16 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       setReady(true);
       if (toolRef.current) loaded.setMode(TOOLS[toolRef.current].mode);
     };
-    start().catch((err) => console.warn("Drawing tools failed to load", err));
+    start().catch((err) => {
+      console.warn("Drawing tools failed to load", err);
+      notifications.show({
+        id: "drawing-load-failed",
+        color: "danger",
+        title: "Drawing tools didn't load",
+        message: "Reload the page once the connection is better.",
+        autoClose: false,
+      });
+    });
     // ATAK closes a line by tapping its start point; terra-draw only finishes on the last one.
     const closeAtStart = (e: MapMouseEvent) => {
       const current = toolRef.current;

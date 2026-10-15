@@ -20,6 +20,8 @@ import { Placeholder } from "../../components/Placeholder.tsx";
 import { StaleNotice } from "../../components/StaleNotice.tsx";
 import { type FilterExtras, matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { useLiveEvents } from "../../events/live-events.ts";
+import { linkedTo } from "../../tak/links.ts";
+import { TakSelectionPill } from "./TakSelectionPill.tsx";
 import { FeedTable } from "./View.tsx";
 import { type FeedColumn, type FeedConfig, FIELD_LABEL, FIELDS, labelFor } from "./widget.ts";
 
@@ -53,10 +55,13 @@ const lockedNote = (values: string[] | undefined): string | undefined =>
 const FeedFullscreen = ({
   opened,
   config,
+  followed,
   onClose,
 }: {
   opened: boolean;
   config: FeedConfig;
+  /** The TAK item the widget is narrowed to, kept in fullscreen. */
+  followed: string | undefined;
   onClose: () => void;
 }) => {
   const navigate = useNavigate();
@@ -83,10 +88,11 @@ const FeedFullscreen = ({
   const columns = candidates.filter((c) => visible.includes(c.id));
 
   const extras = toExtras(filters);
+  const link = followed ? linkedTo(followed) : undefined;
   const { events, failed, arrived } = useLiveEvents({
     limit: LIMIT,
-    query: queryFor(config, extras),
-    match: (row: EventResponse) => matchesFeed(row, config, extras),
+    query: { ...queryFor(config, extras), ...link?.query },
+    match: (row: EventResponse) => matchesFeed(row, config, extras) && (!link || link.match(row)),
   });
 
   return (
@@ -97,6 +103,7 @@ const FeedFullscreen = ({
       title={config.title || "Event feed"}
       transitionProps={{ transition: "pop", duration: 180 }}
     >
+      {followed && <TakSelectionPill uid={followed} events={events} />}
       <Fieldset legend="Filters" mb="sm">
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           <TagsInput

@@ -60,9 +60,18 @@ export const AddMapDialog = ({
     if (!file) return;
     setStoring(true);
     addOfflineMap(file)
-      .then((source) => {
+      .then(({ source, kept }) => {
         settings.setBasemap(source.id);
-        notifications.show({ color: "success", message: `Offline map ${source.label} added` });
+        notifications.show(
+          kept
+            ? { color: "success", message: `Offline map ${source.label} added` }
+            : {
+                color: "warning",
+                title: `${source.label} is shown until you reload`,
+                message: "This browser can't keep map files, so add it again after a reload.",
+                autoClose: false,
+              },
+        );
         onClose();
       }, failed("Couldn't add offline map"))
       .finally(() => setStoring(false));
