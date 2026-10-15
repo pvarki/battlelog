@@ -4,6 +4,7 @@ import type { MissionFile } from "../missions/missions.ts";
 import { fetchMission } from "../missions/missions.ts";
 import type { CotEvent } from "../protocol/cot-event.ts";
 import { takGetText, takSend } from "../rest.ts";
+import { addTakReceiver } from "../session.ts";
 import {
   type Checklist,
   type ChecklistTask,
@@ -98,3 +99,10 @@ export const receiveChecklistChange = (event: CotEvent) => {
   const missions = parseMissionChanges(event).map((c) => c.mission);
   for (const listener of listeners) listener(missions);
 };
+
+addTakReceiver({
+  live: (event) => {
+    receiveChecklistChange(event);
+    return false;
+  },
+});

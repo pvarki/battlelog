@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { CotEvent } from "../cot.ts";
 import { loadSavedChat, saveChatMessage } from "../picture-cache.ts";
+import { addTakReceiver } from "../session.ts";
 import { ALL_CHAT_ROOMS, type ChatKind, type ChatMessage, parseChat } from "./chat.ts";
 
 /**
@@ -51,3 +52,5 @@ export const useChatMessages = (): ChatMessage[] =>
     },
     () => messages,
   );
+
+addTakReceiver({ any: receiveChat, restore: () => void restoreChat() });

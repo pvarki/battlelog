@@ -1,9 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { receiveChat, restoreChat } from "./chat/store.ts";
-import { receiveChecklistChange } from "./checklists/api.ts";
 import { type CotEvent, toChange } from "./cot.ts";
-import { receiveFileShare } from "./inbox/store.ts";
-import { receiveMissionChange } from "./missions/store.ts";
 import {
   currentScope,
   forgetPicture,
@@ -97,8 +93,37 @@ let saving: Promise<void> = Promise.resolve();
 let writer = false;
 let claimed = false;
 
+/**
+ * What a feature (chat, Data Sync, checklists, packages) takes from the stream.
+ * Each feature registers itself, so the connection knows none of them and a page
+ * gets only the features it loads. A handler returns true when the event was
+ * its own, keeping it out of the map picture.
+ */
+export type TakReceiver = {
+  /** Live and replayed history alike. */
+  any?: (event: CotEvent) => boolean;
+  /** Only as it arrives: a replayed notice would act twice on the same change. */
+  live?: (event: CotEvent) => boolean;
+  /** Once this tab's saved state is open, to load the feature's own. */
+  restore?: () => void;
+};
+const receivers = new Set<TakReceiver>();
+let restoredScope = false;
+
+export const addTakReceiver = (receiver: TakReceiver) => {
+  receivers.add(receiver);
+  if (restoredScope) receiver.restore?.();
+  return () => void receivers.delete(receiver);
+};
+
+const takenByFeature = (event: CotEvent, kind: "any" | "live") => {
+  let taken = false;
+  for (const receiver of receivers) if (receiver[kind]?.(event)) taken = true;
+  return taken;
+};
+
 const applyEvent = (event: CotEvent) => {
-  if (receiveChat(event)) return;
+  if (takenByFeature(event, "any")) return;
   const change = toChange(event);
   if (change) takStore.apply(change);
 };
@@ -147,7 +172,8 @@ const openScope = async (): Promise<string | undefined> => {
 
 const restore = async () => {
   if (!savingEnabled() || !(await openScope()) || !scope) return;
-  void restoreChat();
+  restoredScope = true;
+  for (const receiver of receivers) receiver.restore?.();
   const saved = await loadPicture(scope).catch(() => undefined);
   // Older than the history TAK can replay, deletes made since could be missed: start over.
   const catchable = (saved?.syncedThrough ?? 0) > Date.now() - BACKFILL_DAYS * DAY_MS;
@@ -291,10 +317,7 @@ const connect = () => {
     if (error) console.warn("TAK message unreadable", error);
     // Only live: a replayed announcement would re-offer a package already handled, and
     // a replayed mission change is already in the mission as loaded.
-    for (const event of events) {
-      receiveChecklistChange(event);
-      if (!receiveFileShare(event) && !receiveMissionChange(event)) applyEvent(event);
-    }
+    for (const event of events) if (!takenByFeature(event, "live")) applyEvent(event);
     // Shown to the second; a busy stream would otherwise re-render the workspace per message.
     const now = Date.now();
     if (now - (status.lastMessageAt ?? 0) >= 1000) setStatus({ lastMessageAt: now });

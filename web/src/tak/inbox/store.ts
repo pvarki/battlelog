@@ -1,6 +1,7 @@
 import { notifications } from "@mantine/notifications";
 import { useSyncExternalStore } from "react";
 import type { CotEvent } from "../cot.ts";
+import { addTakReceiver } from "../session.ts";
 import { type FileShare, parseFileShare } from "./fileshare.ts";
 
 /**
@@ -44,3 +45,5 @@ export const useInbox = (): FileShare[] =>
     },
     () => inbox,
   );
+
+addTakReceiver({ live: receiveFileShare });

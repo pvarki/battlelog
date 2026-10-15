@@ -2,6 +2,7 @@ import { useEffect, useId, useSyncExternalStore } from "react";
 import type { TakItem } from "../cot.ts";
 import { loadSavedMission, saveMission } from "../picture-cache.ts";
 import type { CotEvent } from "../protocol/cot-event.ts";
+import { addTakReceiver } from "../session.ts";
 import { MISSION_CHANGE_TYPE, parseMissionChanges } from "./changes.ts";
 import {
   fetchInvitedMissions,
@@ -309,3 +310,5 @@ export const feedItemUids = (state: MissionsState): Map<string, Set<string>> =>
       contents.kind === "loaded" ? [[name, new Set(contents.items.map((i) => i.uid))]] : [],
     ),
   );
+
+addTakReceiver({ live: receiveMissionChange });
