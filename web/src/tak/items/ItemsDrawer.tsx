@@ -6,10 +6,12 @@ import {
   Chip,
   Group,
   Menu,
+  Pill,
   Popover,
   ScrollArea,
   SegmentedControl,
   Stack,
+  Switch,
   Text,
   TextInput,
   UnstyledButton,
@@ -25,7 +27,6 @@ import {
   IconEyeOff,
   IconFilter,
   IconSearch,
-  IconViewfinder,
 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from "react";
@@ -252,16 +253,28 @@ const FiltersMenu = ({
   setFilters: (update: Partial<ItemFilters>) => void;
   sources: { value: string; label: string }[];
 }) => {
-  const count = activeFilters({ ...filters, inView: false });
+  const count = activeFilters(filters);
   return (
     <Popover position="bottom-end" width={280} shadow="md" withinPortal>
       <Popover.Target>
-        <Button size="xs" variant="default" leftSection={<IconFilter size={14} />}>
-          Filters{count > 0 ? ` ${count}` : ""}
-        </Button>
+        <ActionIcon
+          variant={count > 0 ? "light" : "subtle"}
+          color={count > 0 ? "accent" : "gray"}
+          size="sm"
+          aria-label={count > 0 ? `Filters, ${count} on` : "Filters"}
+          title="Filters"
+        >
+          <IconFilter size={16} />
+        </ActionIcon>
       </Popover.Target>
       <Popover.Dropdown>
         <Stack gap="sm">
+          <Switch
+            size="xs"
+            label="Only what's in the map view"
+            checked={filters.inView}
+            onChange={(e) => setFilters({ inView: e.currentTarget.checked })}
+          />
           <FilterChips
             label="Status"
             options={STATUS_OPTIONS.map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
@@ -302,7 +315,7 @@ const FiltersMenu = ({
             size="xs"
             variant="default"
             disabled={count === 0}
-            onClick={() => setFilters({ ...NO_FILTERS, inView: filters.inView })}
+            onClick={() => setFilters(NO_FILTERS)}
           >
             Clear filters
           </Button>
@@ -366,10 +379,56 @@ export const ItemsDrawer = ({
           dimmed: isHidden(groupOf(item), hidden),
         }));
   const shown = listed.filter((i) => !isHidden(groupOf(i), hidden));
-  const narrowed = searching || activeFilters(filters) > 0;
   const sources = [
     ...(items.some((i) => i.draft) ? [{ value: PLAN_SOURCE, label: "Plan drafts" }] : []),
     ...[...feeds.keys()].sort().map((name) => ({ value: feedSource(name), label: name })),
+  ];
+  const without = <T,>(list: T[], value: T) => list.filter((v) => v !== value);
+  const pills: { key: string; label: string; onRemove: () => void }[] = [
+    ...(filters.inView
+      ? [{ key: "view", label: "In view", onRemove: () => setFilters({ inView: false }) }]
+      : []),
+    ...filters.statuses.map((v) => ({
+      key: `status ${v}`,
+      label: STATUS_LABEL[v],
+      onRemove: () => setFilters({ statuses: without(filters.statuses, v) }),
+    })),
+    ...filters.affiliations.map((v) => ({
+      key: `affiliation ${v}`,
+      label: AFFILIATION_OPTIONS.find((o) => o.value === v)?.label ?? v,
+      onRemove: () => setFilters({ affiliations: without(filters.affiliations, v) }),
+    })),
+    ...filters.kinds.map((v) => ({
+      key: `kind ${v}`,
+      label: KIND_OPTIONS.find((o) => o.value === v)?.label ?? v,
+      onRemove: () => setFilters({ kinds: without(filters.kinds, v) }),
+    })),
+    ...(filters.updatedWithin !== null
+      ? [
+          {
+            key: "updated",
+            label: `Last ${UPDATED_OPTIONS.find((o) => o.value === String(filters.updatedWithin))?.label ?? `${filters.updatedWithin} min`}`,
+            onRemove: () => setFilters({ updatedWithin: null }),
+          },
+        ]
+      : []),
+    ...filters.sources.map((v) => ({
+      key: `source ${v}`,
+      label: sources.find((o) => o.value === v)?.label ?? v,
+      onRemove: () => setFilters({ sources: without(filters.sources, v) }),
+    })),
+    ...(sort === "name"
+      ? []
+      : [
+          {
+            key: "sort",
+            label:
+              sort === "newest"
+                ? "Newest first"
+                : `Nearest to ${ownPosition ? "you" : "map centre"}`,
+            onRemove: () => setSort("name"),
+          },
+        ]),
   ];
   const active = activeKey === undefined ? -1 : rows.findIndex((r) => r.key === activeKey);
 
@@ -480,6 +539,38 @@ export const ItemsDrawer = ({
         placeholder="Filter by name, team or type"
         aria-label="Filter items"
         leftSection={<IconSearch size={14} />}
+        rightSectionWidth={56}
+        rightSectionPointerEvents="all"
+        rightSection={
+          <Group gap={2} wrap="nowrap">
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <ActionIcon
+                  variant={sort === "name" ? "subtle" : "light"}
+                  color={sort === "name" ? "gray" : "accent"}
+                  size="sm"
+                  aria-label="Sort items"
+                  title="Sort"
+                >
+                  <IconArrowsSort size={16} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Sort</Menu.Label>
+                {SORT_OPTIONS.map((o) => (
+                  <Menu.Item
+                    key={o.value}
+                    rightSection={o.value === sort ? <IconCheck size={14} /> : undefined}
+                    onClick={() => setSort(o.value)}
+                  >
+                    {o.label}
+                  </Menu.Item>
+                ))}
+              </Menu.Dropdown>
+            </Menu>
+            <FiltersMenu filters={filters} setFilters={setFilters} sources={sources} />
+          </Group>
+        }
         value={query}
         onChange={(e) => setQuery(e.currentTarget.value)}
         onKeyDown={(e) => {
@@ -489,50 +580,30 @@ export const ItemsDrawer = ({
           moveActive(0);
         }}
       />
-      <Group gap={6} wrap="nowrap">
-        <Button
-          size="xs"
-          variant={filters.inView ? "light" : "default"}
-          color={filters.inView ? "accent" : undefined}
-          leftSection={<IconViewfinder size={14} />}
-          aria-pressed={filters.inView}
-          title="Only what's inside the map view"
-          onClick={() => setFilters({ inView: !filters.inView })}
-        >
-          In view
-        </Button>
-        <Menu position="bottom-start" withinPortal>
-          <Menu.Target>
+      {(pills.length > 0 || searching) && (
+        <Group gap={4}>
+          {pills.map((pill) => (
+            <Pill key={pill.key} size="sm" withRemoveButton onRemove={pill.onRemove}>
+              {pill.label}
+            </Pill>
+          ))}
+          <Text fz="xs" c="dimmed" px={2}>
+            {listed.length} of {items.length}
+          </Text>
+          {pills.length > 1 && (
             <Button
-              size="xs"
-              variant="default"
-              aria-label="Sort items"
-              leftSection={<IconArrowsSort size={14} />}
-              rightSection={<IconChevronDown size={14} />}
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              onClick={() => {
+                setFilters(NO_FILTERS);
+                setSort("name");
+              }}
             >
-              {SORT_OPTIONS.find((o) => o.value === sort)?.label}
+              Clear
             </Button>
-          </Menu.Target>
-          <Menu.Dropdown>
-            {SORT_OPTIONS.map((o) => (
-              <Menu.Item
-                key={o.value}
-                rightSection={o.value === sort ? <IconCheck size={14} /> : undefined}
-                onClick={() => setSort(o.value)}
-              >
-                {o.label}
-              </Menu.Item>
-            ))}
-          </Menu.Dropdown>
-        </Menu>
-        <FiltersMenu filters={filters} setFilters={setFilters} sources={sources} />
-      </Group>
-      {(narrowed || sort === "distance") && (
-        <Text fz="xs" c="dimmed">
-          {narrowed ? `${listed.length} of ${items.length}` : ""}
-          {narrowed && sort === "distance" ? " · " : ""}
-          {sort === "distance" && `nearest to ${ownPosition ? "your position" : "the map centre"}`}
-        </Text>
+          )}
+        </Group>
       )}
       <Box
         data-items-list
