@@ -1,41 +1,76 @@
-import { Kbd, Modal, Table } from "@mantine/core";
+import { Button, Group, Kbd, Modal, Stack, Table } from "@mantine/core";
+import { SectionHeading } from "../components/SectionHeading.tsx";
+import { ACTION_GROUPS, ACTIONS, formatBinding } from "./keys/bindings.ts";
+import { useKeymap } from "./keys/useKeymap.ts";
 
 type Props = {
   opened: boolean;
   onClose: () => void;
-  /** The drawers this map has, with the key that opens each. */
-  drawers: { label: string; key: string }[];
+  /** Opens where the shortcuts are changed. */
+  onEdit: () => void;
 };
 
-const GENERAL: [keys: string, what: string][] = [
-  ["/ or Ctrl/⌘ K", "Search items, places and commands; Tab for an item's actions"],
-  ["C", "Centre the map on the selected item"],
-  ["L", "Laser pointer: point things out; hold the button to draw strokes that fade"],
+const FIXED: [keys: string, what: string][] = [
   ["Esc", "Stop drawing, close the selection, then the drawer"],
-  ["Ctrl/⌘ Z", "Undo the latest change"],
+  ["Tab", "In search: an item's or plan's own actions"],
   ["Shift-click", "Add an item to the selection, or take it out"],
   ["Shift-drag", "Select everything in a box"],
   ["Right-click a point", "Remove it while editing a line, route or area"],
-  ["?", "This list"],
 ];
 
-/** Every keyboard shortcut and mouse gesture of the map in one place. */
-export const ShortcutsDialog = ({ opened, onClose, drawers }: Props) => (
-  <Modal opened={opened} onClose={onClose} title="Keyboard and mouse" size="md">
-    <Table verticalSpacing={4} fz="sm">
-      <Table.Tbody>
-        {[
-          ...drawers.map((d): [string, string] => [d.key, `Open or close ${d.label}`]),
-          ...GENERAL,
-        ].map(([keys, what]) => (
-          <Table.Tr key={keys}>
-            <Table.Td w={150}>
-              <Kbd size="xs">{keys}</Kbd>
-            </Table.Td>
-            <Table.Td>{what}</Table.Td>
-          </Table.Tr>
+const Row = ({ keys, what }: { keys: string[]; what: string }) => (
+  <Table.Tr>
+    <Table.Td w={150}>
+      <Group gap={4}>
+        {keys.map((k) => (
+          <Kbd key={k} size="xs">
+            {k}
+          </Kbd>
         ))}
-      </Table.Tbody>
-    </Table>
-  </Modal>
+      </Group>
+    </Table.Td>
+    <Table.Td>{what}</Table.Td>
+  </Table.Tr>
 );
+
+/** Every keyboard shortcut and mouse gesture of the map in one place. */
+export const ShortcutsDialog = ({ opened, onClose, onEdit }: Props) => {
+  const { keymap } = useKeymap();
+  return (
+    <Modal opened={opened} onClose={onClose} title="Keyboard and mouse" size="md">
+      <Stack gap="md">
+        {ACTION_GROUPS.map((group) => (
+          <Stack key={group} gap={4}>
+            <SectionHeading>{group}</SectionHeading>
+            <Table verticalSpacing={4} fz="sm">
+              <Table.Tbody>
+                {ACTIONS.filter((a) => a.group === group && keymap.get(a.id)?.length).map((a) => (
+                  <Row
+                    key={a.id}
+                    keys={(keymap.get(a.id) ?? []).map((k) => formatBinding(k))}
+                    what={group === "Drawers" ? `Open or close ${a.label}` : a.label}
+                  />
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Stack>
+        ))}
+        <Stack gap={4}>
+          <SectionHeading>Always</SectionHeading>
+          <Table verticalSpacing={4} fz="sm">
+            <Table.Tbody>
+              {FIXED.map(([keys, what]) => (
+                <Row key={keys} keys={[keys]} what={what} />
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Stack>
+        <Group>
+          <Button size="xs" variant="default" onClick={onEdit}>
+            Change shortcuts
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+};

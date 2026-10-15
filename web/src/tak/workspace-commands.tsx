@@ -28,11 +28,13 @@ const ICON = 16;
 const MAX_ITEMS = 20;
 const ITEM = "item:";
 
-type Drawer = { id: string; label: string; key: string; Icon: ComponentType<{ size?: number }> };
+type Drawer = { id: string; label: string; Icon: ComponentType<{ size?: number }> };
 
 /** What the command bar can reach in the workspace; each field is the workspace's own handler. */
 export type WorkspaceCommands = {
   drawers: Drawer[];
+  /** An action's shortcut as the viewer has set it. */
+  shortcutOf: (actionId: string) => string | undefined;
   openDrawer: (id: string) => void;
   chooseTool: (tool: Tool) => void;
   drawReason: string | undefined;
@@ -98,7 +100,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
         id: "centre",
         group: "Items" as const,
         label: "Centre the map on it",
-        shortcut: "C",
+        shortcut: w.shortcutOf("centre"),
         run: () => w.centreOn(item),
       },
       ...(isContact
@@ -189,11 +191,11 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
   const drawIcon = <IconPencil size={ICON} />;
   const mapIcon = <IconMap size={ICON} />;
   const commands: Command[] = [
-    ...w.drawers.map(({ id, label, key, Icon }) => ({
+    ...w.drawers.map(({ id, label, Icon }) => ({
       id: `drawer:${id}`,
       group: "Go to" as const,
       label,
-      shortcut: key,
+      shortcut: w.shortcutOf(`drawer.${id}`),
       icon: <Icon size={ICON} />,
       run: () => w.openDrawer(id),
     })),
@@ -201,6 +203,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: `draw:${tool}`,
       group: "Draw" as const,
       label: TOOLS[tool].label,
+      shortcut: w.shortcutOf(`draw.${tool}`),
       keywords: ["draw", "new"],
       icon: drawIcon,
       disabledReason: w.drawReason,
@@ -210,6 +213,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "draw:measure",
       group: "Draw",
       label: w.measuring ? "Stop measuring" : "Measure",
+      shortcut: w.shortcutOf("measure"),
       keywords: ["distance", "range", "bearing"],
       icon: drawIcon,
       run: w.toggleMeasure,
@@ -218,6 +222,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "draw:lasso",
       group: "Draw",
       label: w.lassoing ? "Stop lasso select" : "Lasso select",
+      shortcut: w.shortcutOf("lasso"),
       keywords: ["select"],
       icon: drawIcon,
       run: w.toggleLasso,
@@ -226,7 +231,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "draw:laser",
       group: "Draw",
       label: w.laser ? "Stop laser pointer" : "Laser pointer",
-      shortcut: "L",
+      shortcut: w.shortcutOf("laser"),
       keywords: ["point", "pen", "brief"],
       icon: drawIcon,
       run: w.toggleLaser,
@@ -235,6 +240,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "map:mgrs",
       group: "Map",
       label: "MGRS grid",
+      shortcut: w.shortcutOf("mgrsGrid"),
       detail: onOff(settings.mgrsGrid),
       keywords: ["grid"],
       icon: mapIcon,
@@ -244,6 +250,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "map:tracks",
       group: "Map",
       label: "Tracks",
+      shortcut: w.shortcutOf("tracks"),
       detail: onOff(settings.showAllTracks),
       icon: mapIcon,
       run: () => settings.setShowAllTracks(!settings.showAllTracks),
@@ -252,6 +259,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "map:dim",
       group: "Map",
       label: "Dim background map",
+      shortcut: w.shortcutOf("dim"),
       detail: onOff(settings.dim),
       keywords: ["night", "dark"],
       icon: mapIcon,
@@ -316,7 +324,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "action:drawing-tools",
       group: "Actions",
       label: "Drawing tools",
-      shortcut: "D",
+      shortcut: w.shortcutOf("drawingTools"),
       icon: drawIcon,
       run: w.toggleDrawing,
     },
@@ -324,7 +332,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "action:undo",
       group: "Actions",
       label: "Undo",
-      shortcut: "Ctrl/⌘ Z",
+      shortcut: w.shortcutOf("undo"),
       icon: <IconArrowBackUp size={ICON} />,
       disabledReason: w.undoReason,
       run: w.undo,
@@ -333,6 +341,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "action:replay",
       group: "Actions",
       label: w.replaying ? "Back to live" : "Replay history",
+      shortcut: w.shortcutOf("replay"),
       keywords: ["history", "time"],
       icon: <IconHistory size={ICON} />,
       run: w.toggleReplay,
@@ -341,6 +350,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "action:locate",
       group: "Actions",
       label: "Locate me",
+      shortcut: w.shortcutOf("locate"),
       keywords: ["gps", "position"],
       icon: <IconCrosshair size={ICON} />,
       run: w.toggleLocate,
@@ -349,7 +359,7 @@ export const workspaceCommands = (w: WorkspaceCommands) => {
       id: "action:shortcuts",
       group: "Actions",
       label: "Keyboard shortcuts",
-      shortcut: "?",
+      shortcut: w.shortcutOf("shortcuts"),
       keywords: ["help", "keys"],
       icon: <IconKeyboard size={ICON} />,
       run: w.showShortcuts,

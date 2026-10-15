@@ -54,6 +54,8 @@ import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { labelOf } from "./items.ts";
+import { actionFor, bindingOf } from "./keys/bindings.ts";
+import { useKeymap } from "./keys/useKeymap.ts";
 import { LayersDrawer } from "./layers/LayersDrawer.tsx";
 import { DEFAULT_BASEMAP, type MapSource, useMapSources } from "./map/basemaps.ts";
 import { centreOnItem, flyToPosition } from "./map/camera.ts";
@@ -95,14 +97,14 @@ import { useTakWrites } from "./use-tak-writes.ts";
 import { workspaceCommands } from "./workspace-commands.tsx";
 
 const DRAWERS = {
-  items: { label: "Items", Icon: IconList, key: "1" },
-  missions: { label: "Data Sync", Icon: IconFolders, key: "2" },
-  plans: { label: "Plans", Icon: IconClipboardList, key: "3" },
-  layers: { label: "Layers", Icon: IconStack2, key: "4" },
-  chat: { label: "Chat", Icon: IconMessage, key: "5" },
-  contacts: { label: "Contacts", Icon: IconAddressBook, key: "6" },
-  checklists: { label: "Checklists", Icon: IconChecklist, key: "7" },
-  settings: { label: "Settings", Icon: IconSettings, key: "8" },
+  items: { label: "Items", Icon: IconList },
+  missions: { label: "Data Sync", Icon: IconFolders },
+  plans: { label: "Plans", Icon: IconClipboardList },
+  layers: { label: "Layers", Icon: IconStack2 },
+  chat: { label: "Chat", Icon: IconMessage },
+  contacts: { label: "Contacts", Icon: IconAddressBook },
+  checklists: { label: "Checklists", Icon: IconChecklist },
+  settings: { label: "Settings", Icon: IconSettings },
 } as const;
 
 type DrawerId = keyof typeof DRAWERS;
@@ -218,6 +220,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
   const [lassoing, setLassoing] = useState(false);
   const [laser, setLaser] = useState(false);
+  const { keymap, shortcutOf } = useKeymap();
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [movingGroup, setMovingGroup] = useState(false);
   const groupItems = items.filter((i) => grouped.has(i.uid));
@@ -438,6 +441,45 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     setDrawer((open) => (open === id ? null : id));
   };
 
+  const startTool = (tool: Tool) => {
+    const reason = activePlan ? replayReason : drawReason;
+    if (reason) return notifications.show({ color: "warning", message: reason });
+    setDrawOpen(true);
+    chooseTool(drawing.tool === tool ? undefined : tool);
+  };
+  const keyActions: Record<string, () => void> = {
+    commandBar: openCommandBar,
+    shortcuts: () => setShowShortcuts((open) => !open),
+    undo: () => {
+      setDrawOpen(true);
+      undo();
+    },
+    centre: () => {
+      if (selected) centreOn(selected);
+      else if (selectedEvent?.locationPoint)
+        flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat]);
+    },
+    laser: toggleLaser,
+    drawingTools: toggleDrawing,
+    "draw.marker": () => startTool("marker"),
+    "draw.route": () => startTool("route"),
+    "draw.polygon": () => startTool("polygon"),
+    measure: () => {
+      setDrawOpen(true);
+      toggleMeasure();
+    },
+    lasso: () => {
+      setDrawOpen(true);
+      toggleLasso();
+    },
+    mgrsGrid: () => settings.setMgrsGrid(!settings.mgrsGrid),
+    tracks: () => settings.setShowAllTracks(!settings.showAllTracks),
+    dim: () => settings.setDim(!settings.dim),
+    replay: toggleReplay,
+    locate: ownPosition.toggleLocate,
+    ...Object.fromEntries(drawers.map((id) => [`drawer.${id}`, () => toggleDrawer(id)])),
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // A dialog owns its keys, Esc included: closing one mustn't also clear the map.
@@ -461,27 +503,13 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         else setDrawer(null);
         return;
       }
-      if (isTyping(e.target)) return;
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        setDrawOpen(true);
-        undo();
-        return;
-      }
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === "/") {
-        e.preventDefault();
-        openCommandBar();
-      }
-      if (e.key === "?") setShowShortcuts((open) => !open);
-      if (e.key.toLowerCase() === "d") toggleDrawing();
-      if (e.key.toLowerCase() === "l") toggleLaser();
-      if (e.key.toLowerCase() === "c" && selected) centreOn(selected);
-      if (e.key.toLowerCase() === "c" && selectedEvent?.locationPoint)
-        flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat]);
-      for (const id of drawers) {
-        if (e.key === DRAWERS[id].key) toggleDrawer(id);
-      }
+      const binding = bindingOf(e);
+      const action = binding && actionFor(keymap, binding);
+      if (!action) return;
+      // Typing keeps its keys; only a modified command-bar shortcut reaches past a field.
+      if (isTyping(e.target) && !(action === "commandBar" && binding.startsWith("mod+"))) return;
+      e.preventDefault();
+      keyActions[action]?.();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -489,6 +517,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
 
   const commandBar = workspaceCommands({
     drawers: drawers.map((id) => ({ id, ...DRAWERS[id] })),
+    shortcutOf,
     openDrawer: (id) => {
       setChatWith(undefined);
       setDrawer(id as DrawerId);
@@ -707,7 +736,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     <div className="tak-workspace" data-mobile={isMobile || undefined}>
       <nav className="tak-rail" aria-label="Map tools">
         {drawers.map((id) => {
-          const { label, Icon, key } = DRAWERS[id];
+          const { label, Icon } = DRAWERS[id];
+          const key = shortcutOf(`drawer.${id}`);
           return (
             <UnstyledButton
               key={id}
@@ -715,7 +745,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
               data-end={id === "settings" || undefined}
               aria-pressed={drawer === id}
               onClick={() => toggleDrawer(id)}
-              title={`${label} (${key})`}
+              title={key ? `${label} (${key})` : label}
             >
               <Indicator label={badges[id]} size={16} color="primary" disabled={!badges[id]}>
                 <Icon size={20} stroke={1.5} />
@@ -814,13 +844,16 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         <ShortcutsDialog
           opened={showShortcuts}
           onClose={() => setShowShortcuts(false)}
-          drawers={[...drawers.map((id) => DRAWERS[id]), { label: "the drawing tools", key: "D" }]}
+          onEdit={() => {
+            setShowShortcuts(false);
+            setDrawer("settings");
+          }}
         />
         <div className="tak-overlay">
           {/* Search and draw together: the tools open right under the button that opens them. */}
           <div className="tak-command-row">
             <div className="tak-search-slot">
-              <CommandBar {...commandBar} />
+              <CommandBar {...commandBar} shortcut={shortcutOf("commandBar")} />
             </div>
             <UnstyledButton
               className="tak-draw-toggle"

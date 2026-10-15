@@ -7,7 +7,7 @@ import { type Command, rank, remember, score } from "./commands.ts";
 
 const [store, bar] = createSpotlight();
 
-/** For `/`, which the workspace handles itself: on Nordic keyboards it needs Shift. */
+/** Its shortcut is the viewer's to choose, so the workspace's key handler opens it. */
 export const openCommandBar = bar.open;
 
 /** Spotlight only moves its selection when the query changes; a new list after Tab needs it too. */
@@ -30,10 +30,12 @@ type Props = {
   search: (query: string) => Command[];
   /** A remembered command, for the Recent list; items included. */
   byId: (id: string) => Command | undefined;
+  /** Shown in the field, as the viewer has set it. */
+  shortcut?: string;
 };
 
-/** The map's command bar: find and do anything by name, from `/` or Ctrl/⌘ K. */
-export const CommandBar = ({ commands, search, byId }: Props) => {
+/** The map's command bar: find and do anything by name; the workspace opens it from its shortcut. */
+export const CommandBar = ({ commands, search, byId, shortcut }: Props) => {
   const [query, setQuery] = useState("");
   const [focusId, setFocusId] = useState<string>();
   // Resolved on every render, so its actions see the item as it is now.
@@ -104,19 +106,21 @@ export const CommandBar = ({ commands, search, byId }: Props) => {
         className="tak-command-trigger"
         onClick={bar.open}
         aria-label="Search and commands"
-        title="Search and commands (/ or Ctrl/⌘ K)"
+        title="Search and commands"
       >
         <IconSearch size={16} />
         <span>Search items, places and commands</span>
-        <Kbd size="xs" className="tak-kbd-hint">
-          /
-        </Kbd>
+        {shortcut && (
+          <Kbd size="xs" className="tak-kbd-hint">
+            {shortcut}
+          </Kbd>
+        )}
       </UnstyledButton>
       <Spotlight.Root
         store={store}
         query={query}
         onQueryChange={setQuery}
-        shortcut="mod + K"
+        shortcut={null}
         closeOnEscape={!focus}
         onSpotlightOpen={afterRender}
         onSpotlightClose={reset}
