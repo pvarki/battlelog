@@ -4,11 +4,27 @@
  * picture aren't settings: plans export as data packages. Sign-in state never travels.
  */
 
-const PREFIX = "battlelog.";
-/** Sign-in state: a Matrix access token must not travel in a file, nor overwrite another login. */
-const PRIVATE = "battlelog.matrix.";
+/**
+ * Settings travel by allowlist: anything else under battlelog. is sign-in state
+ * (a Matrix token), a cache (dashboards, whose widget configs can hold stream
+ * URLs with tokens) or this browser's own state, and a new key stays home until added here.
+ */
+const SETTINGS = new Set([
+  "battlelog.favorites",
+  "battlelog.nav-filter",
+  "battlelog.nav-open",
+  "battlelog.explorer.sort",
+]);
+const TAK_PREFIX = "battlelog.tak.";
+/** Map-page state that means nothing in another browser: its plans, last view and recent commands. */
+const TAK_LOCAL = new Set([
+  "battlelog.tak.activePlan",
+  "battlelog.tak.view",
+  "battlelog.tak.recentCommands",
+]);
 
-const isSetting = (key: string) => key.startsWith(PREFIX) && !key.startsWith(PRIVATE);
+const isSetting = (key: string) =>
+  SETTINGS.has(key) || (key.startsWith(TAK_PREFIX) && !TAK_LOCAL.has(key));
 
 /** Every value is stored as JSON; one that isn't would break the setting reading it. */
 const isJson = (value: string) => {

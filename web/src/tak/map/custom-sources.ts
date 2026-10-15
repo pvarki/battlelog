@@ -1,4 +1,5 @@
 import type { RasterSourceSpecification } from "maplibre-gl";
+import { z } from "zod";
 import type { MapSource } from "./basemaps.ts";
 
 /** A map source the viewer added by URL or from an ATAK map source file. */
@@ -10,6 +11,19 @@ export type CustomSource = {
   maxzoom: number;
   scheme: "xyz" | "tms";
 };
+
+const customSourceSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  tiles: z.array(z.string()).min(1),
+  minzoom: z.number(),
+  maxzoom: z.number(),
+  scheme: z.enum(["xyz", "tms"]),
+});
+
+/** Stored sources come from this browser or an imported settings file: one that's malformed is skipped. */
+export const isCustomSource = (value: unknown): value is CustomSource =>
+  customSourceSchema.safeParse(value).success;
 
 export class MapSourceError extends Error {}
 

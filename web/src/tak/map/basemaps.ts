@@ -1,5 +1,5 @@
 import type { RasterSourceSpecification } from "maplibre-gl";
-import { type CustomSource, toMapSource } from "./custom-sources.ts";
+import { type CustomSource, isCustomSource, toMapSource } from "./custom-sources.ts";
 import { useOfflineMaps } from "./offline-maps.ts";
 import { useTakMapSources } from "./tak-sources.ts";
 
@@ -68,7 +68,7 @@ export const useMapSources = (
   clientUid: string | undefined,
 ): MapSource[] => [
   ...BUILTIN_SOURCES,
-  ...custom.map((source) => toMapSource(source)),
+  ...custom.filter(isCustomSource).map((source) => toMapSource(source)),
   ...useOfflineMaps(),
   ...useTakMapSources(clientUid),
 ];

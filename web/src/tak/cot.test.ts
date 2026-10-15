@@ -97,6 +97,10 @@ test("an ellipse keeps both axes and its angle", () => {
 
 test("an impossible timestamp is rejected, so it can't block the uid forever", () => {
   expect(toChange({ ...base, time: Number.POSITIVE_INFINITY })).toBeNull();
+  const now = Date.now();
+  expect(toChange({ ...base, time: now + 2 * 60 * 60 * 1000 })).toBeNull();
+  expect(toChange({ ...base, time: now + 60 * 1000 })).not.toBeNull();
+  expect(toChange({ ...base, lat: 100 })).toBeNull();
 });
 
 const upsert = (event: Partial<CotEvent>) => {

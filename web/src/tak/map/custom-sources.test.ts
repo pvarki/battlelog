@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
-import { MapSourceError, parseAtakMapSource, tileUrls } from "./custom-sources.ts";
+import { describe, expect, it, test } from "vitest";
+import { isCustomSource, MapSourceError, parseAtakMapSource, tileUrls } from "./custom-sources.ts";
 
 describe("tileUrls", () => {
   it("reads ATAK placeholders and expands server parts", () => {
@@ -57,4 +57,16 @@ describe("parseAtakMapSource", () => {
   it("rejects files that aren't map sources", () => {
     expect(() => parseAtakMapSource("<kml/>", "id")).toThrow(MapSourceError);
   });
+});
+
+test("a malformed stored source is skipped rather than breaking the map", () => {
+  const good = {
+    id: "a",
+    label: "A",
+    tiles: ["https://t/{z}/{x}/{y}.png"],
+    minzoom: 0,
+    maxzoom: 18,
+    scheme: "xyz",
+  };
+  expect([null, {}, { ...good, tiles: [] }, good].filter(isCustomSource)).toEqual([good]);
 });

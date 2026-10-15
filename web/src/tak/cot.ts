@@ -165,9 +165,14 @@ export const argbToColor = (value: string | null | undefined): TakColor | undefi
   return { color: `#${hex}`, opacity: Math.round(((argb >>> 24) / 255) * 100) / 100 };
 };
 
+/** MapLibre throws on a latitude past ±90 when centring on it. */
+const isOnEarth = ([lon, lat]: Position) =>
+  Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+
 const parsePoint = (point: string | null): Position | undefined => {
   const [lat, lon] = (point ?? "").split(",").map(Number);
-  return Number.isFinite(lat) && Number.isFinite(lon) ? [lon as number, lat as number] : undefined;
+  const position: Position = [lon as number, lat as number];
+  return isOnEarth(position) ? position : undefined;
 };
 
 const geometryFor = (type: string, point: Position, links: Element[]): TakGeometry => {
@@ -346,11 +351,15 @@ const parseDetail = (xml: string): Element | undefined => {
   return doc.getElementsByTagName("parsererror").length > 0 ? undefined : doc.documentElement;
 };
 
+export const MAX_CLOCK_AHEAD_MS = 60 * 60 * 1000;
+
 /** Interprets a CoT event as a map change; null for anything that isn't one. */
 export const toChange = (event: CotEvent): TakChange | null => {
   const { uid, type, time } = event;
-  // A bogus far-future time would win every newest-wins comparison for this uid forever.
+  // A bogus far-future time would win every newest-wins comparison for this uid forever,
+  // so a delete or edit dated ahead could freeze an item; a device clock off by more is ignored.
   if (!uid || !type || !Number.isSafeInteger(time) || time <= 0) return null;
+  if (time > Date.now() + MAX_CLOCK_AHEAD_MS || !isOnEarth([event.lon, event.lat])) return null;
   const detail = parseDetail(event.detail);
   if (!detail) return null;
   const child = (name: string) => childNamed(detail, name);
@@ -386,7 +395,9 @@ export const toChange = (event: CotEvent): TakChange | null => {
     (v) => {
       const lat = num(v.getAttribute("lat"));
       const lon = num(v.getAttribute("lon"));
-      return lat === undefined || lon === undefined ? [] : [[lon, lat] as Position];
+      return lat === undefined || lon === undefined || !isOnEarth([lon, lat])
+        ? []
+        : [[lon, lat] as Position];
     },
   );
   const waypoints = links.flatMap((l) => {

@@ -20,6 +20,8 @@ test("only BattleLog's settings travel, and come back as they were", () => {
     "battlelog.tak.mgrsGrid": "true",
     "battlelog.tak.keybindings": '{"laser":["p"]}',
     "battlelog.matrix.session": '{"accessToken":"secret"}',
+    "battlelog.dashboards": '[{"url":"https://x/?token=cached"}]',
+    "battlelog.tak.activePlan": '"p1"',
     "someone-else": "x",
   });
   const to = memoryStorage({ "battlelog.tak.mgrsGrid": "false" });
@@ -28,6 +30,8 @@ test("only BattleLog's settings travel, and come back as they were", () => {
   expect(to.getItem("battlelog.tak.keybindings")).toBe('{"laser":["p"]}');
   expect(to.getItem("someone-else")).toBeNull();
   expect(settingsFile(from)).not.toContain("secret");
+  expect(settingsFile(from)).not.toContain("cached");
+  expect(to.getItem("battlelog.tak.activePlan")).toBeNull();
 });
 
 test("a file that isn't ours says so, and foreign keys inside one are dropped", () => {
@@ -38,13 +42,13 @@ test("a file that isn't ours says so, and foreign keys inside one are dropped", 
       app: "battlelog-settings",
       version: 1,
       settings: {
-        "battlelog.a": "1",
+        "battlelog.tak.a": "1",
         other: "2",
-        "battlelog.b": 3,
-        "battlelog.c": "{broken",
+        "battlelog.tak.b": 3,
+        "battlelog.tak.c": "{broken",
         "battlelog.matrix.session": "{}",
       },
     }),
   );
-  expect(read).toEqual({ "battlelog.a": "1" });
+  expect(read).toEqual({ "battlelog.tak.a": "1" });
 });
