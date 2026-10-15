@@ -50,7 +50,7 @@ import {
 } from "../items.ts";
 import { useMapView } from "../map/camera.ts";
 import { groupOf, groupTree, isHidden, type Group as OverlayGroup } from "../overlays.ts";
-import { PanelActions, PanelMenu, ViewOption } from "../panel.tsx";
+import { PanelActions, PanelFooter, PanelMenu, ViewOption } from "../panel.tsx";
 import { kmlBlob } from "../plans/overlay-files.ts";
 import {
   type Affiliation,
@@ -722,16 +722,18 @@ export const ItemsDrawer = ({
           )}
         </ScrollArea>
       </Box>
-      <Button
-        size="xs"
-        variant="default"
-        leftSection={<IconDownload size={14} />}
-        disabled={shown.length === 0}
-        title="The items listed, without hidden groups"
-        onClick={() => download(kmlBlob("TAK overlays", shown), "tak-overlays.kml")}
-      >
-        Export {shown.length} as KML
-      </Button>
+      <PanelFooter>
+        <Button
+          size="xs"
+          variant="default"
+          leftSection={<IconDownload size={14} />}
+          disabled={shown.length === 0}
+          title="The items listed, without hidden groups"
+          onClick={() => download(kmlBlob("TAK overlays", shown), "tak-overlays.kml")}
+        >
+          Export {shown.length} as KML
+        </Button>
+      </PanelFooter>
     </Stack>
   );
 };

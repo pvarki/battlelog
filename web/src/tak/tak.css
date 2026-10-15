@@ -675,6 +675,15 @@
   min-height: 28px;
 }
 
+.tak-panel-footer {
+  padding-top: var(--mantine-spacing-xs);
+  border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-panel-footer:empty {
+  display: none;
+}
+
 /* The drawer's name outranks the section headings inside it. */
 .tak-panel-title {
   margin: 0;

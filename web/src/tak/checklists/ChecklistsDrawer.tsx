@@ -22,7 +22,7 @@ import { useNow } from "../../use-now.ts";
 import type { Sender } from "../identity.ts";
 import type { MissionFile } from "../missions/missions.ts";
 import { useWrite } from "../missions/shared.tsx";
-import { PanelActions, PanelMenu } from "../panel.tsx";
+import { PanelActions, PanelFooter, PanelMenu } from "../panel.tsx";
 import {
   createTemplate,
   fetchActiveChecklists,
@@ -316,9 +316,9 @@ const Checklists = ({ writer }: { writer: Sender | undefined }) => {
       </PanelActions>
       <NewTemplate writer={writer} opened={templateOpen} onClose={() => setTemplateOpen(false)} />
       <ChecklistList checklists={checklists} onOpen={setOpen} />
-      <Group>
+      <PanelFooter>
         <NewChecklist writer={writer} onStarted={setOpen} />
-      </Group>
+      </PanelFooter>
     </Stack>
   );
 };

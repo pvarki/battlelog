@@ -27,7 +27,7 @@ import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { count } from "../items.ts";
 import type { Mission } from "../missions/missions.ts";
-import { PanelActions, PanelMenu } from "../panel.tsx";
+import { PanelActions, PanelFooter, PanelMenu } from "../panel.tsx";
 import { sendPlan } from "../send.ts";
 import { kmlBlob } from "./overlay-files.ts";
 import { PublishToMission } from "./PublishToMission.tsx";
@@ -318,7 +318,7 @@ export const PlansDrawer = (props: Props) => {
         )}
         <InboxSection onOpenPlan={setOpenId} clientUid={props.clientUid} />
       </ScrollArea>
-      <Group>
+      <PanelFooter>
         <Button
           size="xs"
           variant="default"
@@ -327,7 +327,7 @@ export const PlansDrawer = (props: Props) => {
         >
           New plan
         </Button>
-      </Group>
+      </PanelFooter>
     </Stack>
   );
 };

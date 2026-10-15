@@ -4,6 +4,7 @@ import { createContext, type ReactNode, useContext, useState } from "react";
 import { createPortal } from "react-dom";
 
 const ActionsSlot = createContext<HTMLElement | null>(null);
+const FooterSlot = createContext<HTMLElement | null>(null);
 
 /** A drawer's frame: title, the drawer's own actions on the right, then its content. */
 export const Panel = ({
@@ -16,6 +17,7 @@ export const Panel = ({
   children: ReactNode;
 }) => {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const [footer, setFooter] = useState<HTMLElement | null>(null);
   return (
     <Stack gap="sm" h="100%">
       <Group justify="space-between" wrap="nowrap" gap="xs" className="tak-panel-header">
@@ -28,8 +30,11 @@ export const Panel = ({
         </Group>
       </Group>
       <ActionsSlot value={slot}>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</div>
+        <FooterSlot value={footer}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</div>
+        </FooterSlot>
       </ActionsSlot>
+      <Group gap="xs" className="tak-panel-footer" ref={setFooter} />
     </Stack>
   );
 };
@@ -37,6 +42,12 @@ export const Panel = ({
 /** Puts a drawer's actions in its panel header, beside the close button. */
 export const PanelActions = ({ children }: { children: ReactNode }) => {
   const slot = useContext(ActionsSlot);
+  return slot ? createPortal(children, slot) : null;
+};
+
+/** Puts a drawer's main actions at its foot, below what scrolls. */
+export const PanelFooter = ({ children }: { children: ReactNode }) => {
+  const slot = useContext(FooterSlot);
   return slot ? createPortal(children, slot) : null;
 };
 

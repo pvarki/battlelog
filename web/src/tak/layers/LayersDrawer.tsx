@@ -30,7 +30,7 @@ import type { EventLayer } from "../event-layers/layers.ts";
 import { DEFAULT_BASEMAP, type MapSource } from "../map/basemaps.ts";
 import { canSaveArea } from "../map/offline-area.ts";
 import { removeOfflineMap } from "../map/offline-maps.ts";
-import { PanelActions, PanelMenu, ViewOption } from "../panel.tsx";
+import { PanelActions, PanelFooter, PanelMenu, ViewOption } from "../panel.tsx";
 import type { MapSettings } from "../settings.ts";
 import { AddMapDialog } from "./AddMapDialog.tsx";
 import { useSaveArea } from "./save-area.ts";
@@ -204,7 +204,7 @@ export const LayersDrawer = ({
           </Stack>
         </Stack>
       </ScrollArea>
-      <Group gap="xs">
+      <PanelFooter>
         <Button
           size="xs"
           variant="default"
@@ -222,7 +222,7 @@ export const LayersDrawer = ({
         >
           Add map
         </Button>
-      </Group>
+      </PanelFooter>
       {editing && (
         <LayerDialog
           layer={editing.layer}

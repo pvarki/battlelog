@@ -43,7 +43,7 @@ One look across pages, dashboards, widgets and the Map page:
 - **Icons**: Tabler, 14px in buttons and menu items, 16px in `ActionIcon`s, default stroke; `stroke={1.5}` only on the large navigation icons (the map rail, the mobile bottom bar).
 - **Time**: `time.ts` only: absolute times in the house format (`formatDateTime` and friends), relative ones with `formatAge`. Never `toLocale*` or `Intl` with a browser locale.
 - **Close/back** in panels: `CloseButton size="sm"`; back is an `ActionIcon` with `IconArrowLeft` 16.
-- **Map drawers**: the header is only the title, a `PanelMenu` (⋯, via `PanelActions` in `tak/panel.tsx`) and close. The drawer's main action (New feed, New plan…) sits at its foot; secondary actions and the few display options (`ViewOption`) go under ⋯. What's listed is filtered in the drawer's search, not the menu. No help sentence under the title (put it in the empty state or a tooltip). Buttons keep their own width; a full-width button reads as the page's one main action. In item details, secondary and destructive actions go under More, Delete last.
+- **Map drawers**: the header is only the title, a `PanelMenu` (⋯, via `PanelActions` in `tak/panel.tsx`) and close. The drawer's main action (New feed, New plan…) sits at its foot via `PanelFooter`; secondary actions and the few display options (`ViewOption`) go under ⋯. What's listed is filtered in the drawer's search, not the menu. No help sentence under the title (put it in the empty state or a tooltip). Buttons keep their own width; a full-width button reads as the page's one main action. In item details, secondary and destructive actions go under More, Delete last.
 
 ## Invariants
 
