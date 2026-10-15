@@ -1,7 +1,6 @@
 import { ActionIcon, Button, FileButton, Group, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconTrash, IconUpload } from "@tabler/icons-react";
-import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { importIconset, removeIconset, useIconsets } from "./iconsets.ts";
 
 /** ATAK icon sets imported into this browser, for markers that use their icons. */
@@ -26,14 +25,13 @@ export const IconsetsSection = () => {
 
   return (
     <Stack gap={6}>
-      <SectionHeading>Icon sets</SectionHeading>
       {sets.length === 0 && (
         <Text fz="xs" c="dimmed">
           Markers placed with ATAK icon sets show a generic symbol until their set is imported.
         </Text>
       )}
       {sets.map((set) => (
-        <Group key={set.uid} gap="xs" wrap="nowrap">
+        <Group key={set.uid} className="tak-row" gap="xs" wrap="nowrap">
           <Text fz="sm" style={{ flex: 1 }} truncate title={set.uid}>
             {set.name}
           </Text>
@@ -51,13 +49,15 @@ export const IconsetsSection = () => {
           </ActionIcon>
         </Group>
       ))}
-      <FileButton accept=".zip,application/zip" onChange={importFile}>
-        {(p) => (
-          <Button {...p} size="xs" variant="default" leftSection={<IconUpload size={14} />}>
-            Import icon set
-          </Button>
-        )}
-      </FileButton>
+      <Group>
+        <FileButton accept=".zip,application/zip" onChange={importFile}>
+          {(p) => (
+            <Button {...p} size="xs" variant="default" leftSection={<IconUpload size={14} />}>
+              Import icon set
+            </Button>
+          )}
+        </FileButton>
+      </Group>
     </Stack>
   );
 };

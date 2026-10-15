@@ -9,7 +9,6 @@ import {
   ScrollArea,
   Slider,
   Stack,
-  Switch,
   Text,
   UnstyledButton,
 } from "@mantine/core";
@@ -23,14 +22,14 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
-import { type ReactNode, useId, useState } from "react";
+import { useState } from "react";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { LayerDialog } from "../event-layers/LayerDialog.tsx";
 import type { EventLayer } from "../event-layers/layers.ts";
 import { DEFAULT_BASEMAP, type MapSource } from "../map/basemaps.ts";
 import { canSaveArea } from "../map/offline-area.ts";
 import { removeOfflineMap } from "../map/offline-maps.ts";
-import { PanelActions, PanelFooter, PanelMenu, ViewOption } from "../panel.tsx";
+import { PanelActions, PanelFooter, PanelMenu, ToggleRow, ViewOption } from "../panel.tsx";
 import type { MapSettings } from "../settings.ts";
 import { AddMapDialog } from "./AddMapDialog.tsx";
 import { useSaveArea } from "./save-area.ts";
@@ -45,40 +44,6 @@ type Props = {
   eventLayers: EventLayer[] | null;
   /** Layers that hit the fetch limit, so some events aren't drawn. */
   truncated: ReadonlySet<string>;
-};
-
-const ToggleRow = ({
-  label,
-  hint,
-  warning,
-  checked,
-  onChange,
-  children,
-}: {
-  label: ReactNode;
-  hint?: string;
-  warning?: string;
-  checked: boolean;
-  onChange: () => void;
-  children?: ReactNode;
-}) => {
-  const id = useId();
-  return (
-    <Group className="tak-row" gap={6} wrap="nowrap" title={hint}>
-      <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
-        <Text component="label" htmlFor={id} fz="sm" truncate style={{ cursor: "pointer" }}>
-          {label}
-        </Text>
-        {warning && (
-          <Text fz="xs" c="warning.4">
-            {warning}
-          </Text>
-        )}
-      </Stack>
-      {children}
-      <Switch id={id} size="xs" checked={checked} onChange={onChange} />
-    </Group>
-  );
 };
 
 const ORIGIN_NOTE: Partial<Record<MapSource["origin"], string>> = {

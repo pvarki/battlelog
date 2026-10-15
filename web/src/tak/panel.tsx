@@ -1,6 +1,6 @@
-import { ActionIcon, CloseButton, Group, Menu, Stack, Text } from "@mantine/core";
+import { ActionIcon, CloseButton, Group, Menu, Stack, Switch, Text } from "@mantine/core";
 import { IconCheck, IconDots } from "@tabler/icons-react";
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useId, useState } from "react";
 import { createPortal } from "react-dom";
 
 const ActionsSlot = createContext<HTMLElement | null>(null);
@@ -84,4 +84,59 @@ export const ViewOption = ({
   >
     {children}
   </Menu.Item>
+);
+
+/** A drawer row: its name on the left, then `children`, then a switch. The hint shows on hover. */
+export const ToggleRow = ({
+  label,
+  hint,
+  warning,
+  checked,
+  disabled,
+  onChange,
+  children,
+}: {
+  label: ReactNode;
+  hint?: string;
+  warning?: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+  children?: ReactNode;
+}) => {
+  const id = useId();
+  return (
+    <Group className="tak-row" gap={6} wrap="nowrap" title={hint}>
+      <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+        <Text component="label" htmlFor={id} fz="sm" truncate style={{ cursor: "pointer" }}>
+          {label}
+        </Text>
+        {warning && (
+          <Text fz="xs" c="warning.4">
+            {warning}
+          </Text>
+        )}
+      </Stack>
+      {children}
+      <Switch id={id} size="xs" checked={checked} disabled={disabled} onChange={onChange} />
+    </Group>
+  );
+};
+
+/** A drawer row: its name on the left and its control on the right. */
+export const SettingRow = ({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) => (
+  <Group className="tak-row" gap={6} wrap="nowrap" title={hint}>
+    <Text fz="sm" truncate style={{ flex: 1, minWidth: 0 }}>
+      {label}
+    </Text>
+    {children}
+  </Group>
 );

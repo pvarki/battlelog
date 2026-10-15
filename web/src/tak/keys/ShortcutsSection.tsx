@@ -55,13 +55,10 @@ export const ShortcutsSection = () => {
   const changed = Object.keys(overrides).length > 0;
 
   return (
-    <Stack gap="sm">
-      <SectionHeading>Keyboard shortcuts</SectionHeading>
+    <Stack gap="md">
       {ACTION_GROUPS.map((group) => (
-        <Stack key={group} gap={0}>
-          <Text fz="xs" c="dimmed" px={6} pb={2}>
-            {group}
-          </Text>
+        <Stack key={group} gap={2}>
+          <SectionHeading>{group}</SectionHeading>
           {ACTIONS.filter((a) => a.group === group).map((action) => {
             const keys = keymap.get(action.id) ?? [];
             const isRecording = recording === action.id;

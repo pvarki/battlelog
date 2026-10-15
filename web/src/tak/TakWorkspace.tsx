@@ -74,7 +74,7 @@ import { OwnPositionPanel } from "./position/OwnPositionPanel.tsx";
 import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { ReplayBanner, ReplayBar } from "./replay/ReplayBar.tsx";
 import { DEFAULT_REPLAY_WINDOW_MS, useReplay } from "./replay/useReplay.ts";
-import { SettingsDrawer } from "./SettingsDrawer.tsx";
+import { SettingsDrawer, type SettingsPage } from "./SettingsDrawer.tsx";
 import { ShortcutsDialog } from "./ShortcutsDialog.tsx";
 import { StatusBar } from "./StatusBar.tsx";
 import {
@@ -167,6 +167,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const [chooser, setChooser] = useState<{ uids: string[]; at: { x: number; y: number } }>();
   const [openMission, setOpenMission] = useState<string>();
   const [openPlan, setOpenPlan] = useState<string>();
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>();
   const browsedMission = drawer === "missions" ? openMission : undefined;
   useMissionsSync([...shownMissions, ...(browsedMission ? [browsedMission] : [])], clientUid);
   useMissionSubscriptions([...shownMissions], clientUid);
@@ -663,7 +664,12 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         truncated={truncatedLayers}
       />
     ) : (
-      <SettingsDrawer settings={settings} clientUid={writerUid}>
+      <SettingsDrawer
+        settings={settings}
+        clientUid={writerUid}
+        page={settingsPage}
+        onPage={setSettingsPage}
+      >
         {import.meta.env.DEV && callsign && (
           <Button
             size="xs"
@@ -846,6 +852,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           onClose={() => setShowShortcuts(false)}
           onEdit={() => {
             setShowShortcuts(false);
+            setSettingsPage("shortcuts");
             setDrawer("settings");
           }}
         />

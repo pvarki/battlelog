@@ -1,8 +1,8 @@
-import { Group, Stack, Switch, Text } from "@mantine/core";
+import { Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
-import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { fetchGroups, setActiveGroups, type TakGroup, withActive } from "../groups.ts";
+import { ToggleRow } from "../panel.tsx";
 import { TakRequestError } from "../rest.ts";
 import { refetchTakHistory } from "../session.ts";
 
@@ -53,8 +53,7 @@ export const GroupsSection = ({ clientUid }: { clientUid: string | undefined }) 
   };
 
   return (
-    <Stack gap={6}>
-      <SectionHeading>TAK groups</SectionHeading>
+    <Stack gap={2}>
       {loadError ? (
         <Text fz="xs" c="danger.4">
           Couldn't load your TAK groups: {loadError}
@@ -69,20 +68,18 @@ export const GroupsSection = ({ clientUid }: { clientUid: string | undefined }) 
         </Text>
       ) : (
         groups.map((group) => (
-          <Group key={`${group.name} ${group.direction}`} gap="xs" wrap="nowrap">
-            <Switch
-              size="xs"
-              style={{ flex: 1 }}
-              label={group.name}
-              description={group.description}
-              checked={group.active}
-              disabled={saving || !clientUid}
-              onChange={(e) => void toggle(group, e.currentTarget.checked)}
-            />
-            <Text fz="xs" c="dimmed" title={DIRECTION_HINT[group.direction]}>
+          <ToggleRow
+            key={`${group.name} ${group.direction}`}
+            label={group.name}
+            hint={[group.description, DIRECTION_HINT[group.direction]].filter(Boolean).join(" · ")}
+            checked={group.active}
+            disabled={saving || !clientUid}
+            onChange={() => void toggle(group, !group.active)}
+          >
+            <Text fz="xs" c="dimmed">
               {DIRECTION_LABEL[group.direction]}
             </Text>
-          </Group>
+          </ToggleRow>
         ))
       )}
       {!clientUid && (
