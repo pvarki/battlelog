@@ -1,23 +1,9 @@
 import "./tak.css";
-import { ActionIcon, Alert, Button, Drawer, Indicator, UnstyledButton } from "@mantine/core";
+import { Button, Drawer, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import {
-  IconAddressBook,
-  IconChecklist,
-  IconClipboardList,
-  IconCurrentLocation,
-  IconFolders,
-  IconHistory,
-  IconList,
-  IconMessage,
-  IconPencil,
-  IconPlugConnectedX,
-  IconSettings,
-  IconStack2,
-} from "@tabler/icons-react";
+import { IconPencil } from "@tabler/icons-react";
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useStoredSetting } from "../stored-setting.ts";
 import { ACCENT } from "../theme.ts";
 import { useIsMobile } from "../viewport.ts";
@@ -37,9 +23,8 @@ import { editGeometryEvent, editTarget } from "./drawing/edit-geometry.ts";
 import { MeasurePanel } from "./drawing/MeasurePanel.tsx";
 import { centreOfItems, movedEvent, offsetBetween } from "./drawing/move-items.ts";
 import { newRangeBearingEvent } from "./drawing/new-items.ts";
-import { defaultRingsLook } from "./drawing/RingsDialog.tsx";
 import { SelectionPanel } from "./drawing/SelectionPanel.tsx";
-import { type Drawn, TOOLS, type Tool, useDrawing } from "./drawing/useDrawing.ts";
+import { type Drawn, type Tool, useDrawing } from "./drawing/useDrawing.ts";
 import { useDrawingWorkflow } from "./drawing/useDrawingWorkflow.tsx";
 import { useMeasure } from "./drawing/useMeasure.ts";
 import { EmergencyBanner } from "./emergency/EmergencyBanner.tsx";
@@ -54,14 +39,13 @@ import { useInbox } from "./inbox/store.ts";
 import { ItemDetails } from "./items/ItemDetails.tsx";
 import { ItemsDrawer } from "./items/ItemsDrawer.tsx";
 import { labelOf } from "./items.ts";
-import { actionFor, bindingOf } from "./keys/bindings.ts";
 import { useKeymap } from "./keys/useKeymap.ts";
 import { LayersDrawer } from "./layers/LayersDrawer.tsx";
+import { ConnectionBanner, MapButtons } from "./MapButtons.tsx";
 import { DEFAULT_BASEMAP, type MapSource, useMapSources } from "./map/basemaps.ts";
 import { centreOnItem, flyToPosition } from "./map/camera.ts";
 import { createCursor } from "./map/cursor.ts";
 import { MapCanvas } from "./map/MapCanvas.tsx";
-import { MapImageButton } from "./map/MapImageButton.tsx";
 import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { feedItemUids, useMissions, useMissionsSync } from "./missions/store.ts";
@@ -82,7 +66,6 @@ import {
   loadTrack,
   sendCot,
   setTakPresence,
-  type TakStatus,
   useTakItems,
   useTakSession,
   useTakStatus,
@@ -92,38 +75,18 @@ import { useMapSettings } from "./settings.ts";
 import type { MapView } from "./tools.ts";
 import { trackFeatures } from "./tracks.ts";
 import { describeStep } from "./undo.ts";
+import { useMapTools } from "./use-map-tools.ts";
 import { type Selection, useCentreWhenReady, useSelection } from "./use-selection.ts";
 import { useTakWrites } from "./use-tak-writes.ts";
+import { useWorkspaceKeys } from "./use-workspace-keys.ts";
+import {
+  DRAWER_IDS,
+  DRAWERS,
+  type DrawerId,
+  focusRailButton,
+  WorkspaceRail,
+} from "./WorkspaceRail.tsx";
 import { workspaceCommands } from "./workspace-commands.tsx";
-
-const DRAWERS = {
-  items: { label: "Items", Icon: IconList },
-  missions: { label: "Data Sync", Icon: IconFolders },
-  plans: { label: "Plans", Icon: IconClipboardList },
-  layers: { label: "Layers", Icon: IconStack2 },
-  chat: { label: "Chat", Icon: IconMessage },
-  contacts: { label: "Contacts", Icon: IconAddressBook },
-  checklists: { label: "Checklists", Icon: IconChecklist },
-  settings: { label: "Settings", Icon: IconSettings },
-} as const;
-
-type DrawerId = keyof typeof DRAWERS;
-
-const isTyping = (target: EventTarget | null) =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-
-const ConnectionBanner = ({ status }: { status: TakStatus }) => {
-  if (status.connection !== "down") return null;
-  return (
-    // Amber and outlined: filled red is kept for emergencies, which must stand out above this.
-    <Alert color="warning" variant="outline" icon={<IconPlugConnectedX size={18} />}>
-      {status.everConnected
-        ? "Connection to TAK lost — reconnecting. The map shows the last known picture."
-        : "Can't connect to TAK. Open BattleLog from the deploy app so your device certificate is used. TAK may also be unreachable."}
-    </Alert>
-  );
-};
 
 type Props = {
   /** Where the map opens, e.g. from an "Open in Map" link; absent = where this browser left it. */
@@ -138,7 +101,6 @@ type Props = {
  * details around one shared TAK session. Dashboards show `TakMapView` instead.
  */
 export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
-  const drawers = Object.keys(DRAWERS) as DrawerId[];
   useTakSession();
   const picture = useTakItems();
   const tracks = useTakTracks();
@@ -225,43 +187,12 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const submitLabel = activePlan ? `Add to ${activePlan.name}` : "Save to TAK";
   const mapRef = useRef<MapLibreMap>(undefined);
   const [map, setMap] = useState<MapLibreMap>();
-  // Locate and Replay sit in MapLibre's own control stack, under zoom and compass whatever their size.
-  const mapControls =
-    map?.getContainer().querySelector<HTMLElement>(".maplibregl-ctrl-top-right") ?? undefined;
   const drawing = useDrawing(map);
   const [cursor] = useState(createCursor);
   const measure = useMeasure(map, cursor);
   const selected = selectedUid ? currentItem(selectedUid) : undefined;
-  const [grouped, setGrouped] = useState<ReadonlySet<string>>(new Set());
-  const [lassoing, setLassoing] = useState(false);
-  const [laser, setLaser] = useState(false);
   const { keymap, shortcutOf } = useKeymap();
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [movingGroup, setMovingGroup] = useState(false);
-  const groupItems = items.filter((i) => grouped.has(i.uid));
-  const movableItems = groupItems.filter((i) => canChange(i) && editTarget(i));
-  const deletableItems = groupItems.filter(canChange);
-  /** The item selected on its own becomes the first of the group. */
-  const groupBase = () => new Set(grouped.size || !selectedUid ? grouped : [selectedUid]);
-  const toggleGrouped = (uid: string) => {
-    const next = groupBase();
-    if (!next.delete(uid)) next.add(uid);
-    setGrouped(next);
-    setSelectedUid(undefined);
-  };
-  const addToGroup = (uids: string[]) => {
-    setGrouped(new Set([...groupBase(), ...uids]));
-    setSelectedUid(undefined);
-  };
-  const clearGroup = () => {
-    setGrouped(new Set());
-    setMovingGroup(false);
-  };
-  const moveGroupTo = (target: Position) => {
-    const by = offsetBetween(centreOfItems(movableItems), target);
-    submitAll(movableItems.map((item) => movedEvent(item, by)));
-    setMovingGroup(false);
-  };
   const contacts = recipientGroups(
     liveItems.filter((i) => i.team && i.callsign && i.callsign !== callsign),
   );
@@ -276,12 +207,6 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   // Mission, plan and group controls write to TAK directly: none of them while replaying.
   const writerUid = callsign && !replaying ? sender.uid : undefined;
   const chatMessages = useChatMessages();
-  // Remembered across reloads now that chat is: a restored message read yesterday stays read.
-  // Closed by default: most time on the map is spent watching it, not drawing on it.
-  const [drawOpen, setDrawOpen] = useStoredSetting({
-    key: "battlelog.tak.drawOpen",
-    defaultValue: false,
-  });
   const [chatReadAt] = useStoredSetting<Record<string, number>>({
     key: READ_AT_KEY,
     defaultValue: {},
@@ -321,6 +246,23 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     setTacticalLook,
     setRingsLook,
   } = useDrawingWorkflow({ drawing, sender, nameFor, submit, submitLabel });
+  const tools = useMapTools({
+    drawing,
+    measure,
+    nameFor,
+    setRingsLook,
+    selectedUid,
+    setSelectedUid,
+  });
+  const { grouped, toggleGrouped, addToGroup, clearGroup, setDrawOpen } = tools;
+  const groupItems = items.filter((i) => grouped.has(i.uid));
+  const movableItems = groupItems.filter((i) => canChange(i) && editTarget(i));
+  const deletableItems = groupItems.filter(canChange);
+  const moveGroupTo = (target: Position) => {
+    const by = offsetBetween(centreOfItems(movableItems), target);
+    submitAll(movableItems.map((item) => movedEvent(item, by)));
+    tools.stopMode();
+  };
   const movedPreview = (target: Position) => {
     const by = offsetBetween(centreOfItems(movableItems), target);
     return movableItems.flatMap((item) => {
@@ -329,7 +271,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     });
   };
   const previewOf = (sketch: Drawn | undefined, cursor: Position | undefined): TakItem[] =>
-    movingGroup ? (cursor ? movedPreview(cursor) : []) : drawingPreview(sketch, cursor);
+    tools.movingGroup ? (cursor ? movedPreview(cursor) : []) : drawingPreview(sketch, cursor);
   const callsignOf = (uid: string) => liveItems.find((i) => i.uid === uid)?.callsign;
   const missionsOf = (uid: string) =>
     (missions.missions ?? []).filter((m) => m.itemUids.includes(uid)).map((m) => m.name);
@@ -354,7 +296,6 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   };
 
   const centreOn = (item: TakItem) => mapRef.current && centreOnItem(mapRef.current, item);
-  const busy = !!(drawing.tool || drawing.editing || measure.active || laser);
 
   useCentreWhenReady(pendingCentre, (target) => {
     if (!mapRef.current) return false;
@@ -380,58 +321,6 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     void loadTrack(uid);
   };
 
-  // Whatever is under way keeps its tools in view, whether or not they were opened.
-  const toolbarShown =
-    drawOpen ||
-    !!drawing.tool ||
-    !!drawing.editing ||
-    measure.active ||
-    lassoing ||
-    laser ||
-    movingGroup ||
-    grouped.size > 0;
-  /** Closing the tools ends what they were doing, as Esc would; a drawn shape awaiting its dialog stays. */
-  const toggleDrawing = () => {
-    if (!toolbarShown) return setDrawOpen(true);
-    setDrawOpen(false);
-    measure.stop();
-    setLassoing(false);
-    setLaser(false);
-    clearGroup();
-    if (drawing.editing || !drawing.drawn) drawing.clear();
-  };
-
-  const chooseTool = (tool: Tool | undefined) => {
-    setMovingGroup(false);
-    measure.stop();
-    setLassoing(false);
-    setLaser(false);
-    drawing.choose(tool);
-    if (tool === "rings" || tool === "bullseye")
-      setRingsLook(defaultRingsLook(nameFor(TOOLS[tool].label)));
-  };
-  const toggleMeasure = () => {
-    setMovingGroup(false);
-    if (measure.active) return measure.stop();
-    drawing.choose(undefined);
-    setLaser(false);
-    measure.start();
-  };
-  const toggleLasso = () => {
-    setMovingGroup(false);
-    measure.stop();
-    drawing.choose(undefined);
-    setLaser(false);
-    setLassoing(!lassoing);
-  };
-  const toggleLaser = () => {
-    setMovingGroup(false);
-    measure.stop();
-    drawing.choose(undefined);
-    setLassoing(false);
-    setDrawOpen(true);
-    setLaser(!laser);
-  };
   const toggleReplay = () => {
     if (replaying) return replay.stop();
     drawing.clear();
@@ -443,15 +332,14 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     setDrawer("chat");
   };
   const editShape = (item: TakItem) => {
-    setLaser(false);
+    if (tools.laser) tools.stopMode();
     // The details sheet would cover the map being edited.
     if (drawing.edit(item) && isMobile) setSelectedUid(undefined);
   };
 
   /** Closes the drawer, handing focus back to its rail button rather than losing it to the page. */
   const closeDrawer = () => {
-    if (drawer)
-      document.querySelector<HTMLElement>(`.tak-rail-button[data-drawer="${drawer}"]`)?.focus();
+    if (drawer) focusRailButton(drawer);
     setDrawer(null);
   };
   const toggleDrawer = (id: DrawerId) => {
@@ -463,7 +351,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     const reason = activePlan ? blockedReason : drawReason;
     if (reason) return notifications.show({ color: "warning", message: reason });
     setDrawOpen(true);
-    chooseTool(drawing.tool === tool ? undefined : tool);
+    tools.chooseTool(drawing.tool === tool ? undefined : tool);
   };
   const keyActions: Record<string, () => void> = {
     commandBar: openCommandBar,
@@ -477,64 +365,47 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       else if (selectedEvent?.locationPoint)
         flyTo([selectedEvent.locationPoint.lng, selectedEvent.locationPoint.lat]);
     },
-    laser: toggleLaser,
-    drawingTools: toggleDrawing,
+    laser: tools.toggleLaser,
+    drawingTools: tools.toggleDrawing,
     "draw.marker": () => startTool("marker"),
     "draw.route": () => startTool("route"),
     "draw.polygon": () => startTool("polygon"),
     measure: () => {
       setDrawOpen(true);
-      toggleMeasure();
+      tools.toggleMeasure();
     },
     lasso: () => {
       setDrawOpen(true);
-      toggleLasso();
+      tools.toggleLasso();
     },
     mgrsGrid: () => settings.setMgrsGrid(!settings.mgrsGrid),
     tracks: () => settings.setShowAllTracks(!settings.showAllTracks),
     dim: () => settings.setDim(!settings.dim),
     replay: toggleReplay,
     locate: ownPosition.toggleLocate,
-    ...Object.fromEntries(drawers.map((id) => [`drawer.${id}`, () => toggleDrawer(id)])),
+    ...Object.fromEntries(DRAWER_IDS.map((id) => [`drawer.${id}`, () => toggleDrawer(id)])),
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // A dialog owns its keys, Esc included: closing one mustn't also clear the map.
-      if (
-        e.defaultPrevented ||
-        (e.target instanceof Element && e.target.closest('[role="dialog"]'))
-      )
-        return;
-      if (e.key === "Escape") {
-        if (chooser) setChooser(undefined);
-        else if (goToPin.current) clearGoToPin();
-        else if (laser) setLaser(false);
-        else if (measure.active) measure.stop();
-        else if (drawing.editing) drawing.clear();
-        else if (drawing.tool && !drawing.drawn) drawing.clear();
-        else if (movingGroup) setMovingGroup(false);
-        else if (lassoing) setLassoing(false);
-        else if (grouped.size) clearGroup();
-        else if (selectedUid) setSelectedUid(undefined);
-        else if (selectedEventId) selectEvent(undefined);
-        else closeDrawer();
-        return;
-      }
-      const binding = bindingOf(e);
-      const action = binding && actionFor(keymap, binding);
-      if (!action) return;
-      // Typing keeps its keys; only a modified command-bar shortcut reaches past a field.
-      if (isTyping(e.target) && !(action === "commandBar" && binding.startsWith("mod+"))) return;
-      e.preventDefault();
-      keyActions[action]?.();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+  useWorkspaceKeys({
+    keymap,
+    actions: keyActions,
+    onEscape: () => {
+      if (chooser) setChooser(undefined);
+      else if (goToPin.current) clearGoToPin();
+      else if (tools.laser) tools.stopMode();
+      else if (measure.active) measure.stop();
+      else if (drawing.editing) drawing.clear();
+      else if (drawing.tool && !drawing.drawn) drawing.clear();
+      else if (tools.mode) tools.stopMode();
+      else if (grouped.size) clearGroup();
+      else if (selectedUid) setSelectedUid(undefined);
+      else if (selectedEventId) selectEvent(undefined);
+      else closeDrawer();
+    },
   });
 
   const commandBar = workspaceCommands({
-    drawers: drawers.map((id) => ({ id, ...DRAWERS[id] })),
+    drawers: DRAWER_IDS.map((id) => ({ id, ...DRAWERS[id] })),
     shortcutOf,
     openDrawer: (id) => {
       setChatWith(undefined);
@@ -542,16 +413,16 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     },
     chooseTool: (tool) => {
       setDrawOpen(true);
-      chooseTool(tool);
+      tools.chooseTool(tool);
     },
     drawReason: activePlan ? blockedReason : drawReason,
     measuring: measure.active,
-    toggleMeasure,
-    lassoing,
-    toggleLasso,
-    laser,
-    toggleLaser,
-    toggleDrawing,
+    toggleMeasure: tools.toggleMeasure,
+    lassoing: tools.lassoing,
+    toggleLasso: tools.toggleLasso,
+    laser: tools.laser,
+    toggleLaser: tools.toggleLaser,
+    toggleDrawing: tools.toggleDrawing,
     undo: () => {
       setDrawOpen(true);
       undo();
@@ -664,7 +535,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         selectedUid={selectedUid}
         onPick={pick}
         grouped={grouped}
-        onToggleGrouped={busy ? undefined : (item) => toggleGrouped(item.uid)}
+        onToggleGrouped={tools.busy ? undefined : (item) => toggleGrouped(item.uid)}
         hidden={settings.hidden}
         onToggleGroup={settings.toggleGroup}
         map={map}
@@ -757,28 +628,12 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
 
   return (
     <div className="tak-workspace" data-mobile={isMobile || undefined}>
-      <nav className="tak-rail" aria-label="Map tools">
-        {drawers.map((id) => {
-          const { label, Icon } = DRAWERS[id];
-          const key = shortcutOf(`drawer.${id}`);
-          return (
-            <UnstyledButton
-              key={id}
-              className="tak-rail-button"
-              data-drawer={id}
-              data-end={id === "settings" || undefined}
-              aria-pressed={drawer === id}
-              onClick={() => toggleDrawer(id)}
-              title={key ? `${label} (${key})` : label}
-            >
-              <Indicator label={badges[id]} size={16} color="primary" disabled={!badges[id]}>
-                <Icon size={20} stroke={1.5} />
-              </Indicator>
-              <span>{label}</span>
-            </UnstyledButton>
-          );
-        })}
-      </nav>
+      <WorkspaceRail
+        open={drawer}
+        onToggle={toggleDrawer}
+        badges={badges}
+        shortcutOf={shortcutOf}
+      />
 
       {!isMobile && drawer && (
         <aside
@@ -815,8 +670,8 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           mgrsGrid={settings.mgrsGrid}
           selectedUids={[...(selectedUid ? [selectedUid] : []), ...grouped]}
           onPick={({ uids, eventIds, at, position, shift }) => {
-            if (movingGroup) return moveGroupTo(position);
-            if (busy) return;
+            if (tools.movingGroup) return moveGroupTo(position);
+            if (tools.busy) return;
             if (shift) {
               if (uids[0]) toggleGrouped(uids[0]);
               return;
@@ -827,9 +682,9 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             setSelectedUid(uids.length > 1 ? selectedUid : uids[0]);
             if (!uids.length) selectEvent(undefined);
           }}
-          onBoxSelect={!busy && !movingGroup ? addToGroup : undefined}
-          onLasso={lassoing && !busy && !movingGroup ? addToGroup : undefined}
-          laser={laser}
+          onBoxSelect={!tools.busy && !tools.movingGroup ? addToGroup : undefined}
+          onLasso={tools.lassoing && !tools.busy ? addToGroup : undefined}
+          laser={tools.laser}
           onReady={(ready) => {
             mapRef.current = ready;
             setMap(ready);
@@ -846,35 +701,14 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           replayWindowMs={replay.windowMs ?? 0}
           onEvents={onLayerEvents}
         />
-        {mapControls &&
-          createPortal(
-            <div className="maplibregl-ctrl tak-map-buttons">
-              <ActionIcon
-                className="tak-locate"
-                variant="default"
-                size="md"
-                aria-label="Locate me"
-                title="Locate me (shown only to you)"
-                aria-pressed={ownPosition.locating}
-                onClick={ownPosition.toggleLocate}
-              >
-                <IconCurrentLocation size={18} />
-              </ActionIcon>
-              <ActionIcon
-                className="tak-replay"
-                variant="default"
-                size="md"
-                aria-label="Replay history"
-                title="Replay history"
-                aria-pressed={replaying}
-                onClick={toggleReplay}
-              >
-                <IconHistory size={18} />
-              </ActionIcon>
-              {map && <MapImageButton map={map} coordFormat={settings.coordFormat} />}
-            </div>,
-            mapControls,
-          )}
+        <MapButtons
+          map={map}
+          locating={ownPosition.locating}
+          onLocate={ownPosition.toggleLocate}
+          replaying={replaying}
+          onReplay={toggleReplay}
+          coordFormat={settings.coordFormat}
+        />
         <ShortcutsDialog
           opened={showShortcuts}
           onClose={() => setShowShortcuts(false)}
@@ -892,9 +726,9 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             </div>
             <UnstyledButton
               className="tak-draw-toggle"
-              aria-pressed={toolbarShown}
+              aria-pressed={tools.toolbarShown}
               aria-label="Drawing tools"
-              onClick={toggleDrawing}
+              onClick={tools.toggleDrawing}
               title="Drawing tools (D)"
             >
               <IconPencil size={18} stroke={1.5} />
@@ -928,20 +762,18 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             {replaying && <ReplayBanner replay={replay} />}
             <ConnectionBanner status={status} />
           </div>
-          {toolbarShown && (
+          {tools.toolbarShown && (
             <DrawToolbar
               tool={drawing.tool}
-              onChoose={chooseTool}
+              onChoose={tools.chooseTool}
               graphic={drawing.graphic}
               symbol={drawing.symbol}
               onChooseSymbol={(symbol) => {
-                measure.stop();
-                setLaser(false);
+                tools.beforeDrawing();
                 drawing.choose("marker", undefined, symbol);
               }}
               onChooseGraphic={(graphic) => {
-                measure.stop();
-                setLaser(false);
+                tools.beforeDrawing();
                 drawing.choose(graphic && (graphic.shape === "line" ? "line" : "polygon"), graphic);
                 if (graphic)
                   setTacticalLook({
@@ -979,12 +811,9 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
                     count={groupItems.length}
                     movable={movableItems.length}
                     deletable={deletableItems.length}
-                    moving={movingGroup}
-                    onMove={() => {
-                      chooseTool(undefined);
-                      setMovingGroup(true);
-                    }}
-                    onCancelMove={() => setMovingGroup(false)}
+                    moving={tools.movingGroup}
+                    onMove={tools.startMove}
+                    onCancelMove={tools.stopMode}
                     onDelete={() => {
                       submitAll(deletableItems.map((item) => deleteEvent(item)));
                       clearGroup();
@@ -998,11 +827,11 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
               }
               undo={undoButton}
               measuring={measure.active}
-              lassoing={lassoing}
-              onToggleLasso={toggleLasso}
-              laser={laser}
-              onToggleLaser={toggleLaser}
-              onToggleMeasure={toggleMeasure}
+              lassoing={tools.lassoing}
+              onToggleLasso={tools.toggleLasso}
+              laser={tools.laser}
+              onToggleLaser={tools.toggleLaser}
+              onToggleMeasure={tools.toggleMeasure}
             >
               <MeasurePanel
                 points={measure.points}

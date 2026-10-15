@@ -20,11 +20,11 @@ Dependencies point down this list; a lower system never imports a higher one.
 | `pages/`, `routes.tsx` | Routes and page layout. |
 | `widgets/<type>/` | One dashboard widget each. Never imported by `tak/` or shared code. |
 | `dashboard/` | Grid, registry, widget documents (`useEventDocument`), export/import. Containers are traversed through the descriptor's `childWidgets`/`withChildWidgets`, never by type. |
-| `tak/TakWorkspace.tsx` | The Map page's TAK client: composes the systems below, owns layout and selection. Policy goes in hooks beside it (`picture.ts`, `use-tak-writes.ts`, `event-layers/useShownEventLayers.ts`, `drawing/useDrawingWorkflow.tsx`). |
+| `tak/TakWorkspace.tsx` | The Map page's TAK client: composes the systems below, owns layout and selection. Policy goes in hooks beside it (`picture.ts`, `use-tak-writes.ts`, `use-map-tools.ts` (one map tool at a time), `use-workspace-keys.ts`, `event-layers/useShownEventLayers.ts`, `drawing/useDrawingWorkflow.tsx`); pieces of its frame in `WorkspaceRail.tsx` and `MapButtons.tsx`. |
 | `tak/TakMapView.tsx` | The read-only map for dashboards and pickers: what it shows and offers is set by props (the map widget's config), with `view/` for its card and layer toggles. Changing TAK is the Map page's job; "Open in Map" links there via `/map?at=&tak=&event=`. |
 | `tak/<feature>/` | Drawers and their stores: `missions/` (Data Sync), `checklists/` (ExCheck), `plans/`, `chat/`, `contacts/`, `drawing/`, `replay/`, `items/`, `layers/` (the Layers drawer: what is drawn and the background maps), `event-layers/` (BattleLog events drawn on the map). |
 | `tak/map/` | MapLibre rendering: `MapCanvas` keeps lifecycle; features, symbols, selection and rasters live in their own modules. |
-| `tak/session.ts`, `tak/store.ts` | The one TAK connection per tab and the picture it feeds. The store is framework-free. |
+| `tak/session.ts`, `tak/store.ts` | The one TAK connection per tab and the picture it feeds. The store is framework-free. A feature that takes events from the stream (chat, Data Sync changes, packages, checklists) registers with `addTakReceiver` in its own module; the session imports no feature. |
 | `tak/protocol/` | CoT XML and TAK protobuf. Imports nothing else from the app and nothing from React. |
 | `event-binding/` | Event queries (`filter.ts`), data paths, bound cells and versioned field writes. |
 | `components/` | UI pieces several systems use (`Placeholder`, `SectionHeading`, `ConfirmDialog`, `StaleNotice`, `EventDetail`). |
