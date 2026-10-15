@@ -1,3 +1,4 @@
+import { notifications } from "@mantine/notifications";
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import type { Position } from "../cot.ts";
@@ -59,7 +60,12 @@ export const useOwnPosition = (map: MapLibreMap | undefined, self: SelfIdentity 
         setFix(fixOf(p));
         setError(undefined);
       },
-      (e) => setError(e.message || "Location unavailable"),
+      (e) =>
+        setError(
+          e.code === e.PERMISSION_DENIED
+            ? "Location is blocked for this site: allow it in the browser's site settings, then try again."
+            : "This device can't find its position right now. Try again in a moment.",
+        ),
       { enableHighAccuracy: true },
     );
     return () => {
@@ -102,6 +108,18 @@ export const useOwnPosition = (map: MapLibreMap | undefined, self: SelfIdentity 
       clearInterval(heartbeat);
     };
   }, [self, fix]);
+
+  // Locate me shows why it found nothing, instead of staying pressed with no position.
+  useEffect(() => {
+    if (!locating || !error) return;
+    notifications.show({
+      id: "locate-error",
+      color: "warning",
+      title: "Can't locate you",
+      message: error,
+    });
+    setLocating(false);
+  }, [locating, error]);
 
   const flyToFix = (at: Position) =>
     map?.flyTo({ center: at, zoom: Math.max(map.getZoom(), FOCUS_ZOOM) });

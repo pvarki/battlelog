@@ -69,6 +69,7 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
   const now = useNow(10_000);
   const [publishing, setPublishing] = useState(false);
   const [discarding, setDiscarding] = useState(false);
+  const [removing, setRemoving] = useState<TakItem>();
   const active = props.state.activeId === plan.id;
   const drafts = props.draftsOf(plan);
   const conflicts = drafts.filter((d) => d.conflict).length;
@@ -160,7 +161,7 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
                 color="gray"
                 size="sm"
                 aria-label={`Remove ${item.callsign ?? item.uid} from the plan`}
-                onClick={() => removeFromPlan(plan, item.uid)}
+                onClick={() => setRemoving(item)}
               >
                 <IconTrash size={16} />
               </ActionIcon>
@@ -245,6 +246,15 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
       >
         Discard plan
       </Button>
+      <ConfirmDialog
+        opened={!!removing}
+        onClose={() => setRemoving(undefined)}
+        title={`Remove ${removing?.callsign ?? "this draft"} from the plan?`}
+        confirmLabel="Remove"
+        onConfirm={() => removing && removeFromPlan(plan, removing.uid)}
+      >
+        The draft exists only in this browser and can't be recovered.
+      </ConfirmDialog>
       <ConfirmDialog
         opened={discarding}
         onClose={() => setDiscarding(false)}

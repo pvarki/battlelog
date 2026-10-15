@@ -105,7 +105,7 @@ export const CommandBar = ({ commands, search, byId, shortcut }: Props) => {
       <UnstyledButton
         className="tak-command-trigger"
         onClick={bar.open}
-        aria-label="Search and commands"
+        aria-label="Search items, places and commands"
         title="Search and commands"
       >
         <IconSearch size={16} />

@@ -22,7 +22,7 @@ import { useStoredSetting } from "../stored-setting.ts";
 import { ACCENT } from "../theme.ts";
 import { useIsMobile } from "../viewport.ts";
 import { ChatDrawer } from "./chat/ChatDrawer.tsx";
-import { type ChatRoom, directRoom, newChatEvent } from "./chat/chat.ts";
+import { type ChatRoom, directRoom, isUnread, newChatEvent, READ_AT_KEY } from "./chat/chat.ts";
 import { useChatMessages } from "./chat/store.ts";
 import { NO_CALLSIGN } from "./checklists/ChecklistDetail.tsx";
 import { ChecklistsDrawer } from "./checklists/ChecklistsDrawer.tsx";
@@ -282,18 +282,12 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     key: "battlelog.tak.drawOpen",
     defaultValue: false,
   });
-  const [chatReadAt, setChatReadAt] = useStoredSetting({
-    key: "battlelog.tak.chatReadAt",
-    defaultValue: 0,
+  const [chatReadAt] = useStoredSetting<Record<string, number>>({
+    key: READ_AT_KEY,
+    defaultValue: {},
   });
-  const newestChat = chatMessages.at(-1)?.time ?? 0;
   const unreadChats =
-    drawer === "chat"
-      ? 0
-      : chatMessages.filter((m) => m.time > chatReadAt && m.senderUid !== sender.uid).length;
-  useEffect(() => {
-    if (drawer === "chat" && newestChat > chatReadAt) setChatReadAt(newestChat);
-  }, [drawer, newestChat, chatReadAt, setChatReadAt]);
+    drawer === "chat" ? 0 : chatMessages.filter((m) => isUnread(m, chatReadAt, sender.uid)).length;
   const [chatWith, setChatWith] = useState<ChatRoom>();
   const sharing = settings.sharePosition && !!callsign;
   useEffect(() => {
@@ -454,6 +448,12 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     if (drawing.edit(item) && isMobile) setSelectedUid(undefined);
   };
 
+  /** Closes the drawer, handing focus back to its rail button rather than losing it to the page. */
+  const closeDrawer = () => {
+    if (drawer)
+      document.querySelector<HTMLElement>(`.tak-rail-button[data-drawer="${drawer}"]`)?.focus();
+    setDrawer(null);
+  };
   const toggleDrawer = (id: DrawerId) => {
     setChatWith(undefined);
     setDrawer((open) => (open === id ? null : id));
@@ -518,7 +518,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
         else if (grouped.size) clearGroup();
         else if (selectedUid) setSelectedUid(undefined);
         else if (selectedEventId) selectEvent(undefined);
-        else setDrawer(null);
+        else closeDrawer();
         return;
       }
       const binding = bindingOf(e);
@@ -765,6 +765,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             <UnstyledButton
               key={id}
               className="tak-rail-button"
+              data-drawer={id}
               data-end={id === "settings" || undefined}
               aria-pressed={drawer === id}
               onClick={() => toggleDrawer(id)}
@@ -785,7 +786,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
           aria-label={DRAWERS[drawer].label}
           style={{ "--tak-panel-width": `${drawerWidth}px` } as CSSProperties}
         >
-          <Panel title={DRAWERS[drawer].label} onClose={() => setDrawer(null)}>
+          <Panel title={DRAWERS[drawer].label} onClose={closeDrawer}>
             {drawerContent(drawer)}
           </Panel>
           <ResizeHandle

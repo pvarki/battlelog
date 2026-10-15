@@ -35,9 +35,10 @@ export const StatusBar = ({
   const cursor = useCursor(pointer);
 
   return (
-    <Group className="tak-statusbar" gap="md" wrap="nowrap" role="status">
+    <Group className="tak-statusbar" gap="md" wrap="nowrap">
       <Text fz="xs" c={status.connection === "live" ? undefined : "warning.4"}>
-        {CONNECTION_TEXT[status.connection]}
+        {/* Only the connection is announced: the ticking age and the pointer would never stop. */}
+        <span role="status">{CONNECTION_TEXT[status.connection]}</span>
         {status.lastMessageAt ? ` · last message ${formatAge(now - status.lastMessageAt)} ago` : ""}
       </Text>
       {status.backfillDaysLeft > 0 && (
@@ -48,7 +49,7 @@ export const StatusBar = ({
         </Text>
       )}
       {status.historyFailed && (
-        <Text fz="xs" c="warning.4">
+        <Text fz="xs" c="warning.4" data-keep>
           History incomplete · retried on reconnect
         </Text>
       )}
@@ -56,12 +57,17 @@ export const StatusBar = ({
         {itemCount} items
       </Text>
       {/* Where a change goes, visible with the drawing tools closed too. */}
-      <Text fz="xs" c={planName ? "accent.4" : "dimmed"} fw={planName ? 600 : undefined}>
+      <Text
+        fz="xs"
+        c={planName ? "accent.4" : "dimmed"}
+        fw={planName ? 600 : undefined}
+        data-keep={planName ? true : undefined}
+      >
         {planName ? `Changes go to plan ${planName}` : "Changes go to TAK"}
       </Text>
       {/* The header names the signed-in callsign; only its absence needs saying here. */}
       {callsign === "" && (
-        <Text fz="xs" c="warning.4">
+        <Text fz="xs" c="warning.4" data-keep>
           No callsign: changes to TAK are disabled
         </Text>
       )}

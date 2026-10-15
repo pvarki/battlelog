@@ -25,6 +25,8 @@ import {
   type ChatRoom,
   chatRooms,
   EVERYONE,
+  isUnread,
+  READ_AT_KEY,
   roomKey,
   roomOf,
 } from "./chat.ts";
@@ -64,6 +66,10 @@ export const ChatDrawer = ({
   initialRoom = EVERYONE,
 }: Props) => {
   const [chosen, setChosen] = useState(initialRoom);
+  const requested = roomKey(initialRoom);
+  // "Chat with" while the drawer is already open switches the conversation too.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new request switches
+  useEffect(() => setChosen(initialRoom), [requested]);
   const [draft, setDraft] = useState("");
   const [failed, setFailed] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -72,7 +78,7 @@ export const ChatDrawer = ({
     defaultValue: [],
   });
   const [readAt, setReadAt] = useStoredSetting<Record<string, number>>({
-    key: "battlelog.tak.chatRoomReadAt",
+    key: READ_AT_KEY,
     defaultValue: {},
   });
   const viewport = useRef<HTMLDivElement>(null);
@@ -89,8 +95,7 @@ export const ChatDrawer = ({
     byRoom.set(k, inRoom);
   }
   const unreadIn = (k: string) =>
-    (byRoom.get(k) ?? []).filter((m) => m.time > (readAt[k] ?? 0) && m.senderUid !== selfUid)
-      .length;
+    (byRoom.get(k) ?? []).filter((m) => isUnread(m, readAt, selfUid)).length;
   const shown = byRoom.get(key) ?? [];
   const roomSendReason =
     sendReason ??
@@ -99,9 +104,16 @@ export const ChatDrawer = ({
       : undefined);
 
   const newestShown = shown.at(-1);
+  // Reading back stays put when a message arrives; at the bottom, or after sending, it follows.
+  const following = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new conversation starts at its end
   useEffect(() => {
-    if (newestShown) viewport.current?.scrollTo({ top: viewport.current.scrollHeight });
-  }, [newestShown]);
+    following.current = true;
+  }, [key]);
+  useEffect(() => {
+    if (newestShown && (following.current || newestShown.senderUid === selfUid))
+      viewport.current?.scrollTo({ top: viewport.current.scrollHeight });
+  }, [newestShown, selfUid]);
   useEffect(() => {
     if (newestShown && newestShown.time > (readAt[key] ?? 0)) {
       setReadAt((read) => ({ ...read, [key]: newestShown.time }));
@@ -160,8 +172,15 @@ export const ChatDrawer = ({
           setCreating(false);
         }}
       />
-      <ScrollArea viewportRef={viewport} style={{ flex: 1 }}>
-        <Stack gap={6}>
+      <ScrollArea
+        viewportRef={viewport}
+        style={{ flex: 1 }}
+        onScrollPositionChange={({ y }) => {
+          const v = viewport.current;
+          if (v) following.current = v.scrollHeight - v.clientHeight - y < 40;
+        }}
+      >
+        <Stack gap={6} role="log" aria-label={`Messages in ${room.name}`}>
           {shown.length === 0 && (
             <Box py="md">
               <Placeholder

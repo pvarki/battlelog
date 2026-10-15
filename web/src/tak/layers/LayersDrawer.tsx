@@ -23,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { useState } from "react";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { LayerDialog } from "../event-layers/LayerDialog.tsx";
 import type { EventLayer } from "../event-layers/layers.ts";
@@ -62,6 +63,7 @@ export const LayersDrawer = ({
 }: Props) => {
   const [editing, setEditing] = useState<{ layer?: EventLayer }>();
   const [addingMap, setAddingMap] = useState(false);
+  const [removing, setRemoving] = useState<MapSource>();
   const saving = useSaveArea(map);
   const shown = settings.shownEventLayers;
 
@@ -146,7 +148,7 @@ export const LayersDrawer = ({
                   isBasemap={source.id === basemap.id}
                   canSave={!!map && canSaveArea(source) && source.origin !== "offline"}
                   onSave={() => void saving.start(source)}
-                  onRemove={() => remove(source)}
+                  onRemove={() => setRemoving(source)}
                 />
               ))}
             </div>
@@ -199,6 +201,17 @@ export const LayersDrawer = ({
         />
       )}
       <AddMapDialog settings={settings} opened={addingMap} onClose={() => setAddingMap(false)} />
+      <ConfirmDialog
+        opened={!!removing}
+        onClose={() => setRemoving(undefined)}
+        title={`Remove ${removing?.label}?`}
+        confirmLabel="Remove"
+        onConfirm={() => removing && remove(removing)}
+      >
+        {removing?.origin === "offline"
+          ? "Its copy in this browser is deleted; getting it back needs the file again."
+          : "It leaves this browser's list of maps; add it again with its address."}
+      </ConfirmDialog>
     </Stack>
   );
 };

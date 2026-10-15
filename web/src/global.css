@@ -203,3 +203,8 @@
 .striped-by-index > tbody > tr:hover {
   background-color: var(--table-hover-color);
 }
+
+/* WCAG 2.2 AA's 24px touch target: Mantine's sm icon button is 22px at a 16px root, 19px on the map's 14px one. */
+.mantine-ActionIcon-root {
+  --ai-size-sm: 24px;
+}

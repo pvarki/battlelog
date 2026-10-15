@@ -82,7 +82,11 @@ export const ShortcutsSection = () => {
                 <UnstyledButton
                   className="tak-shortcut"
                   data-recording={isRecording || undefined}
-                  aria-label={`Change the shortcut for ${action.label}`}
+                  aria-label={
+                    isRecording
+                      ? `Press the new keys for ${action.label}`
+                      : `${action.label}: ${keys.map((k) => formatBinding(k)).join(", ") || "no shortcut"}. Change`
+                  }
                   title="Click, then press the new keys · Backspace leaves it without one · Esc cancels"
                   onClick={() => setRecording(isRecording ? undefined : action.id)}
                 >

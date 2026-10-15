@@ -420,7 +420,13 @@
   white-space: nowrap;
 }
 
-.tak-workspace[data-mobile] .tak-statusbar > :not(:first-child) {
+/* A phone keeps the connection and what it must not miss: gaps in history, where changes go. */
+.tak-workspace[data-mobile] .tak-statusbar {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.tak-workspace[data-mobile] .tak-statusbar > :not(:first-child, [data-keep]) {
   display: none;
 }
 

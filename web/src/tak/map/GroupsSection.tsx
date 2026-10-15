@@ -1,4 +1,4 @@
-import { Stack, Text } from "@mantine/core";
+import { Stack, Text, VisuallyHidden } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 import { fetchGroups, setActiveGroups, type TakGroup, withActive } from "../groups.ts";
@@ -70,7 +70,12 @@ export const GroupsSection = ({ clientUid }: { clientUid: string | undefined }) 
         groups.map((group) => (
           <ToggleRow
             key={`${group.name} ${group.direction}`}
-            label={group.name}
+            label={
+              <>
+                {group.name}
+                <VisuallyHidden>, {DIRECTION_LABEL[group.direction]}</VisuallyHidden>
+              </>
+            }
             hint={[group.description, DIRECTION_HINT[group.direction]].filter(Boolean).join(" · ")}
             checked={group.active}
             disabled={saving || !clientUid}

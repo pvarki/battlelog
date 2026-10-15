@@ -226,3 +226,9 @@ export const chatRooms = ({
     .map((room) => ({ ...room, members: membersOf(room) }))
     .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
 };
+
+/** When each conversation was last read, by `roomKey`. */
+export const READ_AT_KEY = "battlelog.tak.chatRoomReadAt";
+
+export const isUnread = (m: ChatMessage, readAt: Record<string, number>, selfUid: string) =>
+  m.senderUid !== selfUid && m.time > (readAt[roomKey(roomOf(m, selfUid))] ?? 0);
