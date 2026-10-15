@@ -1,16 +1,5 @@
 import "./tak.css";
-import {
-  ActionIcon,
-  Alert,
-  Button,
-  CloseButton,
-  Drawer,
-  Group,
-  Indicator,
-  Stack,
-  Text,
-  UnstyledButton,
-} from "@mantine/core";
+import { ActionIcon, Alert, Button, Drawer, Indicator, UnstyledButton } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -28,7 +17,7 @@ import {
   IconStack2,
 } from "@tabler/icons-react";
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ACCENT } from "../theme.ts";
 import { useIsMobile } from "../viewport.ts";
@@ -75,6 +64,7 @@ import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { feedItemUids, useMissions, useMissionsSync } from "./missions/store.ts";
 import { useMissionSubscriptions } from "./missions/writes.ts";
+import { Panel } from "./panel.tsx";
 import { draftItems, workspacePicture } from "./picture.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { usePlans } from "./plans/plans.ts";
@@ -132,26 +122,6 @@ const ConnectionBanner = ({ status }: { status: TakStatus }) => {
     </Alert>
   );
 };
-
-const Panel = ({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: ReactNode;
-}) => (
-  <Stack gap="xs" h="100%">
-    <Group justify="space-between">
-      <Text fw={600} fz="sm">
-        {title}
-      </Text>
-      <CloseButton size="sm" onClick={onClose} aria-label={`Close ${title}`} />
-    </Group>
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</div>
-  </Stack>
-);
 
 type Props = {
   /** Where the map opens, e.g. from an "Open in Map" link; absent = where this browser left it. */

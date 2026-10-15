@@ -1,4 +1,4 @@
-import { Badge, Group, Stack, Switch, Text } from "@mantine/core";
+import { Group, Stack, Switch, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
@@ -6,6 +6,8 @@ import { fetchGroups, setActiveGroups, type TakGroup, withActive } from "../grou
 import { TakRequestError } from "../rest.ts";
 import { refetchTakHistory } from "../session.ts";
 
+// TAK's IN/OUT is from the server's side: IN carries what this user sends.
+const DIRECTION_LABEL: Record<TakGroup["direction"], string> = { IN: "Send", OUT: "Receive" };
 const DIRECTION_HINT: Record<TakGroup["direction"], string> = {
   IN: "What you send goes to this group",
   OUT: "You receive what this group shares",
@@ -77,9 +79,9 @@ export const GroupsSection = ({ clientUid }: { clientUid: string | undefined }) 
               disabled={saving || !clientUid}
               onChange={(e) => void toggle(group, e.currentTarget.checked)}
             />
-            <Badge size="xs" variant="light" color="gray" title={DIRECTION_HINT[group.direction]}>
-              {group.direction}
-            </Badge>
+            <Text fz="xs" c="dimmed" title={DIRECTION_HINT[group.direction]}>
+              {DIRECTION_LABEL[group.direction]}
+            </Text>
           </Group>
         ))
       )}

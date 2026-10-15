@@ -1,6 +1,5 @@
-import { Button, Checkbox, FileButton, Group, Image, Modal, Radio, Stack } from "@mantine/core";
+import { Button, Checkbox, Group, Image, Modal, Radio, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconPhoto } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { attachPhotoLink } from "../commands.ts";
 import { type RecipientGroup, RecipientPicker } from "../contacts/SendTo.tsx";
@@ -13,7 +12,9 @@ type Props = {
   callsign: string;
   /** TAK users a photo can be sent to. */
   contacts: RecipientGroup[];
-  disabled: boolean;
+  /** The photo picked to attach; null closes the dialog. */
+  photo: File | null;
+  onClose: () => void;
 };
 
 /**
@@ -21,8 +22,7 @@ type Props = {
  * item's remarks (every client shows it) and as an ATAK data package, which
  * lands in the marker's own attachments on ATAK.
  */
-export const AttachPhoto = ({ item, callsign, contacts, disabled }: Props) => {
-  const [photo, setPhoto] = useState<File | null>(null);
+export const AttachPhoto = ({ item, callsign, contacts, photo, onClose }: Props) => {
   const [preview, setPreview] = useState<string>();
   const [link, setLink] = useState(true);
   const [toAtak, setToAtak] = useState(true);
@@ -41,7 +41,7 @@ export const AttachPhoto = ({ item, callsign, contacts, disabled }: Props) => {
 
   const attach = async () => {
     if (!photo) return;
-    setPhoto(null);
+    onClose();
     const failed = (what: string) => (err: unknown) =>
       notifications.show({ color: "danger", title: `Photo not ${what}`, message: String(err) });
     if (link) await attachPhotoLink(item, photo, callsign).catch(failed("linked"));
@@ -58,67 +58,47 @@ export const AttachPhoto = ({ item, callsign, contacts, disabled }: Props) => {
   };
 
   return (
-    <>
-      <FileButton onChange={setPhoto} accept="image/*">
-        {(props) => (
-          <Button
-            {...props}
-            variant="default"
-            size="xs"
-            leftSection={<IconPhoto size={14} />}
-            disabled={disabled}
-          >
-            Attach photo
-          </Button>
+    <Modal opened={!!photo} onClose={onClose} title={`Attach photo to ${labelOf(item)}`} centered>
+      <Stack gap="sm">
+        {preview && (
+          <Image src={preview} alt="Photo to attach" radius="sm" mah={280} fit="contain" />
         )}
-      </FileButton>
-      <Modal
-        opened={!!photo}
-        onClose={() => setPhoto(null)}
-        title={`Attach photo to ${labelOf(item)}`}
-        centered
-      >
-        <Stack gap="sm">
-          {preview && (
-            <Image src={preview} alt="Photo to attach" radius="sm" mah={280} fit="contain" />
-          )}
-          <Checkbox
-            size="xs"
-            label="Link it in the remarks"
-            description="Every TAK client shows the link; BattleLog shows the photo."
-            checked={link}
-            onChange={(e) => setLink(e.currentTarget.checked)}
-          />
-          <Checkbox
-            size="xs"
-            label="Send it to ATAK users"
-            description="Arrives in the marker's attachments, as when sent from ATAK."
-            checked={toAtak}
-            onChange={(e) => setToAtak(e.currentTarget.checked)}
-          />
-          {toAtak && (
-            <Stack gap="xs" pl="lg">
-              <Radio.Group value={audience} onChange={(v) => setAudience(v as typeof audience)}>
-                <Group gap="md">
-                  <Radio size="xs" value="everyone" label="Everyone" />
-                  <Radio size="xs" value="chosen" label="Chosen users" />
-                </Group>
-              </Radio.Group>
-              {audience === "chosen" && (
-                <RecipientPicker contacts={contacts} value={chosen} onChange={setChosen} />
-              )}
-            </Stack>
-          )}
-          <Group justify="flex-end" gap="xs">
-            <Button size="xs" variant="default" onClick={() => setPhoto(null)}>
-              Cancel
-            </Button>
-            <Button size="xs" onClick={() => void attach()} disabled={nothingToDo} data-autofocus>
-              Attach
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
+        <Checkbox
+          size="xs"
+          label="Link it in the remarks"
+          description="Every TAK client shows the link; BattleLog shows the photo."
+          checked={link}
+          onChange={(e) => setLink(e.currentTarget.checked)}
+        />
+        <Checkbox
+          size="xs"
+          label="Send it to ATAK users"
+          description="Arrives in the marker's attachments, as when sent from ATAK."
+          checked={toAtak}
+          onChange={(e) => setToAtak(e.currentTarget.checked)}
+        />
+        {toAtak && (
+          <Stack gap="xs" pl="lg">
+            <Radio.Group value={audience} onChange={(v) => setAudience(v as typeof audience)}>
+              <Group gap="md">
+                <Radio size="xs" value="everyone" label="Everyone" />
+                <Radio size="xs" value="chosen" label="Chosen users" />
+              </Group>
+            </Radio.Group>
+            {audience === "chosen" && (
+              <RecipientPicker contacts={contacts} value={chosen} onChange={setChosen} />
+            )}
+          </Stack>
+        )}
+        <Group justify="flex-end" gap="xs">
+          <Button size="xs" variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="xs" onClick={() => void attach()} disabled={nothingToDo} data-autofocus>
+            Attach
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 };

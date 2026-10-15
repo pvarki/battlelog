@@ -69,7 +69,7 @@ const ContactRow = ({
       <Group gap="xs" wrap="nowrap" justify="space-between">
         <Stack gap={0} style={{ minWidth: 0 }}>
           <Group gap={6} wrap="nowrap">
-            <Text fz="sm" fw={600} truncate>
+            <Text fz="sm" fw={500} truncate>
               {contact.callsign ?? contact.uid}
             </Text>
             <StatusBadge status={status} />

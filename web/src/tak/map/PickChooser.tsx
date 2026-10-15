@@ -40,7 +40,7 @@ export const PickChooser = ({ items, at, onPick, onClose }: Props) => {
           role="menuitem"
           onClick={() => onPick(item)}
         >
-          <Text fz="sm" fw={600} truncate>
+          <Text fz="sm" fw={500} truncate>
             {labelOf(item)}
           </Text>
           <Text fz="xs" c="dimmed" truncate>

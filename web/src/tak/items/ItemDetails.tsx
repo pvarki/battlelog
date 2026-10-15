@@ -5,7 +5,6 @@ import {
   Button,
   CloseButton,
   CopyButton,
-  Divider,
   Group,
   Image,
   Menu,
@@ -16,6 +15,7 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
+import { useFileDialog } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconCheck,
@@ -23,9 +23,12 @@ import {
   IconCopy,
   IconCurrentLocation,
   IconDownload,
+  IconFolderPlus,
   IconNotes,
   IconPencil,
+  IconPhoto,
   IconShape,
+  IconTrash,
   IconX,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
@@ -173,6 +176,14 @@ export const ItemDetails = ({
   const now = replayAt ?? liveNow;
   const [editing, setEditing] = useState<false | { status?: UnitStatus }>(false);
   const [loggingAt, setLoggingAt] = useState<number>();
+  const [dialog, setDialog] = useState<"feed" | "delete">();
+  const [photo, setPhoto] = useState<File | null>(null);
+  const photoDialog = useFileDialog({
+    accept: "image/*",
+    multiple: false,
+    resetOnOpen: true,
+    onChange: (files) => setPhoto(files?.[0] ?? null),
+  });
   const write = useWrites().get(item.uid);
   const received = useAttachments(item.uid);
   const photos = [
@@ -190,6 +201,9 @@ export const ItemDetails = ({
   const spi = item.sensor || item.vehicle ? items.find((i) => i.sensorUid === item.uid) : undefined;
 
   const markable = isUnit && !readOnlyReason && status2525 !== "destroyed";
+  const canAddToFeed = !!clientUid && !item.draft && allMissions.length > 0;
+  const canAttach = !!callsign && !readOnlyReason && !planActive && !item.draft;
+  const hasMore = canAddToFeed || canAttach || !item.draft || markable || !readOnlyReason;
 
   return (
     <Stack gap="sm" h="100%">
@@ -233,7 +247,7 @@ export const ItemDetails = ({
       )}
 
       {!editing && (
-        <Group gap="xs" grow>
+        <Group gap={6}>
           <Button
             variant="default"
             size="xs"
@@ -265,6 +279,87 @@ export const ItemDetails = ({
               {item.geometry.type === "Point" && !item.ellipse ? "Move" : "Shape"}
             </Button>
           )}
+          {!item.draft && (
+            <SendTo
+              what={labelOf(item)}
+              contacts={contacts}
+              note={planActive ? "Sent now, not staged in the active plan." : undefined}
+              disabledReason={sendReason}
+              onSend={(callsigns) => sendItem(item, callsigns)}
+            />
+          )}
+          {hasMore && (
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <Button variant="default" size="xs" rightSection={<IconChevronDown size={14} />}>
+                  More
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {canAddToFeed && (
+                  <Menu.Item
+                    leftSection={<IconFolderPlus size={14} />}
+                    onClick={() => setDialog("feed")}
+                  >
+                    Add to feed…
+                  </Menu.Item>
+                )}
+                {canAttach && (
+                  <Menu.Item
+                    leftSection={<IconPhoto size={14} />}
+                    disabled={write === "sending"}
+                    onClick={photoDialog.open}
+                  >
+                    Attach photo…
+                  </Menu.Item>
+                )}
+                {!item.draft && (
+                  <Menu.Item
+                    leftSection={<IconNotes size={14} />}
+                    onClick={() => setLoggingAt(replayAt ?? Date.now())}
+                  >
+                    Log this…
+                  </Menu.Item>
+                )}
+                {canMove &&
+                  !item.draft &&
+                  TRACK_FORMATS.map((format) => (
+                    <Menu.Item
+                      key={format}
+                      leftSection={<IconDownload size={14} />}
+                      onClick={() =>
+                        void exportTrack(item, format).catch((err: Error) =>
+                          notifications.show({ color: "warning", message: err.message }),
+                        )
+                      }
+                    >
+                      Track {format.toUpperCase()}
+                    </Menu.Item>
+                  ))}
+                {markable && (
+                  <Menu.Item
+                    color="danger"
+                    leftSection={<IconX size={14} />}
+                    onClick={() => setEditing({ status: "destroyed" })}
+                  >
+                    Mark destroyed
+                  </Menu.Item>
+                )}
+                {!readOnlyReason && (
+                  <>
+                    <Menu.Divider />
+                    <Menu.Item
+                      color="danger"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() => setDialog("delete")}
+                    >
+                      Delete…
+                    </Menu.Item>
+                  </>
+                )}
+              </Menu.Dropdown>
+            </Menu>
+          )}
         </Group>
       )}
       {readOnlyReason && !editing && (
@@ -275,6 +370,16 @@ export const ItemDetails = ({
 
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
         <Stack gap="sm">
+          {canMove && !editing && (
+            <Switch
+              size="xs"
+              label="Show track"
+              description={onToggleTrack ? undefined : "All tracks are shown (Layers)"}
+              checked={tracking}
+              disabled={!onToggleTrack}
+              onChange={onToggleTrack}
+            />
+          )}
           {hasPosition(item) ? (
             <Field label={item.geometry.type === "Point" ? "Position" : "First point"}>
               <Group gap={4} wrap="nowrap">
@@ -428,97 +533,34 @@ export const ItemDetails = ({
           submitLabel={submitLabel}
           onDone={() => setEditing(false)}
         />
-      ) : (
-        <Stack gap="xs">
-          {canMove && (
-            <Switch
-              size="xs"
-              label="Show track"
-              description={onToggleTrack ? undefined : "All tracks are shown (Layers)"}
-              checked={tracking}
-              disabled={!onToggleTrack}
-              onChange={onToggleTrack}
-            />
-          )}
-          {!item.draft && (
-            <SendTo
-              what={labelOf(item)}
-              contacts={contacts}
-              note={planActive ? "Sent now, not staged in the active plan." : undefined}
-              disabledReason={sendReason}
-              onSend={(callsigns) => sendItem(item, callsigns)}
-            />
-          )}
-          {clientUid && !item.draft && allMissions.length > 0 && (
-            <AddToMission item={item} missions={allMissions} clientUid={clientUid} />
-          )}
-          {callsign && !readOnlyReason && !planActive && !item.draft && (
-            <AttachPhoto
-              item={item}
-              callsign={callsign}
-              contacts={contacts}
-              disabled={write === "sending"}
-            />
-          )}
-          {(!item.draft || markable) && (
-            <Menu position="top-end" withinPortal>
-              <Menu.Target>
-                <Button
-                  variant="subtle"
-                  color="gray"
-                  size="xs"
-                  rightSection={<IconChevronDown size={14} />}
-                >
-                  More
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown p="xs">
-                {!item.draft && (
-                  <Menu.Item
-                    leftSection={<IconNotes size={14} />}
-                    onClick={() => setLoggingAt(replayAt ?? Date.now())}
-                  >
-                    Log this…
-                  </Menu.Item>
-                )}
-                {canMove &&
-                  !item.draft &&
-                  TRACK_FORMATS.map((format) => (
-                    <Menu.Item
-                      key={format}
-                      leftSection={<IconDownload size={14} />}
-                      onClick={() =>
-                        void exportTrack(item, format).catch((err: Error) =>
-                          notifications.show({ color: "warning", message: err.message }),
-                        )
-                      }
-                    >
-                      Track {format.toUpperCase()}
-                    </Menu.Item>
-                  ))}
-                {markable && (
-                  <Menu.Item
-                    color="danger"
-                    leftSection={<IconX size={14} />}
-                    onClick={() => setEditing({ status: "destroyed" })}
-                  >
-                    Mark destroyed
-                  </Menu.Item>
-                )}
-              </Menu.Dropdown>
-            </Menu>
-          )}
-          {loggingAt !== undefined && (
-            <LogItemDialog item={item} at={loggingAt} onClose={() => setLoggingAt(undefined)} />
-          )}
-          {!readOnlyReason && (
-            <>
-              <Divider />
-              <DeleteItem item={item} onSubmit={onSubmit} />
-            </>
-          )}
-        </Stack>
+      ) : null}
+      {loggingAt !== undefined && (
+        <LogItemDialog item={item} at={loggingAt} onClose={() => setLoggingAt(undefined)} />
       )}
+      {canAddToFeed && (
+        <AddToMission
+          item={item}
+          missions={allMissions}
+          clientUid={clientUid}
+          opened={dialog === "feed"}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {canAttach && (
+        <AttachPhoto
+          item={item}
+          callsign={callsign}
+          contacts={contacts}
+          photo={photo}
+          onClose={() => setPhoto(null)}
+        />
+      )}
+      <DeleteItem
+        item={item}
+        onSubmit={onSubmit}
+        opened={dialog === "delete"}
+        onClose={() => setDialog(undefined)}
+      />
     </Stack>
   );
 };

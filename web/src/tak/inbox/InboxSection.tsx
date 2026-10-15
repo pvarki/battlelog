@@ -60,7 +60,7 @@ const PackageRow = ({ pkg, detail, unavailable, onDismiss, onDelete, onOpenPlan 
   return (
     <div className="tak-row">
       <Group gap={6} wrap="nowrap">
-        <Text fz="sm" fw={600} truncate style={{ flex: 1 }}>
+        <Text fz="sm" fw={500} truncate style={{ flex: 1 }}>
           {pkg.name}
         </Text>
         {!result && (

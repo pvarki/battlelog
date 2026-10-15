@@ -27,6 +27,7 @@ import { InboxSection } from "../inbox/InboxSection.tsx";
 import { ItemRow } from "../items/ItemsDrawer.tsx";
 import { count } from "../items.ts";
 import type { Mission } from "../missions/missions.ts";
+import { PanelActions } from "../panel.tsx";
 import { sendPlan } from "../send.ts";
 import { kmlBlob } from "./overlay-files.ts";
 import { PublishToMission } from "./PublishToMission.tsx";
@@ -264,10 +265,7 @@ export const PlansDrawer = (props: Props) => {
   if (open) return <PlanDetail {...props} plan={open} onBack={() => setOpenId(undefined)} />;
   return (
     <Stack gap="xs" h="100%">
-      <Group justify="space-between" wrap="nowrap">
-        <Text fz="xs" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
-          Drafts to publish to TAK.
-        </Text>
+      <PanelActions>
         <FileButton
           accept={IMPORT_ACCEPT}
           multiple
@@ -300,9 +298,8 @@ export const PlansDrawer = (props: Props) => {
         >
           New plan
         </Button>
-      </Group>
+      </PanelActions>
       <ScrollArea style={{ flex: 1 }} offsetScrollbars>
-        <InboxSection onOpenPlan={setOpenId} clientUid={props.clientUid} />
         {props.state.plans.length === 0 ? (
           <Box py="md">
             <Placeholder
@@ -314,7 +311,7 @@ export const PlansDrawer = (props: Props) => {
           props.state.plans.map((plan) => (
             <UnstyledButton key={plan.id} className="tak-row" onClick={() => setOpenId(plan.id)}>
               <Group gap={6} wrap="nowrap">
-                <Text fz="sm" fw={600} truncate style={{ flex: 1 }}>
+                <Text fz="sm" fw={500} truncate style={{ flex: 1 }}>
                   {plan.name}
                 </Text>
                 {props.state.activeId === plan.id && (
@@ -329,6 +326,7 @@ export const PlansDrawer = (props: Props) => {
             </UnstyledButton>
           ))
         )}
+        <InboxSection onOpenPlan={setOpenId} clientUid={props.clientUid} />
       </ScrollArea>
     </Stack>
   );

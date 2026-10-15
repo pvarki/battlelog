@@ -56,8 +56,8 @@ export const SaveAreaSection = ({
     <Stack gap={6}>
       <SectionHeading>Offline</SectionHeading>
       <Text fz="xs" c="dimmed">
-        Maps you look at are kept in this browser. Save the area on screen to have it, a few zoom
-        levels deeper, without a network.
+        Maps you view stay in this browser. Save this area to keep it, a few zoom levels deeper, for
+        use offline.
       </Text>
       {progress ? (
         <Group gap="xs" wrap="nowrap">

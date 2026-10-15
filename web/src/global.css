@@ -188,9 +188,9 @@
 .section-heading {
   margin: 10px 0 4px;
   font-size: var(--mantine-font-size-xs);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.4;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mantine-color-dark-2);
 }

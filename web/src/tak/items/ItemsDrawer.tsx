@@ -127,7 +127,7 @@ export const ItemRow = ({
     >
       <Group gap="xs" wrap="nowrap" justify="space-between">
         <Stack gap={0} style={{ minWidth: 0 }}>
-          <Text fz="sm" fw={600} truncate>
+          <Text fz="sm" fw={500} truncate>
             {labelOf(item)}
           </Text>
           <Text fz="xs" c="dimmed" truncate>

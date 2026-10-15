@@ -18,6 +18,7 @@ import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
 import { count } from "../items.ts";
+import { PanelActions } from "../panel.tsx";
 import { missionTree, useMissionParents } from "./hierarchy.ts";
 import { MissionDetail } from "./MissionDetail.tsx";
 import type { Mission } from "./missions.ts";
@@ -117,7 +118,7 @@ const MissionList = ({ view, ...props }: MissionsDrawerProps & { view: ListView 
                   aria-label={mission.inviteOnly ? "Invite-only" : "Password-protected"}
                 />
               )}
-              <Text fz="sm" fw={600} truncate>
+              <Text fz="sm" fw={500} truncate>
                 {mission.name}
               </Text>
             </Group>
@@ -166,7 +167,7 @@ const MyInvitations = ({
     <Section title="Invitations for me">
       {pending.map((name) => (
         <Group key={name} gap="xs" wrap="nowrap" className="tak-row">
-          <Text fz="sm" fw={600} truncate style={{ flex: 1, minWidth: 0 }}>
+          <Text fz="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
             {name}
           </Text>
           <Button
@@ -195,16 +196,10 @@ export const MissionsDrawer = (props: MissionsDrawerProps) => {
   if (open) return <MissionDetail {...props} mission={open} />;
   return (
     <Stack gap="xs" h="100%">
-      <Group justify="space-between" wrap="nowrap">
-        <Text fz="xs" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
-          Feeds are missions on TAK Server.
-        </Text>
-        <Tooltip
-          label={view === "tree" ? "Shown as a tree: show as a list" : "Show as a tree"}
-          withArrow
-        >
+      <PanelActions>
+        <Tooltip label={view === "tree" ? "Show as a list" : "Show as a tree"} withArrow>
           <ActionIcon
-            variant={view === "tree" ? "light" : "subtle"}
+            variant="subtle"
             color={view === "tree" ? "accent" : "gray"}
             aria-label="Show feeds as a tree"
             aria-pressed={view === "tree"}
@@ -214,7 +209,7 @@ export const MissionsDrawer = (props: MissionsDrawerProps) => {
           </ActionIcon>
         </Tooltip>
         <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
-      </Group>
+      </PanelActions>
       {props.clientUid && (
         <MyInvitations state={props.state} clientUid={props.clientUid} onOpen={props.onOpen} />
       )}

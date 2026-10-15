@@ -21,6 +21,7 @@ import { useNow } from "../../use-now.ts";
 import type { Sender } from "../identity.ts";
 import type { MissionFile } from "../missions/missions.ts";
 import { useWrite } from "../missions/shared.tsx";
+import { PanelActions } from "../panel.tsx";
 import {
   createTemplate,
   fetchActiveChecklists,
@@ -240,7 +241,7 @@ const ChecklistList = ({
             w="100%"
             onClick={() => onOpen(checklist.uid)}
           >
-            <Text fz="sm" fw={600} truncate>
+            <Text fz="sm" fw={500} truncate>
               {checklist.name}
             </Text>
             <Text fz="xs" c="dimmed" truncate>
@@ -294,10 +295,10 @@ const Checklists = ({ writer }: { writer: Sender | undefined }) => {
   if (open) return <ChecklistDetail uid={open} writer={writer} onBack={() => setOpen(undefined)} />;
   return (
     <Stack gap="xs" h="100%">
-      <Group gap="xs" justify="flex-end">
+      <PanelActions>
         <NewTemplate writer={writer} />
         <NewChecklist writer={writer} onStarted={setOpen} />
-      </Group>
+      </PanelActions>
       <ChecklistList checklists={checklists} onOpen={setOpen} />
     </Stack>
   );
