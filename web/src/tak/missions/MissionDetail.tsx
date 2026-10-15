@@ -137,7 +137,7 @@ export const MissionDetail = ({
           {mission.name}
         </Text>
       </Group>
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         <Stack gap="sm">
           {mission.description && (
             <Text fz="sm" style={{ whiteSpace: "pre-wrap" }}>

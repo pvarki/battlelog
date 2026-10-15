@@ -120,7 +120,7 @@ const PlanDetail = ({ plan, onBack, ...props }: Props & { plan: Plan; onBack: ()
           {conflicts > 1 ? "them" : "it"}; publishing overwrites those changes.
         </Text>
       )}
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         {drafts.length === 0 ? (
           <Box py="md">
             <Placeholder
@@ -291,7 +291,7 @@ export const PlansDrawer = (props: Props) => {
           </Menu.Item>
         </PanelMenu>
       </PanelActions>
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         {props.state.plans.length === 0 ? (
           <Box py="md">
             <Placeholder

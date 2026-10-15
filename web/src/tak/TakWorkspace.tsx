@@ -17,7 +17,7 @@ import {
   IconStack2,
 } from "@tabler/icons-react";
 import { type Map as MapLibreMap, Marker } from "maplibre-gl";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ACCENT } from "../theme.ts";
 import { useIsMobile } from "../viewport.ts";
@@ -66,7 +66,7 @@ import { PickChooser } from "./map/PickChooser.tsx";
 import { MissionsDrawer } from "./missions/MissionsDrawer.tsx";
 import { feedItemUids, useMissions, useMissionsSync } from "./missions/store.ts";
 import { useMissionSubscriptions } from "./missions/writes.ts";
-import { Panel } from "./panel.tsx";
+import { DRAWER_WIDTH, Panel, ResizeHandle } from "./panel.tsx";
 import { draftItems, workspacePicture } from "./picture.ts";
 import { PlansDrawer } from "./plans/PlansDrawer.tsx";
 import { usePlans } from "./plans/plans.ts";
@@ -157,6 +157,10 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const shownMissions = new Set(settings.shownMissions);
   const isMobile = useIsMobile();
   const [drawer, setDrawer] = useState<DrawerId | null>(isMobile ? null : "items");
+  const [drawerWidth, setDrawerWidth] = useLocalStorage({
+    key: "battlelog.tak.drawerWidth",
+    defaultValue: DRAWER_WIDTH,
+  });
   const {
     selectedUid,
     selectedEventId,
@@ -763,10 +767,15 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       </nav>
 
       {!isMobile && drawer && (
-        <aside className="tak-drawer" aria-label={DRAWERS[drawer].label}>
+        <aside
+          className="tak-drawer"
+          aria-label={DRAWERS[drawer].label}
+          style={{ "--tak-drawer-width": `${drawerWidth}px` } as CSSProperties}
+        >
           <Panel title={DRAWERS[drawer].label} onClose={() => setDrawer(null)}>
             {drawerContent(drawer)}
           </Panel>
+          <ResizeHandle width={drawerWidth} onWidth={setDrawerWidth} />
         </aside>
       )}
 

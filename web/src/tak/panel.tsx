@@ -140,3 +140,69 @@ export const SettingRow = ({
     {children}
   </Group>
 );
+
+const DRAWER_MIN = 260;
+const DRAWER_MAX = 640;
+export const DRAWER_WIDTH = 320;
+const KEY_STEP = 16;
+
+const clampWidth = (w: number) => Math.round(Math.min(DRAWER_MAX, Math.max(DRAWER_MIN, w)));
+
+/**
+ * The drag handle on a drawer's edge. Dragging sets the width on the drawer
+ * itself and saves it on release, so the workspace doesn't re-render per move.
+ */
+export const ResizeHandle = ({
+  width,
+  onWidth,
+}: {
+  width: number;
+  onWidth: (width: number) => void;
+}) => {
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const drawer = e.currentTarget.parentElement;
+    if (!drawer) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    let next = width;
+    const onMove = (m: PointerEvent) => {
+      next = clampWidth(width + m.clientX - startX);
+      drawer.style.setProperty("--tak-drawer-width", `${next}px`);
+    };
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      document.body.style.cursor = "";
+      onWidth(next);
+    };
+    // The whole page, so the drag keeps going when the pointer outruns the thin handle.
+    document.body.style.cursor = "col-resize";
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  };
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a focusable separator is the ARIA pattern for a resize handle.
+    <div
+      className="tak-resize"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Drawer width"
+      aria-valuenow={width}
+      aria-valuemin={DRAWER_MIN}
+      aria-valuemax={DRAWER_MAX}
+      tabIndex={0}
+      title="Drag to resize · double-click to reset"
+      onPointerDown={onPointerDown}
+      onDoubleClick={() => onWidth(DRAWER_WIDTH)}
+      onKeyDown={(e) => {
+        const step = e.key === "ArrowRight" ? KEY_STEP : e.key === "ArrowLeft" ? -KEY_STEP : 0;
+        if (!step) return;
+        e.preventDefault();
+        onWidth(clampWidth(width + step));
+      }}
+    />
+  );
+};

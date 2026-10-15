@@ -81,7 +81,7 @@ export const LayersDrawer = ({
           </ViewOption>
         </PanelMenu>
       </PanelActions>
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         <Stack gap="md">
           <Stack gap={2}>
             <SectionHeading>On the map</SectionHeading>

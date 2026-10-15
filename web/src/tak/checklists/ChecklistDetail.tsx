@@ -210,7 +210,7 @@ export const ChecklistDetail = ({
   return (
     <Stack gap="xs" h="100%">
       {header}
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         <Stack gap="sm">
           {checklist.description && (
             <Text fz="sm" style={{ whiteSpace: "pre-wrap" }}>

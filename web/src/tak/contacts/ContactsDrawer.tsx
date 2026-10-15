@@ -169,7 +169,7 @@ export const ContactsDrawer = ({
       <Text fz="xs" c="dimmed">
         Distances from {ownPosition ? "your position" : "the map centre"}
       </Text>
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         {teams.length === 0 && (
           <Box py="md">
             {contacts.length === 0 ? (

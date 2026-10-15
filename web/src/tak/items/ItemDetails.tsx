@@ -369,7 +369,7 @@ export const ItemDetails = ({
         </Text>
       )}
 
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         <Stack gap="sm">
           {canMove && !editing && (
             <Switch

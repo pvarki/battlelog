@@ -684,7 +684,7 @@ export const ItemsDrawer = ({
         onBlur={(e) => e.target === e.currentTarget && setActiveKey(undefined)}
         style={{ flex: 1, minHeight: 0, display: "flex", outline: "none" }}
       >
-        <ScrollArea style={{ flex: 1 }} offsetScrollbars viewportRef={setViewport}>
+        <ScrollArea style={{ flex: 1 }} offsetScrollbars="present" viewportRef={setViewport}>
           {rows.length === 0 ? (
             <Box py="md">
               {items.length === 0 ? (

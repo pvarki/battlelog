@@ -234,7 +234,7 @@ const ChecklistList = ({
       </Box>
     );
   return (
-    <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars>
+    <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars="present">
       {checklists.map((checklist) => {
         const { done, total } = progress(checklist);
         const started = checklist.startTime ? Date.parse(checklist.startTime) : Number.NaN;

@@ -121,7 +121,7 @@ const MissionList = ({
           .map((mission) => ({ mission, depth: 0 }));
   const rows = hideEmpty ? withoutEmpty(all) : all;
   return (
-    <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars>
+    <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars="present">
       {rows.map(({ mission, depth }) => (
         <Group
           key={mission.name}
