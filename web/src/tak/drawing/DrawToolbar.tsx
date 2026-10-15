@@ -1,4 +1,4 @@
-import { Badge, Button, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
+import { Badge, Button, Divider, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
 import {
   IconArrowBackUp,
   IconChevronDown,
@@ -53,7 +53,8 @@ const HINT: Record<Tool, string> = {
   bullseye: "Click the centre of the bullseye.",
 };
 
-const IDLE_HINT = "Shift-drag or the lasso (Tools) selects several items · ? lists the shortcuts";
+const TOOLS_HINT =
+  "Measure, lasso select (or Shift-drag), range rings and bullseye · ? lists the shortcuts";
 
 const LASSO_HINT =
   "Draw around the items to select, with the mouse or a finger; each outline adds to the selection.";
@@ -124,7 +125,7 @@ export const UndoButton = ({
       disabled={!!disabledReason || !subject}
       onClick={onUndo}
     >
-      Undo
+      <span className="tak-tool-label">Undo</span>
     </Button>
   </Tooltip>
 );
@@ -209,19 +210,18 @@ const ToolButtons = ({
   undo,
 }: Omit<Props, "editing" | "selection">) => (
   <>
-    <Group className="tak-draw-tools" gap={4} justify="center">
-      <Badge
-        size="sm"
-        variant={planName ? "filled" : "outline"}
-        color={planName ? "primary" : "gray"}
-        title={
-          planName
-            ? "Drawings and edits go into this plan"
-            : "Drawings and edits go straight to TAK"
-        }
-      >
-        {planName ? `Plan: ${planName}` : "Live"}
-      </Badge>
+    <Group className="tak-draw-tools" gap={4}>
+      {/* A plan catching edits must be unmissable; live is the quiet default. */}
+      {planName ? (
+        <Badge size="sm" variant="filled" title="Drawings and edits go into this plan">
+          Plan: {planName}
+        </Badge>
+      ) : (
+        <Text fz="xs" c="dimmed" px={6} title="Drawings and edits go straight to TAK">
+          Live
+        </Text>
+      )}
+      <Divider orientation="vertical" />
       {(["marker", "shape", "route"] as const).map((id) => {
         if (id === "shape") {
           const active = isShapeTool(tool) && !graphic ? tool : undefined;
@@ -236,9 +236,9 @@ const ToolButtons = ({
                   leftSection={<Icon size={14} />}
                   rightSection={<IconChevronDown size={14} />}
                   disabled={!!disabledReason}
-                  title={disabledReason}
+                  title={disabledReason ?? (active ? TOOLS[active].label : "Shape")}
                 >
-                  {active ? TOOLS[active].label : "Shape"}
+                  <span className="tak-tool-label">{active ? TOOLS[active].label : "Shape"}</span>
                 </Button>
               </Menu.Target>
               <Menu.Dropdown>
@@ -268,9 +268,10 @@ const ToolButtons = ({
               leftSection={<Icon size={14} />}
               aria-pressed={tool === id && !graphic && !symbol}
               disabled={!!disabledReason}
+              title={TOOLS[id].label}
               onClick={() => onChoose(tool === id && !graphic && !symbol ? undefined : id)}
             >
-              {TOOLS[id].label}
+              <span className="tak-tool-label">{TOOLS[id].label}</span>
             </Button>
           </Tooltip>
         );
@@ -285,6 +286,7 @@ const ToolButtons = ({
         onChange={onChooseGraphic}
         disabledReason={disabledReason}
       />
+      <Divider orientation="vertical" />
       <Menu position="bottom-end" withinPortal>
         <Menu.Target>
           <Button
@@ -293,8 +295,9 @@ const ToolButtons = ({
             color={measuring || lassoing || isMenuTool(tool) ? "primary" : "gray"}
             leftSection={<IconTools size={14} />}
             rightSection={<IconChevronDown size={14} />}
+            title={TOOLS_HINT}
           >
-            Tools
+            <span className="tak-tool-label">Tools</span>
           </Button>
         </Menu.Target>
         <Menu.Dropdown>
@@ -331,18 +334,13 @@ const ToolButtons = ({
             measuring ? onToggleMeasure() : lassoing ? onToggleLasso() : onChoose(undefined)
           }
         >
-          Stop (Esc)
+          <span className="tak-tool-label">Stop (Esc)</span>
         </Button>
       )}
     </Group>
     {lassoing && (
       <Text fz="xs" c="dimmed" px={6} pt={2}>
         {LASSO_HINT}
-      </Text>
-    )}
-    {!tool && !measuring && !lassoing && (
-      <Text className="tak-idle-hint" fz="xs" c="dimmed" px={6} pt={2} ta="center">
-        {IDLE_HINT}
       </Text>
     )}
     {tool && (

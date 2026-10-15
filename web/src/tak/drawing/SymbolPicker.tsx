@@ -251,6 +251,7 @@ export const SymbolPickerButton = ({ value, onChange, disabledReason }: ButtonPr
           variant={value ? "filled" : "subtle"}
           color={value ? "primary" : "gray"}
           leftSection={<IconShield size={14} />}
+          title="Symbol"
           aria-pressed={!!value}
           disabled={!!disabledReason}
           onClick={() => {
@@ -258,7 +259,7 @@ export const SymbolPickerButton = ({ value, onChange, disabledReason }: ButtonPr
             setOpen(true);
           }}
         >
-          Symbol
+          <span className="tak-tool-label">Symbol</span>
         </Button>
       </Tooltip>
       <Modal opened={open} onClose={() => setOpen(false)} title="Symbol" size="lg" centered>

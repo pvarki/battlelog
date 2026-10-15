@@ -88,6 +88,7 @@
  * right edge leaves room for MapLibre's controls.
  */
 .tak-overlay {
+  container-type: inline-size;
   position: absolute;
   top: 10px;
   left: 10px;
@@ -329,11 +330,6 @@
   flex-wrap: nowrap;
   justify-content: flex-start;
   overflow-x: auto;
-}
-
-/* Instructions while a tool is in use stay; the idle tip is one keypress away (?). */
-.tak-workspace[data-mobile] .tak-idle-hint {
-  display: none;
 }
 
 /* No pointer, no cursor position: give its slot to the connection line. */
@@ -650,4 +646,20 @@
 /* Actions sit at their own width; a full-width button reads as the page's main action. */
 :is(.tak-drawer, .tak-details) .mantine-Stack-root > .mantine-Button-root {
   align-self: flex-start;
+}
+
+/* A narrow map keeps the draw tools to one row: icons only, names kept for screen readers and tooltips. */
+@container (max-width: 720px) {
+  .tak-draw-tools .tak-tool-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tak-draw-tools .mantine-Button-section[data-position="left"] {
+    margin-inline-end: 0;
+  }
 }

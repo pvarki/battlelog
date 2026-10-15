@@ -20,7 +20,7 @@ export const TacticalGraphicPicker = ({ value, onChange, disabledReason }: Props
   <Tooltip label={disabledReason} disabled={!disabledReason} withArrow>
     <Select
       size="xs"
-      w={190}
+      w={160}
       placeholder="Tactical graphic…"
       aria-label="Tactical graphic"
       data={OPTIONS}
