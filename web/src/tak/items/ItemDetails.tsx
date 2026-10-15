@@ -80,6 +80,8 @@ type Props = {
   submitLabel: string;
   /** Starts moving or reshaping the item on the map; undefined when its geometry can't be edited. */
   onEditShape: (() => void) | undefined;
+  /** The drawing tools are still loading, so editing can't start yet. */
+  editShapeLoading: boolean;
   /** Edits are staged in a plan; photos and sends to people go straight to TAK instead. */
   planActive: boolean;
   /** Whether the map shows where this item has been. */
@@ -153,6 +155,7 @@ export const ItemDetails = ({
   onSubmit,
   submitLabel,
   onEditShape,
+  editShapeLoading,
   planActive,
   tracking,
   onToggleTrack,
@@ -256,6 +259,7 @@ export const ItemDetails = ({
               variant="default"
               size="xs"
               leftSection={<IconShape size={14} />}
+              loading={editShapeLoading}
               onClick={onEditShape}
             >
               {item.geometry.type === "Point" && !item.ellipse ? "Move" : "Shape"}

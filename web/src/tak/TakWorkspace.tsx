@@ -617,6 +617,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             }
           : undefined
       }
+      editShapeLoading={!drawing.ready}
       planActive={!!activePlan}
       tracking={settings.showAllTracks || trackedUids.has(selected.uid)}
       onToggleTrack={settings.showAllTracks ? undefined : () => toggleTrack(selected.uid)}

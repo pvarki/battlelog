@@ -151,6 +151,7 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
   /** A tactical graphic's shape while it's being drawn, so it can be previewed. */
   const [sketch] = useState(createSketch);
   const [editing, setEditing] = useState<{ item: TakItem; tool: Tool; featureId: string }>();
+  const [ready, setReady] = useState(false);
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const graphicRef = useRef(graphic);
@@ -212,6 +213,7 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       });
       terra = loaded;
       draw.current = loaded;
+      setReady(true);
       if (toolRef.current) loaded.setMode(TOOLS[toolRef.current].mode);
     };
     start().catch((err) => console.warn("Drawing tools failed to load", err));
@@ -248,6 +250,7 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
       map.off("click", closeAtStart);
       terra?.stop();
       draw.current = undefined;
+      setReady(false);
     };
   }, [map, sketch]);
 
@@ -305,6 +308,8 @@ export const useDrawing = (map: MapLibreMap | undefined) => {
   };
 
   return {
+    /** The drawing engine has loaded; until then `edit` can't start. */
+    ready,
     tool,
     graphic,
     symbol,
