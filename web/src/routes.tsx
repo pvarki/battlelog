@@ -21,9 +21,7 @@ import { Placeholder } from "./components/Placeholder.tsx";
 import { DashboardNav } from "./dashboard/DashboardNav.tsx";
 import { validateEventSearch } from "./events/event-filters.ts";
 import { CONNECTION_LABEL, useConnectionState } from "./events/live-events.ts";
-import { DashboardPage } from "./pages/DashboardPage.tsx";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
-import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
 import { TakIndicator } from "./tak/TakIndicator.tsx";
 import { useIsMobile } from "./viewport.ts";
 
@@ -282,14 +280,14 @@ export const dashboardRoute = createRoute({
       throw err;
     }
   },
-  component: DashboardPage,
+  component: lazyRouteComponent(() => import("./pages/DashboardPage.tsx"), "DashboardPage"),
 });
 
 export const eventExplorerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/events",
   validateSearch: validateEventSearch,
-  component: EventExplorerPage,
+  component: lazyRouteComponent(() => import("./pages/EventExplorerPage.tsx"), "EventExplorerPage"),
 });
 
 // What "Open in Map" carries over: the selection and the view (`lng,lat,zoom[,bearing]`).
@@ -299,7 +297,6 @@ const mapSearchSchema = z.object({
   at: z.string().max(80).optional().catch(undefined),
 });
 
-// Lazy: MapLibre is a large chunk that only the map needs.
 export const mapRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/map",
