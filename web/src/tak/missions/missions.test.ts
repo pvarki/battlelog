@@ -1,6 +1,8 @@
-import { expect, test } from "vitest";
+// @vitest-environment happy-dom
+import { expect, test, vi } from "vitest";
 import {
   exportPath,
+  fetchMissionItems,
   parseInvitations,
   parseInvitedMissions,
   parseMembers,
@@ -169,3 +171,12 @@ test("invitations for me name their missions once", () => {
   expect(parseInvitedMissions({ data: [{ missionName: "BL" }, {}] })).toEqual(["BL"]);
   expect(parseInvitedMissions(null)).toEqual([]);
 });
+
+test("a mission of over 20,000 items is refused", async () => {
+  const event = (i: number) =>
+    `<event version="2.0" uid="u${i}" type="a-f-G" how="h-e" time="2026-10-13T10:00:00Z" start="2026-10-13T10:00:00Z" stale="2026-10-14T10:00:00Z"><point lat="60" lon="25" hae="0" ce="0" le="0"/><detail/></event>`;
+  const xml = `<events>${Array.from({ length: 20_001 }, (_, i) => event(i)).join("")}</events>`;
+  vi.stubGlobal("fetch", async () => new Response(xml));
+  await expect(fetchMissionItems("BIG")).rejects.toThrow(/20,000/);
+  vi.unstubAllGlobals();
+}, 30_000);

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { expect, test } from "vitest";
-import { contentLinks, parseCotXmlInSlices } from "./rest.ts";
+import { expect, test, vi } from "vitest";
+import { contentLinks, parseCotXmlInSlices, takGetText } from "./rest.ts";
 import { inSlices } from "./slices.ts";
 
 test("photo links in remarks resolve to where this browser fetches them", () => {
@@ -46,4 +46,18 @@ test("slicing stops once aborted", async () => {
     abort.signal,
   );
   expect(seen).toHaveLength(200);
+});
+
+test("a TAK answer over 64 MB is refused before it is all in memory", async () => {
+  const megabyte = new Uint8Array(1_048_576);
+  let sent = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull: (controller) => {
+      if (sent++ < 65) controller.enqueue(megabyte);
+      else controller.close();
+    },
+  });
+  vi.stubGlobal("fetch", async () => new Response(body));
+  await expect(takGetText("/Marti/api/anything")).rejects.toThrow(/over 64 MB/);
+  vi.unstubAllGlobals();
 });

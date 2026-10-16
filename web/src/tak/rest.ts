@@ -49,28 +49,27 @@ export const readCapped = async (
   return bytes;
 };
 
+// Room for a busy server's day of history; anything TAK sends that's larger would exhaust the tab.
+const MAX_RESPONSE_BYTES = 64 * 1_048_576;
+
 /**
  * GET a Marti path as text. TAK answers 404 for "nothing in range", which
- * reads as "". With `maxBytes` a larger answer is refused before it's all in memory.
+ * reads as "". A larger answer than `maxBytes` is refused before it's all in memory.
  */
 export const takGetText = async (
   path: string,
   signal?: AbortSignal,
-  maxBytes?: number,
+  maxBytes = MAX_RESPONSE_BYTES,
 ): Promise<string> => {
   const res = await fetch(`${takBaseUrl()}${path}`, { credentials: "include", signal });
   if (res.status === 404) return "";
   if (!res.ok) throw new TakRequestError(path, res.status);
-  if (maxBytes === undefined) return res.text();
   const tooLarge = () =>
     new Error(
       `TAK's answer is over ${Math.round(maxBytes / 1_048_576)} MB; ask for less at a time`,
     );
   return new TextDecoder().decode(await readCapped(res, maxBytes, tooLarge));
 };
-
-// A busy server's day of history or a week of one unit's fixes; parsing more would exhaust the tab.
-const MAX_HISTORY_BYTES = 64 * 1_048_576;
 
 export type TakWrite = {
   method: "PUT" | "POST" | "DELETE";
@@ -125,7 +124,7 @@ export const fetchArchive = async (start: Date, end: Date, signal?: AbortSignal)
     end: end.toISOString(),
     isFiltered: "false",
   });
-  const xml = await takGetText(`/Marti/api/cot/sa?${query}`, signal, MAX_HISTORY_BYTES);
+  const xml = await takGetText(`/Marti/api/cot/sa?${query}`, signal);
   return parseCotXmlInSlices(xml, { strict: true });
 };
 
@@ -142,7 +141,6 @@ export const fetchHistory = async (uid: string, seconds: number, signal?: AbortS
     await takGetText(
       `/Marti/api/cot/xml/${encodeURIComponent(uid)}/all?secago=${Math.round(seconds)}`,
       signal,
-      MAX_HISTORY_BYTES,
     ),
   );
 

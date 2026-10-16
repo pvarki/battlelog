@@ -208,9 +208,14 @@ export const fetchInvitedMissions = async (clientUid: string, signal?: AbortSign
     await getJson(`/Marti/api/missions/invitations?${new URLSearchParams({ clientUid })}`, signal),
   );
 
+// Anyone who can write to a mission can fill it; past this it would crowd out the live picture.
+const MAX_MISSION_ITEMS = 20_000;
+
 /** The mission's map items; TAK refuses (403) restricted missions we're not part of. */
 export const fetchMissionItems = async (name: string, signal?: AbortSignal): Promise<TakItem[]> => {
   const events = await parseCotXmlInSlices(await takGetText(`${missionPath(name)}/cot`, signal));
+  if (events.length > MAX_MISSION_ITEMS)
+    throw new Error(`Mission ${name} has over 20,000 items, too many to show`);
   const items: TakItem[] = [];
   await inSlices(
     events,
