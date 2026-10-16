@@ -62,3 +62,13 @@ test("a track runs to the item's current position, unless its group is hidden", 
   expect(crumbs?.geometry.type).toBe("MultiPoint");
   expect(trackFeatures([drone], tracks, new Set(["markers/friendly"])).features).toEqual([]);
 });
+
+test("an unchanged trail keeps its features; a moved item's is drawn again", () => {
+  const drone = item("d", "a-f-A", [25.003, 60]);
+  const tracks = new Map([["d", [at(1000), at(2000)]]]);
+  const first = trackFeatures([drone], tracks, new Set()).features;
+  expect(trackFeatures([drone], tracks, new Set()).features).toEqual(first);
+  expect(trackFeatures([drone], tracks, new Set()).features[0]).toBe(first[0]);
+  const moved = item("d", "a-f-A", [25.004, 60]);
+  expect(trackFeatures([moved], tracks, new Set()).features[0]).not.toBe(first[0]);
+});

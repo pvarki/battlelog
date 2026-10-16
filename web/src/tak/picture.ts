@@ -45,11 +45,19 @@ const draftItemOf = (event: CotEvent, item: TakItem) => {
   return cached;
 };
 
-export const draftItems = (plan: Plan, live: TakItem[]): Draft[] =>
-  plan.entries.flatMap(({ event, basedOn }): Draft[] => {
-    const change = toChange(event);
+// A draft's event never changes once stored; parsing its XML on every render cost a third of the main thread.
+const draftChangeCache = new WeakMap<CotEvent, ReturnType<typeof toChange>>();
+const draftChangeOf = (event: CotEvent) => {
+  if (!draftChangeCache.has(event)) draftChangeCache.set(event, toChange(event));
+  return draftChangeCache.get(event) ?? null;
+};
+
+export const draftItems = (plan: Plan, live: TakItem[]): Draft[] => {
+  const liveByUid = new Map(live.map((i) => [i.uid, i]));
+  return plan.entries.flatMap(({ event, basedOn }): Draft[] => {
+    const change = draftChangeOf(event);
     if (!change || change.kind === "offline") return [];
-    const current = live.find((i) => i.uid === event.uid);
+    const current = liveByUid.get(event.uid);
     const conflict = basedOn !== undefined && !!current && current.time > basedOn;
     if (change.kind === "upsert")
       return [{ item: draftItemOf(event, change.item), conflict, deleted: false }];
@@ -63,6 +71,7 @@ export const draftItems = (plan: Plan, live: TakItem[]): Draft[] =>
     };
     return [{ item: { ...item, draft: true }, conflict, deleted: true }];
   });
+};
 
 /** Live items with the active plan's drafts in place of (or beside) them; staged deletes hide theirs. */
 const withDrafts = (items: TakItem[], drafts: Draft[]) => {

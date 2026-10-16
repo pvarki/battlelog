@@ -3,7 +3,15 @@ import { unzipSync, zipSync } from "fflate";
 import { expect, test } from "vitest";
 import type { CotEvent } from "../cot.ts";
 import { parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
-import { addToPlan, createPlan, exportPlan, importPlan, missionChanges } from "./plans.ts";
+import {
+  addToPlan,
+  createPlan,
+  draftOf,
+  editPlan,
+  exportPlan,
+  importPlan,
+  missionChanges,
+} from "./plans.ts";
 
 const sender = { uid: "BattleLog-Eversti", callsign: "Eversti" };
 
@@ -105,4 +113,18 @@ test("a KMZ whose KML expands past the limit is refused", async () => {
   await expect(importPlan([new File([kmz.slice()], "big.kmz")], sender)).rejects.toThrow(
     /too large/,
   );
+});
+
+test("a group edit adds, replaces and removes drafts at once, keeping each item's first base", () => {
+  const plan = createPlan("group");
+  const at = (uid: string, time: number) => ({ ...event, uid, time });
+  addToPlan(plan, { event: at("a", 1), basedOn: 100 });
+  addToPlan(plan, { event: at("b", 1) });
+  editPlan(plan, {
+    add: [{ event: at("a", 2), basedOn: 200 }, { event: at("c", 2) }],
+    remove: ["b"],
+  });
+  expect(draftOf(plan, "a")).toEqual({ event: at("a", 2), basedOn: 100 });
+  expect(draftOf(plan, "b")).toBeUndefined();
+  expect(draftOf(plan, "c")?.event.time).toBe(2);
 });

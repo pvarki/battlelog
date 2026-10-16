@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { publish } from "./commands.ts";
 import { type CotEvent, type TakItem, toChange } from "./cot.ts";
-import { addToPlan, draftOf, type Plan, removeFromPlan } from "./plans/plans.ts";
+import { draftOf, editPlan, type Plan, type PlanEntry } from "./plans/plans.ts";
 import { type TakStatus, takStore } from "./session.ts";
 import { type UndoStep, undoEvents, withStep } from "./undo.ts";
 
@@ -9,7 +9,6 @@ import { type UndoStep, undoEvents, withStep } from "./undo.ts";
 export const useTakWrites = ({
   activePlan,
   plans,
-  liveItems,
   missionItem,
   blockedReason,
   callsign,
@@ -17,21 +16,27 @@ export const useTakWrites = ({
 }: {
   activePlan: Plan | undefined;
   plans: Plan[];
-  liveItems: TakItem[];
   missionItem: (uid: string) => TakItem | undefined;
   blockedReason: string | undefined;
   callsign: string | null | undefined;
   connection: TakStatus["connection"];
 }) => {
-  /** Where new items and changes go: the active plan, or straight to TAK. */
-  const send = (event: CotEvent) => {
-    if (!activePlan) return void publish(event);
-    const existing = liveItems.find((i) => i.uid === event.uid) ?? missionItem(event.uid);
-    const planned = activePlan.entries.some((e) => e.event.uid === event.uid);
-    // Deleting an item that exists only in the plan just drops its draft.
-    if (toChange(event)?.kind === "delete" && !existing && planned)
-      return removeFromPlan(activePlan, event.uid);
-    addToPlan(activePlan, { event, basedOn: existing?.time });
+  /** Where new items and changes go: the active plan, in one save, or straight to TAK. */
+  const sendAll = (events: CotEvent[]) => {
+    if (!activePlan) {
+      for (const event of events) void publish(event);
+      return;
+    }
+    const add: PlanEntry[] = [];
+    const remove: string[] = [];
+    for (const event of events) {
+      const existing = takStore.get(event.uid) ?? missionItem(event.uid);
+      // Deleting an item that exists only in the plan just drops its draft.
+      if (toChange(event)?.kind === "delete" && !existing && draftOf(activePlan, event.uid))
+        remove.push(event.uid);
+      else add.push({ event, basedOn: existing?.time });
+    }
+    editPlan(activePlan, { add, remove });
   };
   const [undoSteps, setUndoSteps] = useState<UndoStep[]>([]);
   /** Sends one action's writes and remembers how to take them back. */
@@ -48,7 +53,7 @@ export const useTakWrites = ({
       return { before, after, draft };
     });
     setUndoSteps((steps) => withStep(steps, { planId: activePlan?.id, changes }));
-    for (const event of events) send(event);
+    sendAll(events);
   };
   const submit = (event: CotEvent) => submitAll([event]);
   const readOnlyReason = (item: TakItem) => {
@@ -75,14 +80,17 @@ export const useTakWrites = ({
     setUndoSteps(undoSteps.slice(0, -1));
     if (latestStep.planId && activePlan) {
       // A plan's undo puts its drafts back as they were; re-staging old versions would publish them.
+      const add: PlanEntry[] = [];
+      const remove: string[] = [];
       for (const { before, after, draft } of latestStep.changes) {
         if (before && !canChange(before)) continue;
-        if (draft) addToPlan(activePlan, draft);
-        else removeFromPlan(activePlan, after.uid);
+        if (draft) add.push(draft);
+        else remove.push(after.uid);
       }
+      editPlan(activePlan, { add, remove });
       return;
     }
-    for (const event of undoEvents(latestStep, canChange)) send(event);
+    sendAll(undoEvents(latestStep, canChange));
   };
   return { submitAll, submit, readOnlyReason, canChange, latestStep, undoReason, undo };
 };

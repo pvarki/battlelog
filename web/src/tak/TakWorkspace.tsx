@@ -178,7 +178,6 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
     useTakWrites({
       activePlan,
       plans: plans.plans,
-      liveItems,
       missionItem,
       blockedReason,
       callsign,

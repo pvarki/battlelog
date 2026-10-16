@@ -183,25 +183,34 @@ export const deletePlan = (plan: Plan) => {
 // Several changes in one go each start from the plan the previous one saved.
 const latest = (plan: Plan) => state.plans.find((p) => p.id === plan.id) ?? plan;
 
-/** Adds or replaces (same uid) a draft; a changed existing item keeps its first known base. */
-export const addToPlan = (stale: Plan, entry: PlanEntry) => {
+/**
+ * Adds or replaces (same uid) drafts and removes others, in one save: a group
+ * edit of a thousand items saved, notified and stored the whole plan per item.
+ * A changed existing item keeps its first known base.
+ */
+export const editPlan = (
+  stale: Plan,
+  { add = [], remove = [] }: { add?: PlanEntry[]; remove?: string[] },
+) => {
   const plan = latest(stale);
-  const previous = plan.entries.find((e) => e.event.uid === entry.event.uid);
-  const kept = { ...entry, basedOn: previous?.basedOn ?? entry.basedOn };
-  save({
-    ...plan,
-    entries: [...plan.entries.filter((e) => e.event.uid !== entry.event.uid), kept],
-  });
+  const byUid = new Map(plan.entries.map((e) => [e.event.uid, e]));
+  for (const uid of remove) byUid.delete(uid);
+  for (const entry of add) {
+    const previous = byUid.get(entry.event.uid);
+    // Re-added at the end, as the newest draft.
+    byUid.delete(entry.event.uid);
+    byUid.set(entry.event.uid, { ...entry, basedOn: previous?.basedOn ?? entry.basedOn });
+  }
+  save({ ...plan, entries: [...byUid.values()] });
 };
+
+export const addToPlan = (stale: Plan, entry: PlanEntry) => editPlan(stale, { add: [entry] });
 
 /** The plan's draft for `uid` as stored now, not as the last render saw it. */
 export const draftOf = (stale: Plan, uid: string): PlanEntry | undefined =>
   latest(stale).entries.find((e) => e.event.uid === uid);
 
-export const removeFromPlan = (stale: Plan, uid: string) => {
-  const plan = latest(stale);
-  save({ ...plan, entries: plan.entries.filter((e) => e.event.uid !== uid) });
-};
+export const removeFromPlan = (stale: Plan, uid: string) => editPlan(stale, { remove: [uid] });
 
 /** The plan with every draft re-issued now, keeping each one's lifetime, so receivers take it as current. */
 export const reissuePlan = (plan: Plan, now = Date.now()): Plan => ({

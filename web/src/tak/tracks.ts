@@ -56,6 +56,31 @@ export const trackColor = (item: TakItem): string =>
     ? teamColor(item.team)
     : (AFFILIATION_COLOR.find(([prefix]) => item.type.startsWith(prefix))?.[1] ?? "#ffffff");
 
+type TrackDrawing = { item: TakItem; features: Feature[] };
+// Track arrays are replaced, never changed, when a point arrives: an unchanged trail keeps its
+// features, so a thousand long trails aren't rebuilt (or compared point by point) per update.
+const drawnTracks = new WeakMap<TrackPoint[], TrackDrawing>();
+
+const trackDrawing = (item: TakItem, track: TrackPoint[]): Feature[] => {
+  const drawn = drawnTracks.get(track);
+  if (drawn?.item === item) return drawn.features;
+  const crumbs = track.map((p) => p.position);
+  const line =
+    hasPosition(item) && item.geometry.type === "Point"
+      ? [...crumbs, item.geometry.coordinates]
+      : crumbs;
+  const properties = { uid: item.uid, color: trackColor(item) };
+  const features: Feature[] =
+    line.length < 2
+      ? []
+      : [
+          { type: "Feature", geometry: { type: "LineString", coordinates: line }, properties },
+          { type: "Feature", geometry: { type: "MultiPoint", coordinates: crumbs }, properties },
+        ];
+  drawnTracks.set(track, { item, features });
+  return features;
+};
+
 /** The tracks of `items` that aren't hidden, each ending at the item's current position. */
 export const trackFeatures = (
   items: TakItem[],
@@ -67,14 +92,7 @@ export const trackFeatures = (
     const track = tracks.get(item.uid);
     if (!track?.length || item.geometry.type !== "Point" || isHidden(groupOf(item), hidden))
       continue;
-    const crumbs = track.map((p) => p.position);
-    const line = hasPosition(item) ? [...crumbs, item.geometry.coordinates] : crumbs;
-    if (line.length < 2) continue;
-    const properties = { uid: item.uid, color: trackColor(item) };
-    features.push(
-      { type: "Feature", geometry: { type: "LineString", coordinates: line }, properties },
-      { type: "Feature", geometry: { type: "MultiPoint", coordinates: crumbs }, properties },
-    );
+    features.push(...trackDrawing(item, track));
   }
   return { type: "FeatureCollection", features };
 };

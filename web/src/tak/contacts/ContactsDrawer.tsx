@@ -2,6 +2,7 @@ import { ActionIcon, Box, Group, ScrollArea, Stack, Text, TextInput, Tooltip } f
 import { IconFocusCentered, IconMessage, IconSearch } from "@tabler/icons-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { type ReactNode, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { Placeholder } from "../../components/Placeholder.tsx";
 import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { useStoredSetting } from "../../stored-setting.ts";
@@ -38,6 +39,8 @@ type Props = {
 };
 
 const STATUS_ORDER: Record<ItemStatus, number> = { online: 0, stale: 1, offline: 2 };
+
+type Row = { kind: "team"; team: string; count: number } | { kind: "contact"; contact: TakItem };
 
 const matches = (contact: TakItem, query: string) => {
   const q = query.trim().toLowerCase();
@@ -151,6 +154,12 @@ export const ContactsDrawer = ({
     else byTeam.set(c.team ?? "", [c]);
   }
   const teams = [...byTeam.keys()].sort();
+  // One list, virtualised: a few thousand users rendered at once froze the page for seconds.
+  const rows = teams.flatMap((team): Row[] => [
+    { kind: "team", team, count: byTeam.get(team)?.length ?? 0 },
+    ...(byTeam.get(team) ?? []).map((contact): Row => ({ kind: "contact", contact })),
+  ]);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
 
   return (
     <Stack gap="xs" h="100%">
@@ -173,7 +182,7 @@ export const ContactsDrawer = ({
       <Text fz="xs" c="dimmed">
         Distances from {ownPosition ? "your position" : "the map centre"}
       </Text>
-      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
+      <ScrollArea style={{ flex: 1 }} offsetScrollbars="present" viewportRef={setViewport}>
         {teams.length === 0 && (
           <Box py="md">
             {contacts.length === 0 ? (
@@ -194,24 +203,31 @@ export const ContactsDrawer = ({
             )}
           </Box>
         )}
-        {teams.map((team) => (
-          <section key={team} className="tak-group" aria-label={team}>
-            <SectionHeading>
-              <span className="tak-swatch" style={{ background: teamColor(team) }} />
-              {team} <span className="tak-group-count">{byTeam.get(team)?.length}</span>
-            </SectionHeading>
-            {byTeam.get(team)?.map((contact) => (
-              <ContactRow
-                key={contact.uid}
-                contact={contact}
-                now={now}
-                from={from}
-                onCenter={() => onCenter(contact)}
-                onChat={() => onChat(contact)}
-              />
-            ))}
-          </section>
-        ))}
+        {viewport && rows.length > 0 && (
+          <Virtuoso
+            customScrollParent={viewport}
+            data={rows}
+            computeItemKey={(_, row) =>
+              row.kind === "team" ? `team:${row.team}` : row.contact.uid
+            }
+            itemContent={(_, row) =>
+              row.kind === "team" ? (
+                <SectionHeading>
+                  <span className="tak-swatch" style={{ background: teamColor(row.team) }} />
+                  {row.team} <span className="tak-group-count">{row.count}</span>
+                </SectionHeading>
+              ) : (
+                <ContactRow
+                  contact={row.contact}
+                  now={now}
+                  from={from}
+                  onCenter={() => onCenter(row.contact)}
+                  onChat={() => onChat(row.contact)}
+                />
+              )
+            }
+          />
+        )}
       </ScrollArea>
     </Stack>
   );

@@ -1,4 +1,4 @@
-import type { FeatureCollection } from "geojson";
+import type { Feature, FeatureCollection } from "geojson";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 import { EMPTY_COLLECTION, geoJsonSource } from "./sources.ts";
@@ -26,13 +26,19 @@ export const addTrackLayers = (map: MapLibreMap) => {
   });
 };
 
-/** Keeps the breadcrumb trails drawn, uploading only when they changed. */
+const sameFeatures = (a: Feature[], b: Feature[]) =>
+  a.length === b.length && a.every((feature, i) => feature === b[i]);
+
+/**
+ * Keeps the breadcrumb trails drawn, uploading only when they changed. An
+ * unchanged trail keeps its feature objects (`trackFeatures`), so comparing
+ * them is cheap; comparing as JSON cost seconds with long trails.
+ */
 export const useTracks = (map: MapLibreMap | undefined, tracks: FeatureCollection) => {
-  const drawnTracks = useRef("");
+  const drawn = useRef<Feature[]>(undefined);
   useEffect(() => {
-    const json = JSON.stringify(tracks);
-    if (!map || json === drawnTracks.current) return;
-    drawnTracks.current = json;
+    if (!map || (drawn.current && sameFeatures(drawn.current, tracks.features))) return;
+    drawn.current = tracks.features;
     geoJsonSource(map, "tak-tracks").setData(tracks);
   }, [map, tracks]);
 };
