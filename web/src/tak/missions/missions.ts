@@ -209,7 +209,7 @@ export const fetchInvitedMissions = async (clientUid: string, signal?: AbortSign
   );
 
 // Anyone who can write to a mission can fill it; past this it would crowd out the live picture.
-const MAX_MISSION_ITEMS = 20_000;
+export const MAX_MISSION_ITEMS = 20_000;
 
 /** The mission's map items; TAK refuses (403) restricted missions we're not part of. */
 export const fetchMissionItems = async (name: string, signal?: AbortSignal): Promise<TakItem[]> => {

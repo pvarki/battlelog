@@ -11,6 +11,7 @@ import {
   fetchMissionItems,
   fetchMissions,
   isAccessDenied,
+  MAX_MISSION_ITEMS,
   type Mission,
 } from "./missions.ts";
 
@@ -64,6 +65,11 @@ const set = (patch: Partial<MissionsState>) => {
 };
 
 const setContents = (name: string, contents: MissionContents) => {
+  // Live adds, reconciles and saved copies grow a mission too, not only full downloads.
+  if (contents.kind === "loaded" && contents.items.length > MAX_MISSION_ITEMS) {
+    setContents(name, { kind: "failed" });
+    return;
+  }
   const next = new Map(state.contents);
   next.set(name, contents);
   set({ contents: next });
