@@ -52,6 +52,14 @@ export const readCapped = async (
 // Room for a busy server's day of history; anything TAK sends that's larger would exhaust the tab.
 const MAX_RESPONSE_BYTES = 64 * 1_048_576;
 
+const readCappedText = async (res: Response, maxBytes = MAX_RESPONSE_BYTES) => {
+  const tooLarge = () =>
+    new Error(
+      `TAK's answer is over ${Math.round(maxBytes / 1_048_576)} MB; ask for less at a time`,
+    );
+  return new TextDecoder().decode(await readCapped(res, maxBytes, tooLarge));
+};
+
 /**
  * GET a Marti path as text. TAK answers 404 for "nothing in range", which
  * reads as "". A larger answer than `maxBytes` is refused before it's all in memory.
@@ -64,11 +72,7 @@ export const takGetText = async (
   const res = await fetch(`${takBaseUrl()}${path}`, { credentials: "include", signal });
   if (res.status === 404) return "";
   if (!res.ok) throw new TakRequestError(path, res.status);
-  const tooLarge = () =>
-    new Error(
-      `TAK's answer is over ${Math.round(maxBytes / 1_048_576)} MB; ask for less at a time`,
-    );
-  return new TextDecoder().decode(await readCapped(res, maxBytes, tooLarge));
+  return readCappedText(res, maxBytes);
 };
 
 export type TakWrite = {
@@ -95,7 +99,7 @@ export const takSend = async (
     body: xml ?? (body === undefined ? undefined : JSON.stringify(body)),
   });
   if (!res.ok) throw new TakRequestError(path.split("?")[0] as string, res.status);
-  return res.text();
+  return readCappedText(res);
 };
 
 /** CoT events TAK archived between `start` and `end`; TAK caps the window at 24 h. */
@@ -168,7 +172,7 @@ export const uploadFile = async (file: Blob, name: string, creatorUid: string): 
     body: file,
   });
   if (!res.ok) throw new TakRequestError("/Marti/sync/upload", res.status);
-  const { Hash } = (await res.json()) as { Hash?: string };
+  const { Hash } = JSON.parse(await readCappedText(res)) as { Hash?: string };
   if (!Hash) throw new Error("TAK upload returned no hash");
   return Hash;
 };

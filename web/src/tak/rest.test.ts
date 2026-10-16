@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { expect, test, vi } from "vitest";
-import { contentLinks, parseCotXmlInSlices, takGetText } from "./rest.ts";
+import { contentLinks, parseCotXmlInSlices, takGetText, takSend, uploadFile } from "./rest.ts";
 import { inSlices } from "./slices.ts";
 
 test("photo links in remarks resolve to where this browser fetches them", () => {
@@ -48,7 +48,11 @@ test("slicing stops once aborted", async () => {
   expect(seen).toHaveLength(200);
 });
 
-test("a TAK answer over 64 MB is refused before it is all in memory", async () => {
+test.each([
+  ["read", () => takGetText("/Marti/api/anything")],
+  ["write", () => takSend({ method: "PUT", path: "/Marti/api/anything" })],
+  ["upload", () => uploadFile(new Blob(["x"]), "x.txt", "me")],
+])("a TAK answer over 64 MB is refused before it is all in memory (%s)", async (_, ask) => {
   const megabyte = new Uint8Array(1_048_576);
   let sent = 0;
   const body = new ReadableStream<Uint8Array>({
@@ -58,6 +62,11 @@ test("a TAK answer over 64 MB is refused before it is all in memory", async () =
     },
   });
   vi.stubGlobal("fetch", async () => new Response(body));
-  await expect(takGetText("/Marti/api/anything")).rejects.toThrow(/over 64 MB/);
+  // Not `rejects`: printing an accepted 65 MB answer would crash the test run.
+  const outcome = await ask().then(
+    () => "accepted",
+    (err: Error) => err.message,
+  );
+  expect(outcome).toMatch(/over 64 MB/);
   vi.unstubAllGlobals();
 });
