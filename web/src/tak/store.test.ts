@@ -147,6 +147,35 @@ test("removing an expired item marks it for deletion from the saved picture", ()
   expect(store.recordOf("a")).toBeUndefined();
 });
 
+test("over the mark cap, the oldest deletes and disconnects go, and that is saved", () => {
+  const store = createTakStore({ maxMarks: 10 });
+  for (let time = 1; time <= 11; time++) {
+    store.apply({ kind: "delete", uid: `gone${time}`, time });
+    store.apply({ kind: "offline", uid: `left${time}`, time });
+  }
+  const kept = (prefix: string) =>
+    Array.from({ length: 11 }, (_, i) => `${prefix}${i + 1}`).filter((uid) => store.recordOf(uid));
+  expect(kept("gone")).not.toContain("gone1");
+  expect(kept("gone")).toContain("gone11");
+  expect(kept("gone").length).toBeLessThanOrEqual(10);
+  expect(kept("left")).not.toContain("left1");
+  expect(kept("left").length).toBeLessThanOrEqual(10);
+  expect(store.takeDirty()).toContain("gone1");
+});
+
+test("a restored picture over the mark cap drops its oldest marks", () => {
+  const store = createTakStore({ maxMarks: 1 });
+  store.restore(
+    [
+      { uid: "old", tombstone: 100 },
+      { uid: "new", tombstone: 200 },
+    ],
+    300,
+  );
+  expect(store.deletedAt("old")).toBeUndefined();
+  expect(store.deletedAt("new")).toBe(200);
+});
+
 test("a restored picture over the item cap drops its oldest items, and saves that", () => {
   const store = createTakStore({ maxItems: 1 });
   store.restore(

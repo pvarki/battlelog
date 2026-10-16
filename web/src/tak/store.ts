@@ -21,12 +21,15 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
  */
 export const createTakStore = ({
   maxItems = 20_000,
+  /** Per kind: deletes and disconnects each; anyone on TAK can send them for made-up uids. */
+  maxMarks = 20_000,
   staleGraceMs = DAY_MS,
   /** Delete/offline marks must outlive the archive replay, or a reconnect resurrects deleted items. */
   markRetentionMs = 8 * DAY_MS,
   notifyDelayMs = 250,
 }: {
   maxItems?: number;
+  maxMarks?: number;
   staleGraceMs?: number;
   markRetentionMs?: number;
   notifyDelayMs?: number;
@@ -66,6 +69,17 @@ export const createTakStore = ({
     }
   };
 
+  // Trimming a tenth at a time sorts once per flood of marks, not once per mark.
+  const trimMarks = (marks: Map<string, number>) => {
+    if (marks.size <= maxMarks) return;
+    const keep = Math.ceil(maxMarks * 0.9);
+    const oldest = [...marks].sort((a, b) => a[1] - b[1]).slice(0, marks.size - keep);
+    for (const [uid] of oldest) {
+      marks.delete(uid);
+      dirty.add(uid);
+    }
+  };
+
   const addToTrack = (uid: string, points: TrackPoint[], now: number) => {
     const before = tracks.get(uid);
     const track = mergeTrack(before ?? [], points, now);
@@ -78,6 +92,7 @@ export const createTakStore = ({
     if (change.kind !== "upsert") dirty.add(change.uid);
     if (change.kind === "offline") {
       disconnects.set(change.uid, Math.max(change.time, disconnects.get(change.uid) ?? 0));
+      trimMarks(disconnects);
       const current = items.get(change.uid);
       if (current && !current.offline && current.time <= change.time) {
         items.set(change.uid, { ...current, offline: true });
@@ -87,6 +102,7 @@ export const createTakStore = ({
     }
     if (change.kind === "delete") {
       tombstones.set(change.uid, Math.max(change.time, tombstones.get(change.uid) ?? 0));
+      trimMarks(tombstones);
       const current = items.get(change.uid);
       if (current && current.time <= change.time) {
         items.delete(change.uid);
@@ -165,6 +181,8 @@ export const createTakStore = ({
       if (track && !tracks.has(uid)) tracks.set(uid, track);
     }
     while (items.size > maxItems) evictOldest();
+    trimMarks(tombstones);
+    trimMarks(disconnects);
     sweep(now);
     changed();
   };
