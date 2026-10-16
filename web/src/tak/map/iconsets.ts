@@ -1,6 +1,7 @@
 import { strFromU8, unzipSync } from "fflate";
 import { useSyncExternalStore } from "react";
 import { readCapped, TakRequestError, takBaseUrl } from "../rest.ts";
+import { remember, touch } from "./lru.ts";
 
 /**
  * ATAK icon sets: zips of `iconset.xml` plus one folder of images per group.
@@ -209,7 +210,15 @@ export const removeIconset = async (uid: string) => {
 /** An icon's decoded image, keyed so a re-imported set never reuses the old one. */
 export type IconsetImage = { key: string; bitmap: ImageBitmap; natural: boolean };
 
+// Markers name the icons, so both caches below are capped, least recently used going first.
+const MAX_CACHED_ICONS = 2000;
+
 const bitmaps = new Map<string, ImageBitmap | "decoding" | "failed">();
+
+const keepBitmap = (key: string, value: ImageBitmap | "decoding" | "failed") => {
+  for (const old of remember(bitmaps, key, value, MAX_CACHED_ICONS))
+    if (old instanceof ImageBitmap) old.close();
+};
 
 const fetchServerIcon = async ([uid, group, file]: string[]): Promise<ImageBitmap> => {
   const path = `/Marti/api/icon/${[uid, group, file].map((s) => encodeURIComponent(s ?? "")).join("/")}`;
@@ -224,23 +233,28 @@ const fetchServerIcon = async ([uid, group, file]: string[]): Promise<ImageBitma
 // By path, misses included: a set TAK doesn't have is asked for once per page, not per redraw.
 const serverIcons = new Map<string, IconsetImage | "fetching" | "missing">();
 
+const keepServerIcon = (path: string, value: IconsetImage | "fetching" | "missing") => {
+  for (const old of remember(serverIcons, path, value, MAX_CACHED_ICONS))
+    if (typeof old !== "string") old.bitmap.close();
+};
+
 /** An icon from a set only TAK Server has, fetched on first use. */
 const serverIcon = (segments: string[]): IconsetImage | undefined => {
   const path = segments.join("/");
-  const cached = serverIcons.get(path);
+  const cached = touch(serverIcons, path);
   if (cached) return typeof cached === "string" ? undefined : cached;
   // COT_MAPPING_* paths name ATAK's built-in symbols, which no server set holds.
   if (segments.length !== 3 || path.startsWith("COT_MAPPING_")) {
-    serverIcons.set(path, "missing");
+    keepServerIcon(path, "missing");
     return undefined;
   }
-  serverIcons.set(path, "fetching");
+  keepServerIcon(path, "fetching");
   fetchServerIcon(segments).then(
     (bitmap) => {
-      serverIcons.set(path, { key: `tak|${path}`, bitmap, natural: false });
+      keepServerIcon(path, { key: `tak|${path}`, bitmap, natural: false });
       notify();
     },
-    () => serverIcons.set(path, "missing"),
+    () => keepServerIcon(path, "missing"),
   );
   return undefined;
 };
@@ -264,18 +278,18 @@ export const iconsetImage = (path: string): IconsetImage | undefined => {
   const icon = file === undefined ? undefined : indexed.icons.get(file);
   if (!icon) return undefined;
   const key = `${iconset.uid}|${iconset.imported}|${icon.file}`;
-  const bitmap = bitmaps.get(key);
+  const bitmap = touch(bitmaps, key);
   if (bitmap instanceof ImageBitmap) return { key, bitmap, natural: iconset.skipResize };
   if (!bitmap) {
-    bitmaps.set(key, "decoding");
+    keepBitmap(key, "decoding");
     createImageBitmap(new Blob([icon.image.slice()], { type: icon.mime })).then(
       (decoded) => {
-        // Its set was removed or re-imported while decoding.
+        // Its set was removed or re-imported (or it was evicted) while decoding.
         if (bitmaps.get(key) !== "decoding") return decoded.close();
-        bitmaps.set(key, decoded);
+        keepBitmap(key, decoded);
         notify();
       },
-      () => bitmaps.set(key, "failed"),
+      () => keepBitmap(key, "failed"),
     );
   }
   return undefined;
