@@ -5,7 +5,7 @@ import { ACCENT } from "../../theme.ts";
 import type { EventFeature } from "../event-layers/layers.ts";
 import { slackBox } from "./selection.ts";
 import { EMPTY_COLLECTION, geoJsonSource } from "./sources.ts";
-import { keptLabelImage } from "./symbols.ts";
+import { labelImage } from "./symbols.ts";
 
 export const eventsAt = (map: MapLibreMap, point: { x: number; y: number }) =>
   map
@@ -68,7 +68,7 @@ export const useEventFeatures = (
       ...(events ?? EMPTY_COLLECTION),
       features: (events?.features ?? []).map((f) => ({
         ...f,
-        properties: { ...f.properties, icon: keptLabelImage(map, f.properties.label).id },
+        properties: { ...f.properties, icon: labelImage(f.properties.label).id },
       })),
     };
     geoJsonSource(map, "bl-events").setData(withIcons);

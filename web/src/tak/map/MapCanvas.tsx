@@ -17,6 +17,7 @@ import { type Preview, PreviewLayer } from "./PreviewLayer.tsx";
 import { usePictureLayer } from "./picture-layer.ts";
 import { showRasters } from "./rasters.ts";
 import { dragSelectBox, followLasso, uidsAt, useItemSelection } from "./selection.ts";
+import { serveMapImages } from "./symbols.ts";
 import { useTracks } from "./tracks.ts";
 
 type Props = {
@@ -147,6 +148,7 @@ export const MapCanvas = ({
       ...(startView.current ?? savedView()),
       attributionControl: { compact: true },
     });
+    serveMapImages(m);
     if (showZoomButtons.current)
       m.addControl(new NavigationControl({ visualizePitch: false }), "top-right");
     m.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");

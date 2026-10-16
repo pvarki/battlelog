@@ -3,6 +3,7 @@ import type { FilterSpecification, Map as MapLibreMap } from "maplibre-gl";
 import type { Position, TakItem } from "../cot.ts";
 import { distance } from "../geo.ts";
 import { boundsOf } from "./follow.ts";
+import { labelImage } from "./symbols.ts";
 
 /**
  * MIL-STD-2525 tactical graphics for drawings that carry a `__milsym` code, as
@@ -22,9 +23,6 @@ type RendererFeature = { geometry: Geometry; properties?: Properties };
 // label spacing scale with the drawing, so it renders once rather than per zoom.
 const LAYOUT_PX = 1024;
 const MAX_CACHED = 2000;
-const LABEL_FONT = "600 12px 'Inter Variable', Inter, system-ui, sans-serif";
-const LABEL_HEIGHT = 18;
-const LABEL_PADDING = 4;
 
 const midpoint = ([lon1, lat1]: Position, [lon2, lat2]: Position): Position => [
   (lon1 + lon2) / 2,
@@ -295,34 +293,9 @@ export const onTacticalRendered = (listener: () => void): (() => void) => {
   };
 };
 
-const labelImage = (text: string) => {
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
-  ctx.font = LABEL_FONT;
-  const width = Math.ceil(ctx.measureText(text).width) + 2 * LABEL_PADDING;
-  canvas.width = width * ratio;
-  canvas.height = LABEL_HEIGHT * ratio;
-  ctx.scale(ratio, ratio);
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.fillRect(0, 0, width, LABEL_HEIGHT);
-  ctx.font = LABEL_FONT;
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(text, LABEL_PADDING, LABEL_HEIGHT / 2);
-  return { data: ctx.getImageData(0, 0, canvas.width, canvas.height), ratio };
-};
-
-/** Registers the images a feature needs with this map, labels drawn on first use. */
+/** Registers the images a feature needs with this map; labels are drawn once on screen. */
 const register = (map: MapLibreMap, p: Properties): Properties => {
-  if (typeof p.label === "string") {
-    const id = `tak-tactical-label:${p.label}`;
-    if (!map.hasImage(id)) {
-      const { data, ratio } = labelImage(p.label);
-      map.addImage(id, data, { pixelRatio: ratio });
-    }
-    return { ...p, icon: id };
-  }
+  if (typeof p.label === "string") return { ...p, icon: labelImage(p.label, "graphic").id };
   for (const id of [p.icon, p.pattern]) {
     const image = decoded.get(id as string);
     if (image && !map.hasImage(id as string)) map.addImage(id as string, image);

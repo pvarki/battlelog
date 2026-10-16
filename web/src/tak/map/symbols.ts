@@ -3,66 +3,39 @@ import ms from "milsymbol";
 import type { TakItem } from "../cot.ts";
 import { sidcOf, teamColor } from "../items.ts";
 import { type IconsetImage, iconsetImage } from "./iconsets.ts";
+import { oldestUnused, remember, touch } from "./lru.ts";
 
 /**
- * Map images (icons and label boxes) are drawn once per look on a canvas and
- * registered with MapLibre. Labels are images too, not map text, so the map
- * needs no font server and keeps working offline.
+ * Map images (icons and label boxes) are drawn on a canvas and registered with
+ * MapLibre. Labels are images too, not map text, so the map needs no font
+ * server and keeps working offline.
+ *
+ * An image's id says how to draw it, so features name their images without
+ * drawing them and the map draws only those it lays out (see serveMapImages):
+ * of thousands of items, most are off screen or zoomed past their label.
  */
 
 export type MapImage = { id: string; width: number; height: number; offset: [number, number] };
 
-export type LabelStyle = "marker" | "emphasis";
+export type LabelStyle = "marker" | "emphasis" | "graphic";
 
 const LABEL_FONT: Record<LabelStyle, string> = {
   marker: "500 13px 'Inter Variable', Inter, system-ui, sans-serif",
   emphasis: "600 15px 'Inter Variable', Inter, system-ui, sans-serif",
+  graphic: "600 12px 'Inter Variable', Inter, system-ui, sans-serif",
 };
 // ATAK puts labels on a translucent black box instead of a halo.
 const LABEL_BOX: Record<LabelStyle, string> = {
   marker: "rgba(0,0,0,0.6)",
   emphasis: "rgba(0,0,0,0.8)",
+  graphic: "rgba(0,0,0,0.6)",
 };
 const LABEL_PAD_X = 4;
 const LABEL_PAD_Y = 2;
 const DOT_RADIUS = 7;
 
-// ponytail: icons are never evicted; fine for thousands of distinct looks. Labels are pruned (see pruneLabels).
-const registered = new Map<string, MapImage>();
-// Measurement labels change text as their items move, so unused ones must go.
-const usedLabels = new Set<string>();
-// Labels the drawing preview shows; the picture's redraws must not prune them from under it.
-let previewLabels = new Set<string>();
-/** While set, collects the labels drawn, so a cached item can mark them used without redrawing. */
-let recording: string[] | undefined;
-
-/** Runs `draw` and returns what it drew with the label keys it used. */
-export const recordLabels = <T>(draw: () => T): [T, string[]] => {
-  recording = [];
-  try {
-    return [draw(), recording];
-  } finally {
-    recording = undefined;
-  }
-};
-
-/** Marks labels as still shown; false when one has been pruned from the map and must be drawn again. */
-export const markLabelsUsed = (map: MapLibreMap, keys: readonly string[]): boolean => {
-  for (const key of keys) {
-    const image = registered.get(key);
-    if (!image || !map.hasImage(image.id)) return false;
-  }
-  for (const key of keys) usedLabels.add(key);
-  return true;
-};
-
-/** Call after drawing the preview, which doesn't prune: keeps its labels alive. */
-export const keepUsedLabels = () => {
-  previewLabels = new Set(usedLabels);
-};
-// A counter, not the map size: pruned labels must not hand their id to a new image.
-let nextId = 0;
-const MAX_LABELS = 3000;
+const MAX_LABELS = 1500;
+const MAX_ICONS = 2000;
 
 const pixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);
 
@@ -75,11 +48,26 @@ type Art = {
   paint: (ctx: CanvasRenderingContext2D) => void;
 };
 
-const register = (map: MapLibreMap, key: string, draw: () => Art): MapImage => {
-  const existing = registered.get(key);
-  if (existing && map.hasImage(existing.id)) return existing;
-  const art = draw();
-  const ratio = pixelRatio();
+type Kind = "label" | "user" | "iconset" | "sidc" | "dot" | "arrow";
+
+const ID_PREFIX = "tak-img:";
+
+/** An image's id: what it is and everything its look depends on. */
+export const imageId = (kind: Kind, ...args: string[]) =>
+  `${ID_PREFIX}${JSON.stringify([kind, ...args])}`;
+
+/** What `imageId` was given, or undefined for an image not ours. */
+export const imageArgs = (id: string): [Kind, ...string[]] | undefined =>
+  id.startsWith(ID_PREFIX) ? JSON.parse(id.slice(ID_PREFIX.length)) : undefined;
+
+const artOf = (id: string): Art | undefined => {
+  const args = imageArgs(id);
+  if (!args) return undefined;
+  const [kind, ...rest] = args;
+  return ART[kind](...rest);
+};
+
+const imageData = (art: Art, ratio: number): ImageData => {
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(art.width * ratio);
   canvas.height = Math.ceil(art.height * ratio);
@@ -87,8 +75,80 @@ const register = (map: MapLibreMap, key: string, draw: () => Art): MapImage => {
   const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
   ctx.scale(ratio, ratio);
   art.paint(ctx);
-  const id = existing?.id ?? `tak-img-${nextId++}`;
-  map.addImage(id, ctx.getImageData(0, 0, canvas.width, canvas.height), { pixelRatio: ratio });
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+};
+
+/**
+ * The images the map's loaded tiles may lay out. Removing one makes MapLibre
+ * reload those tiles, so a view needing more images than the cap would evict
+ * and redraw its own forever. A feature counts unless its `minZoom` (or its
+ * layer's) is above the view, where no tile asks for its image.
+ */
+const imagesInUse = (map: MapLibreMap): Set<string> => {
+  // A zoom of slack for the finer tiles kept on screen while zooming out.
+  const zoom = map.getZoom() + 1;
+  const sources = new Set<string>();
+  for (const id of map.getLayersOrder()) {
+    const layer = map.getLayer(id);
+    if (layer?.type === "symbol" && (layer.minzoom ?? 0) <= zoom) sources.add(layer.source);
+  }
+  const used = new Set<string>();
+  for (const source of sources) {
+    for (const { properties } of map.querySourceFeatures(source)) {
+      if (typeof properties.icon === "string" && !(properties.minZoom > zoom))
+        used.add(properties.icon);
+    }
+  }
+  return used;
+};
+
+/**
+ * Draws an image when the map first lays out a symbol that names it, and once
+ * over the caps removes those drawn longest ago that no loaded tile uses; one
+ * that comes back into view is drawn again.
+ */
+export const serveMapImages = (map: MapLibreMap) => {
+  // Per map, so one map's eviction never removes another's images.
+  const labels = new Set<string>();
+  const icons = new Set<string>();
+  let evicting = false;
+  const evict = () => {
+    evicting = false;
+    const inUse = imagesInUse(map);
+    for (const [drawn, max] of [
+      [labels, MAX_LABELS],
+      [icons, MAX_ICONS],
+    ] as const) {
+      for (const id of oldestUnused(drawn, drawn.size - max, inUse)) {
+        drawn.delete(id);
+        if (map.hasImage(id)) map.removeImage(id);
+      }
+    }
+  };
+  // Synchronous on purpose: MapLibre hands the tile asking for it whatever the resolver added.
+  map.setMissingStyleImageResolver((id) => {
+    const art = artOf(id);
+    if (!art || map.hasImage(id)) return;
+    const ratio = pixelRatio();
+    map.addImage(id, imageData(art, ratio), { pixelRatio: ratio });
+    const drawn = imageArgs(id)?.[0] === "label" ? labels : icons;
+    drawn.delete(id);
+    drawn.add(id);
+    if (!evicting && (labels.size > MAX_LABELS || icons.size > MAX_ICONS)) {
+      evicting = true;
+      map.once("idle", evict);
+    }
+  });
+};
+
+// An icon's size by id, so a redraw needn't build its symbol again.
+const sizes = new Map<string, MapImage>();
+
+const sized = (id: string): MapImage => {
+  const known = touch(sizes, id);
+  if (known) return known;
+  const art = artOf(id);
+  if (!art) return { id, width: 0, height: 0, offset: [0, 0] };
   // MapLibre centres an image on its point; this shift puts the anchor there instead.
   const image: MapImage = {
     id,
@@ -96,7 +156,7 @@ const register = (map: MapLibreMap, key: string, draw: () => Art): MapImage => {
     height: art.height,
     offset: [art.width / 2 - art.ax, art.height / 2 - art.ay],
   };
-  registered.set(key, image);
+  remember(sizes, id, image, MAX_ICONS);
   return image;
 };
 
@@ -109,7 +169,6 @@ const milsymbolArt = (sidc: string, stale: boolean): Art => {
   if (!symbol.isValid()) symbol = new ms.Symbol("SUGP-----------", { size: 22 });
   const { width, height } = symbol.getSize();
   const { x, y } = symbol.getAnchor();
-  const canvas = symbol.asCanvas(pixelRatio());
   return {
     width,
     height,
@@ -117,12 +176,12 @@ const milsymbolArt = (sidc: string, stale: boolean): Art => {
     ay: y,
     paint: (ctx) => {
       if (stale) ctx.filter = STALE_FILTER;
-      ctx.drawImage(canvas, 0, 0, width, height);
+      ctx.drawImage(symbol.asCanvas(pixelRatio()), 0, 0, width, height);
     },
   };
 };
 
-const dotArt = (color: string, radius = DOT_RADIUS): Art => {
+const dotArt = (color: string, radius: number): Art => {
   const size = radius * 2 + 4;
   return {
     width: size,
@@ -141,11 +200,22 @@ const dotArt = (color: string, radius = DOT_RADIUS): Art => {
   };
 };
 
+// The roles ATAK marks; any other role draws as a plain team marker.
+const MARKED_ROLES = new Set([
+  "HQ",
+  "Forward Observer",
+  "Team Lead",
+  "Medic",
+  "Sniper",
+  "RTO",
+  "K9",
+]);
+
 /**
  * A team member's marker in their team colour, shaped by role the way ATAK
  * distinguishes them (our own drawings, not ATAK's icons).
  */
-const roleArt = (color: string, role: string | undefined): Art => {
+const roleArt = (color: string, role: string): Art => {
   const size = 22;
   const c = size / 2;
   const r = 8;
@@ -225,80 +295,34 @@ const iconsetArt = ({ bitmap, natural }: IconsetImage, color: string, stale: boo
   };
 };
 
-// ponytail: SPOTMAP "…/LABEL" (text only, no icon) draws a dot; handle it if senders use it.
-const SPOT_MAP = "COT_MAPPING_SPOTMAP";
+const arrowArt = (color: string): Art => ({
+  width: 18,
+  height: 18,
+  ax: 9,
+  ay: 2,
+  paint: (ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(9, 1);
+    ctx.lineTo(17, 17);
+    ctx.lineTo(9, 13);
+    ctx.lineTo(1, 17);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#000000";
+    ctx.stroke();
+  },
+});
 
-/**
- * The icon for an item's point, drawn on first use. ATAK `usericon` paths
- * draw from an imported icon set or TAK Server's; until one is (or if none has the icon),
- * they fall back like ATAK without the set to the 2525 symbol for the type.
- */
-export const iconFor = (map: MapLibreMap, item: TakItem, stale: boolean): MapImage => {
-  if (item.team) {
-    const color = stale ? STALE_TEAM_COLOR : teamColor(item.team);
-    return register(map, `user|${color}|${item.role}`, () => roleArt(color, item.role));
-  }
-  const iconset = item.iconPath ? iconsetImage(item.iconPath) : undefined;
-  if (iconset) {
-    const color = item.stroke?.color ?? WHITE;
-    return register(map, `iconset|${iconset.key}|${color}|${stale}`, () =>
-      iconsetArt(iconset, color, stale),
-    );
-  }
-  const sidc = item.iconPath?.startsWith(SPOT_MAP) ? undefined : sidcOf(item);
-  if (sidc) return register(map, `sidc|${sidc}|${stale}`, () => milsymbolArt(sidc, stale));
-  const color = stale ? STALE_TEAM_COLOR : (item.stroke?.color ?? "#fbb360");
-  return register(map, `dot|${color}`, () => dotArt(color));
-};
-
-/** ATAK's small reference dot: shape centres and route waypoints, tinted with the line colour. */
-export const referenceDot = (map: MapLibreMap, color: string): MapImage =>
-  register(map, `ref|${color}`, () => dotArt(color, 4));
-
-/** Arrowhead pointing up (north), for the far end of range-and-bearing lines. */
-export const arrowhead = (map: MapLibreMap, color: string): MapImage =>
-  register(map, `arrow|${color}`, () => ({
-    width: 18,
-    height: 18,
-    ax: 9,
-    ay: 2,
-    paint: (ctx) => {
-      ctx.beginPath();
-      ctx.moveTo(9, 1);
-      ctx.lineTo(17, 17);
-      ctx.lineTo(9, 13);
-      ctx.lineTo(1, 17);
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = "#000000";
-      ctx.stroke();
-    },
-  }));
-
-/** White text on ATAK's translucent black box, anchored at its centre. */
-export const labelImage = (
-  map: MapLibreMap,
-  text: string,
-  style: LabelStyle = "marker",
-): MapImage => {
-  const key = `label|${style}|${text}`;
-  usedLabels.add(key);
-  recording?.push(key);
-  return register(map, key, () => labelArt(text, style));
-};
-
-/** A label kept for good: the TAK picture's redraws prune only their own. */
-export const keptLabelImage = (map: MapLibreMap, text: string): MapImage =>
-  register(map, `kept-label|${text}`, () => labelArt(text, "marker"));
+const labelHeight = (style: LabelStyle) =>
+  Number.parseInt(LABEL_FONT[style].split(" ")[1] ?? "13", 10) + LABEL_PAD_Y * 2 + 2;
 
 const labelArt = (text: string, style: LabelStyle): Art => {
   const measure = document.createElement("canvas").getContext("2d") as CanvasRenderingContext2D;
   measure.font = LABEL_FONT[style];
-  const size = Number.parseInt(LABEL_FONT[style].split(" ")[1] ?? "13", 10);
   const width = Math.ceil(measure.measureText(text).width) + LABEL_PAD_X * 2;
-  const height = size + LABEL_PAD_Y * 2 + 2;
+  const height = labelHeight(style);
   return {
     width,
     height,
@@ -315,16 +339,55 @@ const labelArt = (text: string, style: LabelStyle): Art => {
   };
 };
 
-/** Call after each redraw: removes label images no longer on the map once there are many. */
-export const pruneLabels = (map: MapLibreMap) => {
-  const labels = [...registered.keys()].filter((key) => key.startsWith("label|"));
-  if (labels.length > MAX_LABELS) {
-    for (const key of labels) {
-      if (usedLabels.has(key) || previewLabels.has(key)) continue;
-      const image = registered.get(key);
-      if (image && map.hasImage(image.id)) map.removeImage(image.id);
-      registered.delete(key);
-    }
-  }
-  usedLabels.clear();
+const ART: Record<Kind, (...args: string[]) => Art | undefined> = {
+  label: (style, text) => labelArt(text ?? "", style as LabelStyle),
+  user: (color, role) => roleArt(color ?? WHITE, role ?? ""),
+  iconset: (path, key, color, stale) => {
+    const image = iconsetImage(path ?? "");
+    // Its set was re-imported or removed since: the next redraw names the new image.
+    return image?.key === key ? iconsetArt(image, color ?? WHITE, stale === "true") : undefined;
+  },
+  sidc: (sidc, stale) => milsymbolArt(sidc ?? "", stale === "true"),
+  dot: (color, radius) => dotArt(color ?? WHITE, Number(radius)),
+  arrow: (color) => arrowArt(color ?? WHITE),
 };
+
+// ponytail: SPOTMAP "…/LABEL" (text only, no icon) draws a dot; handle it if senders use it.
+const SPOT_MAP = "COT_MAPPING_SPOTMAP";
+
+/**
+ * The icon for an item's point. ATAK `usericon` paths draw from an imported
+ * icon set or TAK Server's; until one is (or if none has the icon), they fall
+ * back like ATAK without the set to the 2525 symbol for the type.
+ */
+export const iconFor = (item: TakItem, stale: boolean): MapImage => {
+  if (item.team) {
+    const color = stale ? STALE_TEAM_COLOR : teamColor(item.team);
+    const role = item.role && MARKED_ROLES.has(item.role) ? item.role : "";
+    return sized(imageId("user", color, role));
+  }
+  const iconset = item.iconPath ? iconsetImage(item.iconPath) : undefined;
+  if (iconset && item.iconPath) {
+    const color = item.stroke?.color ?? WHITE;
+    return sized(imageId("iconset", item.iconPath, iconset.key, color, String(stale)));
+  }
+  const sidc = item.iconPath?.startsWith(SPOT_MAP) ? undefined : sidcOf(item);
+  if (sidc) return sized(imageId("sidc", sidc, String(stale)));
+  const color = stale ? STALE_TEAM_COLOR : (item.stroke?.color ?? "#fbb360");
+  return sized(imageId("dot", color, String(DOT_RADIUS)));
+};
+
+/** ATAK's small reference dot: shape centres and route waypoints, tinted with the line colour. */
+export const referenceDot = (color: string): MapImage => sized(imageId("dot", color, "4"));
+
+/** Arrowhead pointing up (north), for the far end of range-and-bearing lines. */
+export const arrowhead = (color: string): MapImage => sized(imageId("arrow", color));
+
+/** White text on ATAK's translucent black box, anchored at its centre; drawn once on screen. */
+export const labelImage = (
+  text: string,
+  style: LabelStyle = "marker",
+): { id: string; height: number } => ({
+  id: imageId("label", style, text),
+  height: labelHeight(style),
+});

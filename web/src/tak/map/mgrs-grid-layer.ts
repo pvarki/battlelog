@@ -48,7 +48,7 @@ const followMgrsGrid = (map: MapLibreMap) => {
       map.getZoom(),
     );
     for (const { properties } of grid.features) {
-      if (properties?.text) properties.icon = labelImage(map, properties.text).id;
+      if (properties?.text) properties.icon = labelImage(properties.text).id;
     }
     source.setData(grid);
   };

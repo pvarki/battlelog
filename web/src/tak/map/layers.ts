@@ -10,13 +10,9 @@ import { geoJsonSource, SOURCE_NAMES, type SourceName } from "./sources.ts";
 import {
   arrowhead,
   iconFor,
-  keepUsedLabels,
   type LabelStyle,
   labelImage,
   type MapImage,
-  markLabelsUsed,
-  pruneLabels,
-  recordLabels,
   referenceDot,
 } from "./symbols.ts";
 import {
@@ -192,7 +188,7 @@ const featuresOf = (
     under: MapImage,
     minZoom = MARKER_LABEL_MIN_ZOOM,
   ) => {
-    const label = labelImage(map, text);
+    const label = labelImage(text);
     const iconBottom = under.height / 2 + under.offset[1];
     markerLabels.push(
       point(at, {
@@ -215,7 +211,7 @@ const featuresOf = (
     lineLabels.push(
       point(midpoint(from, to), {
         uid,
-        icon: labelImage(map, text, style).id,
+        icon: labelImage(text, style).id,
         rotate: textAngle(from, to, bearing),
         minZoom,
       }),
@@ -254,7 +250,7 @@ const featuresOf = (
     const labelsFrom = labelMinZoom(circleLine(centre, Math.max(...radii)));
     const label = (at: Position, text: string) =>
       lineLabels.push(
-        point(at, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
+        point(at, { uid, icon: labelImage(text).id, rotate: 0, minZoom: labelsFrom }),
       );
     const ringLabelBearing = item.bullseye ? BETWEEN_SPOKES : 0;
     for (const radius of radii) {
@@ -266,14 +262,14 @@ const featuresOf = (
       for (const spoke of marks.lines) strokeLine(spoke, 1);
       for (const bearingLabel of marks.labels) label(bearingLabel.at, bearingLabel.text);
     }
-    const dot = referenceDot(map, stroke);
+    const dot = referenceDot(stroke);
     icon(uid, centre, dot, -1);
     nameUnder(uid, centre, name, dot, labelsFrom);
     return out;
   }
 
   if (g.type === "Point" && !item.ellipse) {
-    const image = iconFor(map, item, stale);
+    const image = iconFor(item, stale);
     icon(uid, g.coordinates, image, DRAW_ORDER.indexOf(group.slice(0, 2).join("/")));
     if (!item.hideLabel) nameUnder(uid, g.coordinates, name, image);
     // Stale footprints, cones and lines would show where the camera no longer looks.
@@ -381,7 +377,7 @@ const featuresOf = (
 
   if (ring) {
     const centre = g.type === "Point" ? g.coordinates : centreOf(ring);
-    const dot = referenceDot(map, stroke);
+    const dot = referenceDot(stroke);
     const labelsFrom = labelMinZoom(ring);
     icon(uid, centre, dot, -1);
     nameUnder(uid, centre, name, dot, labelsFrom);
@@ -393,7 +389,7 @@ const featuresOf = (
           : `W: ${formatDistance(minor * 2)}  L: ${formatDistance(major * 2)}`;
       const top = ring.reduce((a, b) => (b[1] > a[1] ? b : a));
       lineLabels.push(
-        point(top, { uid, icon: labelImage(map, text).id, rotate: 0, minZoom: labelsFrom }),
+        point(top, { uid, icon: labelImage(text).id, rotate: 0, minZoom: labelsFrom }),
       );
     }
     if (item.labelsOn && item.type === "u-d-r") {
@@ -417,7 +413,7 @@ const featuresOf = (
       `${arrow} ${Math.round(heading)}°${northRef}   ${formatDistance(range)}`,
       "emphasis",
     );
-    decorations.push(point(to, { uid, icon: arrowhead(map, stroke).id, rotate: heading }));
+    decorations.push(point(to, { uid, icon: arrowhead(stroke).id, rotate: heading }));
     return out;
   }
   if (item.labelsOn) {
@@ -426,16 +422,16 @@ const featuresOf = (
     alongLine(uid, a, b, name, "marker", labelMinZoom(line));
   }
   for (const waypoint of item.waypoints ?? []) {
-    const dot = referenceDot(map, stroke);
+    const dot = referenceDot(stroke);
     icon(uid, waypoint.position, dot, -1);
     nameUnder(uid, waypoint.position, waypoint.name, dot);
   }
   return out;
 };
 
-type Cached = ItemFeatures & { context: string; labels: string[] };
+type Cached = ItemFeatures & { context: string };
 
-// Per map: each registers its own images, so features drawn for one can't be shown on another.
+// Per map: each registers its own tactical images, so features drawn for one can't be shown on another.
 const drawings = new WeakMap<MapLibreMap, WeakMap<TakItem, Cached>>();
 
 /** The inputs besides the item that change its drawing: when they're the same, so is the drawing. */
@@ -463,14 +459,14 @@ const cachedFeaturesOf = (
   }
   const key = contextOf(item, context);
   const hit = cache.get(item);
-  // The labels and graphic it shows are still in use: pruning must keep them.
-  if (hit?.context === key && markLabelsUsed(map, hit.labels)) {
+  if (hit?.context === key) {
+    // The graphic it shows is still in use: pruning must keep it.
     markTacticalDrawn(item);
     return hit;
   }
-  const [features, labels] = recordLabels(() => featuresOf(map, item, group, context));
+  const features = featuresOf(map, item, group, context);
   // A graphic still rendering is drawn plain for now; the next redraw has the real one.
-  if (!features.pending) cache.set(item, { ...features, context: key, labels });
+  if (!features.pending) cache.set(item, { ...features, context: key });
   return features;
 };
 
@@ -512,7 +508,7 @@ const sourcesOf = (drawn: ReadonlyMap<string, ItemFeatures>): Sources => {
   return { ...sources, graphicsPending: [...drawn.values()].some((f) => f.pending) };
 };
 
-/** The drawing preview: a few items, drawn afresh, and no say in which images the picture keeps. */
+/** The drawing preview: a few items, drawn afresh. */
 export const toSources = (
   map: MapLibreMap,
   items: TakItem[],
@@ -520,11 +516,7 @@ export const toSources = (
   now: number,
   /** The map's rotation, so line labels stay readable when it turns. */
   bearing: number,
-): Sources => {
-  const sources = sourcesOf(pictureOf(map, items, hidden, now, bearing, false));
-  keepUsedLabels();
-  return sources;
-};
+): Sources => sourcesOf(pictureOf(map, items, hidden, now, bearing, false));
 
 /** A feature's id in its source: the item's uid and its place among that item's features there. */
 const featureId = (uid: string, index: number) => `${uid}\u0000${index}`;
@@ -572,7 +564,6 @@ export const createPictureDrawer = (map: MapLibreMap, prefix: string) => {
   ): { graphicsPending: boolean } => {
     const drawn = pictureOf(map, items, hidden, now, bearing, true);
     pruneTactical();
-    pruneLabels(map);
     const source = (name: SourceName) => geoJsonSource(map, `${prefix}-${name}`);
     if (!started) {
       started = true;
