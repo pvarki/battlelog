@@ -181,22 +181,41 @@ export const saveMission = async (name: string, version: string, items: TakItem[
   await done(tx);
 };
 
+// Anyone on TAK can send chat: keep a bounded history, and restore only what the chat store holds.
+const MAX_SAVED_CHAT = 5000;
+const RESTORED_CHAT = 1000;
+const PRUNE_CHAT_EVERY = 100;
+let chatWrites = 0;
+
+/** The saved chat worth keeping, oldest first: within eight days, and the newest MAX_SAVED_CHAT. */
+export const chatToKeep = (records: ChatRecord[], now: number): ChatRecord[] =>
+  records
+    .filter((r) => r.message.time > now - CHAT_RETENTION_MS)
+    .sort((a, b) => a.message.time - b.message.time)
+    .slice(-MAX_SAVED_CHAT);
+
+/** Deletes the scope's saved chat not worth keeping, and returns the rest. */
+const pruneChat = async (store: IDBObjectStore, scope: string, now: number) => {
+  const records = await request(store.getAll(scopeRange(scope)) as IDBRequest<ChatRecord[]>);
+  const kept = chatToKeep(records, now);
+  const keptIds = new Set(kept.map((r) => r.id));
+  for (const r of records) if (!keptIds.has(r.id)) store.delete([scope, r.id]);
+  return kept;
+};
+
 /**
- * Chat kept in this browser for eight days: TAK Server doesn't archive chat,
- * so this is the only copy a reload can come back to. Older messages are
- * deleted as they're read.
+ * Chat kept in this browser: TAK Server doesn't archive chat, so this is the
+ * only copy a reload can come back to. What isn't worth keeping is deleted as
+ * it's read, and every so often as messages are saved.
  */
 export const loadSavedChat = async (now = Date.now()): Promise<ChatMessage[]> => {
   const scope = savingEnabled() ? await currentScope() : undefined;
   const db = scope ? await openDb() : undefined;
   if (!db || !scope) return [];
   const tx = db.transaction(CHAT, "readwrite");
-  const store = tx.objectStore(CHAT);
-  const records = await request(store.getAll(scopeRange(scope)) as IDBRequest<ChatRecord[]>);
-  const kept = records.filter((r) => r.message.time > now - CHAT_RETENTION_MS);
-  for (const r of records) if (!kept.includes(r)) store.delete([scope, r.id]);
+  const kept = await pruneChat(tx.objectStore(CHAT), scope, now);
   await done(tx);
-  return kept.map((r) => r.message);
+  return kept.slice(-RESTORED_CHAT).map((r) => r.message);
 };
 
 export const saveChatMessage = async (message: ChatMessage) => {
@@ -204,6 +223,8 @@ export const saveChatMessage = async (message: ChatMessage) => {
   const db = scope ? await openDb() : undefined;
   if (!db || !scope) return;
   const tx = db.transaction(CHAT, "readwrite");
-  tx.objectStore(CHAT).put({ scope, id: message.id, message });
+  const store = tx.objectStore(CHAT);
+  store.put({ scope, id: message.id, message });
+  if (++chatWrites % PRUNE_CHAT_EVERY === 0) await pruneChat(store, scope, Date.now());
   await done(tx);
 };
