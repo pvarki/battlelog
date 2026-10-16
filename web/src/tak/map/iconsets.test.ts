@@ -109,3 +109,35 @@ test("TAK icons are fetched a few at a time and once each, however often markers
   expect(fetch).toHaveBeenCalledTimes(2001);
   vi.unstubAllGlobals();
 });
+
+test("more TAK icons in use than the cache holds are each fetched once, not round and round", async () => {
+  vi.resetModules();
+  const fresh = await import("./iconsets.ts");
+  const fetch = vi.fn(async (_url: string) => new Response(PNG));
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("createImageBitmap", async () => ({ close: () => {} }) as ImageBitmap);
+  const paths = Array.from({ length: 2001 }, (_, i) => `busy/Group/${i}.png`);
+  let redraws = 0;
+  let scheduled = false;
+  // Every load redraws the map on a later tick, which asks for every icon again, as markers do.
+  const stop = fresh.onIconsetsChanged(() => {
+    if (scheduled || redraws >= 200) return;
+    scheduled = true;
+    setTimeout(() => {
+      scheduled = false;
+      redraws++;
+      for (const path of paths) fresh.iconsetImage(path);
+    });
+  });
+  await vi.waitFor(() => {
+    fresh.iconsetImage(paths[0] as string);
+    expect(fetch).toHaveBeenCalled();
+  });
+  for (const path of paths) fresh.iconsetImage(path);
+  for (let i = 0; i < 400 && fetch.mock.calls.length <= 2001; i++)
+    await new Promise((resolve) => setTimeout(resolve));
+  expect(redraws).toBeGreaterThan(0);
+  expect(fetch.mock.calls.length).toBeLessThanOrEqual(2001);
+  stop();
+  vi.unstubAllGlobals();
+});

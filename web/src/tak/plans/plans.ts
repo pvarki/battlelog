@@ -237,7 +237,8 @@ const sendDrafts = async (plan: Plan): Promise<PlanEntry[]> => {
   return plan.entries.filter((_, i) => results[i]);
 };
 
-const draftKey = (entry: PlanEntry) => `${entry.event.uid}@${entry.event.time}`;
+// The whole draft: two tabs can make different edits of an item in the same millisecond.
+const draftKey = (entry: PlanEntry) => JSON.stringify(entry);
 
 const dropFromPlan = (plan: Plan, done: ReadonlySet<PlanEntry>) => {
   // Drafts added or changed while publishing aren't the ones that were done: keep them.

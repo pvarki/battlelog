@@ -2,7 +2,7 @@ import { strFromU8 } from "fflate";
 import { useSyncExternalStore } from "react";
 import { readCapped, TakRequestError, takBaseUrl } from "../rest.ts";
 import { unzipCapped, ZipLimitError } from "../zip.ts";
-import { remember, touch } from "./lru.ts";
+import { canAdmit, remember, touch } from "./lru.ts";
 
 /**
  * ATAK icon sets: zips of `iconset.xml` plus one folder of images per group.
@@ -214,13 +214,33 @@ export type IconsetImage = { key: string; bitmap: ImageBitmap; natural: boolean 
 
 // Markers name the icons, so both caches below are capped, least recently used going first.
 const MAX_CACHED_ICONS = 2000;
+// An icon used within this long is in use: with more in use than the cap, the rest show
+// as plain symbols rather than evicting one that is then fetched again, without end.
+const IN_USE_MS = 60_000;
+
+/** When each cached icon was last asked for, pruned as the caches evict. */
+const usedAt = new Map<string, number>();
+const used = <V>(cache: Map<string, V>, key: string): V | undefined => {
+  const value = touch(cache, key);
+  if (value !== undefined) usedAt.set(key, Date.now());
+  return value;
+};
+const pruneUse = () => {
+  if (usedAt.size <= 4 * MAX_CACHED_ICONS) return;
+  for (const key of usedAt.keys())
+    if (!bitmaps.has(key) && !serverIcons.has(key)) usedAt.delete(key);
+};
+const admits = (cache: Map<string, unknown>) =>
+  canAdmit(cache, MAX_CACHED_ICONS, usedAt, Date.now(), IN_USE_MS);
 
 const bitmaps = new Map<string, ImageBitmap | "failed">();
 const decodingBitmaps = new Set<string>();
 
 const keepBitmap = (key: string, value: ImageBitmap | "failed") => {
+  usedAt.set(key, Date.now());
   for (const old of remember(bitmaps, key, value, MAX_CACHED_ICONS))
     if (old instanceof ImageBitmap) old.close();
+  pruneUse();
 };
 
 const fetchServerIcon = async ([uid, group, file]: string[]): Promise<ImageBitmap> => {
@@ -237,8 +257,10 @@ const fetchServerIcon = async ([uid, group, file]: string[]): Promise<ImageBitma
 const serverIcons = new Map<string, IconsetImage | "missing">();
 
 const keepServerIcon = (path: string, value: IconsetImage | "missing") => {
+  usedAt.set(path, Date.now());
   for (const old of remember(serverIcons, path, value, MAX_CACHED_ICONS))
     if (typeof old !== "string") old.bitmap.close();
+  pruneUse();
 };
 
 const MAX_ICON_FETCHES = 6;
@@ -271,9 +293,9 @@ const fetchQueuedServerIcons = () => {
 /** An icon from a set only TAK Server has, fetched on first use. */
 const serverIcon = (segments: string[]): IconsetImage | undefined => {
   const path = segments.join("/");
-  const cached = touch(serverIcons, path);
+  const cached = used(serverIcons, path);
   if (cached) return typeof cached === "string" ? undefined : cached;
-  if (pendingServerIcons.has(path)) return undefined;
+  if (pendingServerIcons.has(path) || !admits(serverIcons)) return undefined;
   // COT_MAPPING_* paths name ATAK's built-in symbols, which no server set holds.
   if (segments.length !== 3 || path.startsWith("COT_MAPPING_")) {
     keepServerIcon(path, "missing");
@@ -304,9 +326,9 @@ export const iconsetImage = (path: string): IconsetImage | undefined => {
   const icon = file === undefined ? undefined : indexed.icons.get(file);
   if (!icon) return undefined;
   const key = `${iconset.uid}|${iconset.imported}|${icon.file}`;
-  const bitmap = touch(bitmaps, key);
+  const bitmap = used(bitmaps, key);
   if (bitmap instanceof ImageBitmap) return { key, bitmap, natural: iconset.skipResize };
-  if (!bitmap && !decodingBitmaps.has(key)) {
+  if (!bitmap && !decodingBitmaps.has(key) && admits(bitmaps)) {
     decodingBitmaps.add(key);
     createImageBitmap(new Blob([icon.image.slice()], { type: icon.mime })).then(
       (decoded) => {

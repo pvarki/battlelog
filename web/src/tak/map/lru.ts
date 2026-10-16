@@ -31,3 +31,20 @@ export const oldestUnused = <K>(keys: Iterable<K>, count: number, inUse: Readonl
   }
   return out;
 };
+
+/**
+ * Whether `cache` may take a new entry: it has room, or its oldest entry has
+ * gone unused for `idleMs`. Otherwise every entry is in use, and admitting one
+ * more would push out another that is asked for again at once, round and round.
+ */
+export const canAdmit = <K>(
+  cache: Map<K, unknown>,
+  max: number,
+  usedAt: ReadonlyMap<K, number>,
+  now: number,
+  idleMs: number,
+): boolean => {
+  if (cache.size < max) return true;
+  const oldest = cache.keys().next().value as K;
+  return now - (usedAt.get(oldest) ?? 0) > idleMs;
+};

@@ -119,7 +119,6 @@ const refreshContents = async (mission: Mission) => {
   if (current?.kind === "loaded" && current.version === mission.version) return;
   if (current?.kind === "loading") return;
   const request = ++requests;
-  const addsBefore = addCount;
   latestRequest.set(mission.name, request);
   if (current?.kind !== "loaded") setContents(mission.name, { kind: "loading" });
   try {
@@ -132,7 +131,6 @@ const refreshContents = async (mission: Mission) => {
       complete: true,
     };
     if (latestRequest.get(mission.name) !== request) return;
-    dropOvertakenAdds(mission, addsBefore);
     const version = result.complete ? mission.version : INCOMPLETE;
     setContents(mission.name, { kind: "loaded", version, items: result.items });
   } catch (err) {
@@ -157,6 +155,8 @@ const unavailable = new Set<string>();
  * invited to, wanted, or named in `also`, each fetched by name.
  */
 const fetchAll = async (also: string[]) => {
+  // Adds noticed after this point are newer than the list, which may not show them yet.
+  const addsBefore = addCount;
   const [listed, invitations] = await Promise.all([
     fetchMissions(),
     clientUid ? fetchInvitedMissions(clientUid).catch(() => state.invitations) : state.invitations,
@@ -179,10 +179,12 @@ const fetchAll = async (also: string[]) => {
     }),
   );
   const missions = [...listed, ...fetched.filter((m): m is Mission => !!m)];
-  return { missions, invitations };
+  return { missions, invitations, addsBefore };
 };
 
-const applyList = ({ missions, invitations }: Awaited<ReturnType<typeof fetchAll>>) => {
+const applyList = ({ missions, invitations, addsBefore }: Awaited<ReturnType<typeof fetchAll>>) => {
+  // The list is newer than adds noticed before it was asked for; those it no longer lists lost.
+  for (const mission of missions) dropOvertakenAdds(mission, addsBefore);
   // A deleted or renamed mission takes its items off the map with it.
   const names = new Set(missions.map((m) => m.name));
   const contents = new Map([...state.contents].filter(([name]) => names.has(name)));
