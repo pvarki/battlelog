@@ -1,6 +1,7 @@
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8 } from "fflate";
 import { useSyncExternalStore } from "react";
 import { readCapped, TakRequestError, takBaseUrl } from "../rest.ts";
+import { unzipCapped, ZipLimitError } from "../zip.ts";
 import { remember, touch } from "./lru.ts";
 
 /**
@@ -62,22 +63,21 @@ const groupAndFile = (path: string): { group: string; file: string } | undefined
 /** An icon set from the bytes of its zip. Throws a user-readable error when it isn't one. */
 export const parseIconset = (zip: Uint8Array, imported = Date.now()): Iconset => {
   if (zip.length > MAX_ZIP_BYTES) throw new Error("Icon set is larger than 20 MB");
-  let total = 0;
   let wanted = 0;
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(zip, {
-      filter: ({ name, size, originalSize }) => {
+    entries = unzipCapped(
+      zip,
+      ({ name, originalSize = 0 }) => {
         if (name !== "iconset.xml" && !isImageName(name)) return false;
-        // Stored entries are copied by their compressed size, which a forged zip can inflate.
-        const bytes = Math.max(size, originalSize);
-        if (bytes > MAX_ICON_BYTES || wanted > MAX_ICONS) return false;
-        total += bytes;
+        if (originalSize > MAX_ICON_BYTES || wanted > MAX_ICONS) return false;
         wanted++;
-        return total <= MAX_TOTAL_BYTES;
+        return true;
       },
-    });
-  } catch {
+      { maxEntryBytes: MAX_ICON_BYTES, maxTotalBytes: MAX_TOTAL_BYTES },
+    );
+  } catch (err) {
+    if (err instanceof ZipLimitError) throw err;
     throw new Error("Not a zip file");
   }
 

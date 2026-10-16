@@ -1,5 +1,5 @@
 import { notifications } from "@mantine/notifications";
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { strFromU8, strToU8, zipSync } from "fflate";
 import { useSyncExternalStore } from "react";
 import { publish } from "../commands.ts";
 import { type CotEvent, type TakChange, toChange } from "../cot.ts";
@@ -7,6 +7,7 @@ import type { Sender } from "../identity.ts";
 import type { Mission } from "../missions/missions.ts";
 import { addItems, ensureSubscribed, removeItems } from "../missions/writes.ts";
 import { escapeXml, parseCotXml, serializeCot } from "../protocol/cot-xml.ts";
+import { unzipCapped } from "../zip.ts";
 import { geojsonToEvents, gpxToEvents, kmlToEvents } from "./overlay-files.ts";
 
 /**
@@ -327,20 +328,11 @@ export const unzipLimited = (
   zip: Uint8Array,
   accept: (path: string) => boolean,
   maxEntryBytes = MAX_COT_BYTES,
-): Record<string, Uint8Array> => {
-  let total = 0;
-  return unzipSync(zip, {
-    filter: (entry) => {
-      if (!accept(entry.name)) return false;
-      // Stored entries are copied by their compressed size, which a forged zip can inflate.
-      const bytes = Math.max(entry.size, entry.originalSize);
-      total += bytes;
-      if (bytes > maxEntryBytes || total > MAX_PACKAGE_BYTES)
-        throw new Error("Package expands too large to import");
-      return true;
-    },
+): Record<string, Uint8Array> =>
+  unzipCapped(zip, (file) => accept(file.name), {
+    maxEntryBytes,
+    maxTotalBytes: MAX_PACKAGE_BYTES,
   });
-};
 
 export const isCot = (path: string) => path.toLowerCase().endsWith(".cot");
 
