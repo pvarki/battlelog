@@ -84,3 +84,28 @@ test("icons of sets not imported come from TAK, and a miss is asked for once", a
   );
   vi.unstubAllGlobals();
 });
+
+test("TAK icons are fetched a few at a time and once each, however often markers ask", async () => {
+  const answers: (() => void)[] = [];
+  const fetch = vi.fn(
+    (_url: string) =>
+      new Promise<Response>((resolve) => {
+        answers.push(() => resolve(new Response(null, { status: 404 })));
+      }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  const paths = Array.from({ length: 2001 }, (_, i) => `many/Group/${i}.png`);
+  await vi.waitFor(() => {
+    iconsetImage(paths[0] as string);
+    expect(fetch).toHaveBeenCalled();
+  });
+  for (let redraw = 0; redraw < 3; redraw++) for (const path of paths) iconsetImage(path);
+  expect(fetch).toHaveBeenCalledTimes(6);
+  while (answers.length > 0) {
+    for (const answer of answers.splice(0)) answer();
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(answers.length).toBeLessThanOrEqual(6);
+  }
+  expect(fetch).toHaveBeenCalledTimes(2001);
+  vi.unstubAllGlobals();
+});
