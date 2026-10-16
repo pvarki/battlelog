@@ -1,3 +1,4 @@
+import { useTakSession } from "./connect.ts";
 import "./tak.css";
 import { ActionIcon, Alert, Button, Group, Text } from "@mantine/core";
 import {
@@ -30,13 +31,7 @@ import { workspacePicture } from "./picture.ts";
 import { useOwnPosition } from "./position/useOwnPosition.ts";
 import { SearchBox } from "./SearchBox.tsx";
 import { CONNECTION_TEXT } from "./StatusBar.tsx";
-import {
-  setTakPresence,
-  useTakItems,
-  useTakSession,
-  useTakStatus,
-  useTakTracks,
-} from "./session.ts";
+import { setTakPresence, useTakItems, useTakStatus, useTakTracks } from "./session.ts";
 import { useMapSettings } from "./settings.ts";
 import { type MapView, viewParam } from "./tools.ts";
 import { trackFeatures } from "./tracks.ts";

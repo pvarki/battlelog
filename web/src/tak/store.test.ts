@@ -188,3 +188,19 @@ test("a restored picture over the item cap drops its oldest items, and saves tha
   expect(snapshot(store).map((i) => i.uid)).toEqual(["new"]);
   expect(store.takeDirty()).toEqual(["old"]);
 });
+
+test("a sweep that expires nothing keeps each trail's array, so the map needn't redraw it", () => {
+  const store = createTakStore();
+  const now = Date.now();
+  const at = (time: number, lon: number): TakItem => ({
+    ...item("a", time, now + 60_000),
+    geometry: { type: "Point", coordinates: [lon, 60] },
+  });
+  store.apply({ kind: "upsert", item: at(now - 2000, 25) });
+  store.apply({ kind: "upsert", item: at(now - 1000, 25.01) });
+  store.flush();
+  const before = store.getTracks().get("a");
+  store.sweep(now);
+  store.flush();
+  expect(store.getTracks().get("a")).toBe(before);
+});

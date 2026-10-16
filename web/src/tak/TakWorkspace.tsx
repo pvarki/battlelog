@@ -1,3 +1,4 @@
+import { useTakSession } from "./connect.ts";
 import "./tak.css";
 import { Button, Drawer, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -67,7 +68,6 @@ import {
   sendCot,
   setTakPresence,
   useTakItems,
-  useTakSession,
   useTakStatus,
   useTakTracks,
 } from "./session.ts";
@@ -151,7 +151,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
   const planReason =
     plans.activeId && !activePlan
       ? plans.status === "failed"
-        ? "The active plan couldn't be read from this browser: reload the page"
+        ? "The active plan couldn't be read from this browser: reload, or switch to Live in Plans"
         : "Opening the active plan…"
       : undefined;
   const blockedReason = replaying ? "Replaying history: go back to live to change TAK" : planReason;
@@ -887,8 +887,9 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             onClose={() => setDrawer(null)}
             position="bottom"
             size="70%"
-            withCloseButton={false}
-            styles={{ body: { height: "100%" } }}
+            // The panel shows the title; Mantine's stays, hidden, to name the dialog.
+            title={drawer ? DRAWERS[drawer].label : undefined}
+            styles={{ header: { display: "none" }, body: { height: "100%" } }}
           >
             {drawer && (
               <Panel title={DRAWERS[drawer].label} onClose={() => setDrawer(null)}>

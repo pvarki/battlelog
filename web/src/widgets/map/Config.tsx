@@ -13,11 +13,12 @@ import {
 import type { ReactNode } from "react";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
+import { useTakSession } from "../../tak/connect.ts";
 import { useEventLayers } from "../../tak/event-layers/store.ts";
 import { BUILTIN_SOURCES } from "../../tak/map/basemaps.ts";
 import { useMissions, useMissionsSync } from "../../tak/missions/store.ts";
 import { GROUP_LABEL, groupPathLabel } from "../../tak/overlays.ts";
-import { useTakItems, useTakSession } from "../../tak/session.ts";
+import { useTakItems } from "../../tak/session.ts";
 import {
   CARD_ACTION_LABEL,
   CARD_ACTIONS,

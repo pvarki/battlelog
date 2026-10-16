@@ -29,10 +29,11 @@ import { queryFilter } from "../../event-binding/query.ts";
 import { CREDIBILITY, RELIABILITY } from "../../events/admiralty.ts";
 import { useLiveEvents } from "../../events/live-events.ts";
 import { answerPick, canPick, requestPick } from "../../map-pick.ts";
+import { useTakSession } from "../../tak/connect.ts";
 import type { TakItem } from "../../tak/cot.ts";
 import { anchorOf, hasPosition, labelOf } from "../../tak/items.ts";
 import { parseTakLink, type TakLink, takLinkOf } from "../../tak/links.ts";
-import { useTakItems, useTakSession } from "../../tak/session.ts";
+import { useTakItems } from "../../tak/session.ts";
 import { useIsMobile } from "../../viewport.ts";
 import { FormPrint } from "./Print.tsx";
 import {

@@ -74,8 +74,12 @@ export const tileUrl = (template: string, tile: Tile, scheme: "xyz" | "tms" = "x
 /** Online maps can be saved; offline files already are. */
 /** Only tiles the service worker's map-tiles cache takes (vite.config.ts): other sites', not TAK's. */
 const isCachedTileUrl = (template: string) => {
-  const url = new URL(template.replace(/\{[^}]+\}/g, "0"), location.href);
-  return url.origin !== location.origin && !url.pathname.startsWith("/Marti/");
+  try {
+    const url = new URL(template.replace(/\{[^}]+\}/g, "0"), location.href);
+    return url.origin !== location.origin && !url.pathname.startsWith("/Marti/");
+  } catch {
+    return false;
+  }
 };
 
 export const canSaveArea = (source: MapSource) =>

@@ -148,26 +148,25 @@ export const ItemDetails = ({
         </Badge>
       )}
 
-      {!editing && (
-        <ItemActionBar
-          item={item}
-          actions={actions}
-          write={write}
-          callsign={callsign}
-          contacts={contacts}
-          sendReason={sendReason}
-          planActive={planActive}
-          allMissions={allMissions}
-          clientUid={clientUid}
-          replayAt={replayAt}
-          onSubmit={onSubmit}
-          onCenter={onCenter}
-          onEdit={() => setEditing({})}
-          onMarkDestroyed={() => setEditing({ status: "destroyed" })}
-          onEditShape={onEditShape}
-          editShapeLoading={editShapeLoading}
-        />
-      )}
+      <ItemActionBar
+        hidden={!!editing}
+        item={item}
+        actions={actions}
+        write={write}
+        callsign={callsign}
+        contacts={contacts}
+        sendReason={sendReason}
+        planActive={planActive}
+        allMissions={allMissions}
+        clientUid={clientUid}
+        replayAt={replayAt}
+        onSubmit={onSubmit}
+        onCenter={onCenter}
+        onEdit={() => setEditing({})}
+        onMarkDestroyed={() => setEditing({ status: "destroyed" })}
+        onEditShape={onEditShape}
+        editShapeLoading={editShapeLoading}
+      />
       {readOnlyReason && !editing && (
         <Text fz="xs" c="dimmed" role="note">
           Read only: {readOnlyReason}

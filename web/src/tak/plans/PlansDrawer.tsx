@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -301,6 +302,19 @@ export const PlansDrawer = (props: Props) => {
           </Menu.Item>
         </PanelMenu>
       </PanelActions>
+      {props.state.status === "failed" && props.state.activeId && (
+        <Alert color="warning" variant="outline" p="xs">
+          <Text fz="xs">
+            The active plan couldn't be read from this browser, so changes are held back rather than
+            sent to TAK.
+          </Text>
+          <Group mt={6}>
+            <Button size="xs" variant="default" onClick={() => setActivePlan(undefined)}>
+              Switch to Live
+            </Button>
+          </Group>
+        </Alert>
+      )}
       <ScrollArea style={{ flex: 1 }} offsetScrollbars="present">
         {props.state.plans.length === 0 ? (
           <Box py="md">

@@ -66,10 +66,9 @@ export const ChatDrawer = ({
   initialRoom = EVERYONE,
 }: Props) => {
   const [chosen, setChosen] = useState(initialRoom);
-  const requested = roomKey(initialRoom);
-  // "Chat with" while the drawer is already open switches the conversation too.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new request switches
-  useEffect(() => setChosen(initialRoom), [requested]);
+  // "Chat with" while the drawer is already open switches the conversation too, every time:
+  // each request is a new room object, even for the same person.
+  useEffect(() => setChosen(initialRoom), [initialRoom]);
   const [draft, setDraft] = useState("");
   const [failed, setFailed] = useState(false);
   const [creating, setCreating] = useState(false);

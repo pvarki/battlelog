@@ -113,6 +113,7 @@ const refreshContents = async (mission: Mission) => {
   if (current?.kind === "loaded" && current.version === mission.version) return;
   if (current?.kind === "loading") return;
   const request = ++requests;
+  const addsBefore = addCount;
   latestRequest.set(mission.name, request);
   if (current?.kind !== "loaded") setContents(mission.name, { kind: "loading" });
   try {
@@ -125,6 +126,7 @@ const refreshContents = async (mission: Mission) => {
       complete: true,
     };
     if (latestRequest.get(mission.name) !== request) return;
+    dropOvertakenAdds(mission, addsBefore);
     const version = result.complete ? mission.version : INCOMPLETE;
     setContents(mission.name, { kind: "loaded", version, items: result.items });
   } catch (err) {
@@ -263,12 +265,20 @@ const updateItems = (name: string, update: (items: TakItem[]) => TakItem[], comp
   setContents(name, { ...current, version, items: update(current.items) });
 };
 
-// An add's fetch that returns after a later add or removal of the same item is stale.
-const latestContentChange = new Map<string, number>();
-let contentChanges = 0;
-const noteContentChange = (mission: string, uid: string) => {
-  latestContentChange.set(`${mission}\n${uid}`, ++contentChanges);
-  return contentChanges;
+// Item fetches started by add notices, until they land. One that a later add, removal or
+// reconciliation overtook is stale. Settled ones are dropped, so this holds only what's in flight.
+const pendingAdds = new Map<string, number>();
+let addCount = 0;
+const addKey = (mission: string, uid: string) => `${mission}\n${uid}`;
+
+/** Pending adds to `mission` started before `before` whose item the mission no longer lists. */
+const dropOvertakenAdds = (mission: Mission, before: number) => {
+  const uids = new Set(mission.itemUids);
+  for (const [key, started] of pendingAdds) {
+    const [name, uid] = key.split("\n");
+    if (name === mission.name && started <= before && uid && !uids.has(uid))
+      pendingAdds.delete(key);
+  }
 };
 
 /**
@@ -283,9 +293,12 @@ export const receiveMissionChange = (event: CotEvent): boolean => {
     if (type === "ADD_CONTENT" && uid) {
       // Only missions loaded here: a notice must not make this browser fetch on a sender's say-so.
       if (state.contents.get(mission)?.kind !== "loaded") continue;
-      const change = noteContentChange(mission, uid);
+      const key = addKey(mission, uid);
+      const started = ++addCount;
+      pendingAdds.set(key, started);
       void fetchItems([uid]).then(({ items: added, complete }) => {
-        if (latestContentChange.get(`${mission}\n${uid}`) !== change) return;
+        if (pendingAdds.get(key) !== started) return;
+        pendingAdds.delete(key);
         updateItems(
           mission,
           (items) => [...items.filter((i) => i.uid !== uid), ...added],
@@ -293,7 +306,7 @@ export const receiveMissionChange = (event: CotEvent): boolean => {
         );
       });
     } else if (type === "REMOVE_CONTENT" && uid) {
-      noteContentChange(mission, uid);
+      pendingAdds.delete(addKey(mission, uid));
       updateItems(mission, (items) => items.filter((i) => i.uid !== uid));
     } else {
       refreshList = true;

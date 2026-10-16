@@ -246,8 +246,10 @@ const restartBackfill = () => {
  */
 export const refetchTakHistory = () => {
   syncedThrough = undefined;
-  // Until the refetch completes, the save timer must not mark the whole window covered.
+  // Until the refetch completes, the save timer must not mark the whole window covered,
+  // nor may the saved picture still claim it: a reload would skip what the refetch is for.
   streamCovers = false;
+  void save(0);
   if (socket?.readyState === WebSocket.OPEN) restartBackfill();
 };
 
@@ -267,6 +269,8 @@ const announce = (force: boolean) => {
     ? { ...last, time: now, start: now, stale: now + (last.stale - last.time) }
     : newPresenceEvent(presence, navigator.platform, now);
   sendCot(report);
+  // The re-dated copy only repeats the fix: kept as the fix, it would stay fresh forever.
+  if (last) positionReport = last;
 };
 
 /** Who this tab is on TAK. */

@@ -128,6 +128,8 @@ export const useOwnPosition = (map: MapLibreMap | undefined, self: SelfIdentity 
     map?.flyTo({ center: at, zoom: Math.max(map.getZoom(), FOCUS_ZOOM) });
 
   const toggleLocate = () => {
+    // A fresh attempt: the last one's error would otherwise cancel it straight away.
+    if (!locating) setError(undefined);
     if (!locating && fix) flyToFix(fix.position);
     else flyPending.current = !locating;
     setLocating(!locating);

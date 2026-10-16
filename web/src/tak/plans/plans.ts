@@ -124,9 +124,11 @@ let loading: Promise<void> | undefined;
 const load = () => {
   loading ??= (async () => {
     const db = await openDb();
-    const stored = db
-      ? await request(db.transaction(STORE).objectStore(STORE).getAll() as IDBRequest<Plan[]>)
-      : [];
+    // Not "no plans": the active plan may be stored and merely unreadable now.
+    if (!db) throw new Error("browser storage unavailable");
+    const stored = await request(
+      db.transaction(STORE).objectStore(STORE).getAll() as IDBRequest<Plan[]>,
+    );
     // Plans made before the read finished are newer than anything stored.
     const made = new Set(state.plans.map((p) => p.id));
     const plans = [...state.plans, ...stored.filter((p) => !made.has(p.id))];
@@ -140,7 +142,9 @@ const load = () => {
 };
 
 const save = (plan: Plan) => {
-  const next = { ...plan, updated: Date.now() };
+  const stored = state.plans.find((p) => p.id === plan.id)?.updated ?? 0;
+  // Strictly increasing: other tabs take a plan only when it's newer than theirs.
+  const next = { ...plan, updated: Math.max(Date.now(), stored + 1) };
   set({ plans: [next, ...state.plans.filter((p) => p.id !== plan.id)] });
   void persist(next);
   return next;
@@ -233,10 +237,15 @@ const sendDrafts = async (plan: Plan): Promise<PlanEntry[]> => {
   return plan.entries.filter((_, i) => results[i]);
 };
 
+const draftKey = (entry: PlanEntry) => `${entry.event.uid}@${entry.event.time}`;
+
 const dropFromPlan = (plan: Plan, done: ReadonlySet<PlanEntry>) => {
   // Drafts added or changed while publishing aren't the ones that were done: keep them.
+  // By content, not identity: another tab's save replaces every entry with a copy.
+  const doneKeys = new Set([...done].map(draftKey));
   const current = state.plans.find((p) => p.id === plan.id);
-  if (current) save({ ...current, entries: current.entries.filter((e) => !done.has(e)) });
+  if (current)
+    save({ ...current, entries: current.entries.filter((e) => !doneKeys.has(draftKey(e))) });
 };
 
 /**

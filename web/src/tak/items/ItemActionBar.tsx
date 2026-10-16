@@ -48,6 +48,8 @@ type Props = {
   /** Starts moving or reshaping the item on the map; undefined when its geometry can't be edited. */
   onEditShape: (() => void) | undefined;
   editShapeLoading: boolean;
+  /** While the item is edited: the buttons go, but open dialogs and their choices stay. */
+  hidden?: boolean;
 };
 
 /** The item's buttons and More menu, and the dialogs they open. */
@@ -68,6 +70,7 @@ export const ItemActionBar = ({
   onMarkDestroyed,
   onEditShape,
   editShapeLoading,
+  hidden,
 }: Props) => {
   const [loggingAt, setLoggingAt] = useState<number>();
   const [dialog, setDialog] = useState<"feed" | "delete">();
@@ -81,119 +84,121 @@ export const ItemActionBar = ({
 
   return (
     <>
-      <Group gap={6}>
-        <Button
-          variant="default"
-          size="xs"
-          leftSection={<IconCurrentLocation size={14} />}
-          onClick={onCenter}
-          disabled={!hasPosition(item)}
-          title="Centre on the map (C)"
-        >
-          Centre
-        </Button>
-        {actions.edit && (
+      {!hidden && (
+        <Group gap={6}>
           <Button
             variant="default"
             size="xs"
-            leftSection={<IconPencil size={14} />}
-            onClick={onEdit}
+            leftSection={<IconCurrentLocation size={14} />}
+            onClick={onCenter}
+            disabled={!hasPosition(item)}
+            title="Centre on the map (C)"
           >
-            Edit
+            Centre
           </Button>
-        )}
-        {onEditShape && actions.edit && (
-          <Button
-            variant="default"
-            size="xs"
-            leftSection={<IconShape size={14} />}
-            loading={editShapeLoading}
-            onClick={onEditShape}
-          >
-            {isPointItem(item) ? "Move" : "Shape"}
-          </Button>
-        )}
-        {actions.send && (
-          <SendTo
-            what={labelOf(item)}
-            contacts={contacts}
-            note={planActive ? "Sent now, not staged in the active plan." : undefined}
-            disabledReason={sendReason}
-            onSend={(callsigns) => sendItem(item, callsigns)}
-          />
-        )}
-        {actions.more && (
-          <Menu position="bottom-end" withinPortal>
-            <Menu.Target>
-              <Button variant="default" size="xs" rightSection={<IconChevronDown size={14} />}>
-                More
-              </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {actions.addToFeed && (
-                <Menu.Item
-                  leftSection={<IconFolderPlus size={14} />}
-                  onClick={() => setDialog("feed")}
-                >
-                  Add to feed…
-                </Menu.Item>
-              )}
-              {actions.attachPhoto && (
-                <Menu.Item
-                  leftSection={<IconPhoto size={14} />}
-                  disabled={write === "sending"}
-                  onClick={photoDialog.open}
-                >
-                  Attach photo…
-                </Menu.Item>
-              )}
-              {actions.log && (
-                <Menu.Item
-                  leftSection={<IconNotes size={14} />}
-                  onClick={() => setLoggingAt(replayAt ?? Date.now())}
-                >
-                  Log this…
-                </Menu.Item>
-              )}
-              {actions.exportTrack &&
-                TRACK_FORMATS.map((format) => (
+          {actions.edit && (
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconPencil size={14} />}
+              onClick={onEdit}
+            >
+              Edit
+            </Button>
+          )}
+          {onEditShape && actions.edit && (
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconShape size={14} />}
+              loading={editShapeLoading}
+              onClick={onEditShape}
+            >
+              {isPointItem(item) ? "Move" : "Shape"}
+            </Button>
+          )}
+          {actions.send && (
+            <SendTo
+              what={labelOf(item)}
+              contacts={contacts}
+              note={planActive ? "Sent now, not staged in the active plan." : undefined}
+              disabledReason={sendReason}
+              onSend={(callsigns) => sendItem(item, callsigns)}
+            />
+          )}
+          {actions.more && (
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <Button variant="default" size="xs" rightSection={<IconChevronDown size={14} />}>
+                  More
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {actions.addToFeed && (
                   <Menu.Item
-                    key={format}
-                    leftSection={<IconDownload size={14} />}
-                    onClick={() =>
-                      void exportTrack(item, format).catch((err: Error) =>
-                        notifications.show({ color: "warning", message: err.message }),
-                      )
-                    }
+                    leftSection={<IconFolderPlus size={14} />}
+                    onClick={() => setDialog("feed")}
                   >
-                    Track {format.toUpperCase()}
+                    Add to feed…
                   </Menu.Item>
-                ))}
-              {actions.markDestroyed && (
-                <Menu.Item
-                  color="danger"
-                  leftSection={<IconX size={14} />}
-                  onClick={onMarkDestroyed}
-                >
-                  Mark destroyed
-                </Menu.Item>
-              )}
-              {actions.delete && (
-                <>
-                  <Menu.Divider />
+                )}
+                {actions.attachPhoto && (
+                  <Menu.Item
+                    leftSection={<IconPhoto size={14} />}
+                    disabled={write === "sending"}
+                    onClick={photoDialog.open}
+                  >
+                    Attach photo…
+                  </Menu.Item>
+                )}
+                {actions.log && (
+                  <Menu.Item
+                    leftSection={<IconNotes size={14} />}
+                    onClick={() => setLoggingAt(replayAt ?? Date.now())}
+                  >
+                    Log this…
+                  </Menu.Item>
+                )}
+                {actions.exportTrack &&
+                  TRACK_FORMATS.map((format) => (
+                    <Menu.Item
+                      key={format}
+                      leftSection={<IconDownload size={14} />}
+                      onClick={() =>
+                        void exportTrack(item, format).catch((err: Error) =>
+                          notifications.show({ color: "warning", message: err.message }),
+                        )
+                      }
+                    >
+                      Track {format.toUpperCase()}
+                    </Menu.Item>
+                  ))}
+                {actions.markDestroyed && (
                   <Menu.Item
                     color="danger"
-                    leftSection={<IconTrash size={14} />}
-                    onClick={() => setDialog("delete")}
+                    leftSection={<IconX size={14} />}
+                    onClick={onMarkDestroyed}
                   >
-                    Delete…
+                    Mark destroyed
                   </Menu.Item>
-                </>
-              )}
-            </Menu.Dropdown>
-          </Menu>
-        )}
-      </Group>
+                )}
+                {actions.delete && (
+                  <>
+                    <Menu.Divider />
+                    <Menu.Item
+                      color="danger"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() => setDialog("delete")}
+                    >
+                      Delete…
+                    </Menu.Item>
+                  </>
+                )}
+              </Menu.Dropdown>
+            </Menu>
+          )}
+        </Group>
+      )}
       {loggingAt !== undefined && (
         <LogItemDialog item={item} at={loggingAt} onClose={() => setLoggingAt(undefined)} />
       )}

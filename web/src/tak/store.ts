@@ -82,9 +82,13 @@ export const createTakStore = ({
 
   const addToTrack = (uid: string, points: TrackPoint[], now: number) => {
     const before = tracks.get(uid);
-    const track = mergeTrack(before ?? [], points, now);
-    if (track.length !== (before?.length ?? 0) || track.at(-1) !== before?.at(-1)) dirty.add(uid);
-    if (track.length) tracks.set(uid, track);
+    const merged = mergeTrack(before ?? [], points, now);
+    // The same points keep the same array: the map redraws only trails whose array changed.
+    const unchanged =
+      before && merged.length === before.length && merged.every((p, i) => p === before[i]);
+    if (unchanged) return;
+    if (merged.length !== (before?.length ?? 0) || merged.at(-1) !== before?.at(-1)) dirty.add(uid);
+    if (merged.length) tracks.set(uid, merged);
     else tracks.delete(uid);
   };
 
@@ -101,12 +105,16 @@ export const createTakStore = ({
       return;
     }
     if (change.kind === "delete") {
-      tombstones.set(change.uid, Math.max(change.time, tombstones.get(change.uid) ?? 0));
+      const before = tombstones.get(change.uid) ?? 0;
+      tombstones.set(change.uid, Math.max(change.time, before));
       trimMarks(tombstones);
       const current = items.get(change.uid);
       if (current && current.time <= change.time) {
         items.delete(change.uid);
         tracks.delete(change.uid);
+        changed();
+      } else if (change.time > before) {
+        // No live copy, but a mission's copy may be on the map, and `deletedAt` hides it.
         changed();
       }
       return;

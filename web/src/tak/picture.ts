@@ -111,7 +111,7 @@ export const workspacePicture = ({
   const missionItem = (uid: string) => {
     for (const contents of missions.contents.values()) {
       const found = contents.kind === "loaded" && contents.items.find((i) => i.uid === uid);
-      if (found) return found;
+      if (found && (takStore.deletedAt(uid) ?? -1) < found.time) return found;
     }
   };
   const currentItem = (uid: string) => items.find((i) => i.uid === uid) ?? missionItem(uid);
