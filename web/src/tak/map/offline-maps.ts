@@ -1,11 +1,11 @@
 import { addProtocol } from "maplibre-gl";
 import {
-  bytesToHeader,
   Compression,
   FileSource,
   PMTiles,
   Protocol,
   readVarint,
+  SharedPromiseCache,
   TileType,
 } from "pmtiles";
 import { useSyncExternalStore } from "react";
@@ -22,10 +22,8 @@ const RASTER = new Set([TileType.Png, TileType.Jpeg, TileType.Webp, TileType.Avi
 
 export class OfflineMapError extends Error {}
 
-// pmtiles reads the header and root directory from the file's first 16 KiB.
-const HEAD_BYTES = 16_384;
 const MAX_DIRECTORY_BYTES = 16 * 1_048_576;
-const MAX_ROOT_ENTRIES = 1_000_000;
+const MAX_DIRECTORY_ENTRIES = 1_000_000;
 
 /** pmtiles' own decompress inflates a directory to whatever size the file makes it. */
 const decompress = async (data: ArrayBuffer, compression: Compression): Promise<ArrayBuffer> => {
@@ -45,13 +43,13 @@ const decompress = async (data: ArrayBuffer, compression: Compression): Promise<
   return new Blob(chunks).arrayBuffer();
 };
 
-/** Whether the root directory is small enough to read; pmtiles materialises every entry. */
-const rootFits = async (file: File) => {
-  const head = await file.slice(0, HEAD_BYTES).arrayBuffer();
-  const header = bytesToHeader(head);
-  const { rootDirectoryOffset: offset, rootDirectoryLength: length } = header;
-  const root = await decompress(head.slice(offset, offset + length), header.internalCompression);
-  return readVarint({ buf: new Uint8Array(root), pos: 0 }) <= MAX_ROOT_ENTRIES;
+/** pmtiles materialises every entry a directory claims, whether or not its bytes hold them. */
+const readDirectory = async (data: ArrayBuffer, compression: Compression) => {
+  const directory = await decompress(data, compression);
+  const entries = readVarint({ buf: new Uint8Array(directory), pos: 0 });
+  if (directory.byteLength > MAX_DIRECTORY_BYTES || entries > MAX_DIRECTORY_ENTRIES)
+    throw new Error("Directory too large");
+  return directory;
 };
 
 const protocol = new Protocol();
@@ -75,9 +73,9 @@ const directory = async (): Promise<FileSystemDirectoryHandle | undefined> => {
   }
 };
 
-const usableHeader = async (file: File, archive: PMTiles) => {
+const usableHeader = async (archive: PMTiles) => {
   try {
-    return (await rootFits(file)) ? await archive.getHeader() : undefined;
+    return await archive.getHeader();
   } catch {
     return undefined;
   }
@@ -88,8 +86,10 @@ const register = async (file: File): Promise<MapSource> => {
     addProtocol("pmtiles", protocol.tile);
     protocolAdded = true;
   }
-  const archive = new PMTiles(new FileSource(file), undefined, decompress);
-  const header = await usableHeader(file, archive);
+  // pmtiles reads directories through its cache's decompress, not the archive's
+  const cache = new SharedPromiseCache(undefined, undefined, readDirectory);
+  const archive = new PMTiles(new FileSource(file), cache, decompress);
+  const header = await usableHeader(archive);
   if (!header) throw new OfflineMapError(`${file.name} isn't a usable PMTiles map file.`);
   if (!RASTER.has(header.tileType))
     throw new OfflineMapError(
