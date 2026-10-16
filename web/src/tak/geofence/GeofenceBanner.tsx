@@ -5,7 +5,7 @@ import { formatAge } from "../../time.ts";
 import { useNow } from "../../use-now.ts";
 import type { TakItem } from "../cot.ts";
 import { activeBreachAlerts } from "../items.ts";
-import { describeCrossing } from "./geofence.ts";
+import { describeCrossing, MAX_WATCHED_FENCES } from "./geofence.ts";
 import type { FenceAlert } from "./useGeofenceAlerts.ts";
 
 const AGE_REFRESH_MS = 10_000;
@@ -45,6 +45,7 @@ const Row = ({
 /** Geofence crossings seen here and breach alerts from other TAK clients: a warning, not an emergency. */
 export const GeofenceBanner = ({
   alerts,
+  unwatched,
   items,
   isDismissed,
   onShow,
@@ -54,6 +55,8 @@ export const GeofenceBanner = ({
   sendReason,
 }: {
   alerts: FenceAlert[];
+  /** Tracking fences past the watch limit. */
+  unwatched: number;
   /** The live picture, which carries the alerts other TAK clients sent. */
   items: TakItem[];
   isDismissed: (item: TakItem) => boolean;
@@ -66,7 +69,7 @@ export const GeofenceBanner = ({
 }) => {
   const now = useNow(AGE_REFRESH_MS);
   const received = activeBreachAlerts(items, now).filter((i) => !isDismissed(i));
-  if (alerts.length === 0 && received.length === 0) return null;
+  if (alerts.length === 0 && received.length === 0 && unwatched === 0) return null;
   return (
     <Alert color="warning" variant="outline" icon={<IconFence size={18} />} title="Geofence">
       <Stack gap={4}>
@@ -100,6 +103,12 @@ export const GeofenceBanner = ({
             onDismiss={() => onDismissReceived(item)}
           />
         ))}
+        {unwatched > 0 && (
+          <Text fz="xs" c="dimmed">
+            {unwatched} {unwatched === 1 ? "fence" : "fences"} not watched (limit{" "}
+            {MAX_WATCHED_FENCES})
+          </Text>
+        )}
       </Stack>
     </Alert>
   );

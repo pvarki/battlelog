@@ -79,7 +79,8 @@ export const isWatched = (fence: Geofence, item: TakItem): boolean => {
   }
 };
 
-export type FenceWatch = { inside: boolean; alertedAt?: number };
+/** `at` is the fence version and item position `inside` was worked out for. */
+export type FenceWatch = { inside: boolean; at: string; alertedAt?: number };
 /** Where each watched item was against each fence, by `fenceUid itemUid`. */
 export type FenceState = ReadonlyMap<string, FenceWatch>;
 export type Crossing = { fence: TakItem; item: TakItem; entered: boolean; time: number };
@@ -87,8 +88,23 @@ export type Crossing = { fence: TakItem; item: TakItem; entered: boolean; time: 
 // GPS jitter along a fence line would otherwise alert on every flip.
 export const REALERT_AFTER_MS = 60_000;
 
+// Anyone on TAK can publish fences; each costs a check per watched item per update.
+export const MAX_WATCHED_FENCES = 50;
+const MAX_FENCE_PAIRS = 50_000;
+
 const fires = (trigger: Geofence["trigger"], entered: boolean) =>
   trigger === "Both" || (trigger === "Entry") === entered;
+
+/** The tracking fences watched here, own ones first and then the newest; the rest are counted. */
+const watchedFences = (items: TakItem[], isOwn: (fence: TakItem) => boolean) => {
+  const fences = items
+    .filter((i) => i.geofence?.tracking && canBeFence(i))
+    .sort((a, b) => Number(isOwn(b)) - Number(isOwn(a)) || b.time - a.time);
+  return {
+    fences: fences.slice(0, MAX_WATCHED_FENCES),
+    unwatched: Math.max(0, fences.length - MAX_WATCHED_FENCES),
+  };
+};
 
 /**
  * Compares where watched items are now with where they were. Only a change
@@ -99,27 +115,31 @@ export const checkFences = (
   previous: FenceState,
   items: TakItem[],
   now: number,
-): { state: FenceState; crossings: Crossing[] } => {
+  isOwn: (fence: TakItem) => boolean = () => false,
+): { state: FenceState; crossings: Crossing[]; unwatched: number } => {
   const state = new Map<string, FenceWatch>();
   const crossings: Crossing[] = [];
-  for (const fence of items) {
-    const geofence = fence.geofence;
-    if (!geofence?.tracking || !canBeFence(fence)) continue;
+  const { fences, unwatched } = watchedFences(items, isOwn);
+  for (const fence of fences) {
+    const geofence = fence.geofence as Geofence;
     for (const item of items) {
+      if (state.size >= MAX_FENCE_PAIRS) return { state, crossings, unwatched };
       if (!isWatched(geofence, item)) continue;
       const key = `${fence.uid} ${item.uid}`;
-      const inside = fenceContains(fence, anchorOf(item));
+      const position = anchorOf(item);
+      const at = `${fence.time} ${position.join(",")}`;
       const before = previous.get(key);
+      const inside = before?.at === at ? before.inside : fenceContains(fence, position);
       let alertedAt = before?.alertedAt;
       const quiet = alertedAt !== undefined && now - alertedAt < REALERT_AFTER_MS;
       if (before && before.inside !== inside && fires(geofence.trigger, inside) && !quiet) {
         crossings.push({ fence, item, entered: inside, time: now });
         alertedAt = now;
       }
-      state.set(key, { inside, alertedAt });
+      state.set(key, { inside, at, alertedAt });
     }
   }
-  return { state, crossings };
+  return { state, crossings, unwatched };
 };
 
 export const describeCrossing = ({ fence, item, entered }: Crossing) =>

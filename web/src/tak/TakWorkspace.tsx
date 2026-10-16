@@ -201,7 +201,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
       ? "Not connected to TAK"
       : undefined;
   const drawReason = blockedReason ?? sendReason;
-  const fenceAlerts = useGeofenceAlerts(liveItems);
+  const fenceAlerts = useGeofenceAlerts(liveItems, callsign);
   const sender = takSender(callsign);
   // Mission, plan and group controls write to TAK directly: none of them while replaying.
   const writerUid = callsign && !replaying ? sender.uid : undefined;
@@ -738,6 +738,7 @@ export const TakWorkspace = ({ view, selection, onSelect }: Props) => {
             <EmergencyBanner items={liveItems} map={map} onCenter={pick} />
             <GeofenceBanner
               alerts={fenceAlerts.alerts}
+              unwatched={fenceAlerts.unwatched}
               items={liveItems}
               isDismissed={fenceAlerts.isDismissed}
               onShow={(uid) => {

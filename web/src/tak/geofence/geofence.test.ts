@@ -238,3 +238,36 @@ test("a fence across ±180° holds what's between its edges, not the rest of the
   expect(fenceContains(fence, [0, 10.5])).toBe(false);
   expect(fenceContains(fence, [25, 10.5])).toBe(false);
 });
+
+test("only the 50 fences that matter most are watched: own first, then newest", () => {
+  const fences = Array.from({ length: 60 }, (_, i) => ({
+    ...polygonFence(),
+    uid: `fence${i}`,
+    time: i,
+    creator: i === 0 ? "K" : "Other",
+  }));
+  const walker = unit("walker", IN[1], IN[0]);
+  const checked = checkFences(new Map(), [...fences, walker], 0, (f) => f.creator === "K");
+  expect(checked.unwatched).toBe(10);
+  const watched = new Set([...checked.state.keys()].map((key) => key.split(" ")[0]));
+  expect(watched.size).toBe(50);
+  expect(watched.has("fence0")).toBe(true);
+  expect(watched.has("fence59")).toBe(true);
+  expect(watched.has("fence10")).toBe(false);
+});
+
+test("fence state stops growing at 50,000 fence-item pairs", () => {
+  const fences = Array.from({ length: 50 }, (_, i) => ({ ...polygonFence(), uid: `fence${i}` }));
+  const walkers = Array.from({ length: 1100 }, (_, i) => unit(`walker${i}`, IN[1], IN[0]));
+  const checked = checkFences(new Map(), [...fences, ...walkers], 0);
+  expect(checked.state.size).toBe(50_000);
+});
+
+test("an item that hasn't moved keeps its side without being re-checked", () => {
+  const fence = polygonFence();
+  const walker = unit("walker", IN[1], IN[0]);
+  const first = checkFences(new Map(), [fence, walker], 0);
+  const lying = new Map([...first.state].map(([k, v]) => [k, { ...v, inside: false }]));
+  const again = checkFences(lying, [fence, walker], 1);
+  expect([...again.state.values()][0]?.inside).toBe(false);
+});
