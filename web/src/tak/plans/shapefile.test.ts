@@ -178,6 +178,24 @@ test("a projected shapefile without a .prj, or a damaged one, is refused", () =>
   expect(() => readShapefile({ shp: strToU8("not a shapefile") })).toThrow(/Not a shapefile/);
 });
 
+test("an attribute table whose records are shorter than their fields is refused", () => {
+  const shp = shpOf([pointRecord([385000, 6672000])], TM35FIN_BBOX);
+  const dbf = dbfOf(["NAME", "KIND"], [["a", "b"]]);
+  new DataView(dbf.buffer).setUint16(10, 2, true);
+  expect(() => readShapefile({ shp, dbf, prj: TM35FIN_PRJ })).toThrow(/damaged/);
+});
+
+test("an attribute table of over a million cells is refused before it is read", () => {
+  const shp = shpOf([pointRecord([385000, 6672000])], TM35FIN_BBOX);
+  const dbf = dbfOf(
+    ["A", "B"],
+    Array.from({ length: 500_001 }, () => ["", ""]),
+    strToU8,
+    1,
+  );
+  expect(() => readShapefile({ shp, dbf, prj: TM35FIN_PRJ })).toThrow(/too large/);
+});
+
 test("part indexes that overlap are refused instead of copying points over and over", () => {
   const line = partsRecord(3, [outer, outer, outer]);
   new DataView(line.buffer, line.byteOffset).setInt32(52, 0, true);

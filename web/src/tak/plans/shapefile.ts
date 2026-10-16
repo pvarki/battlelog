@@ -113,6 +113,8 @@ const dbfDecoder = (cpg: string | undefined, records: Uint8Array): TextDecoder =
   }
 };
 
+const MAX_DBF_CELLS = 1_000_000;
+
 const readDbf = (bytes: Uint8Array, cpg: string | undefined): Record<string, string>[] => {
   const view = viewOf(bytes);
   const headerBytes = view.getUint16(8, true);
@@ -123,8 +125,12 @@ const readDbf = (bytes: Uint8Array, cpg: string | undefined): Record<string, str
     const name = decoder.decode(bytes.subarray(at, at + 11)).replace(/\0.*$/s, "");
     fields.push({ name, length: bytes[at + 16] as number });
   }
-  const available = Math.floor((bytes.byteLength - headerBytes) / Math.max(recordBytes, 1));
+  const fieldBytes = fields.reduce((sum, { length }) => sum + length, 0);
+  if (recordBytes < 1 + fieldBytes) throw new Error("The shapefile is damaged");
+  const available = Math.floor((bytes.byteLength - headerBytes) / recordBytes);
   const count = Math.min(view.getUint32(4, true), available);
+  if (count * fields.length > MAX_DBF_CELLS)
+    throw new Error("The shapefile's attribute table is too large to import");
   return Array.from({ length: count }, (_, i) => {
     let at = headerBytes + i * recordBytes + 1;
     return Object.fromEntries(
