@@ -1,12 +1,13 @@
 import { IconForms } from "@tabler/icons-react";
 import { lazy } from "react";
 import { z } from "zod";
-import type { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
 import type { EventResponse } from "../../api.ts";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
 import { setPath } from "../../event-binding/paths.ts";
 import { eventQueryShape } from "../../event-binding/query.ts";
+import type { CREDIBILITY, RELIABILITY } from "../../events/admiralty.ts";
+import type { TakLink } from "../../tak/links.ts";
 
 /** Built-in event columns the form can expose, with their input labels. */
 export const EVENT_FIELDS = {
@@ -78,11 +79,13 @@ const dataFieldSchema = z.object({
   /** Data-blob key. Empty falls back to the slugified label. */
   key: z.string().max(60).optional(),
   description: z.string().max(200).optional(),
-  input: z.enum(["text", "textarea", "number", "select", "checkbox", "event"]),
+  input: z.enum(["text", "textarea", "number", "select", "checkbox", "event", "tak"]),
   /** Choices for input:"select". */
   options: z.array(z.string().min(1).max(60)).max(24).default([]),
   /** Query and write-back for input:"event", which stores a reference to the picked event. */
   eventSelect: eventSelectSchema.optional(),
+  /** For input:"tak": a pick also fills the form's Coordinates field with where the item was. */
+  takSetsLocation: z.boolean().optional(),
   required: z.boolean().optional(),
 });
 
@@ -147,9 +150,14 @@ export type FormEventPatch = { [K in keyof FormEventPayload]?: FormEventPayload[
 /** A field the user fills in, as opposed to a hidden fixed value. */
 export type VisibleField = Extract<FormField, { kind: "event" | "data" }>;
 
-/** Data-blob key of a custom field: its explicit key, else the slugified label. */
-export const dataKey = (f: Extract<FormField, { kind: "data" }>): string =>
-  f.key?.trim() || slugify(f.label);
+type DataField = Extract<FormField, { kind: "data" }>;
+
+/**
+ * Data-blob key of a custom field: its explicit key, else the slugified label.
+ * A TAK item defaults to `tak`, where the server's `takUid` filter looks.
+ */
+export const dataKey = (f: DataField): string =>
+  f.key?.trim() || (f.input === "tak" ? "tak" : slugify(f.label));
 
 /** Input label: the configured override, else the built-in name of an event field. */
 export const fieldLabel = (f: VisibleField): string =>
@@ -336,6 +344,20 @@ export const buildPatch = (
   }
   Object.assign(data, formData);
   return { ...patch, data: Object.keys(data).length ? data : null };
+};
+
+/** Values a TAK item pick sets: the link, plus the item's position when the field fills Coordinates. */
+export const takPickValues = (
+  config: FormConfig,
+  field: DataField,
+  link: TakLink | undefined,
+  point: { lat: number; lng: number } | undefined,
+): FormValues => {
+  const values: FormValues = { [field.id]: link };
+  const coordinates = config.fields.find((f) => f.kind === "event" && f.field === "locationPoint");
+  // An item without a position clears it: the last item's position would be a false one.
+  if (field.takSetsLocation && coordinates && link) values[coordinates.id] = point;
+  return values;
 };
 
 const isEmpty = (v: unknown): boolean =>

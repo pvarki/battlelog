@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { EventResponse } from "../api.ts";
-import { matchesFeed, queryFor } from "../widgets/feed/widget.ts";
+import { matchesFeed, queryFor } from "./filter.ts";
 import { queryFilter } from "./query.ts";
 
 const group = { types: " drone, mule ", tags: "", dataFilters: [] };

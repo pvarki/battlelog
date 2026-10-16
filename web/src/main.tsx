@@ -1,9 +1,9 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
+import "@mantine/spotlight/styles.css";
 import "react-grid-layout/css/styles.css";
 import "@fontsource-variable/inter";
-import "dayjs/locale/fi";
 import "./global.css";
 import "./print.css";
 import { registerSW } from "virtual:pwa-register";
@@ -13,7 +13,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { routerDefaults, routeTree } from "./routes.tsx";
-import { theme } from "./theme.ts";
+import { cssVariablesResolver, theme } from "./theme.ts";
 
 // Without importing the virtual module, autoUpdate installs the new service
 // worker but never reloads open tabs — a wall display would run last month's
@@ -21,6 +21,10 @@ import { theme } from "./theme.ts";
 // The reload is deliberate: config forms persist every keystroke to the
 // server (see web/CLAUDE.md), so an unannounced reload loses nothing durable.
 registerSW({ immediate: true });
+
+// React's dev build records every render as a performance measure (~270k an hour on the
+// map) and the browser keeps them all, so a long-open dev tab slows down until reloaded.
+if (import.meta.env.DEV) setInterval(() => performance.clearMeasures(), 60_000);
 
 const router = createRouter({ routeTree, ...routerDefaults });
 
@@ -35,7 +39,11 @@ if (!rootEl) throw new Error("missing #root element");
 
 createRoot(rootEl).render(
   <StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="dark">
+    <MantineProvider
+      theme={theme}
+      forceColorScheme="dark"
+      cssVariablesResolver={cssVariablesResolver}
+    >
       <Notifications position="bottom-right" />
       <RouterProvider router={router} />
     </MantineProvider>

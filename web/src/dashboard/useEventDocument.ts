@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
-import { cacheEvents, loadCachedEventHead } from "../events-cache.ts";
-import { subscribeToEvents } from "../live-events.ts";
+import { cacheEvents, loadCachedEventHead } from "../events/events-cache.ts";
+import { subscribeToEvents } from "../events/live-events.ts";
 import type { WidgetDocumentDescriptor } from "./registry.ts";
 import { TEMPLATE_TAG } from "./transfer.ts";
 
@@ -58,6 +58,8 @@ export const useEventDocument = <T>(opts: Options<T>) => {
   const selfCaptured = useRef<string | undefined>(undefined);
   const pending = useRef<T | null>(null);
   const tags = useRef<string[] | null>(null);
+  // The version our edits build on: a save made over anything newer is a 409, not an overwrite.
+  const baseId = useRef<string | undefined>(undefined);
   // Guards update(): editing before the followed head has loaded would save
   // an empty doc over the real remote content.
   const loaded = useRef(!opts.eventId);
@@ -78,6 +80,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
       eventId.current = followedId;
     }
     loaded.current = !followedId;
+    baseId.current = undefined;
     if (!followedId) {
       tags.current = null;
       setValue(optsRef.current.empty);
@@ -105,6 +108,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
         const row = await res.json();
         void cacheEvents([row]);
         tags.current = row.tags;
+        baseId.current = row.id;
         setValue(optsRef.current.parse(row.data));
         loaded.current = true;
         setStatus("idle");
@@ -138,6 +142,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
         if (!eventId.current || row.eventId !== eventId.current) return;
         if (pending.current !== null || saving.current) return;
         tags.current = row.tags;
+        baseId.current = row.id;
         setValue(optsRef.current.parse(row.data));
       }),
     [],
@@ -154,7 +159,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           keepalive: true,
-          body: JSON.stringify(eventPayload(pending.current)),
+          body: JSON.stringify({ ...eventPayload(pending.current), baseId: baseId.current }),
         }).catch(() => {});
       }
     },
@@ -199,6 +204,7 @@ export const useEventDocument = <T>(opts: Options<T>) => {
             if (res.status !== 201) throw new Error(`create failed (${res.status})`);
             const created = await res.json();
             tags.current = created.tags;
+            baseId.current = created.id;
             eventId.current = created.eventId;
             selfCaptured.current = created.eventId;
             optsRef.current.onEventIdCaptured(created.eventId);
@@ -206,10 +212,12 @@ export const useEventDocument = <T>(opts: Options<T>) => {
           } else {
             const res = await api.events[":eventId"].$patch({
               param: { eventId: eventId.current },
-              json: eventPayload(doc),
+              json: { ...eventPayload(doc), baseId: baseId.current },
             });
             if (res.status === 200) {
-              tags.current = (await res.json()).tags;
+              const saved = await res.json();
+              tags.current = saved.tags;
+              baseId.current = saved.id;
               setStatus("saved");
             } else if (res.status === 409) {
               // Lost a concurrent-edit race: take the remote head.
@@ -219,6 +227,9 @@ export const useEventDocument = <T>(opts: Options<T>) => {
               if (head.status === 200) {
                 const row = await head.json();
                 tags.current = row.tags;
+                baseId.current = row.id;
+                // Edits typed meanwhile build on the losing version too.
+                pending.current = null;
                 setValue(optsRef.current.parse(row.data));
               }
               setStatus("stale");

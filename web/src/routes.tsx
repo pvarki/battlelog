@@ -1,5 +1,4 @@
 import { Anchor, AppShell, Burger, Group, Text, VisuallyHidden } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { IconLoader2, IconPlugConnectedX, IconPointFilled } from "@tabler/icons-react";
 import {
@@ -7,22 +6,24 @@ import {
   createRoute,
   type ErrorComponentProps,
   Link,
+  lazyRouteComponent,
   notFound,
   Outlet,
   useNavigate,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useRef } from "react";
 import { z } from "zod";
 import { type DashboardResponse, dashboardsApi } from "./api.ts";
+import { Placeholder } from "./components/Placeholder.tsx";
 import { DashboardNav } from "./dashboard/DashboardNav.tsx";
-import { useIsMobile } from "./dashboard/mobile.ts";
-import { validateEventSearch } from "./event-filters.ts";
-import { CONNECTION_LABEL, useConnectionState } from "./live-events.ts";
-import { Placeholder } from "./Placeholder.tsx";
-import { DashboardPage } from "./pages/DashboardPage.tsx";
+import { validateEventSearch } from "./events/event-filters.ts";
+import { CONNECTION_LABEL, useConnectionState } from "./events/live-events.ts";
 import { DashboardsPage } from "./pages/DashboardsPage.tsx";
-import { EventExplorerPage } from "./pages/EventExplorerPage.tsx";
+import { useStoredSetting } from "./stored-setting.ts";
+import { TakIndicator } from "./tak/TakIndicator.tsx";
+import { useIsMobile } from "./viewport.ts";
 
 // The current page renders full-strength; elsewhere links stay dimmed.
 const NavLink = ({ to, children }: { to: string; children: string }) => (
@@ -65,32 +66,25 @@ const ConnectionIndicator = () => {
   useEffect(() => {
     if (state === "down" && previous.current !== "down") {
       notifications.show({
-        color: "red",
+        color: "danger",
         title: "Event stream down",
         message: "Live updates are not arriving — data shown may be stale.",
         autoClose: 8000,
       });
     } else if (state === "live" && previous.current === "down") {
-      notifications.show({ color: "teal", message: "Event stream reconnected" });
+      notifications.show({ color: "success", message: "Event stream reconnected" });
     }
     previous.current = state;
   }, [state]);
 
   return (
     <Group gap={4} ml="auto" c={c} title={`Event stream: ${label}`} role="status">
-      <Icon size={16} stroke={1.5} />
-      {state === "live" ? (
-        <VisuallyHidden>{label}</VisuallyHidden>
-      ) : (
-        // Icon-only on phones (the label wraps the 48px header onto the
-        // page), but the status text must stay readable to screen readers.
-        <>
-          <Text fz="xs" visibleFrom="sm">
-            {label}
-          </Text>
-          <VisuallyHidden hiddenFrom="sm">{label}</VisuallyHidden>
-        </>
-      )}
+      <Icon size={16} />
+      {/* Icon-only on phones: a label wraps the 48px header onto the page. */}
+      <Text fz="xs" c={state === "live" ? "dark.0" : undefined} visibleFrom="sm">
+        {state === "live" ? "Log" : `Log ${label.toLowerCase()}`}
+      </Text>
+      <VisuallyHidden hiddenFrom="sm">Event stream: {label}</VisuallyHidden>
     </Group>
   );
 };
@@ -106,8 +100,10 @@ const Shell = ({
 }) => {
   // Phones already have their own switchers; the panel is a desktop affordance.
   const isMobile = useIsMobile();
-  const [navOpen, setNavOpen] = useLocalStorage({ key: "battlelog.nav-open", defaultValue: true });
-  const hasNav = !!dashboards && !isMobile;
+  const [navOpen, setNavOpen] = useStoredSetting({ key: "battlelog.nav-open", defaultValue: true });
+  // The map needs the width; its own drawers replace the views panel there.
+  const onMap = useRouterState({ select: (s) => s.location.pathname === "/map" });
+  const hasNav = !!dashboards && !isMobile && !onMap;
   return (
     <AppShell
       header={{ height: 48 }}
@@ -119,7 +115,7 @@ const Shell = ({
       padding={0}
     >
       <AppShell.Header>
-        <Group h="100%" px="md" gap="lg" wrap="nowrap">
+        <Group h="100%" px="md" gap={isMobile ? "sm" : "lg"} wrap="nowrap">
           {hasNav && (
             <Burger
               size="sm"
@@ -132,8 +128,12 @@ const Shell = ({
             BATTLELOG
           </Text>
           <NavLink to="/">Home</NavLink>
-          <NavLink to="/events">Event Explorer</NavLink>
-          <ConnectionIndicator />
+          <NavLink to="/events">{isMobile ? "Events" : "Event Explorer"}</NavLink>
+          <NavLink to="/map">Map</NavLink>
+          <Group gap="md" ml="auto" wrap="nowrap">
+            <TakIndicator />
+            <ConnectionIndicator />
+          </Group>
         </Group>
       </AppShell.Header>
       {hasNav && (
@@ -249,7 +249,11 @@ export const dashboardsRoute = createRoute({
 
 // `event`: the event a widget selected (a feed row click) for others to act on,
 // e.g. a form loading it for editing. Malformed values degrade to none.
-const dashboardSearchSchema = z.object({ event: z.string().uuid().optional().catch(undefined) });
+// The dashboard's selection, which widgets follow: a log event, or a TAK item by uid.
+const dashboardSearchSchema = z.object({
+  event: z.string().uuid().optional().catch(undefined),
+  tak: z.string().min(1).max(200).optional().catch(undefined),
+});
 
 export const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -276,18 +280,33 @@ export const dashboardRoute = createRoute({
       throw err;
     }
   },
-  component: DashboardPage,
+  component: lazyRouteComponent(() => import("./pages/DashboardPage.tsx"), "DashboardPage"),
 });
 
 export const eventExplorerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/events",
   validateSearch: validateEventSearch,
-  component: EventExplorerPage,
+  component: lazyRouteComponent(() => import("./pages/EventExplorerPage.tsx"), "EventExplorerPage"),
+});
+
+// What "Open in Map" carries over: the selection and the view (`lng,lat,zoom[,bearing]`).
+const mapSearchSchema = z.object({
+  tak: z.string().min(1).max(200).optional().catch(undefined),
+  event: z.string().uuid().optional().catch(undefined),
+  at: z.string().max(80).optional().catch(undefined),
+});
+
+export const mapRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/map",
+  validateSearch: (search: unknown) => mapSearchSchema.parse(search),
+  component: lazyRouteComponent(() => import("./pages/MapPage.tsx"), "MapPage"),
 });
 
 export const routeTree = rootRoute.addChildren([
   dashboardsRoute,
   dashboardRoute,
   eventExplorerRoute,
+  mapRoute,
 ]);

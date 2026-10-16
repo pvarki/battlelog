@@ -9,6 +9,7 @@ import pkg from "../package.json" with { type: "json" };
 import { logger } from "./lib/logger.ts";
 import { dashboardRoutes } from "./routes/dashboards/dashboards.routes.ts";
 import { eventRoutes } from "./routes/events/events.routes.ts";
+import { meRoutes } from "./routes/me/me.routes.ts";
 import { rmRoutes } from "./routes/rmapi/rmapi.routes.ts";
 
 const joinBase = (path: string) => {
@@ -46,6 +47,7 @@ export const createApp = () => {
     const base = joinBase(versioned);
     app.route(base, eventRoutes);
     app.route(base, dashboardRoutes);
+    app.route(base, meRoutes);
   }
 
   if (ENV.RM_API_ENABLED) {

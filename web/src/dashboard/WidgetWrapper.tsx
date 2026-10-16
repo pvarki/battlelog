@@ -3,7 +3,7 @@ import { IconDots } from "@tabler/icons-react";
 import { Component, type ReactNode, Suspense, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Widget } from "../api.ts";
-import { Placeholder } from "../Placeholder.tsx";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { formatDateTime } from "../time.ts";
 import { getWidget, validateWidgetConfig } from "./registry.ts";
 import { configTitle } from "./widget-base.ts";
@@ -136,6 +136,7 @@ export const WidgetWrapper = ({
         <Group
           className="widget-drag-handle screen-only"
           justify="space-between"
+          wrap="nowrap"
           px="xs"
           py={4}
           style={{
@@ -143,14 +144,14 @@ export const WidgetWrapper = ({
             borderBottom: "1px solid var(--mantine-color-dark-4)",
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             {editMode && (
               <Text fz="xs" c="dimmed">
                 {typeName}
               </Text>
             )}
             {title && (
-              <Text fw={600} fz="sm" lh={1.2}>
+              <Text fw={600} fz="sm" lh={1.2} truncate title={title}>
                 {title}
               </Text>
             )}
@@ -159,7 +160,7 @@ export const WidgetWrapper = ({
             <Menu position="bottom-end" onOpen={() => setPrintScope(readPrintScope())}>
               <Menu.Target>
                 <ActionIcon variant="subtle" color="gray" size="sm" aria-label="Widget menu">
-                  <IconDots size={16} stroke={1.5} />
+                  <IconDots size={16} />
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
@@ -170,7 +171,7 @@ export const WidgetWrapper = ({
                   Reset size
                 </Menu.Item>
                 <Menu.Divider />
-                <Menu.Item color="red" onClick={onRemove}>
+                <Menu.Item color="danger" onClick={onRemove}>
                   Delete
                 </Menu.Item>
               </Menu.Dropdown>

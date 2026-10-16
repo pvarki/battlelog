@@ -67,7 +67,7 @@ const TabsConfigForm = ({ config, onChange }: WidgetConfigProps<TabsConfig>) => 
 
       <Menu position="bottom-start">
         <Menu.Target>
-          <Button variant="light" disabled={tabs.length >= MAX_TABS}>
+          <Button size="xs" variant="default" disabled={tabs.length >= MAX_TABS}>
             Add tab
           </Button>
         </Menu.Target>

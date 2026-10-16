@@ -16,8 +16,8 @@ import {
   RoomMemberEvent,
 } from "matrix-js-sdk";
 import { type CSSProperties, useEffect, useReducer, useRef, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { Placeholder } from "../../Placeholder.tsx";
 import { formatDate } from "../../time.ts";
 import { Composer, type ComposerTarget } from "./Composer.tsx";
 import { EncryptionBanner, useUnlock, VerificationDialog } from "./Encryption.tsx";
@@ -249,7 +249,7 @@ const RoomChat = ({
       sendAttachment(client, room.roomId, file, relation)
         .catch((err: unknown) =>
           notifications.show({
-            color: "red",
+            color: "danger",
             title: `Couldn't send ${file.name}`,
             message: err instanceof Error ? err.message : String(err),
           }),
@@ -311,7 +311,7 @@ const RoomChat = ({
           inset={0}
           align="center"
           justify="center"
-          bg="rgba(17, 20, 24, 0.85)"
+          bg="color-mix(in srgb, var(--mantine-color-body) 85%, transparent)"
           style={{ zIndex: 3, border: "2px dashed var(--mantine-color-dark-2)", borderRadius: 6 }}
         >
           <Text fw={600}>Drop to send to {room.name}</Text>
@@ -384,13 +384,13 @@ const RoomChat = ({
                 {firstUnread && (
                   <Divider
                     mt="sm"
-                    color="red.6"
+                    color="danger.6"
                     label="New messages"
                     labelPosition="right"
                     styles={{
                       label: {
                         fontSize: "var(--mantine-font-size-xs)",
-                        color: "var(--mantine-color-red-4)",
+                        color: "var(--mantine-color-danger-4)",
                       },
                     }}
                   />
@@ -528,7 +528,7 @@ const ChosenRoom = ({
           onClick: () =>
             void client.joinRoom(room.roomId).catch((err: unknown) =>
               notifications.show({
-                color: "red",
+                color: "danger",
                 title: "Couldn't accept the invite",
                 message: err instanceof Error ? err.message : String(err),
               }),

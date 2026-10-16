@@ -30,7 +30,7 @@ export const ItemActions = ({ name, onRemove, removeDisabled, move }: ItemAction
           disabled={move.index === 0}
           onClick={() => move.onMove(-1)}
         >
-          <IconArrowUp size={16} stroke={1.5} />
+          <IconArrowUp size={16} />
         </ActionIcon>
         <ActionIcon
           variant="subtle"
@@ -40,7 +40,7 @@ export const ItemActions = ({ name, onRemove, removeDisabled, move }: ItemAction
           disabled={move.index === move.count - 1}
           onClick={() => move.onMove(1)}
         >
-          <IconArrowDown size={16} stroke={1.5} />
+          <IconArrowDown size={16} />
         </ActionIcon>
       </>
     )}
@@ -52,12 +52,12 @@ export const ItemActions = ({ name, onRemove, removeDisabled, move }: ItemAction
       disabled={removeDisabled}
       onClick={onRemove}
     >
-      <IconX size={16} stroke={1.5} />
+      <IconX size={16} />
     </ActionIcon>
   </Group>
 );
 
-/** One entry of a repeated list in a widget settings form. Add buttons below the list are `variant="light"`, labelled "Add <thing>". */
+/** One entry of a repeated list in a widget settings form. Add buttons below the list are `variant="default"` `size="xs"`, labelled "Add <thing>". */
 export const ItemCard = ({
   label,
   children,

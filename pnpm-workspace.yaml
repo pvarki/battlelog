@@ -8,3 +8,5 @@ allowBuilds:
   protobufjs: true
 overrides:
   '@grpc/grpc-js': 1.14.5
+  # pmtiles pins 0.8.2; 0.8.3 fixes the malformed-ZIP64 hang (GHSA-px8p-9vwx-vf98).
+  fflate: 0.8.3

@@ -125,7 +125,7 @@ const Attachment = ({ client, content }: { client: MatrixClient; content: MediaC
       size="compact-sm"
       leftSection={<IconFile size={14} />}
       loading={state === "loading"}
-      color={state === "error" ? "red" : undefined}
+      color={state === "error" ? "danger" : undefined}
       onClick={open}
       maw="100%"
       styles={{ label: { overflow: "hidden", textOverflow: "ellipsis" } }}
@@ -381,7 +381,10 @@ const jumpTo = (from: HTMLElement, eventId: string) => {
     ?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(eventId)}"]`);
   target?.scrollIntoView({ block: "center", behavior: "smooth" });
   target?.animate(
-    [{ backgroundColor: "rgba(250, 176, 5, 0.25)" }, { backgroundColor: "transparent" }],
+    [
+      { backgroundColor: "color-mix(in srgb, var(--mantine-color-warning-6) 25%, transparent)" },
+      { backgroundColor: "transparent" },
+    ],
     { duration: 1500 },
   );
 };
@@ -472,7 +475,7 @@ const DeleteButton = ({ onDelete }: { onDelete: () => void }) => {
           <Text fz="sm">Delete for everyone?</Text>
           <Button
             size="compact-xs"
-            color="red"
+            color="danger"
             onClick={() => {
               setOpened(false);
               onDelete();
@@ -503,7 +506,7 @@ const ThreadLabel = ({
         {root && !root.isRedacted() && root.getType() === "m.room.message"
           ? `: ${eventPreview(root)}`
           : ""}{" "}
-        <Text span fz="xs" c="blue.4">
+        <Text span fz="xs" c="accent.4">
           View
         </Text>
       </Text>
@@ -566,7 +569,7 @@ export const Message = ({
   const deleteMessage = () =>
     void client.redactEvent(room.roomId, ev.getId() ?? "").catch((err: unknown) =>
       notifications.show({
-        color: "red",
+        color: "danger",
         title: "Couldn't delete the message",
         message: err instanceof Error ? err.message : String(err),
       }),
@@ -636,7 +639,7 @@ export const Message = ({
       )}
       {failed && (
         <Group gap={6} mt={2}>
-          <Text fz="xs" c="red.4">
+          <Text fz="xs" c="danger.4">
             Not sent
           </Text>
           <Anchor component="button" fz="xs" onClick={() => void client.resendEvent(ev, room)}>

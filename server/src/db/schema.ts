@@ -128,14 +128,22 @@ export const events = pgTable(
     ),
     eventIdIdx: index("events_event_id_idx").on(t.eventId),
     eventTimeIdx: index("events_event_time_idx").on(t.eventTime),
+    happenedIdIdx: index("events_happened_id_idx").on(
+      sql`(COALESCE(${t.eventTime}, ${t.createdAt})) DESC`,
+      sql`${t.id} DESC`,
+    ),
     createdAtIdx: index("events_created_at_idx").on(t.createdAt),
     tagsIdx: index("events_tags_gin_idx").using("gin", t.tags),
     hcoeDomainsIdx: index("events_hcoe_domains_gin_idx").using("gin", t.hcoeDomains),
     typeIdx: index("events_type_idx").on(t.type),
     createdByIdx: index("events_created_by_idx").on(t.createdBy),
     locationPointIdx: index("events_location_point_gix").using("gist", t.locationPoint),
+    takUidIdx: index("events_tak_uid_idx").on(sql`(${t.data} #>> '{tak,uid}')`),
   }),
 );
+
+/** The TAK item an event is linked to; indexed as `events_tak_uid_idx`, so query it exactly this way. */
+export const takUidOf = sql`(${events.data} #>> '{tak,uid}')`;
 
 export type EventRow = typeof events.$inferSelect;
 export type EventInsert = typeof events.$inferInsert;

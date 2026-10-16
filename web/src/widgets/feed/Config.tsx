@@ -5,20 +5,21 @@ import {
   NumberInput,
   Select,
   Stack,
+  Switch,
   TagsInput,
   Text,
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
-import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
+import type { DataFilter } from "../../event-binding/filter.ts";
+import { optionalText } from "../../form-utils.ts";
 import {
   columnWidth,
   type FeedColumn,
   type FeedConfig,
-  type FeedDataFilter,
   FIELD_LABEL,
   FIELDS,
   labelFor,
@@ -36,9 +37,9 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
   const setColumn = (id: string, patch: Partial<FeedColumn>) =>
     setColumns(config.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   const dataFilters = config.dataFilters ?? [];
-  const setDataFilters = (next: FeedDataFilter[]) =>
+  const setDataFilters = (next: DataFilter[]) =>
     onChange({ ...config, dataFilters: next.length ? next : undefined });
-  const setDataFilter = (id: string, patch: Partial<FeedDataFilter>) =>
+  const setDataFilter = (id: string, patch: Partial<DataFilter>) =>
     setDataFilters(dataFilters.map((f) => (f.id === id ? { ...f, ...patch } : f)));
 
   return (
@@ -78,13 +79,13 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
                 aria-label="Remove data filter"
                 onClick={() => setDataFilters(dataFilters.filter((x) => x.id !== f.id))}
               >
-                <IconX size={18} stroke={1.5} />
+                <IconX size={14} />
               </ActionIcon>
             </Group>
           ))}
           <Button
             size="compact-xs"
-            variant="light"
+            variant="default"
             disabled={dataFilters.length >= 10}
             onClick={() =>
               setDataFilters([...dataFilters, { id: crypto.randomUUID(), path: "", value: "" }])
@@ -125,6 +126,14 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
             ...config,
             createdBy: optionalText(e.currentTarget.value),
           })
+        }
+      />
+      <Switch
+        label="Follow the map selection"
+        description="While a TAK item is selected, only events linked to it"
+        checked={config.followTakSelection ?? false}
+        onChange={(e) =>
+          onChange({ ...config, followTakSelection: e.currentTarget.checked || undefined })
         }
       />
       <NumberInput
@@ -195,7 +204,8 @@ const FeedConfigForm = ({ config, onChange }: WidgetConfigProps<FeedConfig>) => 
       ))}
 
       <Button
-        variant="light"
+        size="xs"
+        variant="default"
         disabled={config.columns.length >= 20}
         onClick={() =>
           setColumns([

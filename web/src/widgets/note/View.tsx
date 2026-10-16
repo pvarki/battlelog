@@ -25,6 +25,7 @@ const NoteView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps
           onChange={(e) => update({ text: e.currentTarget.value })}
           onBlur={flush}
           placeholder="Write a note…"
+          aria-label={config.title || "Note"}
           variant="unstyled"
           disabled={status === "loading" || status === "unavailable"}
           styles={{

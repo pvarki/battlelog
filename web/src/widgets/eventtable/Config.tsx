@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -113,11 +114,18 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
           checked={config.allowFiltering}
           onChange={(e) => onChange({ ...config, allowFiltering: e.currentTarget.checked })}
         />
+        <Switch
+          size="xs"
+          label="Follow the map selection"
+          description="While a TAK item is selected, only events linked to it"
+          checked={config.followTakSelection ?? false}
+          onChange={(e) =>
+            onChange({ ...config, followTakSelection: e.currentTarget.checked || undefined })
+          }
+        />
       </Group>
 
-      <Text fz="sm" fw={600}>
-        Columns
-      </Text>
+      <SectionHeading>Columns</SectionHeading>
       {config.columns.map((col, index) => (
         <ItemCard
           key={col.id}
@@ -200,7 +208,8 @@ const EventTableConfigForm = ({ config, onChange }: WidgetConfigProps<EventTable
         </ItemCard>
       ))}
       <Button
-        variant="light"
+        size="xs"
+        variant="default"
         onClick={() =>
           setColumns([
             ...config.columns,

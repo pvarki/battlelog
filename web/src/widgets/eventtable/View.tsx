@@ -15,16 +15,18 @@ import { IconChevronDown, IconChevronUp, IconFilter, IconFilterOff } from "@tabl
 import { getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 import type { EventResponse } from "../../api.ts";
+import { Placeholder } from "../../components/Placeholder.tsx";
+import { StaleNotice } from "../../components/StaleNotice.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { ValueCell } from "../../event-binding/cells.tsx";
+import { type EventFilter, matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import type { BoundState } from "../../event-binding/paths.ts";
 import { type EventQuery, queryFilter } from "../../event-binding/query.ts";
 import { HEADER_FIELD, useBoundEvents } from "../../event-binding/useBoundEvents.ts";
-import { useLiveEvents } from "../../live-events.ts";
-import { Placeholder } from "../../Placeholder.tsx";
-import { StaleNotice } from "../../StaleNotice.tsx";
+import { useLiveEvents } from "../../events/live-events.ts";
+import { linkedTo } from "../../tak/links.ts";
 import { formatShortDateTime } from "../../time.ts";
-import { type FeedConfig, matchesFeed, queryFor } from "../feed/widget.ts";
+import { TakSelectionPill } from "../feed/TakSelectionPill.tsx";
 import { FilterInput } from "./FilterInput.tsx";
 import {
   builtinValue,
@@ -44,7 +46,7 @@ import {
 const dashboardRoute = getRouteApi("/d/$dashboardId");
 
 const EventTableView = ({ config, onConfigure }: WidgetViewProps<EventTableConfig>) => {
-  const filter = queryFilter(config as EventQuery, config.rowLimit);
+  const filter = queryFilter(config as EventQuery);
   if (!filter) {
     return (
       <Placeholder
@@ -79,12 +81,16 @@ const displayText = (col: TableColumn, cell: BoundState): string => {
   return col.source === "time" ? formatShortDateTime(String(cell.value)) : String(cell.value);
 };
 
-const EventTable = ({ config, filter }: { config: EventTableConfig; filter: FeedConfig }) => {
+const EventTable = ({ config, filter }: { config: EventTableConfig; filter: EventFilter }) => {
+  const { tak } = dashboardRoute.useSearch();
+  const followed = config.followTakSelection ? tak : undefined;
+  const link = followed ? linkedTo(followed) : undefined;
   const { events, failed } = useLiveEvents({
     limit: config.rowLimit,
-    query: queryFor(filter),
-    match: (event) => matchesFeed(event, filter),
+    query: { ...queryFor(filter), ...link?.query },
+    match: (event) => matchesFeed(event, filter) && (!link || link.match(event)),
   });
+  const pill = followed && <TakSelectionPill uid={followed} events={events} />;
   const bound = useBoundEvents([], events ?? []);
   // null = the configured default order.
   const [sort, setSort] = useState<{ by: string; dir: SortDir } | null>(null);
@@ -102,11 +108,20 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Feed
   if (events.length === 0) {
     return (
       <Center h="100%" p="sm">
-        <Text c="dimmed" fz="xs" ta="center">
-          {failed
-            ? "Could not load events — new ones will still arrive on the live stream."
-            : "No matching events"}
-        </Text>
+        <Stack gap={4} align="center">
+          {pill}
+          {failed ? (
+            <Placeholder
+              title="Couldn't load events"
+              detail="New ones will still arrive on the live stream."
+            />
+          ) : (
+            <Placeholder
+              title="No matching events"
+              detail="Nothing in the log matches this table's query."
+            />
+          )}
+        </Stack>
       </Center>
     );
   }
@@ -151,18 +166,19 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Feed
     <Box h="100%" style={{ position: "relative" }}>
       {config.allowFiltering && anyFilter && (
         <ActionIcon
-          variant="light"
-          color="accent"
+          variant="subtle"
+          color="gray"
           size="sm"
           aria-label="Clear all filters"
           onClick={() => setFilters({})}
           style={{ position: "absolute", top: 6, right: 6, zIndex: 3 }}
         >
-          <IconFilterOff size={14} />
+          <IconFilterOff size={16} />
         </ActionIcon>
       )}
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
         {failed && <StaleNotice />}
+        {pill}
         <Table striped highlightOnHover stickyHeader fz="sm" verticalSpacing={4}>
           <Table.Thead>
             <Table.Tr>
@@ -222,9 +238,12 @@ const EventTable = ({ config, filter }: { config: EventTableConfig; filter: Feed
           </Table.Tbody>
         </Table>
         {rows.length === 0 && (
-          <Text c="dimmed" fz="xs" ta="center" mt="sm">
-            No rows match the filters
-          </Text>
+          <Box py="md">
+            <Placeholder
+              title="No matching rows"
+              detail="Clear a column filter to see the hidden rows."
+            />
+          </Box>
         )}
       </Box>
     </Box>

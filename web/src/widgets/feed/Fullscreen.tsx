@@ -10,26 +10,20 @@ import {
   Modal,
   SimpleGrid,
   TagsInput,
-  Text,
   TextInput,
 } from "@mantine/core";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { EventResponse } from "../../api.ts";
-import { EventDetail } from "../../EventDetail.tsx";
-import { useLiveEvents } from "../../live-events.ts";
-import { StaleNotice } from "../../StaleNotice.tsx";
+import { EventDetail } from "../../components/EventDetail.tsx";
+import { Placeholder } from "../../components/Placeholder.tsx";
+import { StaleNotice } from "../../components/StaleNotice.tsx";
+import { type FilterExtras, matchesFeed, queryFor } from "../../event-binding/filter.ts";
+import { useLiveEvents } from "../../events/live-events.ts";
+import { linkedTo } from "../../tak/links.ts";
+import { TakSelectionPill } from "./TakSelectionPill.tsx";
 import { FeedTable } from "./View.tsx";
-import {
-  type FeedColumn,
-  type FeedConfig,
-  type FeedExtras,
-  FIELD_LABEL,
-  FIELDS,
-  labelFor,
-  matchesFeed,
-  queryFor,
-} from "./widget.ts";
+import { type FeedColumn, type FeedConfig, FIELD_LABEL, FIELDS, labelFor } from "./widget.ts";
 
 const LIMIT = 100;
 
@@ -44,7 +38,7 @@ const EMPTY = {
   createdAtTo: "",
 };
 
-const toExtras = (f: typeof EMPTY): FeedExtras => ({
+const toExtras = (f: typeof EMPTY): FilterExtras => ({
   ...(f.types.length ? { types: f.types } : {}),
   ...(f.tags.length ? { tags: f.tags } : {}),
   ...(f.search ? { search: f.search } : {}),
@@ -61,10 +55,13 @@ const lockedNote = (values: string[] | undefined): string | undefined =>
 const FeedFullscreen = ({
   opened,
   config,
+  followed,
   onClose,
 }: {
   opened: boolean;
   config: FeedConfig;
+  /** The TAK item the widget is narrowed to, kept in fullscreen. */
+  followed: string | undefined;
   onClose: () => void;
 }) => {
   const navigate = useNavigate();
@@ -91,10 +88,11 @@ const FeedFullscreen = ({
   const columns = candidates.filter((c) => visible.includes(c.id));
 
   const extras = toExtras(filters);
+  const link = followed ? linkedTo(followed) : undefined;
   const { events, failed, arrived } = useLiveEvents({
     limit: LIMIT,
-    query: queryFor(config, extras),
-    match: (row: EventResponse) => matchesFeed(row, config, extras),
+    query: { ...queryFor(config, extras), ...link?.query },
+    match: (row: EventResponse) => matchesFeed(row, config, extras) && (!link || link.match(row)),
   });
 
   return (
@@ -105,6 +103,7 @@ const FeedFullscreen = ({
       title={config.title || "Event feed"}
       transitionProps={{ transition: "pop", duration: 180 }}
     >
+      {followed && <TakSelectionPill uid={followed} events={events} />}
       <Fieldset legend="Filters" mb="sm">
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           <TagsInput
@@ -159,7 +158,7 @@ const FeedFullscreen = ({
           />
         </SimpleGrid>
         <Group justify="flex-end" mt="xs">
-          <Button variant="subtle" size="xs" onClick={() => setFilters(EMPTY)}>
+          <Button variant="default" size="xs" onClick={() => setFilters(EMPTY)}>
             Reset extra filters
           </Button>
         </Group>
@@ -180,11 +179,12 @@ const FeedFullscreen = ({
           <Loader size="sm" />
         </Center>
       ) : failed && events.length === 0 ? (
-        <Center h={200}>
-          <Text c="dimmed" fz="sm">
-            Could not load events — new ones will still arrive on the live stream.
-          </Text>
-        </Center>
+        <Box h={200}>
+          <Placeholder
+            title="Couldn't load events"
+            detail="New ones will still arrive on the live stream."
+          />
+        </Box>
       ) : (
         <Box style={{ overflowX: "auto" }}>
           {failed && <StaleNotice />}

@@ -19,6 +19,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { GridLayout, getCompactor, type Layout } from "react-grid-layout";
 import type { DashboardResponse, Widget } from "../api.ts";
 import { api, dashboardsApi } from "../api.ts";
+import { Placeholder } from "../components/Placeholder.tsx";
 import { GRID_COLS, GRID_MARGIN, GRID_ROWS } from "../dashboard/grid.ts";
 import {
   canRedo as historyCanRedo,
@@ -29,17 +30,15 @@ import {
   step,
 } from "../dashboard/history.ts";
 import { MobileSwitcher } from "../dashboard/MobileSwitcher.tsx";
-import { useIsMobile } from "../dashboard/mobile.ts";
 import { firstFreeSlot } from "../dashboard/placement.ts";
 import { rememberOpened } from "../dashboard/recent.ts";
-import { getWidget, registry } from "../dashboard/registry.ts";
+import { getWidget, mapChildWidgets, registry } from "../dashboard/registry.ts";
 import { TEMPLATE_TAG, templateEventFor, widgetEventPointers } from "../dashboard/transfer.ts";
 import { DOC_STATUS_LABEL, type DocStatus } from "../dashboard/useEventDocument.ts";
 import { WidgetConfigPanel } from "../dashboard/WidgetConfigPanel.tsx";
 import { WidgetWrapper } from "../dashboard/WidgetWrapper.tsx";
-import { Placeholder } from "../Placeholder.tsx";
 import { useWakeLock } from "../use-wake-lock.ts";
-import { TABS_TYPE, withFreshTabIds } from "../widgets/tabs/widget.ts";
+import { useIsMobile } from "../viewport.ts";
 
 const route = getRouteApi("/d/$dashboardId");
 
@@ -349,7 +348,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     );
     if (!slot) {
       notifications.show({
-        color: "red",
+        color: "danger",
         title: "No room on this view",
         message: "Remove or resize a widget to make space.",
       });
@@ -381,7 +380,8 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
     if (!slot) return;
     const id = crypto.randomUUID();
     setEnteringId(id);
-    const config = w.type === TABS_TYPE ? withFreshTabIds(w.config) : w.config;
+    // Child ids key template documents and mobile entries, so a copy must not reuse them.
+    const config = mapChildWidgets(w, (child) => ({ ...child, id: crypto.randomUUID() }));
     persist([...widgets, { ...w, id, config, layout: { ...w.layout, ...slot } }]);
   };
 
@@ -476,7 +476,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
                 disabled={!canUndo}
                 onClick={() => jump(-1)}
               >
-                <IconArrowBackUp size={18} stroke={1.5} />
+                <IconArrowBackUp size={16} />
               </ActionIcon>
               <ActionIcon
                 variant="default"
@@ -486,7 +486,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
                 disabled={!canRedo}
                 onClick={() => jump(1)}
               >
-                <IconArrowForwardUp size={18} stroke={1.5} />
+                <IconArrowForwardUp size={16} />
               </ActionIcon>
             </>
           )}
@@ -495,7 +495,7 @@ const DashboardGrid = ({ dashboard }: { dashboard: DashboardResponse }) => {
             // each one turns that into a round-trip per widget.
             <Menu position="bottom-end" closeOnItemClick={false}>
               <Menu.Target>
-                <Button variant="light">Add widget</Button>
+                <Button variant="default">Add widget</Button>
               </Menu.Target>
               <Menu.Dropdown>
                 {[...registry.values()].map((d) => (

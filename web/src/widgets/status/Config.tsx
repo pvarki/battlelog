@@ -1,6 +1,6 @@
-import { Button, Divider, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
+import { Button, Group, SegmentedControl, Stack, Switch, TextInput } from "@mantine/core";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { EventPicker } from "../../dashboard/EventPicker.tsx";
-import { optionalText } from "../../dashboard/form-utils.ts";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
@@ -11,6 +11,7 @@ import {
   QueryEditor,
   useFieldSuggestions,
 } from "../../event-binding/editors.tsx";
+import { optionalText } from "../../form-utils.ts";
 import type { StatusConfig, StatusGroup, StatusProperty, StatusRow } from "./widget.ts";
 
 const EMPTY_GROUP: StatusGroup = {
@@ -151,7 +152,8 @@ const GroupEditor = ({
             />
           ))}
           <Button
-            variant="light"
+            size="xs"
+            variant="default"
             onClick={() =>
               onChange({
                 ...group,
@@ -189,10 +191,10 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
 
   return (
     <Stack>
-      <Divider label="General" labelPosition="left" />
+      <SectionHeading>General</SectionHeading>
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
 
-      <Divider label="Statuses" labelPosition="left" />
+      <SectionHeading>Statuses</SectionHeading>
       {config.statuses.map((row, index) => (
         <ItemCard
           key={row.id}
@@ -208,7 +210,7 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
             <Group wrap="nowrap" align="flex-end">
               <TextInput
                 label="Label"
-                description="Use / to group, e.g. 1.ryhmä/Pena (3 levels max)"
+                description="Use / to group, e.g. 1st Platoon/Alpha (3 levels max)"
                 size="xs"
                 style={{ flex: 1 }}
                 value={row.label}
@@ -291,7 +293,8 @@ const StatusConfigForm = ({ config, onChange }: WidgetConfigProps<StatusConfig>)
       ))}
 
       <Button
-        variant="light"
+        size="xs"
+        variant="default"
         onClick={() =>
           setRows([
             ...config.statuses,

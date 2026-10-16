@@ -2,7 +2,6 @@ import {
   ActionIcon,
   Button,
   Checkbox,
-  Divider,
   Group,
   Menu,
   SegmentedControl,
@@ -13,13 +12,15 @@ import {
   TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
-import { optionalText } from "../../dashboard/form-utils.ts";
+import { SectionHeading } from "../../components/SectionHeading.tsx";
 import { ItemCard, moveItem } from "../../dashboard/ItemCard.tsx";
 import type { WidgetConfigProps } from "../../dashboard/registry.ts";
 import { TitleInput } from "../../dashboard/TitleInput.tsx";
 import { FieldInput, QueryEditor, useFieldSuggestions } from "../../event-binding/editors.tsx";
+import { optionalText } from "../../form-utils.ts";
 import {
   buildEvent,
+  dataKey,
   EMPTY_EVENT_SELECT,
   EVENT_FIELDS,
   type EventFieldName,
@@ -27,7 +28,6 @@ import {
   type FormConfig,
   type FormField,
   fieldLabel,
-  slugify,
   type VisibleField,
 } from "./widget.ts";
 
@@ -68,6 +68,7 @@ const INPUT_OPTIONS = [
   { value: "select", label: "select" },
   { value: "checkbox", label: "checkbox" },
   { value: "event", label: "event (pick from a query)" },
+  { value: "tak", label: "TAK item" },
 ];
 
 const EventSelectEditor = ({
@@ -85,9 +86,7 @@ const EventSelectEditor = ({
     });
   return (
     <Stack gap={4}>
-      <Text fz="xs" fw={500}>
-        Options: events matching
-      </Text>
+      <SectionHeading>Options: events matching</SectionHeading>
       <QueryEditor query={select} onChange={onChange} />
       <FieldInput
         label="Option label"
@@ -103,9 +102,7 @@ const EventSelectEditor = ({
         value={select.emptyText}
         onChange={(e) => onChange({ ...select, emptyText: e.currentTarget.value })}
       />
-      <Text fz="xs" fw={500} mt={4}>
-        On submit, update the picked event
-      </Text>
+      <SectionHeading>On submit, update the picked event</SectionHeading>
       {select.writeBack.map((rule) => (
         <Group key={rule.id} gap={6} wrap="nowrap" align="flex-end">
           <FieldInput
@@ -142,13 +139,13 @@ const EventSelectEditor = ({
               onChange({ ...select, writeBack: select.writeBack.filter((r) => r.id !== rule.id) })
             }
           >
-            <IconX size={14} stroke={1.5} />
+            <IconX size={14} />
           </ActionIcon>
         </Group>
       ))}
       <Button
         size="compact-xs"
-        variant="subtle"
+        variant="default"
         onClick={() =>
           onChange({
             ...select,
@@ -170,10 +167,13 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
   const setField = (id: string, patch: Partial<FormField>) =>
     setFields(config.fields.map((f) => (f.id === id ? ({ ...f, ...patch } as FormField) : f)));
   const add = (field: FormField) => setFields([...config.fields, field]);
+  const hasCoordinates = config.fields.some(
+    (f) => f.kind === "event" && f.field === "locationPoint",
+  );
 
   return (
     <Stack>
-      <Divider label="General" labelPosition="left" />
+      <SectionHeading>General</SectionHeading>
       <TitleInput value={config.title} onChange={(title) => onChange({ ...config, title })} />
       <TextInput
         label="Report type"
@@ -199,7 +199,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
         onChange={(e) => onChange({ ...config, allowEdit: e.currentTarget.checked || undefined })}
       />
 
-      <Divider label="Fields" labelPosition="left" />
+      <SectionHeading>Fields</SectionHeading>
       {config.fields.map((field, index) => (
         <ItemCard
           key={field.id}
@@ -269,7 +269,7 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                     label="Data key"
                     size="xs"
                     style={{ flex: 1 }}
-                    placeholder={slugify(field.label)}
+                    placeholder={dataKey({ ...field, key: undefined })}
                     value={field.key ?? ""}
                     onChange={(e) => setField(field.id, { key: e.currentTarget.value })}
                   />
@@ -310,6 +310,21 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
                   <EventSelectEditor
                     select={field.eventSelect ?? EMPTY_EVENT_SELECT}
                     onChange={(eventSelect) => setField(field.id, { eventSelect })}
+                  />
+                )}
+                {field.input === "tak" && (
+                  <Checkbox
+                    size="xs"
+                    label="Also set Coordinates from the item"
+                    description={
+                      hasCoordinates
+                        ? "Where the item is when picked; it doesn't follow the item later"
+                        : "Add an event field “Coordinates” for this to apply"
+                    }
+                    checked={field.takSetsLocation ?? false}
+                    onChange={(e) =>
+                      setField(field.id, { takSetsLocation: e.currentTarget.checked || undefined })
+                    }
                   />
                 )}
               </>
@@ -360,7 +375,9 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
 
       <Menu position="bottom-start">
         <Menu.Target>
-          <Button variant="light">Add field</Button>
+          <Button size="xs" variant="default">
+            Add field
+          </Button>
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Item
@@ -380,6 +397,19 @@ const FormConfigForm = ({ config, onChange }: WidgetConfigProps<FormConfig>) => 
             }
           >
             {FIELD_KIND_LABEL.data}
+          </Menu.Item>
+          <Menu.Item
+            onClick={() =>
+              add({
+                id: crypto.randomUUID(),
+                kind: "data",
+                label: "TAK item",
+                input: "tak",
+                options: [],
+              })
+            }
+          >
+            TAK item
           </Menu.Item>
           <Menu.Item
             onClick={() =>

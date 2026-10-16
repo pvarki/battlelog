@@ -1,12 +1,9 @@
 import { IconActivity } from "@tabler/icons-react";
-import type { InferRequestType } from "hono/client";
 import { lazy } from "react";
 import { z } from "zod";
-import type { api, EventResponse } from "../../api.ts";
 import type { WidgetDescriptor } from "../../dashboard/registry.ts";
 import { baseWidgetConfig } from "../../dashboard/widget-base.ts";
-
-type EventsQuery = InferRequestType<typeof api.events.$get>["query"];
+import { eventFilterShape } from "../../event-binding/filter.ts";
 
 /** Built-in event fields a column can show, in canonical order. */
 export const FIELDS = ["time", "header", "type", "tags", "admiralty", "createdBy"] as const;
@@ -45,27 +42,12 @@ const columnSchema = z.preprocess(
 
 export type FeedColumn = z.infer<typeof columnSchema>;
 
-const dataFilterSchema = z
-  .object({
-    id: z.string().min(1).max(64),
-    /** Dot path into `data`, like a data column's. */
-    path: z.string().max(200).default(""),
-    value: z.string().max(200).default(""),
-  })
-  .strict();
-
-export type FeedDataFilter = z.infer<typeof dataFilterSchema>;
-
 const configSchema = z
   .object({
     ...baseWidgetConfig,
-    types: z.array(z.string().min(1)).optional(),
-    tags: z.array(z.string().min(1)).optional(),
-    /** Header substring, case-insensitive. */
-    search: z.string().optional(),
-    createdBy: z.string().optional(),
-    /** Exact-value matches on `data`; only applied while `types` is set (the server requires it). */
-    dataFilters: z.array(dataFilterSchema).max(10).optional(),
+    ...eventFilterShape,
+    /** While the map has a TAK item selected (`?tak=`), only events linked to it. */
+    followTakSelection: z.boolean().optional(),
     rows: z.number().int().min(1).max(100).default(10),
     columns: z
       .array(columnSchema)
@@ -77,31 +59,6 @@ const configSchema = z
 
 export type FeedConfig = z.infer<typeof configSchema>;
 
-/**
- * Ephemeral fullscreen filters. They only ever narrow: config filters stay
- * locked, extras AND on top. Dates are datetime-local strings.
- */
-export type FeedExtras = {
-  types?: string[];
-  tags?: string[];
-  search?: string;
-  createdBy?: string;
-  eventTimeFrom?: string;
-  eventTimeTo?: string;
-  createdAtFrom?: string;
-  createdAtTo?: string;
-};
-
-/** Scalar at a dot path in the event's `data` jsonb; "" when missing or non-scalar. */
-export const dataValue = (data: unknown, path: string): string => {
-  let v: unknown = data;
-  for (const key of path.split(".")) {
-    if (v === null || typeof v !== "object") return "";
-    v = (v as Record<string, unknown>)[key];
-  }
-  return v == null || typeof v === "object" ? "" : String(v);
-};
-
 export const labelFor = (col: FeedColumn): string => {
   if (col.label) return col.label;
   if (col.source !== "data") return FIELD_LABEL[col.source];
@@ -111,73 +68,15 @@ export const labelFor = (col: FeedColumn): string => {
 const widthForLabel = (label: string): number =>
   Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, label.length * 8 + 32));
 
-export const columnWidth = (col: FeedColumn): number => col.width ?? widthForLabel(labelFor(col));
+/** Room for a field's usual content, which its short label would undersize. */
+const CONTENT_WIDTH: Partial<Record<Field, number>> = { time: 104, header: 160, type: 120 };
 
-/** Path → value of the data filters in effect: none without types, and half-typed rows skipped. */
-export const activeDataFilters = (config: FeedConfig): Record<string, string> | undefined => {
-  if (!config.types?.length) return undefined;
-  const complete = (config.dataFilters ?? []).filter((f) => f.path.trim() && f.value);
-  if (!complete.length) return undefined;
-  return Object.fromEntries(complete.map((f) => [f.path.trim(), f.value]));
-};
-
-/**
- * Server-side query for the initial batch (limit is added by the hook).
- * Config filters win where both could apply — extras only narrow, so the
- * server result is a superset and {@link matchesFeed} does the exact cut.
- * Time ranges exist only in extras and pass straight through.
- */
-// Cast like the explorer's buildQuery: dates travel as datetime-local strings.
-export const queryFor = (config: FeedConfig, extras?: FeedExtras): EventsQuery => {
-  const data = activeDataFilters(config);
-  return {
-    ...(config.types?.length ? { types: config.types.join(",") } : {}),
-    ...(config.tags?.length ? { tags: config.tags.join(",") } : {}),
-    ...(config.search || extras?.search ? { search: config.search || extras?.search } : {}),
-    ...(config.createdBy || extras?.createdBy
-      ? { createdBy: config.createdBy || extras?.createdBy }
-      : {}),
-    ...(extras?.eventTimeFrom ? { eventTimeFrom: extras.eventTimeFrom } : {}),
-    ...(extras?.eventTimeTo ? { eventTimeTo: extras.eventTimeTo } : {}),
-    ...(extras?.createdAtFrom ? { createdAtFrom: extras.createdAtFrom } : {}),
-    ...(extras?.createdAtTo ? { createdAtTo: extras.createdAtTo } : {}),
-    ...(data ? { data: JSON.stringify(data) } : {}),
-  } as EventsQuery;
-};
-
-const inRange = (value: string | null, from?: string, to?: string): boolean => {
-  if (!from && !to) return true;
-  if (value === null) return false;
-  const t = Date.parse(value);
-  if (from && t < Date.parse(from)) return false;
-  if (to && t > Date.parse(to)) return false;
-  return true;
-};
-
-/** Client-side mirror of the full filter for rows from the shared stream. */
-export const matchesFeed = (
-  row: EventResponse,
-  config: FeedConfig,
-  extras?: FeedExtras,
-): boolean => {
-  if (config.types?.length && (row.type === null || !config.types.includes(row.type))) return false;
-  if (config.tags?.length && !config.tags.some((t) => row.tags?.includes(t))) return false;
-  if (config.search && !row.header.toLowerCase().includes(config.search.toLowerCase()))
-    return false;
-  if (config.createdBy && row.createdBy !== config.createdBy) return false;
-  for (const [path, value] of Object.entries(activeDataFilters(config) ?? {})) {
-    if (dataValue(row.data, path) !== value) return false;
-  }
-  if (!extras) return true;
-  if (extras.types?.length && (row.type === null || !extras.types.includes(row.type))) return false;
-  if (extras.tags?.length && !extras.tags.some((t) => row.tags?.includes(t))) return false;
-  if (extras.search && !row.header.toLowerCase().includes(extras.search.toLowerCase()))
-    return false;
-  if (extras.createdBy && row.createdBy !== extras.createdBy) return false;
-  if (!inRange(row.eventTime, extras.eventTimeFrom, extras.eventTimeTo)) return false;
-  if (!inRange(row.createdAt, extras.createdAtFrom, extras.createdAtTo)) return false;
-  return true;
-};
+export const columnWidth = (col: FeedColumn): number =>
+  col.width ??
+  Math.max(
+    widthForLabel(labelFor(col)),
+    col.source === "data" ? 0 : (CONTENT_WIDTH[col.source] ?? 0),
+  );
 
 const descriptor: WidgetDescriptor<FeedConfig> = {
   type: "feed",

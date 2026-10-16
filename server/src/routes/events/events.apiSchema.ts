@@ -100,6 +100,15 @@ export const eventsQuerySchema = z.object({
     })
     .pipe(z.record(z.string().min(1), z.string()))
     .optional(),
+  /** Only events with a map position. */
+  located: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true" || undefined),
+  /** Events linked to this TAK item (`data.tak.uid`). */
+  takUid: z.string().min(1).optional(),
+  /** Happened at or after: the event time, or when logged for events without one. */
+  occurredFrom: z.coerce.date().optional(),
   eventTimeFrom: z.coerce.date().optional(),
   eventTimeTo: z.coerce.date().optional(),
   createdAtFrom: z.coerce.date().optional(),
@@ -111,6 +120,8 @@ export const eventsQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
   /** Keyset pagination: pass the previous page's last id to get older rows. Ignores offset. */
   cursor: z.string().uuid().optional(),
+  /** `logged` (default): newest logged first. `happened`: newest event time first, logged time for events without one. */
+  sort: z.enum(["logged", "happened"]).default("logged"),
   includeHistory: z
     .enum(["true", "false"])
     .optional()

@@ -1,4 +1,11 @@
-import { Anchor, createTheme, Input } from "@mantine/core";
+import {
+  Anchor,
+  type CSSVariablesResolver,
+  createTheme,
+  Drawer,
+  Input,
+  Modal,
+} from "@mantine/core";
 
 /**
  * Battlelog design tokens (dark-only): Inter, 6px radius.
@@ -52,6 +59,10 @@ const WARNING = [
   "#71461a",
 ] as const;
 
+/** The accent colour where CSS variables can't reach, e.g. MapLibre paint. */
+export const ACCENT = "#8abbff";
+export const WARNING_COLOR = WARNING[4];
+
 export const theme = createTheme({
   fontFamily: "'Inter Variable', Inter, system-ui, sans-serif",
   defaultRadius: 6,
@@ -95,7 +106,7 @@ export const theme = createTheme({
       "#d3e5ff",
       "#b0d0ff",
       "#9dc5ff",
-      "#8abbff", // token
+      ACCENT, // token
       "#6ea6f2",
       "#5590dd",
       "#437ac0",
@@ -103,10 +114,10 @@ export const theme = createTheme({
       "#244e84",
     ],
   },
-  // Type ramp: body 14, small 12, caption 11.
+  // Type ramp: body 14, small 13, caption 12.
   fontSizes: {
-    xs: "0.6875rem",
-    sm: "0.75rem",
+    xs: "0.75rem",
+    sm: "0.8125rem",
     md: "0.875rem",
     lg: "1rem",
     xl: "1.125rem",
@@ -126,5 +137,22 @@ export const theme = createTheme({
     }),
     // Filled primary (#394494) is too dark for link text on dark surfaces.
     Anchor: Anchor.extend({ defaultProps: { c: "accent.4" } }),
+    // Mantine's close button is an unnamed icon; screen readers announce just "button".
+    Modal: Modal.extend({ defaultProps: { closeButtonProps: { "aria-label": "Close" } } }),
+    Drawer: Drawer.extend({ defaultProps: { closeButtonProps: { "aria-label": "Close" } } }),
+  },
+});
+
+/**
+ * Mantine draws placeholders and disabled text with dark-3, under 3:1 on a
+ * field. Placeholders often stand in for labels here (Lat, Lng, data path),
+ * so they get AA (4.5:1 on a field); disabled text stays a step dimmer.
+ */
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {},
+  dark: {
+    "--mantine-color-placeholder": "#949ca8",
+    "--mantine-color-disabled-color": "#8a929e",
   },
 });

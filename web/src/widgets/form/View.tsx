@@ -1,9 +1,12 @@
 import {
+  ActionIcon,
   Alert,
   Button,
   Checkbox,
   Group,
   Input,
+  Loader,
+  Modal,
   NumberInput,
   Select,
   Stack,
@@ -13,16 +16,25 @@ import {
   TextInput,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
+import { notifications } from "@mantine/notifications";
+import { IconCurrentLocation, IconMapPin } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { CREDIBILITY, RELIABILITY } from "../../admiralty.ts";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api, type EventResponse } from "../../api.ts";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
+import { matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
-import { useLiveEvents } from "../../live-events.ts";
-import { Placeholder } from "../../Placeholder.tsx";
-import { matchesFeed, queryFor } from "../feed/widget.ts";
+import { CREDIBILITY, RELIABILITY } from "../../events/admiralty.ts";
+import { useLiveEvents } from "../../events/live-events.ts";
+import { answerPick, canPick, requestPick } from "../../map-pick.ts";
+import { useTakSession } from "../../tak/connect.ts";
+import type { TakItem } from "../../tak/cot.ts";
+import { anchorOf, hasPosition, labelOf } from "../../tak/items.ts";
+import { parseTakLink, type TakLink, takLinkOf } from "../../tak/links.ts";
+import { useTakItems } from "../../tak/session.ts";
+import { useIsMobile } from "../../viewport.ts";
 import { FormPrint } from "./Print.tsx";
 import {
   buildEvent,
@@ -39,6 +51,7 @@ import {
   missingRequired,
   type PendingWriteBack,
   pendingWriteBacks,
+  takPickValues,
   type VisibleField,
   writeBackData,
 } from "./widget.ts";
@@ -46,6 +59,14 @@ import {
 type Status = "idle" | "sending" | "sent" | "saved" | "error";
 
 const dashboardRoute = getRouteApi("/d/$dashboardId");
+
+// Only a form whose pick finds no map on screen pays for loading one.
+const TakMapView = lazy(() =>
+  import("../../tak/TakMapView.tsx").then((m) => ({ default: m.TakMapView })),
+);
+const PICKER_CONTROLS = new Set(["search", "layers", "zoom", "status"] as const);
+
+const toMicroDegrees = (degrees: number) => Math.round(degrees * 1e6) / 1e6;
 
 /**
  * Sets the rules' fields on the picked event, merged into its current data
@@ -83,13 +104,15 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
   >([]);
   /** A selected event held back because loading it would discard unsaved input. */
   const [offered, setOffered] = useState<EventResponse | null>(null);
+  /** TAK item fields the user picked in, which the map selection no longer fills. */
+  const [takTouched, setTakTouched] = useState<string[]>([]);
   const dirty = useRef(false);
   /** Bumped whenever the form starts over, so a late save response can tell it's stale. */
   const generation = useRef(0);
   const editingId = useRef<string | undefined>(undefined);
   editingId.current = editing?.eventId;
 
-  const { event: selectedId } = dashboardRoute.useSearch();
+  const { event: selectedId, tak: selectedTak } = dashboardRoute.useSearch();
   const navigate = dashboardRoute.useNavigate();
   const clearSelection = () =>
     navigate({ search: (prev) => ({ ...prev, event: undefined }), replace: true });
@@ -100,6 +123,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     setValues(event ? eventToValues(config, event) : {});
     setOffered(null);
     setMissingIds([]);
+    setTakTouched([]);
     setProblem("");
     setStatus("idle");
     dirty.current = false;
@@ -135,6 +159,63 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
     setValues((prev) => ({ ...prev, [id]: v }));
     // Typing into a flagged field clears its error immediately.
     setMissingIds((ids) => ids.filter((x) => x !== id));
+  };
+
+  /** The field waiting for a map click; `inModal` when no map on screen could take it. */
+  const [picking, setPicking] = useState<{ fieldId: string; inModal: boolean }>();
+  const withdrawPick = useRef<() => void>(undefined);
+  useEffect(() => () => withdrawPick.current?.(), []);
+
+  const stopPicking = () => {
+    withdrawPick.current?.();
+    setPicking(undefined);
+  };
+
+  const pickOnMap = (field: VisibleField) => {
+    const again = picking?.fieldId === field.id;
+    stopPicking();
+    if (again) return;
+    const started = generation.current;
+    const inModal = !canPick();
+    withdrawPick.current = requestPick({
+      label: fieldLabel(field),
+      onPick: ([lng, lat]) => {
+        setPicking(undefined);
+        if (generation.current !== started) return;
+        set(field.id, { lat: toMicroDegrees(lat), lng: toMicroDegrees(lng) });
+      },
+      onCancel: () => setPicking(undefined),
+    });
+    setPicking({ fieldId: field.id, inModal });
+  };
+
+  const locateMe = () => {
+    if (!navigator.geolocation) {
+      notifications.show({ color: "danger", message: "This browser can't share your location" });
+      return;
+    }
+    const request = withdrawPick.current;
+    navigator.geolocation.getCurrentPosition(
+      // A fix arriving after this pick ended mustn't answer the next one.
+      ({ coords }) => {
+        if (withdrawPick.current === request) answerPick([coords.longitude, coords.latitude]);
+      },
+      () => notifications.show({ color: "danger", message: "Could not get your location" }),
+    );
+  };
+
+  /** A pick from the map selection doesn't count as input: it neither dirties the form nor sticks. */
+  const pickTak = (field: VisibleField, item: TakItem | undefined, byUser: boolean) => {
+    if (field.kind !== "data") return;
+    if (byUser) {
+      dirty.current = true;
+      setTakTouched((ids) => [...ids, field.id]);
+      setMissingIds((ids) => ids.filter((x) => x !== field.id));
+    }
+    const anchor = item && hasPosition(item) ? anchorOf(item) : undefined;
+    const point = anchor && { lat: anchor[1], lng: anchor[0] };
+    const link = item && takLinkOf(item, Date.now());
+    setValues((prev) => ({ ...prev, ...takPickValues(config, field, link, point) }));
   };
 
   const cancelEdit = () => {
@@ -233,9 +314,41 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
 
   const visible = config.fields.filter((f): f is VisibleField => f.kind !== "fixed");
 
+  const isMobile = useIsMobile();
   return (
     <>
       <FormPrint fields={config.fields} />
+      <Modal
+        opened={!!picking?.inModal}
+        onClose={stopPicking}
+        title="Pick a location"
+        size="xl"
+        fullScreen={isMobile}
+      >
+        <Stack gap="xs">
+          <Button
+            size="xs"
+            variant="default"
+            leftSection={<IconCurrentLocation size={14} />}
+            style={{ alignSelf: "flex-start" }}
+            onClick={locateMe}
+          >
+            Use my location
+          </Button>
+          <div style={{ height: "60vh" }}>
+            <Suspense fallback={<Loader size="sm" />}>
+              <TakMapView
+                controls={PICKER_CONTROLS}
+                panZoom
+                select={false}
+                cardActions={new Set()}
+                centreOnSelection={false}
+                answerPicks
+              />
+            </Suspense>
+          </div>
+        </Stack>
+      </Modal>
       <Stack h="100%" gap="xs" p="xs" className="screen-only">
         {offered && (
           <Alert p="xs" title={`Event “${offered.header}” selected`}>
@@ -246,7 +359,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
               </Button>
               <Button
                 size="compact-xs"
-                variant="subtle"
+                variant="default"
                 onClick={() => {
                   setOffered(null);
                   clearSelection();
@@ -263,7 +376,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
           </Text>
         )}
         {failedWriteBacks.length > 0 && (
-          <Alert p="xs" color="orange" title="Linked events not updated">
+          <Alert p="xs" color="warning" title="Linked events not updated">
             {failedWriteBacks.map(({ pending, submitted }) => (
               <Text key={submitted.eventId} fz="xs">
                 “{submitted.label}” was saved, but {pending.map((w) => w.label).join(", ")} couldn't
@@ -273,6 +386,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
             <Group gap="xs" mt="xs">
               <Button
                 size="compact-xs"
+                variant="default"
                 onClick={async () => {
                   const results = await Promise.all(
                     failedWriteBacks.map((f) => runWriteBacks(f.pending, f.submitted)),
@@ -286,7 +400,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
               </Button>
               <Button
                 size="compact-xs"
-                variant="subtle"
+                variant="default"
                 onClick={() => {
                   dismissals.current++;
                   setFailedWriteBacks([]);
@@ -312,13 +426,17 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
                 value={values[f.id]}
                 error={missingIds.includes(f.id) ? "Required" : undefined}
                 onChange={(v) => set(f.id, v)}
+                picking={picking?.fieldId === f.id}
+                onPickOnMap={() => pickOnMap(f)}
+                takPrefill={editing || takTouched.includes(f.id) ? undefined : selectedTak}
+                onTakPick={(item, byUser) => pickTak(f, item, byUser)}
               />
             ))
           )}
         </Stack>
         <Group justify="space-between" wrap="nowrap">
           <Text
-            c={status === "error" ? "red.4" : "dimmed"}
+            c={status === "error" ? "danger.4" : "dimmed"}
             fz="xs"
             style={{ minWidth: 0 }}
             role="status"
@@ -327,7 +445,7 @@ const FormView = ({ config, onConfigure }: WidgetViewProps<FormConfig>) => {
           </Text>
           <Group gap="xs" wrap="nowrap">
             {editing && (
-              <Button size="xs" variant="subtle" onClick={cancelEdit}>
+              <Button size="xs" variant="default" onClick={cancelEdit}>
                 Cancel
               </Button>
             )}
@@ -351,11 +469,20 @@ const FieldInput = ({
   value,
   error,
   onChange,
+  picking,
+  onPickOnMap,
+  takPrefill,
+  onTakPick,
 }: {
   field: VisibleField;
   value: unknown;
   error?: string;
   onChange: (v: unknown) => void;
+  picking: boolean;
+  onPickOnMap: () => void;
+  /** The map's selected TAK item, for a TAK item input to fill itself from. */
+  takPrefill: string | undefined;
+  onTakPick: (item: TakItem | undefined, byUser: boolean) => void;
 }) => {
   const common = {
     label: fieldLabel(field),
@@ -421,6 +548,15 @@ const FieldInput = ({
             onChange={onChange}
           />
         );
+      case "tak":
+        return (
+          <TakItemSelect
+            common={common}
+            value={parseTakLink(value)}
+            prefillUid={takPrefill}
+            onPick={onTakPick}
+          />
+        );
     }
   }
 
@@ -441,7 +577,6 @@ const FieldInput = ({
           <DateTimePicker
             {...common}
             placeholder="Select date and time"
-            locale="fi"
             value={typeof value === "string" && value ? value.replace("T", " ") : null}
             valueFormat="DD.MM.YYYY HH:mm"
             timePickerProps={{ minutesStep: 5 }}
@@ -450,11 +585,11 @@ const FieldInput = ({
           {!field.hideNowButton && (
             <Button
               size="compact-xs"
-              variant="light"
+              variant="default"
               style={{ alignSelf: "flex-start" }}
               onClick={() => onChange(datetimeLocalValue())}
             >
-              Nyt
+              Now
             </Button>
           )}
         </Stack>
@@ -479,9 +614,10 @@ const FieldInput = ({
       const p = (value as { lat?: number | string; lng?: number | string }) ?? {};
       return (
         <Input.Wrapper {...common}>
-          <Group gap="xs" grow>
+          <Group gap="xs" wrap="nowrap">
             <NumberInput
               aria-label="Latitude"
+              style={{ flex: 1 }}
               placeholder="Lat"
               size="xs"
               hideControls
@@ -493,6 +629,7 @@ const FieldInput = ({
             />
             <NumberInput
               aria-label="Longitude"
+              style={{ flex: 1 }}
               placeholder="Lng"
               size="xs"
               hideControls
@@ -502,6 +639,16 @@ const FieldInput = ({
               value={p.lng ?? ""}
               onChange={(v) => onChange({ ...p, lng: v === "" ? undefined : v })}
             />
+            <ActionIcon
+              size="input-xs"
+              variant={picking ? "filled" : "default"}
+              aria-label="Pick on map"
+              aria-pressed={picking}
+              title="Pick on map"
+              onClick={onPickOnMap}
+            >
+              <IconMapPin size={16} />
+            </ActionIcon>
           </Group>
         </Input.Wrapper>
       );
@@ -588,6 +735,48 @@ const LiveEventSelect = ({
       onChange={(id) => {
         const option = options.find((o) => o.value === id);
         onChange(option ? { eventId: option.value, label: option.label } : undefined);
+      }}
+    />
+  );
+};
+
+const TakItemSelect = ({
+  common,
+  value,
+  prefillUid,
+  onPick,
+}: {
+  common: CommonProps;
+  value: TakLink | undefined;
+  prefillUid: string | undefined;
+  onPick: (item: TakItem | undefined, byUser: boolean) => void;
+}) => {
+  useTakSession();
+  const items = useTakItems();
+  const prefill = prefillUid ? items.find((i) => i.uid === prefillUid) : undefined;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a snapshot per selection, not one per move of the item
+  useEffect(() => {
+    if (prefill && value?.uid !== prefill.uid) onPick(prefill, false);
+  }, [prefill?.uid, value?.uid]);
+  const options = items
+    .filter((i) => !i.draft)
+    .map((i) => ({ value: i.uid, label: labelOf(i) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  // A stored pick stays shown while its item is gone from the picture.
+  if (value && !options.some((o) => o.value === value.uid)) {
+    options.unshift({ value: value.uid, label: value.callsign ?? value.uid });
+  }
+  return (
+    <Select
+      {...common}
+      clearable
+      searchable
+      data={options}
+      placeholder={options.length ? undefined : "No TAK items"}
+      value={value?.uid ?? null}
+      onChange={(uid) => {
+        const picked = items.find((i) => i.uid === uid);
+        if (uid !== (value?.uid ?? null)) onPick(picked, true);
       }}
     />
   );

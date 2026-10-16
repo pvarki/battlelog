@@ -1,13 +1,13 @@
 import { Anchor, Box, Center, Group, Loader, Paper, Stack, Text, Title } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { getRouteApi, Link } from "@tanstack/react-router";
 import type { DashboardResponse } from "../api.ts";
+import { Placeholder } from "../components/Placeholder.tsx";
+import { StaleNotice } from "../components/StaleNotice.tsx";
 import { LayoutThumbnail } from "../dashboard/LayoutThumbnail.tsx";
-import { useIsMobile } from "../dashboard/mobile.ts";
 import { RECENT_KEY } from "../dashboard/recent.ts";
-import { useLiveEvents } from "../live-events.ts";
-import { Placeholder } from "../Placeholder.tsx";
-import { StaleNotice } from "../StaleNotice.tsx";
+import { useLiveEvents } from "../events/live-events.ts";
+import { useStoredSetting } from "../stored-setting.ts";
+import { useIsMobile } from "../viewport.ts";
 import { FeedTable } from "../widgets/feed/View.tsx";
 import type { FeedColumn } from "../widgets/feed/widget.ts";
 
@@ -36,7 +36,7 @@ const ACTIVITY_COLUMNS: FeedColumn[] = [
 const LatestActivity = () => {
   const { events, failed, arrived } = useLiveEvents({ limit: ACTIVITY_ROWS });
   return (
-    <Paper withBorder flex={1} mih={0} style={{ display: "flex", flexDirection: "column" }}>
+    <Paper withBorder flex={1} mih={0} miw={0} style={{ display: "flex", flexDirection: "column" }}>
       <Group justify="space-between" px="sm" py="xs" wrap="nowrap">
         <Text fw={600} fz="sm">
           Latest activity
@@ -62,7 +62,7 @@ const LatestActivity = () => {
         ) : (
           <>
             {failed && <StaleNotice />}
-            <FeedTable columns={ACTIVITY_COLUMNS} events={events} arrived={arrived} />
+            <FeedTable columns={ACTIVITY_COLUMNS} events={events} arrived={arrived} relativeTime />
           </>
         )}
       </Box>
@@ -123,7 +123,7 @@ const MobileDashboards = () => {
 // full list live in the side panel.
 const DesktopDashboards = () => {
   const all = route.useLoaderData();
-  const [recentIds] = useLocalStorage<string[]>({ key: RECENT_KEY, defaultValue: [] });
+  const [recentIds] = useStoredSetting<string[]>({ key: RECENT_KEY, defaultValue: [] });
   const views = all.filter((d) => !d.isTemplate);
   const recent = recentIds
     .map((id) => views.find((d) => d.id === id))

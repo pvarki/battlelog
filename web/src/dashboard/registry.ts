@@ -2,6 +2,8 @@ import type { ComponentType, LazyExoticComponent } from "react";
 import type { z } from "zod";
 import type { Widget } from "../api.ts";
 
+export type ChildWidget = Pick<Widget, "id" | "type" | "config">;
+
 export interface WidgetViewProps<TConfig> {
   config: TConfig;
   instanceId: string;
@@ -75,7 +77,9 @@ export interface WidgetDescriptor<TConfig = unknown> {
    * printable. Hidden children can't print: Mantine keeps them in a hidden
    * <Activity>, unrendered and with their data unloaded.
    */
-  childWidgets?: (config: TConfig) => Pick<Widget, "id" | "type" | "config">[];
+  childWidgets?: (config: TConfig) => ChildWidget[];
+  /** The config with `children` in place of what `childWidgets` returned. Required with it. */
+  withChildWidgets?: (config: TConfig, children: ChildWidget[]) => TConfig;
   View: LazyExoticComponent<ComponentType<WidgetViewProps<TConfig>>>;
   ConfigForm?: LazyExoticComponent<ComponentType<WidgetConfigProps<TConfig>>>;
 }
@@ -108,4 +112,36 @@ export const validateWidgetConfig = (type: string, config: unknown): ValidationR
     };
   }
   return { ok: true, value: result.data };
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isChildWidget = (value: unknown): value is ChildWidget =>
+  isRecord(value) && typeof value.id === "string" && typeof value.type === "string";
+
+// Stored and imported configs are unvalidated, so a container's descriptor may
+// see a malformed config here; only well-formed children are traversed.
+const rawChildren = (widget: ChildWidget): unknown[] => {
+  const children = isRecord(widget.config)
+    ? getWidget(widget.type)?.childWidgets?.(widget.config)
+    : undefined;
+  return Array.isArray(children) ? children : [];
+};
+
+export const childWidgetsOf = (widget: ChildWidget): ChildWidget[] =>
+  rawChildren(widget).filter(isChildWidget);
+
+/** The widget's config with `fn` applied to each child; unchanged for non-containers. */
+export const mapChildWidgets = (
+  widget: ChildWidget,
+  fn: (child: ChildWidget) => ChildWidget,
+): unknown => {
+  const withChildWidgets = getWidget(widget.type)?.withChildWidgets;
+  const children = rawChildren(widget);
+  if (!withChildWidgets || children.length === 0) return widget.config;
+  return withChildWidgets(
+    widget.config,
+    children.map((child) => (isChildWidget(child) ? fn(child) : child)) as ChildWidget[],
+  );
 };

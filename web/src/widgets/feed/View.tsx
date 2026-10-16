@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Box, Center, Loader, Table, Text } from "@mantine/core";
+import { ActionIcon, Badge, Box, Center, Loader, Table } from "@mantine/core";
 import { IconMaximize } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
 import {
@@ -9,29 +9,38 @@ import {
   useState,
 } from "react";
 import type { EventResponse } from "../../api.ts";
+import { Placeholder } from "../../components/Placeholder.tsx";
+import { StaleNotice } from "../../components/StaleNotice.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
-import { useLiveEvents } from "../../live-events.ts";
-import { StaleNotice } from "../../StaleNotice.tsx";
-import { formatShortDateTime } from "../../time.ts";
+import { dataValue, matchesFeed, queryFor } from "../../event-binding/filter.ts";
+import { useLiveEvents } from "../../events/live-events.ts";
+import { linkedTo } from "../../tak/links.ts";
+import { formatAge, formatDateTime, formatShortDateTime } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
+import { TakSelectionPill } from "./TakSelectionPill.tsx";
 import {
   columnWidth,
-  dataValue,
   type FeedColumn,
   type FeedConfig,
   type Field,
   labelFor,
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
-  matchesFeed,
-  queryFor,
 } from "./widget.ts";
 
 const RESIZE_HIT_WIDTH = 9;
 
 const CELL: Record<Field, (e: EventResponse) => ReactNode> = {
-  time: (e) => formatShortDateTime(e.eventTime ?? e.createdAt),
+  time: (e) => (
+    <span style={{ whiteSpace: "nowrap" }}>{formatShortDateTime(e.eventTime ?? e.createdAt)}</span>
+  ),
   header: (e) => e.header,
-  type: (e) => (e.type ? <Badge variant="light">{e.type}</Badge> : null),
+  type: (e) =>
+    e.type ? (
+      <Badge variant="light" maw="100%" title={e.type}>
+        {e.type}
+      </Badge>
+    ) : null,
   tags: (e) => e.tags?.join(", "),
   admiralty: (e) => [e.admiraltyReliability, e.admiraltyAccuracy].filter(Boolean).join(""),
   createdBy: (e) => e.createdBy,
@@ -40,21 +49,40 @@ const CELL: Record<Field, (e: EventResponse) => ReactNode> = {
 const cell = (col: FeedColumn, e: EventResponse): ReactNode =>
   col.source === "data" ? dataValue(e.data, col.dataPath) : CELL[col.source](e);
 
+/** When it was logged, which is the order the feed lists events in; the event's own time is on hover. */
+const LoggedAgo = ({ event, now }: { event: EventResponse; now: number }) => (
+  <span
+    style={{ whiteSpace: "nowrap" }}
+    title={`Logged ${formatDateTime(event.createdAt)}${event.eventTime ? `, happened ${formatDateTime(event.eventTime)}` : ""}`}
+  >
+    {formatAge(now - Date.parse(event.createdAt))} ago
+  </span>
+);
+
 export const FeedTable = ({
   columns,
   events,
   arrived,
   onRowClick,
   onColumnWidthChange,
+  relativeTime,
 }: {
   columns: FeedColumn[];
   events: EventResponse[];
+  /** "12 min ago" since each was logged, instead of the event's clock time: a glance at what's recent. */
+  relativeTime?: boolean;
   /** Row ids that came in on the live stream; those rows wash once on arrival. */
   arrived?: ReadonlySet<string>;
   onRowClick?: (event: EventResponse) => void;
   onColumnWidthChange?: (columnId: string, width: number) => void;
 }) => {
+  const now = useNow(30_000);
   const totalWidth = columns.reduce((sum, col) => sum + columnWidth(col), 0);
+  // Until someone resizes a column, widths are shares of the room there is, so a
+  // narrow panel never scrolls sideways; after that they're the pixels asked for.
+  const fit = columns.every((col) => col.width === undefined);
+  const widthOf = (col: FeedColumn) =>
+    fit ? `${(columnWidth(col) / totalWidth) * 100}%` : columnWidth(col);
   const startColumnResize = (col: FeedColumn, event: ReactPointerEvent) => {
     if (!onColumnWidthChange) return;
 
@@ -82,9 +110,10 @@ export const FeedTable = ({
   };
 
   return events.length === 0 ? (
-    <Text c="dimmed" fz="sm">
-      No matching events.
-    </Text>
+    <Placeholder
+      title="No matching events"
+      detail="Nothing in the log matches this feed's filters."
+    />
   ) : (
     <Table
       fz="xs"
@@ -92,11 +121,11 @@ export const FeedTable = ({
       highlightOnHover
       verticalSpacing={4}
       stickyHeader
-      style={{ minWidth: "100%", tableLayout: "fixed", width: totalWidth }}
+      style={{ minWidth: "100%", tableLayout: "fixed", width: fit ? "100%" : totalWidth }}
     >
       <colgroup>
         {columns.map((col) => (
-          <col key={col.id} style={{ width: columnWidth(col) }} />
+          <col key={col.id} style={{ width: widthOf(col) }} />
         ))}
       </colgroup>
       <Table.Thead>
@@ -146,7 +175,13 @@ export const FeedTable = ({
             style={onRowClick && { cursor: "pointer" }}
           >
             {columns.map((col) => (
-              <Table.Td key={col.id}>{cell(col, event)}</Table.Td>
+              <Table.Td key={col.id}>
+                {relativeTime && col.source === "time" ? (
+                  <LoggedAgo event={event} now={now} />
+                ) : (
+                  cell(col, event)
+                )}
+              </Table.Td>
             ))}
           </Table.Tr>
         ))}
@@ -163,8 +198,11 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   const [fullscreen, setFullscreen] = useState(false);
   // Mounted once and kept: unmounting on close would skip the exit transition.
   const [everOpened, setEverOpened] = useState(false);
-  const query = queryFor(config);
-  const match = (row: EventResponse) => matchesFeed(row, config);
+  const { tak } = dashboardRoute.useSearch();
+  const followed = config.followTakSelection ? tak : undefined;
+  const link = followed ? linkedTo(followed) : undefined;
+  const query = { ...queryFor(config), ...link?.query };
+  const match = (row: EventResponse) => matchesFeed(row, config) && (!link || link.match(row));
   const { events, failed, arrived } = useLiveEvents({ limit: config.rows, query, match });
   const navigate = dashboardRoute.useNavigate();
 
@@ -179,11 +217,10 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
   // An empty table after a failed load would read as "no events matched".
   if (failed && events.length === 0) {
     return (
-      <Center h="100%" p="sm">
-        <Text c="dimmed" fz="xs" ta="center">
-          Could not load events — new ones will still arrive on the live stream.
-        </Text>
-      </Center>
+      <Placeholder
+        title="Couldn't load events"
+        detail="New ones will still arrive on the live stream."
+      />
     );
   }
 
@@ -201,10 +238,11 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
         // Above the sticky thead, which Mantine gives z-index 3.
         style={{ position: "absolute", top: 4, right: 4, zIndex: 4 }}
       >
-        <IconMaximize size={16} stroke={1.5} />
+        <IconMaximize size={16} />
       </ActionIcon>
       <Box h="100%" p="xs" style={{ overflow: "auto" }}>
         {failed && <StaleNotice />}
+        {followed && <TakSelectionPill uid={followed} events={events} />}
         <FeedTable
           columns={config.columns}
           events={events}
@@ -227,6 +265,7 @@ const FeedView = ({ config, updateConfig }: WidgetViewProps<FeedConfig>) => {
           <FeedFullscreen
             opened={fullscreen}
             config={config}
+            followed={followed}
             onClose={() => setFullscreen(false)}
           />
         </Suspense>

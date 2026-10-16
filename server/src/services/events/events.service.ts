@@ -112,15 +112,28 @@ export const listEventsSince = async (
     .limit(REPLAY_LIMIT);
 };
 
+/** When an event happened: its event time, else when it was logged. Indexed as `events_happened_id_idx`. */
+const happened = sql`COALESCE(${events.eventTime}, ${events.createdAt})`;
+
 // Ordered by id, not createdAt: ids are UUIDv7 (same chronology), but unique —
 // createdAt ties made offset page boundaries able to duplicate or skip rows.
+// By happened time, id breaks ties, and the cursor row (any version, so a newer
+// edit can't move the boundary) is looked up to know where the page ends.
 export const listEvents = async (filter: EventsFilter): Promise<EventRow[]> => {
   const where = buildEventsWhere(filter);
+  const byHappened = filter.sort === "happened";
+  const after = !filter.cursor
+    ? undefined
+    : byHappened
+      ? sql`(${happened}, ${events.id}) < (
+          SELECT COALESCE(c.event_time, c.created_at), c.id FROM ${events} c WHERE c.id = ${filter.cursor}
+        )`
+      : lt(events.id, filter.cursor);
   return db
     .select()
     .from(events)
-    .where(filter.cursor ? and(lt(events.id, filter.cursor), where) : where)
-    .orderBy(desc(events.id))
+    .where(after ? and(after, where) : where)
+    .orderBy(...(byHappened ? [desc(happened), desc(events.id)] : [desc(events.id)]))
     .limit(filter.limit)
     .offset(filter.cursor ? 0 : filter.offset);
 };

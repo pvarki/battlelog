@@ -1,3 +1,4 @@
+import { evaluate as fullEvaluate } from "mathjs/number";
 import { expect, test } from "vitest";
 import { columnKey, columnKeys, evaluateFormula, formulaError } from "./formula.ts";
 import descriptor, {
@@ -112,6 +113,40 @@ test("columnKeys dedupes colliding labels in column order", () => {
 test("evaluateFormula resolves digit-leading column labels", () => {
   const cols: TableColumn[] = [{ id: "c1", label: "2024 Qty", kind: "number", formula: undefined }];
   expect(evaluateFormula("_2024_qty * 2", { c1: "5" }, cols)).toBe("10");
+});
+
+test("lean formula build evaluates supported formulas like full mathjs", () => {
+  const row = { c2: "4", c3: "2.5" };
+  const scope = { qty: 4, unit_price: 2.5 };
+  const formulas = [
+    "qty + unit_price - 1",
+    "qty * unit_price / 3",
+    "-qty + +unit_price",
+    "(qty + 1) ^ 2",
+    "qty % 3",
+    "qty mod 3",
+    "unit_price * 10%",
+    "qty!",
+    "qty == 4 ? 1 : 0",
+    "(qty != 4 or qty < 5 and qty <= 4) * 1",
+    "(qty > 1) + (qty >= 5) + not (qty > 1) + (true xor false)",
+    "sum(qty, unit_price, 1)",
+    "mean(qty, unit_price)",
+    "median(qty, unit_price, 1)",
+    "min(qty, unit_price) + max(qty, unit_price)",
+    "round(unit_price / 3, 2) + floor(unit_price) + ceil(unit_price) + fix(-unit_price)",
+    "abs(-qty) + sign(-qty) + sqrt(qty)",
+    "exp(1) + log(qty) + log(100, 10) + log10(1000)",
+    "pi * e",
+  ];
+  for (const formula of formulas) {
+    const expected = String(Number(Number(fullEvaluate(formula, scope)).toFixed(6)));
+    expect(evaluateFormula(formula, row, columns), formula).toBe(expected);
+  }
+});
+
+test("functions outside the lean build fail as #ERR", () => {
+  expect(evaluateFormula("sin(qty)", { c2: "1" }, columns)).toBe("#ERR");
 });
 
 test("parseRows drops malformed entries instead of crashing", () => {

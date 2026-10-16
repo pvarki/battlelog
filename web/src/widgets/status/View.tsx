@@ -1,14 +1,14 @@
 import { Group, Loader, Stack, Text, Tooltip } from "@mantine/core";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { ChoiceChip, CountChip, countOf, ValueCell } from "../../event-binding/cells.tsx";
+import { matchesFeed, queryFor } from "../../event-binding/filter.ts";
 import type { ValueSpec } from "../../event-binding/options.ts";
 import { eventLabel } from "../../event-binding/paths.ts";
 import { queryFilter } from "../../event-binding/query.ts";
 import { useBoundEvents } from "../../event-binding/useBoundEvents.ts";
-import { useLiveEvents } from "../../live-events.ts";
-import { Placeholder } from "../../Placeholder.tsx";
-import { matchesFeed, queryFor } from "../feed/widget.ts";
+import { useLiveEvents } from "../../events/live-events.ts";
 import { buildStatusTree, flattenTree } from "./tree.ts";
 import { type StatusConfig, type StatusGroup, type StatusRow, widgetDocument } from "./widget.ts";
 
@@ -184,9 +184,14 @@ const GroupRows = ({
   if (!events) return <Loader size="xs" ml={16} />;
   if (events.length === 0) {
     return (
-      <Text c="dimmed" fz="xs" pl={16}>
-        {failed ? "Could not load events" : "No matching events"}
-      </Text>
+      <Placeholder
+        title={failed ? "Couldn't load events" : "No matching events"}
+        detail={
+          failed
+            ? "New ones will still arrive on the live stream."
+            : "Nothing in the log matches this group's query."
+        }
+      />
     );
   }
   const sorted = [...events].sort((a, b) => a.header.localeCompare(b.header));

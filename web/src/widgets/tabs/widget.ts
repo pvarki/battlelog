@@ -34,21 +34,6 @@ export const configSchema = z
 export type TabsConfig = z.infer<typeof configSchema>;
 export type Tab = TabsConfig["tabs"][number];
 
-/**
- * A copy of a tabs widget's config whose children have fresh ids. Child ids key
- * template documents and mobile entries, so a duplicate must not reuse them.
- */
-export const withFreshTabIds = (config: unknown): unknown => {
-  const tabs = (config as { tabs?: unknown } | null)?.tabs;
-  if (!Array.isArray(tabs)) return config;
-  return {
-    ...(config as Record<string, unknown>),
-    tabs: tabs.map((tab) =>
-      tab && typeof tab === "object" ? { ...tab, id: crypto.randomUUID() } : tab,
-    ),
-  };
-};
-
 const descriptor: WidgetDescriptor<TabsConfig> = {
   type: TABS_TYPE,
   Icon: IconFolders,
@@ -59,6 +44,7 @@ const descriptor: WidgetDescriptor<TabsConfig> = {
   defaultSize: { w: 16, h: 12 },
   minSize: { w: 8, h: 6 },
   childWidgets: (config) => config.tabs,
+  withChildWidgets: (config, tabs) => ({ ...config, tabs }),
   View: lazy(() => import("./View.tsx")),
   ConfigForm: lazy(() => import("./Config.tsx")),
 };

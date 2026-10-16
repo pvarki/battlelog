@@ -1,0 +1,249 @@
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Group,
+  Loader,
+  ScrollArea,
+  Stack,
+  Text,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
+import { IconEye, IconEyeOff, IconLock } from "@tabler/icons-react";
+import { useEffect } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
+import { useStoredSetting } from "../../stored-setting.ts";
+import { formatAge } from "../../time.ts";
+import { useNow } from "../../use-now.ts";
+import type { TakItem } from "../cot.ts";
+import { count } from "../items.ts";
+import { PanelActions, PanelFooter, PanelMenu, ViewOption } from "../panel.tsx";
+import { missionTree, useMissionParents } from "./hierarchy.ts";
+import { MissionDetail } from "./MissionDetail.tsx";
+import type { Mission } from "./missions.ts";
+import { NewMission } from "./NewMission.tsx";
+import { Section, useWrite } from "./shared.tsx";
+import { type MissionsState, refreshMissions } from "./store.ts";
+import { loadSubscription, subscribe, useSubscriptions } from "./writes.ts";
+
+export type MissionsDrawerProps = {
+  state: MissionsState;
+  shown: ReadonlySet<string>;
+  onToggleShown: (name: string) => void;
+  open: string | undefined;
+  onOpen: (name: string | undefined) => void;
+  selectedUid: string | undefined;
+  onPick: (item: TakItem) => void;
+  /** Callsign for a TAK client uid, when that user is on the picture. */
+  callsignOf: (uid: string) => string | undefined;
+  /** Who this browser writes to TAK as; undefined without a callsign. */
+  clientUid: string | undefined;
+};
+
+const ShowToggle = ({
+  mission,
+  shown,
+  onToggle,
+}: {
+  mission: Mission;
+  shown: boolean;
+  onToggle: () => void;
+}) => (
+  <Tooltip label={shown ? "Shown on the map" : "Not on the map"} withArrow>
+    <ActionIcon
+      variant="subtle"
+      color="gray"
+      size="sm"
+      aria-pressed={shown}
+      aria-label={`Show ${mission.name} on the map`}
+      onClick={onToggle}
+    >
+      {shown ? <IconEye size={16} /> : <IconEyeOff size={16} />}
+    </ActionIcon>
+  </Tooltip>
+);
+
+type ListView = "list" | "tree";
+
+const isEmpty = (mission: Mission) => mission.itemUids.length === 0 && mission.files.length === 0;
+
+/** Drops empty feeds, keeping an empty parent whose subtree holds something. */
+const withoutEmpty = (rows: { mission: Mission; depth: number }[]) => {
+  const keep = rows.map(({ mission }) => !isEmpty(mission));
+  rows.forEach(({ depth }, i) => {
+    if (!keep[i] || depth === 0) return;
+    let need = depth;
+    for (let j = i - 1; j >= 0 && need > 0; j--) {
+      const row = rows[j] as { depth: number };
+      if (row.depth < need) {
+        keep[j] = true;
+        need = row.depth;
+      }
+    }
+  });
+  return rows.filter((_, i) => keep[i]);
+};
+
+const MissionList = ({
+  view,
+  hideEmpty,
+  ...props
+}: MissionsDrawerProps & { view: ListView; hideEmpty: boolean }) => {
+  const now = useNow(10_000);
+  const { missions, listFailed } = props.state;
+  const parents = useMissionParents(missions?.map((m) => m.name) ?? [], view === "tree");
+  if (missions === null)
+    return listFailed ? (
+      <Box py="md">
+        <Placeholder
+          title="Couldn't load Data Sync feeds from TAK"
+          detail="The list is fetched again automatically."
+        />
+      </Box>
+    ) : (
+      <Loader size="xs" m="xs" />
+    );
+  if (missions.length === 0)
+    return (
+      <Box py="md">
+        <Placeholder
+          title="No Data Sync feeds yet"
+          detail="This TAK server has none; New feed creates one."
+        />
+      </Box>
+    );
+  const all =
+    view === "tree"
+      ? missionTree(missions, parents)
+      : [...missions]
+          .sort((a, b) => b.changedAt - a.changedAt)
+          .map((mission) => ({ mission, depth: 0 }));
+  const rows = hideEmpty ? withoutEmpty(all) : all;
+  return (
+    <ScrollArea style={{ flex: 1, minHeight: 0 }} offsetScrollbars="present">
+      {rows.map(({ mission, depth }) => (
+        <Group
+          key={mission.name}
+          gap={4}
+          wrap="nowrap"
+          className="tak-row"
+          data-depth={depth || undefined}
+          style={depth ? { marginLeft: (depth - 1) * 14 + 6 } : undefined}
+        >
+          <UnstyledButton
+            style={{ flex: 1, minWidth: 0 }}
+            onClick={() => props.onOpen(mission.name)}
+          >
+            <Group gap={4} wrap="nowrap">
+              {(mission.passwordProtected || mission.inviteOnly) && (
+                <IconLock
+                  size={12}
+                  aria-label={mission.inviteOnly ? "Invite-only" : "Password-protected"}
+                />
+              )}
+              <Text fz="sm" fw={500} truncate>
+                {mission.name}
+              </Text>
+            </Group>
+            <Text fz="xs" c="dimmed" truncate>
+              {count(mission.itemUids.length, "item")} · {count(mission.files.length, "file")} ·
+              changed {formatAge(now - mission.changedAt)} ago
+            </Text>
+          </UnstyledButton>
+          <ShowToggle
+            mission={mission}
+            shown={props.shown.has(mission.name)}
+            onToggle={() => props.onToggleShown(mission.name)}
+          />
+        </Group>
+      ))}
+    </ScrollArea>
+  );
+};
+
+/** Invitations this client hasn't taken up yet, each joined with one click. */
+const MyInvitations = ({
+  state,
+  clientUid,
+  onOpen,
+}: {
+  state: MissionsState;
+  clientUid: string;
+  onOpen: (name: string) => void;
+}) => {
+  const subscriptions = useSubscriptions();
+  const { busy, run } = useWrite();
+  const key = state.invitations.join("\n");
+  useEffect(() => {
+    for (const name of key.split("\n")) {
+      if (name) void loadSubscription(name, clientUid).catch(() => undefined);
+    }
+  }, [key, clientUid]);
+  const pending = state.invitations.filter((name) => !subscriptions.get(name));
+  if (pending.length === 0) return null;
+  const join = async (name: string) => {
+    const mission = state.missions?.find((m) => m.name === name);
+    await subscribe(name, clientUid, undefined, mission);
+    await refreshMissions([name]);
+  };
+  return (
+    <Section title="Invitations for me">
+      {pending.map((name) => (
+        <Group key={name} gap="xs" wrap="nowrap" className="tak-row">
+          <Text fz="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
+            {name}
+          </Text>
+          <Button
+            size="xs"
+            variant="default"
+            disabled={busy}
+            onClick={() =>
+              void run(`Couldn't join ${name}`, () => join(name)).then((ok) => ok && onOpen(name))
+            }
+          >
+            Join
+          </Button>
+        </Group>
+      ))}
+    </Section>
+  );
+};
+
+/** TAK missions (Data Sync): what each holds, which ones the map shows, and changes to them. */
+export const MissionsDrawer = (props: MissionsDrawerProps) => {
+  const [view, setView] = useStoredSetting<ListView>({
+    key: "battlelog.tak.missionsView",
+    defaultValue: "list",
+  });
+  const [hideEmpty, setHideEmpty] = useStoredSetting({
+    key: "battlelog.tak.missions.hideEmpty",
+    defaultValue: false,
+  });
+  const open = props.state.missions?.find((m) => m.name === props.open);
+  if (open) return <MissionDetail {...props} mission={open} />;
+  return (
+    <Stack gap="xs" h="100%">
+      <PanelActions>
+        <PanelMenu>
+          <ViewOption
+            checked={view === "tree"}
+            onChange={(tree) => setView(tree ? "tree" : "list")}
+          >
+            Show as a tree
+          </ViewOption>
+          <ViewOption checked={hideEmpty} onChange={setHideEmpty}>
+            Hide empty feeds
+          </ViewOption>
+        </PanelMenu>
+      </PanelActions>
+      {props.clientUid && (
+        <MyInvitations state={props.state} clientUid={props.clientUid} onOpen={props.onOpen} />
+      )}
+      <MissionList {...props} view={view} hideEmpty={hideEmpty} />
+      <PanelFooter>
+        <NewMission clientUid={props.clientUid} onCreated={props.onOpen} />
+      </PanelFooter>
+    </Stack>
+  );
+};

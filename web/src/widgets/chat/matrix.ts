@@ -8,6 +8,7 @@ import {
 } from "matrix-js-sdk";
 import { CryptoEvent } from "matrix-js-sdk/lib/crypto-api/index.js";
 import { useEffect, useReducer, useSyncExternalStore } from "react";
+import { pvarkiDeployment } from "../../deployment.ts";
 import { cryptoCallbacks, forgetSecretStorageKeys, showVerification } from "./encryption.ts";
 
 /**
@@ -31,20 +32,7 @@ const LOGIN_TOKEN_PARAM = "loginToken";
 const SSO_STATE_PARAM = "battlelogSso";
 const SSO_STATE_KEY = "battlelog.matrix.ssoState";
 
-// ponytail: assumes PVARKI's naming (battlelog.<deployment> → synapse.<deployment>);
-// replace with a server-provided URL if a deployment ever breaks the pattern.
-export const deploymentForHost = (hostname: string): string =>
-  hostname
-    .replace(/^mtls\./, "")
-    .split(".")
-    .slice(1)
-    .join(".");
-
-/** The PVARKI deployment we belong to: from VITE_PVARKI_DEPLOYMENT in dev, else our own host. */
-const deployment = (): string =>
-  import.meta.env.VITE_PVARKI_DEPLOYMENT || deploymentForHost(window.location.hostname);
-
-const homeserverUrl = (): string => `https://synapse.${deployment()}`;
+const homeserverUrl = (): string => `https://synapse.${pvarkiDeployment()}`;
 
 let status: ChatStatus = { kind: "signed-out" };
 const listeners = new Set<() => void>();

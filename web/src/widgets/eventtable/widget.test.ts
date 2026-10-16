@@ -5,6 +5,11 @@ test("defaultConfig validates against configSchema", () => {
   expect(descriptor.configSchema.safeParse(descriptor.defaultConfig).success).toBe(true);
 });
 
+test("following the map selection is a valid option", () => {
+  const config = { ...descriptor.defaultConfig, followTakSelection: true };
+  expect(descriptor.configSchema.parse(config).followTakSelection).toBe(true);
+});
+
 test("a typed table config validates and fills column defaults", () => {
   const parsed = descriptor.configSchema.parse({
     types: "drone",

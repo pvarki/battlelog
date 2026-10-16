@@ -13,6 +13,7 @@ import {
   MultiSelect,
   NumberInput,
   Paper,
+  Select,
   SimpleGrid,
   Stack,
   Table,
@@ -23,10 +24,11 @@ import {
 import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { CREDIBILITY, RELIABILITY } from "../admiralty.ts";
+import { type TableComponents, TableVirtuoso } from "react-virtuoso";
 import { api, type EventResponse } from "../api.ts";
-import { useIsMobile } from "../dashboard/mobile.ts";
-import { EventDetail } from "../EventDetail.tsx";
+import { EventDetail } from "../components/EventDetail.tsx";
+import { Placeholder } from "../components/Placeholder.tsx";
+import { CREDIBILITY, RELIABILITY } from "../events/admiralty.ts";
 import {
   activeChips,
   buildQuery,
@@ -36,11 +38,48 @@ import {
   type Filters,
   isUuid,
   PAGE,
-} from "../event-filters.ts";
-import { Placeholder } from "../Placeholder.tsx";
+} from "../events/event-filters.ts";
 import { formatDateTime } from "../time.ts";
+import { useIsMobile } from "../viewport.ts";
 
 const route = getRouteApi("/events");
+
+const SORT_OPTIONS = [
+  { value: "logged", label: "Newest logged" },
+  { value: "happened", label: "Newest happened" },
+];
+
+// The URL holds the sort like the filters; the last choice is remembered so a
+// plain link to the explorer opens the way this user reads the log.
+const SORT_KEY = "battlelog.explorer.sort";
+
+const rememberedSort = (): Filters["sort"] | undefined => {
+  try {
+    return localStorage.getItem(SORT_KEY) === "happened" ? "happened" : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const rememberSort = (sort: Filters["sort"]) => {
+  try {
+    localStorage.setItem(SORT_KEY, sort);
+  } catch {
+    // Private mode: the choice still holds in the URL.
+  }
+};
+
+/** The time the table is sorted by, and the other one for the tooltip. */
+const timesOf = (event: EventResponse, sort: Filters["sort"]) => {
+  const logged = `Logged ${formatDateTime(event.createdAt)}`;
+  const happened = event.eventTime && `Happened ${formatDateTime(event.eventTime)}`;
+  return sort === "happened"
+    ? {
+        shown: formatDateTime(event.eventTime ?? event.createdAt),
+        other: event.eventTime ? logged : undefined,
+      }
+    : { shown: formatDateTime(event.createdAt), other: happened || undefined };
+};
 
 // The header search box applies itself; the drawer's filters wait for Apply.
 // Header search is one indexed ILIKE, so auto-applying it is cheap and removes
@@ -52,7 +91,34 @@ const SEARCH_DEBOUNCE_MS = 400;
 // table one verbose row set the width of every column. The table is now
 // layout="fixed": columns keep their declared width, over-long values ellipsize,
 // and the full value stays reachable via the title tooltip and the detail drawer.
+// The minor columns are percentages so Header keeps a share on a narrow desktop.
 const TRUNCATE = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
+
+type RowContext = { open: (event: EventResponse) => void };
+
+// Stripes go by row index: only the rows in view are rendered, so nth-of-type would shift while scrolling.
+const TABLE_PARTS: TableComponents<EventResponse, RowContext> = {
+  Table: (props) => (
+    <Table
+      {...props}
+      className="striped-by-index"
+      highlightOnHover
+      stickyHeader
+      fz="sm"
+      layout="fixed"
+    />
+  ),
+  TableHead: Table.Thead,
+  TableBody: Table.Tbody,
+  TableRow: ({ item, context, ...props }) => (
+    <Table.Tr
+      {...props}
+      data-even={props["data-index"] % 2 === 0 || undefined}
+      onClick={() => context.open(item)}
+      style={{ cursor: "pointer" }}
+    />
+  ),
+};
 
 const TAGS_SHOWN = 2;
 
@@ -86,6 +152,7 @@ export const EventExplorerPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [atEnd, setAtEnd] = useState(true);
   const [selected, setSelected] = useState<EventResponse | null>(null);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // The drawer edits a copy, so an abandoned edit changes nothing.
   const [draft, setDraft] = useState<Filters>(() => ({ ...EMPTY, ...applied }));
@@ -129,6 +196,13 @@ export const EventExplorerPage = () => {
     applyFilters({ ...EMPTY, ...applied });
   }, [applied]);
 
+  const restoreSort = useEffectEvent(() => {
+    const remembered = rememberedSort();
+    if (!applied.sort && remembered)
+      navigate({ search: { ...applied, sort: remembered }, replace: true });
+  });
+  useEffect(() => restoreSort(), []);
+
   const chips = activeChips(applied);
   // Search lives in the header, so it doesn't count toward the drawer's badge.
   const drawerCount = chips.filter((c) => c.id !== "search").length;
@@ -156,12 +230,20 @@ export const EventExplorerPage = () => {
     navigate({ search: compact({ ...draft, search: searchInput.trim() }) });
   };
 
+  const sort = applied.sort ?? EMPTY.sort;
+  const keptSort = compact({ ...EMPTY, sort });
+
   const clearAll = () => {
     clearTimeout(searchTimer.current);
     setFiltersOpen(false);
     setSearchInput("");
-    setDraft(EMPTY);
-    navigate({ search: {} });
+    setDraft({ ...EMPTY, sort });
+    navigate({ search: keptSort });
+  };
+
+  const setSort = (next: Filters["sort"]) => {
+    rememberSort(next);
+    navigate({ search: compact({ ...EMPTY, ...applied, sort: next }) });
   };
 
   const removeChip = (chip: FilterChip) => navigate({ search: chip.without });
@@ -214,11 +296,23 @@ export const EventExplorerPage = () => {
     <Button
       size="xs"
       variant="default"
-      leftSection={<IconFilter size={14} stroke={1.5} />}
+      leftSection={<IconFilter size={14} />}
       onClick={openFilters}
     >
       Filters{drawerCount ? ` · ${drawerCount}` : ""}
     </Button>
+  );
+
+  const sortSelect = (
+    <Select
+      size="xs"
+      w={150}
+      aria-label="Sort events"
+      data={SORT_OPTIONS}
+      value={sort}
+      onChange={(next) => next && setSort(next as Filters["sort"])}
+      allowDeselect={false}
+    />
   );
 
   const searchBox = (
@@ -228,7 +322,7 @@ export const EventExplorerPage = () => {
       style={isMobile ? { flex: 1 } : undefined}
       placeholder="Header contains…"
       aria-label="Search event headers"
-      leftSection={<IconSearch size={14} stroke={1.5} />}
+      leftSection={<IconSearch size={14} />}
       value={searchInput}
       onChange={(e) => onSearchChange(e.currentTarget.value)}
     />
@@ -251,9 +345,12 @@ export const EventExplorerPage = () => {
             <Group gap={4} wrap="nowrap" style={{ overflowX: "auto", minWidth: 0 }}>
               {chipBadges}
               {clearAllButton}
-              {countText}
             </Group>
           )}
+          <Group justify="space-between" wrap="nowrap" gap="xs">
+            {countText || <span />}
+            {sortSelect}
+          </Group>
         </Stack>
       ) : (
         <Group justify="space-between" wrap="nowrap" gap="sm" mb="xs">
@@ -268,12 +365,13 @@ export const EventExplorerPage = () => {
           <Group gap="xs" wrap="nowrap">
             {countText}
             {clearAllButton}
+            {sortSelect}
             {filtersButton}
           </Group>
         </Group>
       )}
 
-      <Box flex={1} mih={0} style={{ overflowY: "auto" }}>
+      <Box flex={1} mih={0} style={{ overflowY: "auto" }} ref={setViewport}>
         {error && (
           <Text c="danger.4" my="sm" role="status">
             {error}
@@ -323,7 +421,7 @@ export const EventExplorerPage = () => {
                   )}
                 </Group>
                 <Text fz="xs" c="dimmed">
-                  {formatDateTime(event.eventTime ?? event.createdAt)}
+                  {timesOf(event, sort).shown}
                   {event.location ? ` · ${event.location}` : ""}
                 </Text>
                 {event.tags && event.tags.length > 0 && <TagsCell tags={event.tags} />}
@@ -331,31 +429,34 @@ export const EventExplorerPage = () => {
             ))}
           </Stack>
         ) : (
-          <Table striped highlightOnHover fz="sm" stickyHeader layout="fixed">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th w={150}>Time</Table.Th>
-                <Table.Th>Header</Table.Th>
-                <Table.Th w={130}>Type</Table.Th>
-                <Table.Th w={200}>Tags</Table.Th>
-                <Table.Th
-                  w={100}
-                  title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
-                >
-                  Admiralty
-                </Table.Th>
-                <Table.Th w={170}>Location</Table.Th>
-                <Table.Th w={130}>By</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.map((event) => (
-                <Table.Tr
-                  key={event.id}
-                  onClick={() => setSelected(event)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <Table.Td>{formatDateTime(event.eventTime ?? event.createdAt)}</Table.Td>
+          viewport && (
+            <TableVirtuoso
+              customScrollParent={viewport}
+              data={rows}
+              context={{ open: setSelected }}
+              components={TABLE_PARTS}
+              computeItemKey={(_, event) => event.id}
+              fixedHeaderContent={() => (
+                <Table.Tr>
+                  <Table.Th w={170}>{sort === "happened" ? "Happened" : "Logged"}</Table.Th>
+                  <Table.Th>Header</Table.Th>
+                  <Table.Th w="15%">Type</Table.Th>
+                  <Table.Th w="12%">Tags</Table.Th>
+                  <Table.Th
+                    w={90}
+                    title="Admiralty rating: source reliability (A–F) + information credibility (1–6)"
+                  >
+                    Admiralty
+                  </Table.Th>
+                  <Table.Th w="13%">Location</Table.Th>
+                  <Table.Th w="10%">By</Table.Th>
+                </Table.Tr>
+              )}
+              itemContent={(_, event) => (
+                <>
+                  <Table.Td title={timesOf(event, sort).other}>
+                    {timesOf(event, sort).shown}
+                  </Table.Td>
                   <Table.Td style={TRUNCATE}>
                     {/* Real button inside the row so keyboard users can open the detail too. */}
                     <Anchor
@@ -385,10 +486,10 @@ export const EventExplorerPage = () => {
                     {event.location}
                   </Table.Td>
                   <Table.Td style={TRUNCATE}>{event.updatedBy ?? event.createdBy}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+                </>
+              )}
+            />
+          )
         )}
         {rows && rows.length > 0 && !atEnd && (
           <Center my="md">

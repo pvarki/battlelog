@@ -49,6 +49,7 @@ const seedInputs = [
     type: "patrol",
     admiraltyReliability: "F",
     admiraltyAccuracy: "6",
+    data: { tak: { uid: "ANDROID-1" } },
   },
   {
     header: "supply run",
@@ -109,6 +110,13 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
     ["data nested dot path", { data: { "unit.name": "alpha" } }],
     ["data object at path matches nothing", { data: { unit: "alpha" } }],
     ["data conditions AND together", { data: { status: "inside", pax: "13" } }],
+    ["located only", { located: true }],
+    [
+      "occurred from, logged time standing in",
+      { occurredFrom: new Date(t0.getTime() + 2 * hour).toISOString() },
+    ],
+    ["linked TAK item", { takUid: "ANDROID-1" }],
+    ["unknown TAK item matches nothing", { takUid: "ANDROID-2" }],
   ])("%s", async (_name, f) => {
     const parsed = filter(
       "lat" in f ? { ...f, location: { lat: f.lat, lng: f.lng, radiusMeters: f.radiusMeters } } : f,
@@ -125,5 +133,7 @@ describe.runIf(dbUp)("buildEventsWhere / matchesEventsFilter parity", () => {
   test("sanity: seeded filters are not vacuously empty", async () => {
     expect((await sqlIds(filter({ tags: ["alpha"] }))).size).toBe(2);
     expect((await sqlIds(filter({ data: { status: "inside" } }))).size).toBe(1);
+    expect((await sqlIds(filter({ located: true }))).size).toBe(3);
+    expect((await sqlIds(filter({ takUid: "ANDROID-1" }))).size).toBe(1);
   });
 });

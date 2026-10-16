@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deploymentForHost, ssoLoginToken } from "./matrix.ts";
+import { deploymentForHost } from "../../deployment.ts";
+import { ssoLoginToken } from "./matrix.ts";
 import descriptor, { chatDisplay } from "./widget.ts";
 
 describe("chat widget", () => {

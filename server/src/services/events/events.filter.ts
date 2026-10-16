@@ -1,8 +1,13 @@
 import type { SQL } from "drizzle-orm";
-import { and, arrayOverlaps, eq, gte, ilike, inArray, lte, sql } from "drizzle-orm";
+import { and, arrayOverlaps, eq, gte, ilike, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { EventRow } from "../../db/schema.ts";
-import { admiraltyCredibilityEnum, admiraltyReliabilityEnum, events } from "../../db/schema.ts";
+import {
+  admiraltyCredibilityEnum,
+  admiraltyReliabilityEnum,
+  events,
+  takUidOf,
+} from "../../db/schema.ts";
 
 export const eventsFilterSchema = z.object({
   /** Scope to one logical event — combine with includeHistory for its full version chain. */
@@ -19,6 +24,12 @@ export const eventsFilterSchema = z.object({
    * 12 matches "12"). Unindexed, so the API only accepts it alongside `types`.
    */
   data: z.record(z.string().min(1), z.string()).optional(),
+  /** Only events with a map position. */
+  located: z.boolean().optional(),
+  /** Events linked to this TAK item (`data.tak.uid`). */
+  takUid: z.string().min(1).optional(),
+  /** Happened at or after: the event time, or when logged for events without one. */
+  occurredFrom: z.coerce.date().optional(),
   eventTimeFrom: z.coerce.date().optional(),
   eventTimeTo: z.coerce.date().optional(),
   createdAtFrom: z.coerce.date().optional(),
@@ -38,6 +49,8 @@ export const eventsFilterSchema = z.object({
    * concurrent inserts and O(1) at any depth. When set, offset is ignored.
    */
   cursor: z.string().uuid().optional(),
+  /** `logged` (default): newest logged first. `happened`: newest event time first, logged time for events without one. */
+  sort: z.enum(["logged", "happened"]).default("logged"),
   /** When false (default) list returns only current heads. */
   includeHistory: z.boolean().default(false),
 });
@@ -73,6 +86,17 @@ export const buildEventsWhere = (filter: EventsFilter): SQL | undefined => {
   }
   for (const [path, value] of Object.entries(filter.data ?? {})) {
     conditions.push(sql`${events.data} #>> string_to_array(${path}, '.') = ${value}`);
+  }
+  if (filter.located) {
+    conditions.push(isNotNull(events.locationPoint));
+  }
+  if (filter.takUid) {
+    conditions.push(sql`${takUidOf} = ${filter.takUid}`);
+  }
+  if (filter.occurredFrom) {
+    conditions.push(
+      gte(sql`COALESCE(${events.eventTime}, ${events.createdAt})`, filter.occurredFrom),
+    );
   }
   if (filter.eventTimeFrom) {
     conditions.push(gte(events.eventTime, filter.eventTimeFrom));
@@ -159,6 +183,9 @@ export const matchesEventsFilter = (row: EventRow, filter: EventsFilter): boolea
   for (const [path, value] of Object.entries(filter.data ?? {})) {
     if (dataText(row.data, path) !== value) return false;
   }
+  if (filter.located && !row.locationPoint) return false;
+  if (filter.takUid && dataText(row.data, "tak.uid") !== filter.takUid) return false;
+  if (filter.occurredFrom && (row.eventTime ?? row.createdAt) < filter.occurredFrom) return false;
   if (filter.eventTimeFrom && (!row.eventTime || row.eventTime < filter.eventTimeFrom)) {
     return false;
   }

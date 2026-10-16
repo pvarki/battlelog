@@ -58,6 +58,8 @@ const configSchema = z
     allowSorting: z.boolean().default(true),
     /** Off: no filter buttons; default filters still apply, as a fixed view. */
     allowFiltering: z.boolean().default(true),
+    /** While the map has a TAK item selected (`?tak=`), only events linked to it. */
+    followTakSelection: z.boolean().optional(),
   })
   .strict();
 

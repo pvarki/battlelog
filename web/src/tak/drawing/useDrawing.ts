@@ -1,0 +1,334 @@
+import { notifications } from "@mantine/notifications";
+import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
+import { useEffect, useRef, useState } from "react";
+import type { TerraDraw, TerraDrawSelectMode } from "terra-draw";
+import { ACCENT } from "../../theme.ts";
+import type { Position, TakItem } from "../cot.ts";
+import { distance } from "../geo.ts";
+import { editTarget } from "./edit-geometry.ts";
+import type { NewShape } from "./new-items.ts";
+import type { SymbolChoice } from "./symbol-catalogue.ts";
+import type { TacticalGraphic } from "./tactical-graphics.ts";
+
+export const TOOLS = {
+  marker: { label: "Marker", mode: "point" },
+  line: { label: "Line", mode: "linestring" },
+  polygon: { label: "Area", mode: "polygon" },
+  rectangle: { label: "Rectangle", mode: "rectangle" },
+  circle: { label: "Circle", mode: "circle" },
+  route: { label: "Route", mode: "linestring" },
+  rings: { label: "Range rings", mode: "point" },
+  bullseye: { label: "Bullseye", mode: "point" },
+} as const;
+
+export type Tool = keyof typeof TOOLS;
+
+/** What the user just drew, before it has a name and style. */
+export type Drawn =
+  | { kind: "marker"; position: Position }
+  | NewShape
+  | { kind: "route"; points: Position[] };
+
+const drawnFrom = (
+  tool: Tool,
+  geometry: { type: string; coordinates: unknown },
+): Drawn | undefined => {
+  if (geometry.type === "Point")
+    return { kind: "marker", position: geometry.coordinates as Position };
+  if (geometry.type === "LineString")
+    return {
+      kind: tool === "route" ? "route" : "line",
+      points: geometry.coordinates as Position[],
+    };
+  if (geometry.type !== "Polygon") return undefined;
+  const ring = ((geometry.coordinates as Position[][])[0] ?? []).slice(0, -1);
+  if (tool === "circle") {
+    const sum = ring.reduce(([x, y], [lon, lat]) => [x + lon, y + lat], [0, 0]);
+    const centre: Position = [sum[0] / ring.length, sum[1] / ring.length];
+    return { kind: "circle", centre, radius: Math.round(distance(centre, ring[0] as Position)) };
+  }
+  return { kind: tool === "rectangle" ? "rectangle" : "polygon", points: ring };
+};
+
+// About a fingertip: how close a click must land on the first point to close a line there.
+const CLOSE_PX = 16;
+
+/**
+ * The line's points closed back to its start when `click` landed on the first
+ * point; undefined otherwise. terra-draw has already committed the click (and
+ * may hold a provisional copy of it), so trailing points at the click are dropped.
+ */
+export const closedAtStart = (
+  coordinates: Position[],
+  click: Position,
+  pixelDistance: (a: Position, b: Position) => number,
+): Position[] | undefined => {
+  const start = coordinates[0];
+  if (!start || pixelDistance(start, click) > CLOSE_PX) return undefined;
+  const points = [...coordinates];
+  while (
+    points.length > 1 &&
+    pixelDistance(points[points.length - 1] as Position, click) <= CLOSE_PX
+  )
+    points.pop();
+  return points.length >= 3 ? [...points, start] : undefined;
+};
+
+const selectFlags = (tool: Tool, item: TakItem) => {
+  if (tool === "marker") return { feature: { draggable: true } };
+  if (tool === "circle") {
+    const resizable = item.ellipse?.major === item.ellipse?.minor;
+    return {
+      feature: {
+        draggable: true,
+        coordinates: resizable
+          ? { draggable: true, resizable: "center-fixed" as const }
+          : undefined,
+      },
+    };
+  }
+  if (tool === "rectangle")
+    return {
+      feature: {
+        draggable: true,
+        coordinates: { draggable: true, resizable: "opposite" as const },
+      },
+    };
+  // A tactical graphic's points carry meaning by position: they may move, not come or go.
+  const reshape = !item.sidc;
+  return {
+    feature: {
+      draggable: reshape,
+      coordinates: { draggable: true, midpoints: reshape, deletable: reshape },
+    },
+  };
+};
+
+const GUIDE_STYLE = {
+  fillColor: ACCENT,
+  fillOpacity: 0,
+  outlineColor: ACCENT,
+  outlineWidth: 1,
+} as const;
+
+/**
+ * The shape under the pointer while it's being drawn. A store, not state: it
+ * changes on every pointer move, and only the preview layer should hear it.
+ */
+export type Sketch = {
+  get: () => Drawn | undefined;
+  set: (shape: Drawn | undefined) => void;
+  subscribe: (listener: () => void) => () => void;
+};
+
+const createSketch = (): Sketch => {
+  let shape: Drawn | undefined;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => shape,
+    set: (next) => {
+      shape = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+};
+
+/**
+ * Drawing on the map with terra-draw: pick a tool, draw, and get back what was
+ * drawn; the sketch stays on the map until `clear` (after save or cancel).
+ * `edit` puts an existing item on the sketch layer to move and reshape it.
+ */
+export const useDrawing = (map: MapLibreMap | undefined) => {
+  const draw = useRef<TerraDraw>(undefined);
+  const [tool, setTool] = useState<Tool>();
+  const [drawn, setDrawn] = useState<Drawn>();
+  const [graphic, setGraphic] = useState<TacticalGraphic>();
+  /** The 2525 symbol the marker tool places, chosen before clicking the map. */
+  const [symbol, setSymbol] = useState<SymbolChoice>();
+  /** A tactical graphic's shape while it's being drawn, so it can be previewed. */
+  const [sketch] = useState(createSketch);
+  const [editing, setEditing] = useState<{ item: TakItem; tool: Tool; featureId: string }>();
+  const [ready, setReady] = useState(false);
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
+  const graphicRef = useRef(graphic);
+  graphicRef.current = graphic;
+
+  useEffect(() => {
+    if (!map) return;
+    let terra: TerraDraw | undefined;
+    let stopped = false;
+    // Loaded after the map is up: drawing is a third of the Map page's code and most visits only look.
+    const start = async () => {
+      const [
+        {
+          TerraDraw,
+          TerraDrawCircleMode,
+          TerraDrawLineStringMode,
+          TerraDrawPointMode,
+          TerraDrawPolygonMode,
+          TerraDrawRectangleMode,
+          TerraDrawSelectMode,
+        },
+        { TerraDrawMapLibreGLAdapter },
+      ] = await Promise.all([import("terra-draw"), import("terra-draw-maplibre-gl-adapter")]);
+      if (stopped) return;
+      const loaded = new TerraDraw({
+        adapter: new TerraDrawMapLibreGLAdapter({ map }),
+        modes: [
+          new TerraDrawPointMode({ styles: { pointColor: ACCENT } }),
+          // Thin guides only: the preview layer shows the shape as it will look.
+          new TerraDrawLineStringMode({ styles: { lineStringColor: ACCENT, lineStringWidth: 1 } }),
+          new TerraDrawPolygonMode({ styles: { ...GUIDE_STYLE } }),
+          new TerraDrawRectangleMode({ styles: { ...GUIDE_STYLE } }),
+          new TerraDrawCircleMode({ styles: { ...GUIDE_STYLE } }),
+          new TerraDrawSelectMode({
+            // Only the item being edited is on the layer, and Save or Cancel ends the edit.
+            allowManualSelection: false,
+            allowManualDeselection: false,
+            keyEvents: null,
+          }),
+        ],
+      });
+      loaded.start();
+      loaded.on("change", (ids) => {
+        const current = toolRef.current;
+        if (!current) return;
+        const geometry = ids
+          .map((id) => loaded.getSnapshotFeature(id)?.geometry)
+          .find((g) => g && g.type !== "Point");
+        if (geometry) sketch.set(drawnFrom(current, geometry));
+      });
+      loaded.on("finish", (id, context) => {
+        const feature = loaded.getSnapshotFeature(id);
+        const current = toolRef.current;
+        if (context.action !== "draw" || !feature || !current) return;
+        setDrawn(drawnFrom(current, feature.geometry));
+        sketch.set(undefined);
+        // One item at a time: stop drawing while the user names and styles it.
+        loaded.setMode("static");
+      });
+      terra = loaded;
+      draw.current = loaded;
+      setReady(true);
+      if (toolRef.current) loaded.setMode(TOOLS[toolRef.current].mode);
+    };
+    start().catch((err) => {
+      console.warn("Drawing tools failed to load", err);
+      notifications.show({
+        id: "drawing-load-failed",
+        color: "danger",
+        title: "Drawing tools didn't load",
+        message: "Reload the page once the connection is better.",
+        autoClose: false,
+      });
+    });
+    // ATAK closes a line by tapping its start point; terra-draw only finishes on the last one.
+    const closeAtStart = (e: MapMouseEvent) => {
+      const current = toolRef.current;
+      if (!terra || (current !== "line" && current !== "route")) return;
+      const drawing = terra
+        .getSnapshot()
+        .find((f) => f.geometry.type === "LineString" && f.properties.currentlyDrawing);
+      if (!drawing) return;
+      const pixels = (a: Position, b: Position) => map.project(a).dist(map.project(b));
+      const points = closedAtStart(
+        drawing.geometry.coordinates as Position[],
+        [e.lngLat.lng, e.lngLat.lat],
+        pixels,
+      );
+      if (!points) return;
+      terra.clear();
+      terra.setMode("static");
+      terra.addFeatures([
+        {
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: points },
+          properties: { mode: "linestring" },
+        },
+      ]);
+      sketch.set(undefined);
+      setDrawn({ kind: current, points });
+    };
+    map.on("click", closeAtStart);
+    return () => {
+      stopped = true;
+      map.off("click", closeAtStart);
+      terra?.stop();
+      draw.current = undefined;
+      setReady(false);
+    };
+  }, [map, sketch]);
+
+  const clear = () => {
+    draw.current?.clear();
+    draw.current?.setMode("static");
+    setDrawn(undefined);
+    sketch.set(undefined);
+    setTool(undefined);
+    setGraphic(undefined);
+    setSymbol(undefined);
+    setEditing(undefined);
+  };
+
+  const choose = (
+    next: Tool | undefined,
+    nextGraphic?: TacticalGraphic,
+    nextSymbol?: SymbolChoice,
+  ) => {
+    draw.current?.clear();
+    setDrawn(undefined);
+    sketch.set(undefined);
+    setEditing(undefined);
+    setTool(next);
+    setGraphic(next && nextGraphic);
+    setSymbol(next && nextSymbol);
+    draw.current?.setMode(next ? TOOLS[next].mode : "static");
+  };
+
+  /** False when the item's geometry can't be edited here. */
+  const edit = (item: TakItem): boolean => {
+    const terra = draw.current;
+    const target = editTarget(item);
+    if (!terra || !target) return false;
+    choose(undefined);
+    const mode = TOOLS[target.tool].mode;
+    const featureId = crypto.randomUUID();
+    terra.updateModeOptions<typeof TerraDrawSelectMode>("select", {
+      flags: { [mode]: selectFlags(target.tool, item) },
+    });
+    const [added] = terra.addFeatures([
+      { id: featureId, type: "Feature", geometry: target.geometry, properties: { mode } },
+    ]);
+    if (!added?.valid) return false;
+    terra.setMode("select");
+    terra.selectFeature(featureId);
+    setEditing({ item, tool: target.tool, featureId });
+    return true;
+  };
+
+  /** Where the edited item's geometry is now; undefined when not editing. */
+  const edited = (): Drawn | undefined => {
+    const feature = editing && draw.current?.getSnapshotFeature(editing.featureId);
+    return feature && editing ? drawnFrom(editing.tool, feature.geometry) : undefined;
+  };
+
+  return {
+    /** The drawing engine has loaded; until then `edit` can't start. */
+    ready,
+    tool,
+    graphic,
+    symbol,
+    drawn,
+    sketch,
+    choose,
+    clear,
+    editing: editing?.item,
+    edit,
+    edited,
+  };
+};

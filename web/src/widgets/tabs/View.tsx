@@ -1,9 +1,9 @@
 import { Tabs } from "@mantine/core";
 import { useRef, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { getWidget, type WidgetViewProps } from "../../dashboard/registry.ts";
 import { WidgetBody } from "../../dashboard/WidgetWrapper.tsx";
 import { configTitle } from "../../dashboard/widget-base.ts";
-import { Placeholder } from "../../Placeholder.tsx";
 import type { Tab, TabsConfig } from "./widget.ts";
 
 export const tabLabel = (tab: Tab) =>

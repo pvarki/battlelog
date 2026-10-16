@@ -1,6 +1,7 @@
 import { ActionIcon, Checkbox, Group, Stack, Text, TextInput } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import type { WidgetViewProps } from "../../dashboard/registry.ts";
 import { DOC_STATUS_LABEL, useWidgetDocument } from "../../dashboard/useEventDocument.ts";
 import { type TodoConfig, type TodoItem, widgetDocument } from "./widget.ts";
@@ -60,9 +61,7 @@ const TodoView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps
       <Stack h="100%" gap="xs" p="xs" className="screen-only">
         <Stack gap={4} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           {items.length === 0 && status !== "loading" ? (
-            <Text c="dimmed" fz="sm">
-              No items yet.
-            </Text>
+            <Placeholder title="No items" detail="Type a task below and press Enter to add it." />
           ) : (
             items.map((item) => (
               <Group key={item.id} gap="xs" wrap="nowrap" justify="space-between">
@@ -81,7 +80,7 @@ const TodoView = ({ config, dashboardIsTemplate, updateConfig }: WidgetViewProps
                   aria-label={`Remove ${item.text}`}
                   onClick={() => remove(item.id)}
                 >
-                  <IconX size={14} stroke={1.5} />
+                  <IconX size={14} />
                 </ActionIcon>
               </Group>
             ))

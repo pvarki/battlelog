@@ -74,10 +74,18 @@
 }
 
 /*
+ * Desktop: a dense tactical display. Mantine sizes in rem, so the root sets
+ * the scale of everything it renders (theme md = 0.875rem = 12.25px).
+ */
+:root {
+  font-size: 14px;
+}
+
+/*
  * Phones: the theme's compact type (md = 0.875rem) is tuned for an ops display
  * at arm's length, not a phone in the field. Bump the root so everything
  * Mantine renders in rem grows ~12%. Keep in sync with MOBILE_QUERY in
- * src/dashboard/mobile.ts.
+ * src/viewport.ts.
  */
 @media screen and (max-width: 1023px), screen and (max-height: 479px) {
   :root {
@@ -87,14 +95,14 @@
 
 /*
  * Wall displays: Mantine sizes everything in rem, so scaling the root font
- * scales the whole UI. Past FullHD, text tracks the viewport width — 16px at
- * 1920, 32px at 3840 — so 4K at 100% OS scaling reads exactly like FullHD
+ * scales the whole UI. Past FullHD, text tracks the viewport width — 14px at
+ * 1920, 28px at 3840 — so 4K at 100% OS scaling reads exactly like FullHD
  * physically instead of shrinking. Capped there so 5K/8K stops growing.
  */
 @media (min-width: 1921px) and (min-height: 480px) {
   /* min-height keeps a short-wide strip window on the mobile rule above. */
   :root {
-    font-size: min(calc(100vw / 120), 32px);
+    font-size: min(calc(100vw * 14 / 1920), 28px);
   }
 }
 
@@ -159,4 +167,44 @@
 .nav-reveal[data-favorite],
 .nav-reveal[data-expanded] {
   opacity: 1;
+}
+
+/*
+ * Form controls need a 3:1 boundary against the surface (WCAG 1.4.11); Mantine's
+ * dark-4 border is 1.5:1. dark-3 is 3.5:1 on a surface and 3.2:1 on a modal.
+ * Checked controls keep their filled colour.
+ */
+[data-mantine-color-scheme="dark"] .mantine-Input-wrapper[data-variant="default"] {
+  --input-bd: var(--mantine-color-dark-3);
+}
+
+[data-mantine-color-scheme="dark"] .mantine-Checkbox-input:not(:checked),
+[data-mantine-color-scheme="dark"] .mantine-Radio-radio:not(:checked),
+[data-mantine-color-scheme="dark"] .mantine-Switch-input:not(:checked) + .mantine-Switch-track {
+  border-color: var(--mantine-color-dark-3);
+}
+
+/* SectionHeading: the one heading over a group of fields or rows. */
+.section-heading {
+  margin: 10px 0 4px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mantine-color-dark-2);
+}
+
+/* A virtualized table's stripes, set per row by index (see EventExplorerPage). */
+.striped-by-index > tbody > tr[data-even] {
+  background-color: var(--mantine-color-dark-6);
+}
+
+.striped-by-index > tbody > tr:hover {
+  background-color: var(--table-hover-color);
+}
+
+/* WCAG 2.2 AA's 24px touch target: Mantine's sm icon button is 22px at a 16px root, 19px on the map's 14px one. */
+.mantine-ActionIcon-root {
+  --ai-size-sm: 24px;
 }

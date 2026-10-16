@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type EventResponse } from "../api.ts";
-import { subscribeToEvents } from "../live-events.ts";
+import { subscribeToEvents } from "../events/live-events.ts";
 import { type BoundState, type BoundValue, resolveBound, setPath } from "./paths.ts";
 
 export const WRITE_DEBOUNCE_MS = 600;

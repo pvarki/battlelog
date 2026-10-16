@@ -1,0 +1,857 @@
+.tak-workspace {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "rail drawer main details"
+    "status status status status";
+  position: relative;
+  height: calc(100dvh - var(--app-shell-header-height, 48px));
+  overflow: hidden;
+  background: var(--mantine-color-dark-7);
+}
+
+.tak-rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  border-right: 1px solid var(--mantine-color-dark-4);
+  background: var(--mantine-color-dark-6);
+}
+
+.tak-rail-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 56px;
+  padding: 4px 0;
+  border-radius: 6px;
+  color: var(--mantine-color-dark-2);
+  font-size: 11px;
+}
+
+/* Settings sits apart from the drawers about the picture. */
+.tak-workspace:not([data-mobile]) .tak-rail-button[data-end] {
+  margin-top: auto;
+}
+
+.tak-rail-button:hover {
+  background: var(--mantine-color-dark-5);
+  color: var(--mantine-color-dark-0);
+}
+
+/* An edge bar, not a filled block: the open drawer beside it already says which one is open. */
+.tak-rail-button[aria-pressed="true"] {
+  color: var(--mantine-color-accent-4);
+}
+
+/* A straight bar on the rail's edge; an inset shadow would bend round the button's corners. */
+.tak-rail-button[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -4px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--mantine-color-accent-4);
+}
+
+.tak-drawer,
+.tak-details {
+  min-height: 0;
+  padding: 8px 10px;
+  background: var(--mantine-color-dark-6);
+}
+
+.tak-drawer {
+  grid-area: drawer;
+  position: relative;
+  /* A narrow widget keeps some map beside its drawer; cqw is the viewport outside a widget. */
+  width: min(var(--tak-panel-width, 320px), 65cqw);
+  border-right: 1px solid var(--mantine-color-dark-4);
+}
+
+/* Straddles the panel's border: wide enough to grab, drawn as a line only when in use. */
+.tak-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.tak-resize[data-edge="right"] {
+  right: -4px;
+}
+
+.tak-resize[data-edge="left"] {
+  left: -4px;
+}
+
+.tak-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background-color 120ms;
+}
+
+.tak-resize:hover::after,
+.tak-resize:focus-visible::after,
+.tak-resize:active::after {
+  background: var(--mantine-color-accent-4);
+}
+
+.tak-resize:focus-visible {
+  outline: none;
+}
+
+.tak-details {
+  grid-area: details;
+  position: relative;
+  width: min(var(--tak-panel-width, 340px), 65cqw);
+  border-left: 1px solid var(--mantine-color-dark-4);
+}
+
+/* The scrolling is inside, so the resize handle can reach past the panel's edge. */
+.tak-details-body {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.tak-main {
+  grid-area: main;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Outranks maplibre-gl.css, which makes every map container position: relative. */
+.tak-main > .tak-map {
+  position: absolute;
+  inset: 0;
+}
+
+/*
+ * Search, banners and the draw toolbar stack in one column, so a toolbar that
+ * wraps on a narrow map pushes the rest down instead of hiding under it. The
+ * right edge leaves room for MapLibre's controls.
+ */
+.tak-overlay {
+  container-type: inline-size;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 60px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.tak-overlay > * {
+  pointer-events: auto;
+}
+
+.tak-command-row {
+  display: flex;
+  gap: 6px;
+  width: min(440px, 100%);
+}
+
+.tak-command-row .tak-search-slot {
+  flex: 1;
+  min-width: 0;
+}
+
+.tak-search-slot {
+  width: min(360px, 100%);
+}
+
+.tak-command-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--tak-chrome-size);
+  padding: 0 10px;
+  border: 1px solid var(--tak-chrome-bd);
+  border-radius: var(--tak-chrome-radius);
+  background: var(--tak-chrome-bg);
+  box-shadow: var(--tak-chrome-shadow);
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.tak-command-trigger > span {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tak-command-trigger:hover {
+  border-color: var(--mantine-color-dark-3);
+}
+
+/* Spotlight sizes its list in rem, which the map's smaller root font throws off: the footer got cut. */
+.tak-command-bar .mantine-Spotlight-actionsList {
+  max-height: min(420px, 100dvh - 230px);
+}
+
+.tak-shortcut {
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.tak-shortcut:hover,
+.tak-shortcut[data-recording] {
+  background: var(--mantine-color-dark-4);
+}
+
+.tak-command-action {
+  position: relative;
+}
+
+.tak-command-action[data-selected] {
+  background: var(--mantine-color-dark-5);
+  color: inherit;
+}
+
+.tak-command-action[data-selected]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--mantine-color-accent-4);
+}
+
+.tak-banners {
+  width: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tak-banners:empty {
+  display: none;
+}
+
+/* Outlined banners float over the map: without a surface their text sits on the tiles. */
+.tak-banners .mantine-Alert-root[data-variant="outline"] {
+  background: var(--mantine-color-dark-6);
+}
+
+.tak-emergency-pulse {
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+}
+
+/* MapLibre positions the marker element by its transform, so the ring animates inside it. */
+.tak-emergency-pulse::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid #ff2a2a;
+  border-radius: 50%;
+  animation: tak-emergency-pulse 1.4s ease-out infinite;
+}
+
+@keyframes tak-emergency-pulse {
+  from {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* Hairlines between the bar's facts, so they read as fields rather than loose words. */
+.tak-statusbar > * + * {
+  padding-left: var(--mantine-spacing-md);
+  border-left: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-statusbar {
+  grid-area: status;
+  min-height: 26px;
+  padding: 3px 12px;
+  border-top: 1px solid var(--mantine-color-dark-4);
+  background: var(--mantine-color-dark-6);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tak-group-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tak-group-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 22px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mantine-color-dark-2);
+}
+
+.tak-group-toggle:hover:not(:disabled) {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-group-count {
+  font-weight: 400;
+}
+
+/* Muted, not see-through: a hidden group's names must stay readable to switch it back on. */
+.tak-group[data-hidden] {
+  color: var(--mantine-color-dimmed);
+}
+
+.tak-row {
+  position: relative;
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+/* Zero specificity: a row that is a Mantine Group keeps its flex layout. */
+:where(.tak-row) {
+  display: block;
+}
+
+:where(button.tak-row) {
+  width: 100%;
+}
+
+.tak-row:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-row[data-selected] {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-row[data-selected]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--mantine-color-accent-4);
+}
+
+/* Muted text, not opacity: the dimmed second line must stay readable too. */
+.tak-row[data-faded] {
+  color: var(--mantine-color-dimmed);
+}
+
+.tak-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--mantine-color-dark-4);
+  vertical-align: baseline;
+}
+
+.tak-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.tak-workspace[data-mobile] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr auto auto;
+  grid-template-areas:
+    "main"
+    "rail"
+    "status";
+}
+
+.tak-workspace[data-mobile] .tak-rail {
+  flex-direction: row;
+  justify-content: space-around;
+  border-right: 0;
+  border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+/* Six fixed-width buttons are wider than a phone: they share the bar instead. */
+.tak-workspace[data-mobile] .tak-rail-button {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.tak-workspace[data-mobile] .tak-rail-button > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A phone keeps the connection and what it must not miss: gaps in history, where changes go. */
+.tak-workspace[data-mobile] .tak-statusbar {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.tak-workspace[data-mobile] .tak-statusbar > :not(:first-child, [data-keep]) {
+  display: none;
+}
+
+/* Scoped under .tak-map to outrank maplibre-gl.css, which loads after this file. */
+.tak-map .maplibregl-popup-content {
+  padding: 3px 8px;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.75);
+  box-shadow: none;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tak-map .maplibregl-popup-tip {
+  display: none;
+}
+
+.tak-draw-toolbar {
+  align-self: flex-start;
+  max-width: 100%;
+  width: max-content;
+}
+
+.tak-draw-toolbar .mantine-Group-root > * {
+  flex-shrink: 0;
+}
+
+.tak-chooser {
+  position: absolute;
+  z-index: 3;
+  width: min(240px, 100% - 16px);
+  max-height: min(320px, 100% - 16px);
+  overflow-y: auto;
+  padding-bottom: 4px;
+  transform: translate(8px, 8px);
+}
+
+.tak-widget {
+  position: relative;
+  height: 100%;
+}
+
+/* A phone keeps the draw tools to one row that scrolls sideways, not a block over the map. */
+.tak-workspace[data-mobile] .tak-draw-tools {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+}
+
+/* No pointer, no cursor position; no keyboard to press "/" on. */
+@media (hover: none) {
+  .tak-cursor-readout,
+  .tak-kbd-hint {
+    display: none;
+  }
+}
+
+.tak-statusbar > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tak-widget-pin {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.tak-chat-message {
+  max-width: 85%;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-chat-message[data-own] {
+  align-self: flex-end;
+  background: var(--mantine-color-dark-4);
+}
+
+/* One group like MapLibre's zoom control: a shared frame, buttons split by hairlines. */
+.tak-map-buttons {
+  display: flex;
+  flex-direction: column;
+  clear: both;
+  overflow: hidden;
+  border: 1px solid var(--tak-chrome-bd);
+  border-radius: var(--tak-chrome-radius);
+  background: var(--tak-chrome-bg);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-map-buttons > * + * {
+  border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-locate[aria-pressed="true"],
+.tak-replay[aria-pressed="true"] {
+  color: var(--mantine-color-accent-4);
+}
+
+/* Above MapLibre's scale and attribution, which share the bottom of the map. */
+.tak-replay-bar {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, calc(100% - 20px));
+  z-index: 2;
+}
+
+/* ATAK's self marker: an arrow unlike any team member's dot. */
+.tak-self-marker svg {
+  fill: var(--mantine-color-accent-4);
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.8));
+}
+
+.tak-laser {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.tak-lasso {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tak-lasso polygon {
+  fill: rgb(138 187 255 / 0.15);
+  stroke: var(--mantine-color-accent-4);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.tak-select-box {
+  position: absolute;
+  z-index: 2;
+  border: 1px dashed var(--mantine-color-accent-4);
+  background: rgb(138 187 255 / 0.15);
+  pointer-events: none;
+}
+
+/* TakMapView: a dashboard's read-only map, edge to edge with floating controls. */
+.tak-view {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--mantine-color-dark-7);
+}
+
+.tak-view > .tak-map {
+  position: absolute;
+  inset: 0;
+}
+
+/* Over MapCanvas's inline hover cursor. */
+.tak-view[data-picking] .maplibregl-canvas {
+  cursor: crosshair !important;
+}
+
+/* Above MapLibre's scale and attribution, which share the bottom of the map. */
+.tak-view-bottom {
+  position: absolute;
+  left: 10px;
+  right: 50px;
+  bottom: 34px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.tak-view-bottom > * {
+  pointer-events: auto;
+}
+
+.tak-view-card {
+  width: min(340px, 100%);
+}
+
+.tak-view-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--tak-chrome-radius);
+  color: var(--mantine-color-dark-0);
+  font-size: var(--mantine-font-size-xs);
+}
+
+.tak-view-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mantine-color-warning-4);
+}
+
+.tak-view-status[data-connection="live"]::before {
+  background: var(--mantine-color-success-4);
+}
+
+.tak-view-status[data-connection="down"]::before {
+  background: var(--mantine-color-danger-4);
+}
+
+/*
+ * Map chrome: everything floating over the map (search, draw toolbar, MapLibre's
+ * own controls, our buttons, cards, the scale and attribution) is one kind of
+ * surface, so the Map page and a dashboard map read as one app.
+ */
+.tak-workspace,
+.tak-view {
+  --tak-chrome-bg: var(--mantine-color-dark-6);
+  /* 3:1 against the surface, like every form control; also visible on dark or dimmed maps. */
+  --tak-chrome-bd: var(--mantine-color-dark-3);
+  --tak-chrome-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  --tak-chrome-radius: var(--mantine-radius-default);
+  --tak-chrome-size: 34px;
+}
+
+.tak-draw-toolbar,
+.tak-view-card,
+.tak-chooser {
+  background: var(--tak-chrome-bg);
+  border: 1px solid var(--tak-chrome-bd);
+  border-radius: var(--tak-chrome-radius);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-overlay .tak-search-slot .mantine-Input-wrapper[data-variant="default"] {
+  --input-height: var(--tak-chrome-size);
+  --input-bg: var(--tak-chrome-bg);
+  --input-bd: var(--tak-chrome-bd);
+}
+
+.tak-search-slot .mantine-Input-input {
+  height: var(--tak-chrome-size);
+  min-height: var(--tak-chrome-size);
+  background: var(--tak-chrome-bg);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-map .maplibregl-ctrl-group,
+.tak-view-status {
+  background: var(--tak-chrome-bg);
+  border: 1px solid var(--tak-chrome-bd);
+  box-shadow: var(--tak-chrome-shadow);
+}
+
+.tak-map .maplibregl-ctrl-group {
+  border-radius: var(--tak-chrome-radius);
+}
+
+/* Inside the group's own border, so the group is as wide as a lone button. */
+.tak-map .maplibregl-ctrl-group button {
+  width: calc(var(--tak-chrome-size) - 2px);
+  height: calc(var(--tak-chrome-size) - 2px);
+}
+
+.tak-map .maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-map .maplibregl-ctrl-group button:not(:disabled):hover {
+  background-color: var(--mantine-color-dark-5);
+}
+
+/* MapLibre draws its icons dark for a white control. */
+.tak-map .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}
+
+/* Mantine sets the size inline per button, so the box is sized directly. */
+.tak-map-buttons .mantine-ActionIcon-root {
+  width: calc(var(--tak-chrome-size) - 2px);
+  min-width: calc(var(--tak-chrome-size) - 2px);
+  height: calc(var(--tak-chrome-size) - 2px);
+  min-height: calc(var(--tak-chrome-size) - 2px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--mantine-color-dark-0);
+}
+
+.tak-map-buttons .mantine-ActionIcon-root:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-map .maplibregl-ctrl-scale {
+  border-color: var(--mantine-color-dark-1);
+  background: rgba(28, 33, 39, 0.85);
+  color: var(--mantine-color-dark-0);
+  font-size: 11px;
+}
+
+.tak-map .maplibregl-ctrl-attrib,
+.tak-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--tak-chrome-bg);
+  color: var(--mantine-color-dark-1);
+  border: 1px solid var(--tak-chrome-bd);
+}
+
+.tak-map .maplibregl-ctrl-attrib a {
+  color: var(--mantine-color-dark-0);
+}
+
+.tak-map .maplibregl-ctrl-attrib-button {
+  background-color: transparent;
+  filter: invert(0.85);
+}
+
+.tak-draw-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: var(--tak-chrome-size);
+  height: var(--tak-chrome-size);
+  padding: 0 10px;
+  border: 1px solid var(--tak-chrome-bd);
+  border-radius: var(--tak-chrome-radius);
+  background: var(--tak-chrome-bg);
+  box-shadow: var(--tak-chrome-shadow);
+  color: var(--mantine-color-dark-0);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+}
+
+.tak-draw-toggle:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.tak-draw-toggle[aria-pressed="true"] {
+  border-color: var(--mantine-color-accent-4);
+  color: var(--mantine-color-accent-4);
+}
+
+/* A child feed in the Data Sync tree, hung off its parent by a guide line. */
+.tak-row[data-depth] {
+  padding-left: 8px;
+  border-left: 1px solid var(--mantine-color-dark-4);
+}
+
+/* Items tree guides: one line per ancestor, under that ancestor's chevron. */
+.tak-group[data-depth] {
+  background: repeating-linear-gradient(
+      to right,
+      var(--mantine-color-dark-4) 0 1px,
+      transparent 1px 14px
+    )
+    11px 0 / calc((var(--depth) - 1) * 14px + 1px) 100% no-repeat;
+}
+
+/* The Items list's keyboard cursor. */
+.tak-group[data-active] {
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--mantine-color-accent-4);
+}
+
+.tak-panel-header {
+  min-height: 28px;
+}
+
+.tak-panel-footer {
+  padding-top: var(--mantine-spacing-xs);
+  border-top: 1px solid var(--mantine-color-dark-4);
+}
+
+.tak-panel-footer:empty {
+  display: none;
+}
+
+/* The drawer's name outranks the section headings inside it. */
+.tak-panel-title {
+  margin: 0;
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--mantine-color-dark-0);
+}
+
+/* Actions sit at their own width; a full-width button reads as the page's main action. */
+:is(.tak-drawer, .tak-details) .mantine-Stack-root > .mantine-Button-root {
+  align-self: flex-start;
+}
+
+/* A narrow map keeps the draw tools to one row: icons only, names kept for screen readers and tooltips. */
+@container (max-width: 720px) {
+  .tak-draw-tools .tak-tool-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tak-draw-tools .mantine-Button-section[data-position="left"] {
+    margin-inline-end: 0;
+  }
+}
+
+.tak-workspace[data-mobile] .tak-rail-button[aria-pressed="true"]::before {
+  top: 0;
+  right: 12px;
+  bottom: auto;
+  left: 12px;
+  width: auto;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+}

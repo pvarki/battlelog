@@ -11,6 +11,7 @@ import {
   RoomEvent,
 } from "matrix-js-sdk";
 import { useEffect, useReducer, useRef, useState } from "react";
+import { Placeholder } from "../../components/Placeholder.tsx";
 import { Composer, type ComposerTarget } from "./Composer.tsx";
 import { Message } from "./Message.tsx";
 import { relatesToOf, threadRootId } from "./mentions.ts";
@@ -130,8 +131,14 @@ export const ThreadView = ({
         wrap="nowrap"
         style={{ borderBottom: "1px solid var(--mantine-color-dark-4)" }}
       >
-        <ActionIcon variant="subtle" size="sm" aria-label="Back to room" onClick={onClose}>
-          <IconArrowLeft size={14} />
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="sm"
+          aria-label="Back to room"
+          onClick={onClose}
+        >
+          <IconArrowLeft size={16} />
         </ActionIcon>
         <Text fz="sm" fw={600} truncate>
           Thread
@@ -148,9 +155,10 @@ export const ThreadView = ({
             </Group>
           )}
           {loaded === null && (
-            <Text fz="sm" c="dimmed" ta="center" p="sm">
-              Couldn't load this thread.
-            </Text>
+            <Placeholder
+              title="Couldn't load this thread"
+              detail="Its messages could not be fetched from the server."
+            />
           )}
           {loaded &&
             [loaded.root, ...replies].map((ev, i, all) => (

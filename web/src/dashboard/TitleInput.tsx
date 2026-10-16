@@ -1,5 +1,5 @@
 import { TextInput } from "@mantine/core";
-import { optionalText } from "./form-utils.ts";
+import { optionalText } from "../form-utils.ts";
 
 /**
  * The optional widget title rendered by WidgetWrapper. maxLength matches the
