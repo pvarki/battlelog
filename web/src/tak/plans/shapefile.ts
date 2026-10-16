@@ -1,4 +1,5 @@
 import proj4 from "proj4";
+import { MAX_FEATURES } from "./overlay-files.ts";
 
 /**
  * ESRI shapefiles as GeoJSON in WGS84: geometry from the .shp, attributes from
@@ -129,7 +130,7 @@ const readDbf = (bytes: Uint8Array, cpg: string | undefined): Record<string, str
   if (recordBytes < 1 + fieldBytes) throw new Error("The shapefile is damaged");
   const available = Math.floor((bytes.byteLength - headerBytes) / recordBytes);
   const count = Math.min(view.getUint32(4, true), available);
-  if (count * fields.length > MAX_DBF_CELLS)
+  if (count > MAX_FEATURES || count * fields.length > MAX_DBF_CELLS)
     throw new Error("The shapefile's attribute table is too large to import");
   return Array.from({ length: count }, (_, i) => {
     let at = headerBytes + i * recordBytes + 1;

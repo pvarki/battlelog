@@ -187,11 +187,21 @@ test("an attribute table whose records are shorter than their fields is refused"
 
 test("an attribute table of over a million cells is refused before it is read", () => {
   const shp = shpOf([pointRecord([385000, 6672000])], TM35FIN_BBOX);
+  const fields = Array.from({ length: 101 }, (_, i) => `F${i}`);
   const dbf = dbfOf(
-    ["A", "B"],
-    Array.from({ length: 500_001 }, () => ["", ""]),
+    fields,
+    Array.from({ length: 10_000 }, () => []),
     strToU8,
     1,
+  );
+  expect(() => readShapefile({ shp, dbf, prj: TM35FIN_PRJ })).toThrow(/too large/);
+});
+
+test("an attribute table of more records than can be imported is refused, even without fields", () => {
+  const shp = shpOf([pointRecord([385000, 6672000])], TM35FIN_BBOX);
+  const dbf = dbfOf(
+    [],
+    Array.from({ length: 10_001 }, () => []),
   );
   expect(() => readShapefile({ shp, dbf, prj: TM35FIN_PRJ })).toThrow(/too large/);
 });

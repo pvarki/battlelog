@@ -17,7 +17,7 @@ import { escapeXml } from "../protocol/cot-xml.ts";
  * keeping names, descriptions and colours.
  */
 
-const MAX_FEATURES = 10_000;
+export const MAX_FEATURES = 10_000;
 const DEFAULT_COLOR = "#ffffff";
 const DEFAULT_WEIGHT = 3;
 const CIRCLE_STEPS = 64;
