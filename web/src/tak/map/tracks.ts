@@ -26,19 +26,25 @@ export const addTrackLayers = (map: MapLibreMap) => {
   });
 };
 
-const sameFeatures = (a: Feature[], b: Feature[]) =>
-  a.length === b.length && a.every((feature, i) => feature === b[i]);
-
 /**
- * Keeps the breadcrumb trails drawn, uploading only when they changed. An
- * unchanged trail keeps its feature objects (`trackFeatures`), so comparing
- * them is cheap; comparing as JSON cost seconds with long trails.
+ * Keeps the breadcrumb trails drawn, sending the map only the trails that
+ * changed: an unchanged trail keeps its feature object (`trackFeatures`).
+ * Re-sending every trail cost MapLibre a serialisation of all their points
+ * per update, most of the main thread with long trails shown.
  */
 export const useTracks = (map: MapLibreMap | undefined, tracks: FeatureCollection) => {
-  const drawn = useRef<Feature[]>(undefined);
+  const drawn = useRef<{ map: MapLibreMap; features: Map<Feature["id"], Feature> }>(undefined);
   useEffect(() => {
-    if (!map || (drawn.current && sameFeatures(drawn.current, tracks.features))) return;
-    drawn.current = tracks.features;
-    geoJsonSource(map, "tak-tracks").setData(tracks);
+    if (!map) return;
+    const source = geoJsonSource(map, "tak-tracks");
+    const next = new Map(tracks.features.map((f) => [f.id, f]));
+    const before = drawn.current?.map === map ? drawn.current.features : undefined;
+    drawn.current = { map, features: next };
+    if (!before) return void source.setData(tracks);
+    const remove = [...before.keys()].filter(
+      (id): id is string | number => id !== undefined && !next.has(id),
+    );
+    const add = tracks.features.filter((f) => before.get(f.id) !== f);
+    if (remove.length || add.length) void source.updateData({ remove, add });
   }, [map, tracks]);
 };

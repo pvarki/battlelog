@@ -74,8 +74,18 @@ const trackDrawing = (item: TakItem, track: TrackPoint[]): Feature[] => {
     line.length < 2
       ? []
       : [
-          { type: "Feature", geometry: { type: "LineString", coordinates: line }, properties },
-          { type: "Feature", geometry: { type: "MultiPoint", coordinates: crumbs }, properties },
+          {
+            type: "Feature",
+            id: `${item.uid}:line`,
+            geometry: { type: "LineString", coordinates: line },
+            properties,
+          },
+          {
+            type: "Feature",
+            id: `${item.uid}:crumbs`,
+            geometry: { type: "MultiPoint", coordinates: crumbs },
+            properties,
+          },
         ];
   drawnTracks.set(track, { item, features });
   return features;

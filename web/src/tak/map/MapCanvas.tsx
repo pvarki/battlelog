@@ -1,6 +1,13 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FeatureCollection, Point } from "geojson";
-import { Map as MapLibreMap, NavigationControl, Popup, ScaleControl } from "maplibre-gl";
+import {
+  Map as MapLibreMap,
+  NavigationControl,
+  Popup,
+  ScaleControl,
+  setWorkerUrl,
+} from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useRef, useState } from "react";
 import { useNow } from "../../use-now.ts";
 import type { Position, TakItem } from "../cot.ts";
@@ -18,6 +25,11 @@ import { usePictureLayer } from "./picture-layer.ts";
 import { showRasters } from "./rasters.ts";
 import { dragSelectBox, followLasso, uidsAt, useItemSelection } from "./selection.ts";
 import { serveMapImages } from "./symbols.ts";
+
+// MapLibre looks for its worker beside its own module, which a bundle doesn't ship:
+// without it no GeoJSON source loads in a production build.
+setWorkerUrl(workerUrl);
+
 import { useTracks } from "./tracks.ts";
 
 type Props = {
