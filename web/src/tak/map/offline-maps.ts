@@ -1,5 +1,13 @@
 import { addProtocol } from "maplibre-gl";
-import { FileSource, PMTiles, Protocol, TileType } from "pmtiles";
+import {
+  bytesToHeader,
+  Compression,
+  FileSource,
+  PMTiles,
+  Protocol,
+  readVarint,
+  TileType,
+} from "pmtiles";
 import { useSyncExternalStore } from "react";
 import type { MapSource } from "./basemaps.ts";
 
@@ -13,6 +21,38 @@ const DIR = "offline-maps";
 const RASTER = new Set([TileType.Png, TileType.Jpeg, TileType.Webp, TileType.Avif]);
 
 export class OfflineMapError extends Error {}
+
+// pmtiles reads the header and root directory from the file's first 16 KiB.
+const HEAD_BYTES = 16_384;
+const MAX_DIRECTORY_BYTES = 16 * 1_048_576;
+const MAX_ROOT_ENTRIES = 1_000_000;
+
+/** pmtiles' own decompress inflates a directory to whatever size the file makes it. */
+const decompress = async (data: ArrayBuffer, compression: Compression): Promise<ArrayBuffer> => {
+  if (compression === Compression.None || compression === Compression.Unknown) return data;
+  if (compression !== Compression.Gzip) throw new Error("Compression method not supported");
+  const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip")).getReader();
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let size = 0;
+  for (let read = await reader.read(); !read.done; read = await reader.read()) {
+    size += read.value.length;
+    if (size > MAX_DIRECTORY_BYTES) {
+      await reader.cancel();
+      throw new Error("Directory too large");
+    }
+    chunks.push(read.value);
+  }
+  return new Blob(chunks).arrayBuffer();
+};
+
+/** Whether the root directory is small enough to read; pmtiles materialises every entry. */
+const rootFits = async (file: File) => {
+  const head = await file.slice(0, HEAD_BYTES).arrayBuffer();
+  const header = bytesToHeader(head);
+  const { rootDirectoryOffset: offset, rootDirectoryLength: length } = header;
+  const root = await decompress(head.slice(offset, offset + length), header.internalCompression);
+  return readVarint({ buf: new Uint8Array(root), pos: 0 }) <= MAX_ROOT_ENTRIES;
+};
 
 const protocol = new Protocol();
 let protocolAdded = false;
@@ -35,18 +75,22 @@ const directory = async (): Promise<FileSystemDirectoryHandle | undefined> => {
   }
 };
 
+const usableHeader = async (file: File, archive: PMTiles) => {
+  try {
+    return (await rootFits(file)) ? await archive.getHeader() : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const register = async (file: File): Promise<MapSource> => {
   if (!protocolAdded) {
     addProtocol("pmtiles", protocol.tile);
     protocolAdded = true;
   }
-  const archive = new PMTiles(new FileSource(file));
-  let header: Awaited<ReturnType<PMTiles["getHeader"]>>;
-  try {
-    header = await archive.getHeader();
-  } catch {
-    throw new OfflineMapError(`${file.name} isn't a PMTiles file.`);
-  }
+  const archive = new PMTiles(new FileSource(file), undefined, decompress);
+  const header = await usableHeader(file, archive);
+  if (!header) throw new OfflineMapError(`${file.name} isn't a usable PMTiles map file.`);
   if (!RASTER.has(header.tileType))
     throw new OfflineMapError(
       `${file.name} holds vector tiles; only raster (image) maps can be shown.`,
