@@ -256,11 +256,13 @@ test("only the 50 fences that matter most are watched: own first, then newest", 
   expect(watched.has("fence10")).toBe(false);
 });
 
-test("fence state stops growing at 50,000 fence-item pairs", () => {
+test("fence state stops growing at 50,000 fence-item pairs, and the fences cut short count as unwatched", () => {
   const fences = Array.from({ length: 50 }, (_, i) => ({ ...polygonFence(), uid: `fence${i}` }));
   const walkers = Array.from({ length: 1100 }, (_, i) => unit(`walker${i}`, IN[1], IN[0]));
   const checked = checkFences(new Map(), [...fences, ...walkers], 0);
   expect(checked.state.size).toBe(50_000);
+  // 45 fences fully watched (49,500 pairs), the 46th partly, the last four not at all
+  expect(checked.unwatched).toBe(5);
 });
 
 test("an item that hasn't moved keeps its side without being re-checked", () => {

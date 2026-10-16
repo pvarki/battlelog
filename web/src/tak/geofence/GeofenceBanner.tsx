@@ -105,8 +105,8 @@ export const GeofenceBanner = ({
         ))}
         {unwatched > 0 && (
           <Text fz="xs" c="dimmed">
-            {unwatched} {unwatched === 1 ? "fence" : "fences"} not watched (limit{" "}
-            {MAX_WATCHED_FENCES})
+            {unwatched} {unwatched === 1 ? "fence" : "fences"} not fully watched: over{" "}
+            {MAX_WATCHED_FENCES} fences or too many items to check
           </Text>
         )}
       </Stack>

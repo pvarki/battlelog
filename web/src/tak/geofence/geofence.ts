@@ -120,11 +120,12 @@ export const checkFences = (
   const state = new Map<string, FenceWatch>();
   const crossings: Crossing[] = [];
   const { fences, unwatched } = watchedFences(items, isOwn);
-  for (const fence of fences) {
+  for (const [checked, fence] of fences.entries()) {
     const geofence = fence.geofence as Geofence;
     for (const item of items) {
-      if (state.size >= MAX_FENCE_PAIRS) return { state, crossings, unwatched };
       if (!isWatched(geofence, item)) continue;
+      if (state.size >= MAX_FENCE_PAIRS)
+        return { state, crossings, unwatched: unwatched + fences.length - checked };
       const key = `${fence.uid} ${item.uid}`;
       const position = anchorOf(item);
       const at = `${fence.time} ${position.join(",")}`;
